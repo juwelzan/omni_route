@@ -248,12 +248,9 @@ void main() {
         expect(seenUris.first.host, 'dev.api.test');
         expect(sw.elapsedMilliseconds, greaterThanOrEqualTo(35));
 
-        final envEvents = <String>[];
-        final envSub = hub.changes.listen(envEvents.add);
-        addTearDown(envSub.cancel);
-
+        final nextEnv = hub.changes.first;
         await hub.useEnvironment('prod');
-        expect(envEvents, ['prod']);
+        expect(await nextEnv, 'prod');
 
         final gqlSpec = GraphqlEndpoint<String>(
           query: 'query Viewer { viewer { name } }',
@@ -549,6 +546,15 @@ void main() {
                       text: '```json\n{"city":"Dhaka","temp":29}\n```',
                     );
                   }
+                  final toolResults = msgs.last.parts
+                      .whereType<AiToolResultPart>()
+                      .toList();
+                  if (toolResults.isNotEmpty) {
+                    return MockAiReply(
+                      text: 'Answer with ${jsonEncode(toolResults.first.result)}',
+                      usage: const AiUsage(inputTokens: 1000, outputTokens: 1000),
+                    );
+                  }
                   return MockAiReply(
                     text: 'Answer with ${msgs.last.text}',
                     usage: const AiUsage(inputTokens: 1000, outputTokens: 1000),
@@ -571,7 +577,7 @@ void main() {
                 outputPerMillionUsd: 2.0,
               ),
             },
-            maxSessionBudgetUsd: 0.005,
+            maxSessionBudgetUsd: 0.01,
           ),
         );
 
@@ -738,30 +744,40 @@ void main() {
           final ws = await WebSocketTransformer.upgrade(req);
           sockets.add(ws);
           ws.listen((raw) {
+            if (ws.closeCode != null) return;
             final frame = jsonDecode(raw as String) as Map<String, Object?>;
-            final type = frame['type'];
-            if (type == 'send') {
-              ws.add(
-                jsonEncode({
-                  'type': 'ack',
-                  'roomId': frame['roomId'],
-                  'localId': frame['localId'],
-                  'serverId': 'srv_${frame['localId']}',
-                  'status': 'sent',
-                }),
-              );
-            } else if (type == 'react') {
-              ws.add(
-                jsonEncode({
-                  'type': 'reaction',
-                  'roomId': frame['roomId'],
-                  'messageId': frame['messageId'],
-                  'emoji': frame['emoji'],
-                  'userId': 'peer_bob',
-                  'added': true,
-                }),
-              );
-            }
+            final event = frame['event'];
+            final data = frame['data'] is Map
+                ? Map<String, Object?>.from(frame['data']! as Map)
+                : const <String, Object?>{};
+            try {
+              if (event == 'chat.send') {
+                ws.add(
+                  jsonEncode({
+                    'event': 'chat.ack',
+                    'data': {
+                      'roomId': data['roomId'],
+                      'localId': data['localId'],
+                      'serverId': 'srv_${data['localId']}',
+                      'status': 'sent',
+                    },
+                  }),
+                );
+              } else if (event == 'chat.reaction') {
+                ws.add(
+                  jsonEncode({
+                    'event': 'chat.reaction',
+                    'data': {
+                      'roomId': data['roomId'],
+                      'messageId': data['messageId'],
+                      'emoji': data['emoji'],
+                      'userId': 'peer_bob',
+                      'added': true,
+                    },
+                  }),
+                );
+              }
+            } catch (_) {}
           });
         });
 
@@ -831,16 +847,34 @@ void main() {
         expect(older.single.text, 'Older message');
 
         // Send optimistic message & verify ack updates status to sent & server id.
+        final ackCompleter = Completer<void>();
+        late StreamSubscription<List<ChatMessage>> ackSub;
+        String? pendingLocalId;
+        ackSub = room.messagesStream.listen((list) {
+          if (pendingLocalId != null &&
+              list.any(
+                (m) =>
+                    m.localId == pendingLocalId &&
+                    m.status == MessageDeliveryStatus.sent &&
+                    m.id.startsWith('srv_'),
+              ) &&
+              !ackCompleter.isCompleted) {
+            ackCompleter.complete();
+          }
+        });
+        addTearDown(ackSub.cancel);
         final sent = await room.sendText('Hi team!');
-        expect(sent.status, MessageDeliveryStatus.sending);
-        await room.messagesStream.firstWhere(
-          (list) => list.any(
-            (m) =>
-                m.localId == sent.localId &&
-                m.status == MessageDeliveryStatus.sent &&
-                m.id.startsWith('srv_'),
-          ),
-        );
+        pendingLocalId = sent.localId;
+        if (room.messages.any(
+              (m) =>
+                  m.localId == sent.localId &&
+                  m.status == MessageDeliveryStatus.sent &&
+                  m.id.startsWith('srv_'),
+            ) &&
+            !ackCompleter.isCompleted) {
+          ackCompleter.complete();
+        }
+        await ackCompleter.future;
 
         // Send file attachment via HTTP upload.
         final fileMsg = await room.sendFile(
@@ -855,12 +889,13 @@ void main() {
         expect(fileMsg.parts.whereType<ChatMediaPart>().single.url, contains('photo.png'));
 
         // Toggle reaction + remote reaction update.
-        await room.toggleReaction(fileMsg.id, '🔥');
-        await room.messagesStream.firstWhere(
+        final reactFuture = room.messagesStream.firstWhere(
           (list) => list.any(
             (m) => (m.reactions['🔥'] ?? const []).contains('peer_bob'),
           ),
         );
+        await room.toggleReaction(fileMsg.id, '🔥');
+        await reactFuture;
 
         // Hybrid @ai mention inside human chat room generates an AI message!
         final botReplyFuture = room.messagesStream.firstWhere(
@@ -874,19 +909,25 @@ void main() {
         );
 
         // Simulate peer typing over raw socket.
+        final typingFuture = room.typingStream.firstWhere(
+          (m) => m.containsKey('bob'),
+        );
         sockets.single.add(
           jsonEncode({
-            'type': 'typing',
-            'roomId': 'room_1',
-            'userId': 'bob',
-            'userName': 'Bob',
-            'isTyping': true,
+            'event': 'chat.typing',
+            'data': {
+              'roomId': 'room_1',
+              'userId': 'bob',
+              'userName': 'Bob',
+              'isTyping': true,
+            },
           }),
         );
-        final typing = await room.typingStream.firstWhere((m) => m.containsKey('bob'));
+        final typing = await typingFuture;
         expect(typing['bob']!.userName, 'Bob');
 
-        // Cleanup sockets cleanly.
+        // Cleanup client before sockets cleanly.
+        await api.close();
         for (final s in sockets) {
           await s.close();
         }

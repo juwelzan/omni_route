@@ -1836,7 +1836,54 @@ await ws.close();
 ```
 
 > Browser-এ WebSocket handshake header পাঠানো যায় না (browser-এর নিয়ম) —
-> `OmniWebSocket.supportsHandshakeHeaders` দিয়ে দেখে নিন।
+> `OmniWebSocket.supportsHandshakeHeaders` অথবা `api.ws(..., wsWebAuthMode: WsWebAuthMode.queryParam())` ব্যবহার করুন।
+> সরাসরি `package:omni_network/omni_network.dart` থেকেই এখন `api.ws(...)` আর `api.sse(...)` ব্যবহার করা যায় (`omni_network_ws` backward compatibility-র জন্য re-export করে)।
+
+### ২১.২০ক OmniApiHub, Multi-AI ও Unified Chat
+
+```dart
+// ১. সব microservice + environment + AI এক Hub-এ কনফিগার
+final hub = OmniApiHub(
+  activeEnvironment: 'prod',
+  environments: {
+    'prod': const OmniEnvironment(
+      name: 'prod',
+      variables: {'core': 'https://api.example.com', 'ws': 'wss://ws.example.com'},
+    ),
+  },
+  services: {
+    'core': const ServiceConfig.fromVar(
+      baseUrlVar: 'core',
+      wsUrlVar: 'ws',
+      rateLimit: RateLimit(maxRequests: 20, per: Duration(seconds: 1)),
+    ),
+  },
+  ai: AiConfig(
+    defaultModel: 'smart',
+    providers: {
+      'openai': OpenAiProvider(apiKey: () => openAiKey),
+      'gemini': GeminiProvider(apiKey: () => geminiKey),
+      'claude': AnthropicProvider(apiKey: () => claudeKey),
+      'ollama': OllamaProvider(),
+    },
+    routes: const {
+      'smart': AiModelRoute([
+        AiTarget('claude', model: 'claude-3-7-sonnet-latest'),
+        AiTarget('openai', model: 'gpt-4o'),
+      ]),
+    },
+    maxSessionBudgetUsd: 1.00,
+  ),
+);
+
+// ২. Multi-AI (ask, stream, tool-calling, structured JSON, RAG ও parallel compare)
+final reply = await hub.ai.ask('Flutter-এ cache কী কাজে লাগে?');
+final structured = await hub.ai.generateObject('Summary দাও', decoder: Summary.fromJson);
+
+// ৩. Human + @ai হাইব্রিড চ্যাট ও Flutter UI উইজেট
+final room = hub.chat().room('support_1')..attachAiAssistant(hub.primary.aiThread('bot'));
+// Flutter UI: OmniChatView(room: room), OmniAiChatView(thread: ...), OmniModelPicker(...)
+```
 
 ### ২১.২১ OpenAPI থেকে code তৈরি (`omni_network_openapi`)
 

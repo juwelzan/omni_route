@@ -180,9 +180,8 @@ class _OmniChatViewState extends State<OmniChatView> {
                                 ),
                               )
                             : TextButton(
-                                onPressed: () => unawaited(
-                                  widget.room.loadOlderMessages(),
-                                ),
+                                onPressed: () =>
+                                    unawaited(widget.room.loadOlderMessages()),
                                 child: const Text('Load older messages'),
                               ),
                       ),
@@ -192,7 +191,8 @@ class _OmniChatViewState extends State<OmniChatView> {
                   if (widget.messageBuilder != null) {
                     return widget.messageBuilder!(context, msg);
                   }
-                  final isMine = msg.senderId == widget.room.chatClient.currentUserId;
+                  final isMine =
+                      msg.senderId == widget.room.chatClient.currentUserId;
                   return _ChatMessageTile(
                     message: msg,
                     isMine: isMine,
@@ -204,9 +204,8 @@ class _OmniChatViewState extends State<OmniChatView> {
                           )
                         : null,
                     onReply: () => setState(() => _replyTo = msg),
-                    onReact: (emoji) => unawaited(
-                      widget.room.toggleReaction(msg.id, emoji),
-                    ),
+                    onReact: (emoji) =>
+                        unawaited(widget.room.toggleReaction(msg.id, emoji)),
                   );
                 },
               );
@@ -365,136 +364,143 @@ class _ChatMessageTile extends StatelessWidget {
       alignment: align,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520),
-        child: Container(
-          margin: const EdgeInsets.symmetric(vertical: 4),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Material(
             color: bg,
             borderRadius: BorderRadius.circular(14),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (message.isAi) ...[
-                    Icon(Icons.auto_awesome, size: 13, color: fg),
-                    const SizedBox(width: 4),
-                  ],
-                  Flexible(
-                    child: Text(
-                      message.senderName ?? message.senderId,
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: fg,
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (message.isAi) ...[
+                        Icon(Icons.auto_awesome, size: 13, color: fg),
+                        const SizedBox(width: 4),
+                      ],
+                      Flexible(
+                        child: Text(
+                          message.senderName ?? message.senderId,
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: fg,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                      PopupMenuButton<String>(
+                        tooltip: 'Message actions',
+                        padding: EdgeInsets.zero,
+                        iconSize: 16,
+                        onSelected: (value) {
+                          if (value == '__reply') {
+                            onReply();
+                          } else {
+                            onReact(value);
+                          }
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: '__reply',
+                            child: Text('Reply'),
+                          ),
+                          for (final emoji in quickReactions)
+                            PopupMenuItem(
+                              value: emoji,
+                              child: Text('React $emoji'),
+                            ),
+                        ],
+                        child: Icon(
+                          Icons.more_horiz,
+                          size: 16,
+                          color: fg.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (message.replyToId != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2, bottom: 4),
+                      child: Text(
+                        '↩ Reply to ${message.replyToId}',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          color: fg.withValues(alpha: 0.75),
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  PopupMenuButton<String>(
-                    tooltip: 'Message actions',
-                    padding: EdgeInsets.zero,
-                    iconSize: 16,
-                    onSelected: (value) {
-                      if (value == '__reply') {
-                        onReply();
-                      } else {
-                        onReact(value);
-                      }
-                    },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
-                        value: '__reply',
-                        child: Text('Reply'),
+                  const SizedBox(height: 4),
+                  if (message.isDeleted)
+                    Text(
+                      'Message deleted',
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: fg.withValues(alpha: 0.7),
+                        fontStyle: FontStyle.italic,
                       ),
-                      for (final emoji in quickReactions)
-                        PopupMenuItem(
-                          value: emoji,
-                          child: Text('React $emoji'),
-                        ),
-                    ],
-                    child: Icon(
-                      Icons.more_horiz,
-                      size: 16,
-                      color: fg.withValues(alpha: 0.7),
+                    )
+                  else
+                    for (final part in message.parts)
+                      _partWidget(context, part, fg),
+                  if (message.reactions.isNotEmpty) ...[
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 4,
+                      children: [
+                        for (final entry in message.reactions.entries)
+                          ActionChip(
+                            visualDensity: VisualDensity.compact,
+                            label: Text('${entry.key} ${entry.value.length}'),
+                            onPressed: () => onReact(entry.key),
+                          ),
+                      ],
+                    ),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (message.editedAt != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Text(
+                              'edited',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: fg.withValues(alpha: 0.7)),
+                            ),
+                          ),
+                        if (message.model != null)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 6),
+                            child: Text(
+                              message.model!,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: fg.withValues(alpha: 0.75)),
+                            ),
+                          ),
+                        if (isMine && showDeliveryStatus)
+                          _statusIcon(context, scheme, fg),
+                        if (onRetry != null)
+                          TextButton(
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                              ),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            onPressed: onRetry,
+                            child: const Text('Retry'),
+                          ),
+                      ],
                     ),
                   ),
                 ],
               ),
-              if (message.replyToId != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 2, bottom: 4),
-                  child: Text(
-                    '↩ Reply to ${message.replyToId}',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: fg.withValues(alpha: 0.75),
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 4),
-              if (message.isDeleted)
-                Text(
-                  'Message deleted',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: fg.withValues(alpha: 0.7),
-                    fontStyle: FontStyle.italic,
-                  ),
-                )
-              else
-                for (final part in message.parts) _partWidget(context, part, fg),
-              if (message.reactions.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 4,
-                  children: [
-                    for (final entry in message.reactions.entries)
-                      ActionChip(
-                        visualDensity: VisualDensity.compact,
-                        label: Text('${entry.key} ${entry.value.length}'),
-                        onPressed: () => onReact(entry.key),
-                      ),
-                  ],
-                ),
-              ],
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (message.editedAt != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          'edited',
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: fg.withValues(alpha: 0.7)),
-                        ),
-                      ),
-                    if (message.model != null)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 6),
-                        child: Text(
-                          message.model!,
-                          style: Theme.of(context).textTheme.labelSmall
-                              ?.copyWith(color: fg.withValues(alpha: 0.75)),
-                        ),
-                      ),
-                    if (isMine && showDeliveryStatus) _statusIcon(context, scheme, fg),
-                    if (onRetry != null)
-                      TextButton(
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 6),
-                          minimumSize: Size.zero,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: onRetry,
-                        child: const Text('Retry'),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -98,3 +98,51 @@ abstract interface class AiProvider {
     Map<String, Object?> extra = const {},
   });
 }
+
+/// Optional capability implemented by [AiProvider] backends supporting batched
+/// embedding API calls (`embedBatch`).
+abstract interface class AiBatchEmbedProvider implements AiProvider {
+  /// Generates dense embedding vectors for a batch of [texts] in one HTTP
+  /// round-trip where supported.
+  Future<List<List<double>>> embedBatch(
+    OmniNetwork client, {
+    required String model,
+    required List<String> texts,
+    OmniCancelToken? cancelToken,
+  });
+}
+
+/// Optional capability implemented by [AiProvider] backends supporting audio
+/// transcription (STT), speech synthesis (TTS), or image generation.
+abstract interface class AiMediaProvider implements AiProvider {
+  /// Transcribes [audioBytes] (`audio/mp3`, `audio/wav`, `audio/m4a`, …) to text.
+  Future<AiTranscriptionResult> transcribeAudio(
+    OmniNetwork client, {
+    required Uint8List audioBytes,
+    required String mimeType,
+    required String model,
+    String? language,
+    String? prompt,
+    OmniCancelToken? cancelToken,
+  });
+
+  /// Synthesizes [text] into audio bytes (`mp3`, `wav`, `opus`, …).
+  Future<AiSpeechResult> generateSpeech(
+    OmniNetwork client, {
+    required String text,
+    required String model,
+    String voice = 'alloy',
+    String format = 'mp3',
+    OmniCancelToken? cancelToken,
+  });
+
+  /// Generates one or more images from a natural language [prompt].
+  Future<List<AiGeneratedImage>> generateImage(
+    OmniNetwork client, {
+    required String prompt,
+    required String model,
+    String size = '1024x1024',
+    int n = 1,
+    OmniCancelToken? cancelToken,
+  });
+}

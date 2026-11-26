@@ -3,8 +3,9 @@
 Flutter tools for [`omni_network`](../omni_network):
 
 - **Secure token storage.** Users stay signed in after the app restarts.
-- **In-app network inspector & HAR export.** See every call from inside the app and export redacted HAR 1.2 JSON or Markdown reports.
-- **Reactive UI widgets.** Bind `RequestController<T>` and `OmniPager<T>` directly with `OmniRequestBuilder<T>` and `OmniPagedListView<T>`.
+- **In-app HTTP, WebSocket & AI inspector & HAR export.** Inspect HTTP calls, realtime WebSocket frames, and AI token/USD telemetry (`inspector.attachClient(api)`), then export redacted HAR 1.2 JSON or Markdown reports.
+- **Reactive UI widgets.** Bind `RequestController<T>` and `OmniPager<T>` with `OmniRequestBuilder<T>` and `OmniPagedListView<T>`.
+- **Realtime Human & AI Chat widgets.** Drop-in Material 3 widgets for WebSocket team rooms (`OmniChatView`), streaming Multi-AI conversations with reasoning traces (`OmniAiChatView`), and runtime model/route switching (`OmniModelPicker`).
 
 ## Stay signed in: `SecureTokenStorage`
 
@@ -82,15 +83,23 @@ Automatically loads page 1, fetches subsequent pages when scrolling within
 `loadThreshold` (default 200 px) of the bottom, supports pull-to-refresh, and
 shows empty/retry footers when needed.
 
+### Chat & Multi-AI widgets
+
+- **`OmniAiChatView(thread: api.aiThread('assistant'))`** — Streaming Multi-AI chat UI with collapsible thinking/reasoning traces, active tool badge, token/USD usage summary, stop-generation, regenerate, clear, and model switching via `OmniModelPicker`.
+- **`OmniChatView(room: api.chat.room('lobby'))`** — Realtime WebSocket room UI with optimistic message delivery, delivery status ticks, reply preview banner, typing indicators, emoji reactions, failed-message retry, file/media attachment picker (`onPickAttachment`), older history pagination, and `@ai` assistant replies.
+- **`OmniModelPicker(...)`** — Compact popup selector for switching active `OmniAi` routes or `'provider:model'` identifiers.
+
 ## Network inspector & HAR export
 
 ```dart
 final inspector = OmniInspector();         // disabled in release builds
 final api = OmniNetwork(
   baseUrl: 'https://api.example.com',
+  wsBaseUrl: 'wss://ws.example.com',
   enableLogging: inspector.enabled,
   logSink: inspector.sink('api'),          // one label per client
 );
+final detach = inspector.attachClient(api); // also captures WS frames & AI telemetry
 
 MaterialApp(
   builder: (context, child) =>

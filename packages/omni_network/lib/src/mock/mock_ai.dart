@@ -5,6 +5,7 @@ import '../ai/ai_models.dart';
 import '../ai/ai_provider.dart';
 import '../core/cancel_token.dart';
 import '../core/omni_network.dart';
+import '../core/omni_network_exception.dart';
 
 /// Programmable mock reply returned by [MockAiProvider].
 final class MockAiReply {
@@ -134,11 +135,16 @@ final class MockAiProvider implements AiProvider {
     }
     final step = streamChunkSize < 1 ? res.text.length : streamChunkSize;
     for (var i = 0; i < res.text.length; i += step) {
-      if (cancelToken?.isCancelled ?? false) return;
+      if (cancelToken?.isCancelled ?? false) {
+        throw const CancelledFailure();
+      }
       final end = (i + step) > res.text.length ? res.text.length : (i + step);
       yield AiTextDelta(res.text.substring(i, end));
       if (chunkDelay > Duration.zero) {
         await Future<void>.delayed(chunkDelay);
+      }
+      if (cancelToken?.isCancelled ?? false) {
+        throw const CancelledFailure();
       }
     }
     for (var i = 0; i < res.toolCalls.length; i++) {

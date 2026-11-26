@@ -83,7 +83,7 @@ void main() {
 
       await tester.tap(find.text('AI (1)'));
       await tester.pump();
-      expect(find.text('AI (1)'), findsOneWidget);
+      expect(find.text('AI Calls (1)'), findsOneWidget);
       expect(find.textContaining('mock:m1'), findsOneWidget);
       expect(find.textContaining('Tokens: 30'), findsOneWidget);
 

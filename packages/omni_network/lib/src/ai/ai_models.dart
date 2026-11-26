@@ -6,7 +6,7 @@ import 'package:meta/meta.dart';
 
 import '../core/omni_network.dart';
 import '../core/omni_network_exception.dart';
-import '../endpoint/endpoint.dart';
+import '../endpoint/endpoint.dart' show Endpoint, EndpointRegistry;
 
 /// Role of a participant in an AI conversation.
 enum AiRole {
@@ -585,6 +585,16 @@ final class AiTool {
     );
   }
 
+  /// Converts an entire [EndpointRegistry] into callable [AiTool] items bound
+  /// to [client] so an AI agent can invoke any registered API endpoint.
+  static List<AiTool> fromRegistry(
+    EndpointRegistry registry, {
+    required OmniNetwork client,
+  }) => [
+    for (final endpoint in registry.all)
+      AiTool.fromEndpoint(endpoint, client: client),
+  ];
+
   /// Unique function name sent to the AI model (`[a-zA-Z0-9_-]+`).
   final String name;
 
@@ -610,6 +620,8 @@ final class AiRequestOptions {
     this.responseSchema,
     this.jsonMode = false,
     this.tools = const [],
+    this.promptCaching = false,
+    this.useSemanticCache = true,
     this.extra = const {},
   });
 
@@ -634,6 +646,13 @@ final class AiRequestOptions {
   /// Tools available for function calling in this request.
   final List<AiTool> tools;
 
+  /// Requests provider-level prompt caching where supported (such as Anthropic
+  /// ephemeral prompt cache blocks).
+  final bool promptCaching;
+
+  /// Allows [AiSemanticCache] hits when configured on `AiConfig`.
+  final bool useSemanticCache;
+
   /// Additional provider-specific body fields merged cleanly.
   final Map<String, Object?> extra;
 
@@ -646,6 +665,8 @@ final class AiRequestOptions {
     Map<String, Object?>? responseSchema,
     bool? jsonMode,
     List<AiTool>? tools,
+    bool? promptCaching,
+    bool? useSemanticCache,
     Map<String, Object?>? extra,
   }) => AiRequestOptions(
     temperature: temperature ?? this.temperature,
@@ -655,6 +676,8 @@ final class AiRequestOptions {
     responseSchema: responseSchema ?? this.responseSchema,
     jsonMode: jsonMode ?? this.jsonMode,
     tools: tools ?? this.tools,
+    promptCaching: promptCaching ?? this.promptCaching,
+    useSemanticCache: useSemanticCache ?? this.useSemanticCache,
     extra: extra ?? this.extra,
   );
 }
@@ -677,12 +700,34 @@ final class AiTarget {
   final AiRequestOptions? options;
 }
 
+/// How [OmniAi] selects among targets inside an [AiModelRoute].
+enum AiRoutingStrategy {
+  /// Tries targets sequentially in declared order (failing over on errors/cooldowns).
+  ordered,
+
+  /// Prefers whichever non-cooled target currently has the lowest observed latency.
+  lowestLatency,
+
+  /// Prefers whichever non-cooled target has the lowest estimated input+output
+  /// USD cost in `AiConfig.pricing`.
+  lowestCost,
+
+  /// Starts the primary target immediately and fires the next candidate in parallel
+  /// if [AiModelRoute.hedgeDelay] elapses without a response, returning whichever
+  /// succeeds first.
+  hedged,
+}
+
 /// Ordered routing rule for a logical model alias (e.g. `'fast'`, `'smart'`),
-/// supporting automatic failover across multiple AI models/providers.
+/// supporting automatic failover and smart selection across providers.
 @immutable
 final class AiModelRoute {
-  /// Creates a route trying [targets] in order until one succeeds.
-  const AiModelRoute(this.targets);
+  /// Creates a route selecting among [targets] using [strategy].
+  const AiModelRoute(
+    this.targets, {
+    this.strategy = AiRoutingStrategy.ordered,
+    this.hedgeDelay = const Duration(milliseconds: 1200),
+  });
 
   /// Single provider/model route without fallback.
   factory AiModelRoute.single(
@@ -693,15 +738,30 @@ final class AiModelRoute {
 
   /// Fallback route trying each target in order on transient/provider failures
   /// (rate limits, 5xx, timeouts, network failures).
-  factory AiModelRoute.fallback(List<AiTarget> targets) {
+  factory AiModelRoute.fallback(
+    List<AiTarget> targets, {
+    AiRoutingStrategy strategy = AiRoutingStrategy.ordered,
+    Duration hedgeDelay = const Duration(milliseconds: 1200),
+  }) {
     if (targets.isEmpty) {
       throw ArgumentError.value(targets, 'targets', 'Cannot be empty');
     }
-    return AiModelRoute(List.unmodifiable(targets));
+    return AiModelRoute(
+      List.unmodifiable(targets),
+      strategy: strategy,
+      hedgeDelay: hedgeDelay,
+    );
   }
 
   /// Ordered list of provider+model candidates.
   final List<AiTarget> targets;
+
+  /// Selection/failover policy across [targets].
+  final AiRoutingStrategy strategy;
+
+  /// Delay before launching a hedged secondary call when [strategy] is
+  /// [AiRoutingStrategy.hedged].
+  final Duration hedgeDelay;
 }
 
 /// Per-million-token USD pricing used by [AiUsageTracker] to estimate cost.
@@ -736,10 +796,10 @@ final class AiUsageTracker {
 
   /// Optional USD cap per session; throws [RequestFailure] before sending new
   /// requests once reached.
-  final double? maxSessionBudgetUsd;
+  double? maxSessionBudgetUsd;
 
   /// Cost table keyed by model name (`'gpt-4o'`, `'gemini-2.5-flash'`, ...).
-  final Map<String, AiModelCost> pricing;
+  Map<String, AiModelCost> pricing;
 
   int _inputTokens = 0;
   int _outputTokens = 0;
@@ -796,7 +856,7 @@ final class AiUsageTracker {
 
   /// Computes cost for [model] and records [usage].
   AiUsage record(String model, AiUsage usage) {
-    final rate = pricing[model];
+    final rate = _lookupPricing(model);
     final cost = usage.estimatedCostUsd > 0 || rate == null
         ? usage.estimatedCostUsd
         : rate.estimate(usage.inputTokens, usage.outputTokens);
@@ -816,6 +876,23 @@ final class AiUsageTracker {
     _byModel[model] = prev + priced;
     if (!_changes.isClosed) _changes.add(snapshot);
     return priced;
+  }
+
+  AiModelCost? _lookupPricing(String model) {
+    final exact = pricing[model];
+    if (exact != null) return exact;
+    final colon = model.indexOf(':');
+    if (colon > 0) {
+      final bare = model.substring(colon + 1);
+      if (pricing[bare] case final m?) return m;
+    }
+    for (final entry in pricing.entries) {
+      if (model.startsWith('${entry.key}-') ||
+          entry.key.endsWith(':$model')) {
+        return entry.value;
+      }
+    }
+    return null;
   }
 
   /// Resets cumulative statistics back to zero.
@@ -866,4 +943,120 @@ final class AiRealtimeJsonEvent extends AiRealtimeEvent {
 
   /// Raw decoded JSON event object.
   final Map<String, Object?> payload;
+}
+
+/// Progressive structured JSON state emitted by `OmniAi.streamObject`.
+@immutable
+final class AiStreamingObject<T> {
+  /// Creates a streaming structured output snapshot.
+  const AiStreamingObject({
+    required this.partialJson,
+    this.value,
+    this.isComplete = false,
+    this.usage = AiUsage.zero,
+    this.rawText = '',
+  });
+
+  /// Best-effort parsed JSON object so far (may be partial while streaming).
+  final Map<String, dynamic> partialJson;
+
+  /// Decoded typed instance when [decoder] succeeded on [partialJson].
+  final T? value;
+
+  /// `true` once generation finished and [value] passed final validation.
+  final bool isComplete;
+
+  /// Token/USD usage (populated on completion).
+  final AiUsage usage;
+
+  /// Accumulated raw model output text.
+  final String rawText;
+}
+
+/// Speech-to-text transcription output returned by `OmniAi.transcribeAudio`.
+@immutable
+final class AiTranscriptionResult {
+  /// Creates a transcription result.
+  const AiTranscriptionResult({
+    required this.text,
+    required this.model,
+    required this.providerId,
+    this.language,
+    this.durationSeconds,
+    this.raw,
+  });
+
+  /// Recognized transcript text.
+  final String text;
+
+  /// Concrete model id used.
+  final String model;
+
+  /// Concrete provider id.
+  final String providerId;
+
+  /// Detected or requested language code.
+  final String? language;
+
+  /// Audio duration in seconds when reported.
+  final double? durationSeconds;
+
+  /// Raw decoded response payload.
+  final Map<String, Object?>? raw;
+}
+
+/// Synthesized speech audio output returned by `OmniAi.generateSpeech`.
+@immutable
+final class AiSpeechResult {
+  /// Creates a TTS speech result.
+  const AiSpeechResult({
+    required this.bytes,
+    required this.mimeType,
+    required this.model,
+    required this.providerId,
+  });
+
+  /// Encoded audio bytes (`audio/mpeg`, `audio/wav`, `audio/opus`, etc.).
+  final Uint8List bytes;
+
+  /// Output audio MIME type.
+  final String mimeType;
+
+  /// Concrete model id used.
+  final String model;
+
+  /// Concrete provider id.
+  final String providerId;
+}
+
+/// Generated image returned by `OmniAi.generateImage`.
+@immutable
+final class AiGeneratedImage {
+  /// Creates an image generation result.
+  const AiGeneratedImage({
+    this.bytes,
+    this.url,
+    this.mimeType = 'image/png',
+    this.revisedPrompt,
+    required this.model,
+    required this.providerId,
+  });
+
+  /// Decoded image bytes when returned base64-encoded.
+  final Uint8List? bytes;
+
+  /// Hosted image URL when returned as a URL.
+  final String? url;
+
+  /// Image MIME type.
+  final String mimeType;
+
+  /// Prompt rewritten by the model, if provided.
+  final String? revisedPrompt;
+
+  /// Concrete model id used.
+  final String model;
+
+  /// Concrete provider id.
+  final String providerId;
 }

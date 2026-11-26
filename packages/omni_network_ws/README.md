@@ -3,6 +3,12 @@
 Server-Sent Events and WebSocket adapters for
 [`omni_network`](../omni_network). Pure Dart.
 
+> All WebSocket & SSE implementations now live directly inside
+> [`omni_network`](../omni_network) (`api.ws(...)`, `api.sse(...)`,
+> `OmniWebSocket`, `SseConnection`, `SseParser`, `WsWebAuthMode`), sharing client
+> auth, `proxy`, `pinnedSha256`, mTLS, custom DNS, and logging. `omni_network_ws`
+> re-exports the same types for backward compatibility.
+
 ## Server-Sent Events
 
 ```dart

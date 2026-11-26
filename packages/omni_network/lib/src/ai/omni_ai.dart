@@ -104,7 +104,7 @@ final class OmniAi {
        _providers = Map.of(config.providers),
        _routes = Map.of(config.routes),
        defaultModel = config.defaultModel,
-       _defaultTools = List.unmodifiable(config.defaultTools),
+       _defaultTools = List.of(config.defaultTools),
        _defaultMaxToolRounds = config.maxToolRounds,
        usage = AiUsageTracker(
          maxSessionBudgetUsd: config.maxSessionBudgetUsd,
@@ -135,7 +135,7 @@ final class OmniAi {
   String? defaultModel;
 
   final List<AiTool> _defaultTools;
-  final int _defaultMaxToolRounds;
+  int _defaultMaxToolRounds;
 
   /// Cumulative token and USD usage tracker for this AI client.
   final AiUsageTracker usage;
@@ -173,6 +173,14 @@ final class OmniAi {
     if (config.defaultModel != null) {
       defaultModel = config.defaultModel;
     }
+    if (config.defaultTools.isNotEmpty) {
+      _defaultTools
+        ..clear()
+        ..addAll(config.defaultTools);
+    }
+    _defaultMaxToolRounds = config.maxToolRounds;
+    usage.pricing = Map.of(config.pricing);
+    usage.maxSessionBudgetUsd = config.maxSessionBudgetUsd;
   }
 
   /// Returns a view of this [OmniAi] with [tools] automatically attached to all

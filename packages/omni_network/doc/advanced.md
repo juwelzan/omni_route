@@ -5,9 +5,9 @@ option, with the import each API needs:
 
 | Import | What it gives you |
 |---|---|
-| `package:omni_network/omni_network.dart` | The default: client, verbs, GraphQL, metrics, errors, `OmniAuth`, `ApiKeyAuth`, `BasicAuth`, `HmacSignerAuth`, retry, cache, pagination, request state |
-| `package:omni_network/advanced.dart` | Everything above, plus `OmniNetworkAdvanced`, transports, `FileCacheStore`, `FileQueueStore`, `OfflineQueue`, `CircuitBreaker`, `PrettyLogSink`, `MultiLogSink`, `Redactor`, `DnsOverHttpsResolver`, streaming, cURL, `EndpointRegistry`, adapters and `BearerAuth` |
-| `package:omni_network/testing.dart` | `OmniMock`, `MockResponse`, `MockTransport`, `RecordingTransport`, `RecordedExchange` |
+| `package:omni_network/omni_network.dart` | The default: client, verbs, GraphQL, WebSocket/RPC (`api.ws`), SSE (`api.sse`), Multi-AI (`api.ai`), `OmniApiHub`, Unified Chat (`api.chat`, `api.aiThread`), metrics, errors, auth, retry, cache, pagination, request state |
+| `package:omni_network/advanced.dart` | Everything above, plus `OmniNetworkAdvanced`, transports, `FileCacheStore`, `FileQueueStore`, `FileVectorStore`, `FileChatStore`, `MemoryVectorStore`, `MemoryChatStore`, `RateLimiterInterceptor`, `AiProvider`/`WsProtocol`/`ChatProtocolAdapter`, `OfflineQueue`, `CircuitBreaker`, logging, `Redactor`, DNS, cURL, `EndpointRegistry`, adapters and `BearerAuth` |
+| `package:omni_network/testing.dart` | `OmniMock`, `MockResponse`, `MockTransport`, `RecordingTransport`, `RecordedExchange`, `MockAiProvider`, `MockAiReply` |
 
 ## Client configuration & Dio transport power
 
@@ -418,6 +418,103 @@ final u = await api.call(UserApi.byId, path: {'id': 10}, query: {'expand': 'role
 final raw = await api.sendRaw(const OmniRequest.get('/health'));
 print(api.toCurl(const OmniRequest.get('/users'))); // secrets redacted
 final imported = parseCurl(copiedFromBrowser).request;
+```
+
+## Unified WebSocket, RPC & SSE
+
+`OmniNetwork.ws` and `OmniNetwork.sse` share your client's auth headers,
+token refresh, TLS pinning (`pinnedSha256`), mTLS certificates, debugging
+`proxy`, DNS resolver, and redacted logging:
+
+```dart
+final socket = api.ws(
+  '/realtime',
+  wsWebAuthMode: const WsWebAuthMode.queryParam(paramName: 'token'), // Web fallback
+  heartbeatInterval: const Duration(seconds: 20),
+);
+socket.on<Map<String, dynamic>>('notice').listen(print);
+socket.emit('subscribe', {'channel': 'orders'});
+final reply = await socket.request<int>('sum', data: {'a': 1, 'b': 2},
+    decoder: (j) => j['total'] as int);
+
+// SSE over GET or POST (e.g., streaming AI APIs):
+final sse = api.sse('/ai/stream', method: HttpMethod.post, body: {'prompt': 'Hi'});
+```
+
+## Universal API Hub (`OmniApiHub`)
+
+Manage multiple environments (`dev`/`prod`), per-service `RateLimit`s, remote
+JSON config updates, and declarative REST / GraphQL / WS / SSE / AI specs from
+one coordinator:
+
+```dart
+final hub = OmniApiHub(
+  activeEnvironment: 'prod',
+  environments: {
+    'prod': const OmniEnvironment(
+      name: 'prod',
+      variables: {'core': 'https://api.example.com', 'ws': 'wss://ws.example.com'},
+    ),
+  },
+  services: {
+    'core': const ServiceConfig.fromVar(
+      baseUrlVar: 'core',
+      wsUrlVar: 'ws',
+      rateLimit: RateLimit(maxRequests: 10, per: Duration(seconds: 1)),
+    ),
+  },
+  ai: aiConfig,
+);
+await hub.useEnvironment('staging');
+await hub.loadRemoteConfig(remoteJson);
+final summary = await hub.callAi(aiSpec, input: {'topic': 'Release'});
+```
+
+## Multi-AI & RAG (`OmniAi`)
+
+Configure `OpenAiProvider`, `OpenAiCompatibleProvider` (Groq/OpenRouter/DeepSeek/vLLM),
+`GeminiProvider`, `AnthropicProvider`, `OllamaProvider`, or `CustomAiProvider`,
+with ordered failover routes, `AiTool.fromEndpoint(...)` tool calling, structured
+JSON decoding (`generateObject`), `FileVectorStore` / `MemoryVectorStore` RAG,
+`openRealtime` WebSocket sessions, and USD session budget caps:
+
+```dart
+final api = OmniNetwork(
+  ai: AiConfig(
+    defaultModel: 'smart',
+    providers: {
+      'openai': OpenAiProvider(apiKey: () => openAiKey),
+      'gemini': GeminiProvider(apiKey: () => geminiKey),
+      'claude': AnthropicProvider(apiKey: () => claudeKey),
+      'ollama': OllamaProvider(),
+    },
+    routes: const {
+      'smart': AiModelRoute([
+        AiTarget('claude', model: 'claude-3-7-sonnet-latest'),
+        AiTarget('openai', model: 'gpt-4o'),
+      ]),
+    },
+    maxSessionBudgetUsd: 1.00,
+  ),
+);
+
+final answer = await api.ai.ask('Summarize architecture');
+final stream = api.ai.stream('Write release notes');
+final obj = await api.ai.generateObject('Extract tasks', decoder: TaskList.fromJson);
+final comparison = await api.ai.compare('Compare models', models: ['openai:gpt-4o', 'gemini:gemini-2.5-flash']);
+```
+
+## Unified Human & `@ai` Chat
+
+```dart
+// Multi-turn AI conversation thread with sliding-window summarization & persistence:
+final thread = api.aiThread('assistant_1', store: FileChatStore(directory: chatDir));
+await thread.sendAndWait('Hello!');
+
+// Realtime WebSocket chat room (optimistic send, reactions, typing, file upload, @ai):
+final room = api.chat.room('team_room', historyEndpoint: '/chat/history');
+room.attachAiAssistant(thread, triggerPrefix: '@ai');
+await room.sendText('Hey team! @ai draft today\'s standup');
 ```
 
 ## Testing, recording and replay

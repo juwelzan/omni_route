@@ -293,12 +293,17 @@ await api.get<User>('/me',
 | quick inline interceptor | `OmniInterceptor.inline(onRequest: ..., onResponse: ..., onError: ...)` |
 | telemetry & slow requests | `api.metrics`, `api.resetMetrics()`, `slowRequestThreshold:` + `onSlowRequest:` |
 | proxy / SSL pin / DoH / mTLS | `OmniNetwork(proxy: ..., pinnedSha256: [...], dnsOverHttps: ..., clientCertificateBytes: ...)` |
+| WebSocket, typed events & RPC | `api.ws('/live')` → `.emit()`, `.on<T>()`, `.request<T>()`, `WsWebAuthMode` |
+| SSE (GET / POST AI streams) | `api.sse('/stream', method: HttpMethod.post, body: ...)` |
+| Multi-service Hub & env switching | `OmniApiHub(environments: ..., services: ...)` → `.useEnvironment()`, `.loadRemoteConfig()`, `RateLimit` |
+| Multi-AI (GPT/Gemini/Claude/Ollama) | `OmniNetwork(ai: AiConfig(...))` → `api.ai.ask/stream/chat/generateObject/embed/askWithContext/compare/openRealtime` |
+| Unified Human & `@ai` Chat | `api.chat.room('room_1')` (optimistic send, typing, reactions, file upload, pagination, `@ai`), `api.aiThread(...)`, `FileChatStore` |
 | migrate from Dio | `OmniNetwork.fromDio(dio)` |
 | cancel requests | `OmniCancelToken`, `api.cancelAll()` |
-| record / mock without server | `OmniMock` & `RecordingTransport` from `package:omni_network/testing.dart` |
+| record / mock without server | `OmniMock`, `RecordingTransport` & `MockAiProvider` from `package:omni_network/testing.dart` |
 | typed endpoints from OpenAPI | [`omni_network_openapi`](../omni_network_openapi) |
-| WebSocket / Server-Sent Events | [`omni_network_ws`](../omni_network_ws) |
-| in-app inspector & HAR export | [`omni_network_flutter`](../omni_network_flutter) (`OmniInspector`) |
+| WebSocket / SSE standalone alias | [`omni_network_ws`](../omni_network_ws) (re-exports `omni_network` realtime APIs) |
+| in-app inspector, HAR & chat UI | [`omni_network_flutter`](../omni_network_flutter) (`OmniInspector`, `OmniChatView`, `OmniAiChatView`, `OmniModelPicker`) |
 
 Details and every option are in the **[full guide](doc/advanced.md)**. It
 also covers `FileQueueStore` for offline persistence, custom DNS, interceptors,

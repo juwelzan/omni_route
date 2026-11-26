@@ -49,7 +49,8 @@ final class VectorDocument {
   );
 }
 
-/// Ranked similarity match returned by [AiVectorStore.searchByVector].
+/// Ranked similarity match returned by [AiVectorStore.searchByVector] and
+/// [AiVectorStore.searchHybrid].
 @immutable
 final class VectorSearchHit {
   /// Creates a search hit.
@@ -58,8 +59,58 @@ final class VectorSearchHit {
   /// Matched document.
   final VectorDocument document;
 
-  /// Cosine similarity score in `[-1.0, 1.0]`.
+  /// Similarity/hybrid relevance score (highest first).
   final double score;
+}
+
+/// Splits long documents/articles into overlapping chunks for RAG indexing
+/// while respecting paragraph and sentence boundaries when possible.
+abstract final class TextSplitter {
+  /// Splits [text] into overlapping segments up to [chunkSize] characters,
+  /// preserving [overlap] trailing characters from the prior chunk.
+  static List<String> split(
+    String text, {
+    int chunkSize = 800,
+    int overlap = 120,
+    String separator = '\n',
+  }) {
+    if (chunkSize <= 0) {
+      throw ArgumentError.value(chunkSize, 'chunkSize', 'must be > 0');
+    }
+    if (overlap < 0 || overlap >= chunkSize) {
+      throw ArgumentError.value(
+        overlap,
+        'overlap',
+        'must be in [0, chunkSize)',
+      );
+    }
+    final clean = text.trim();
+    if (clean.isEmpty) return const [];
+    if (clean.length <= chunkSize) return [clean];
+
+    final chunks = <String>[];
+    var start = 0;
+    while (start < clean.length) {
+      var end = min(start + chunkSize, clean.length);
+      if (end < clean.length) {
+        final sepIdx = clean.lastIndexOf(separator, end);
+        if (sepIdx > start + (chunkSize ~/ 2)) {
+          end = sepIdx + separator.length;
+        } else {
+          final spaceIdx = clean.lastIndexOf(' ', end);
+          if (spaceIdx > start + (chunkSize ~/ 2)) {
+            end = spaceIdx;
+          }
+        }
+      }
+      final part = clean.substring(start, end).trim();
+      if (part.isNotEmpty) chunks.add(part);
+      if (end >= clean.length) break;
+      final nextStart = end - overlap;
+      start = nextStart > start ? nextStart : end;
+    }
+    return chunks;
+  }
 }
 
 /// Computes cosine similarity between two equal-length vectors (`0.0` when
@@ -81,6 +132,9 @@ double cosineSimilarity(List<double> a, List<double> b) {
 /// Callback turning raw text strings into dense vector embeddings.
 typedef TextEmbedder = Future<List<double>> Function(String text);
 
+/// Callback turning a batch of text strings into dense embedding vectors.
+typedef BatchTextEmbedder = Future<List<List<double>>> Function(List<String> texts);
+
 /// Storage backend for vector similarity search.
 abstract interface class AiVectorStore {
   /// Stores or replaces a single [document].
@@ -99,11 +153,12 @@ abstract interface class AiVectorStore {
   FutureOr<void> clear();
 
   /// Searches by dense [queryEmbedding], returning up to [topK] highest-scoring
-  /// matches at or above [minScore].
+  /// matches at or above [minScore], optionally filtered by metadata [where].
   Future<List<VectorSearchHit>> searchByVector(
     List<double> queryEmbedding, {
     int topK = 5,
     double minScore = -1.0,
+    Map<String, Object?>? where,
   });
 
   /// Embeds [query] using [embedder] and returns top matching documents.
@@ -112,6 +167,18 @@ abstract interface class AiVectorStore {
     required TextEmbedder embedder,
     int topK = 5,
     double minScore = -1.0,
+    Map<String, Object?>? where,
+  });
+
+  /// Combines dense vector similarity (`vectorWeight`) with keyword token
+  /// overlap (`1 - vectorWeight`) for higher-precision RAG retrieval.
+  Future<List<VectorSearchHit>> searchHybrid(
+    String query, {
+    required TextEmbedder embedder,
+    int topK = 5,
+    double minScore = 0.0,
+    double vectorWeight = 0.7,
+    Map<String, Object?>? where,
   });
 }
 
@@ -143,11 +210,13 @@ final class MemoryVectorStore implements AiVectorStore {
     List<double> queryEmbedding, {
     int topK = 5,
     double minScore = -1.0,
+    Map<String, Object?>? where,
   }) async => rankVectorDocuments(
     _docs.values,
     queryEmbedding,
     topK: topK,
     minScore: minScore,
+    where: where,
   );
 
   @override
@@ -156,24 +225,98 @@ final class MemoryVectorStore implements AiVectorStore {
     required TextEmbedder embedder,
     int topK = 5,
     double minScore = -1.0,
+    Map<String, Object?>? where,
   }) async {
     final vec = await embedder(query);
-    return searchByVector(vec, topK: topK, minScore: minScore);
+    return searchByVector(vec, topK: topK, minScore: minScore, where: where);
+  }
+
+  @override
+  Future<List<VectorSearchHit>> searchHybrid(
+    String query, {
+    required TextEmbedder embedder,
+    int topK = 5,
+    double minScore = 0.0,
+    double vectorWeight = 0.7,
+    Map<String, Object?>? where,
+  }) async {
+    final vec = await embedder(query);
+    return rankHybridVectorDocuments(
+      _docs.values,
+      query: query,
+      queryEmbedding: vec,
+      topK: topK,
+      minScore: minScore,
+      vectorWeight: vectorWeight,
+      where: where,
+    );
   }
 }
 
-/// Shared ranking helper used by both [MemoryVectorStore] and `FileVectorStore`.
+bool _matchesMetadata(VectorDocument doc, Map<String, Object?>? where) {
+  if (where == null || where.isEmpty) return true;
+  for (final e in where.entries) {
+    if (doc.metadata[e.key] != e.value) return false;
+  }
+  return true;
+}
+
+/// Shared vector ranking helper used by both [MemoryVectorStore] and
+/// `FileVectorStore`.
 List<VectorSearchHit> rankVectorDocuments(
   Iterable<VectorDocument> docs,
   List<double> queryEmbedding, {
   int topK = 5,
   double minScore = -1.0,
+  Map<String, Object?>? where,
 }) {
   final hits = <VectorSearchHit>[];
   for (final doc in docs) {
+    if (!_matchesMetadata(doc, where)) continue;
     final score = cosineSimilarity(queryEmbedding, doc.embedding);
     if (score >= minScore) {
       hits.add(VectorSearchHit(document: doc, score: score));
+    }
+  }
+  hits.sort((a, b) => b.score.compareTo(a.score));
+  return hits.length <= topK ? hits : hits.sublist(0, topK);
+}
+
+Set<String> _tokenize(String s) => RegExp(r'[a-z0-9]+')
+    .allMatches(s.toLowerCase())
+    .map((m) => m.group(0)!)
+    .toSet();
+
+/// Shared hybrid vector + keyword ranking helper.
+List<VectorSearchHit> rankHybridVectorDocuments(
+  Iterable<VectorDocument> docs, {
+  required String query,
+  required List<double> queryEmbedding,
+  int topK = 5,
+  double minScore = 0.0,
+  double vectorWeight = 0.7,
+  Map<String, Object?>? where,
+}) {
+  final qTokens = _tokenize(query);
+  final kwWeight = (1.0 - vectorWeight).clamp(0.0, 1.0);
+  final vWeight = vectorWeight.clamp(0.0, 1.0);
+  final hits = <VectorSearchHit>[];
+
+  for (final doc in docs) {
+    if (!_matchesMetadata(doc, where)) continue;
+    final cos = cosineSimilarity(queryEmbedding, doc.embedding);
+    final normCos = ((cos + 1.0) / 2.0).clamp(0.0, 1.0);
+    var kwScore = 0.0;
+    if (qTokens.isNotEmpty) {
+      final dTokens = _tokenize(doc.text);
+      if (dTokens.isNotEmpty) {
+        final overlap = qTokens.where(dTokens.contains).length;
+        kwScore = overlap / qTokens.length;
+      }
+    }
+    final combined = vWeight * normCos + kwWeight * kwScore;
+    if (combined >= minScore) {
+      hits.add(VectorSearchHit(document: doc, score: combined));
     }
   }
   hits.sort((a, b) => b.score.compareTo(a.score));

@@ -3,8 +3,9 @@ import 'dart:io';
 
 import 'vector_store.dart';
 
-/// Persistent JSON-backed [AiVectorStore] for IO platforms so embeddings
-/// survive app restarts without needing native SQLite/FFI dependencies.
+/// Persistent JSON-backed [AiVectorStore] for IO platforms with lazy
+/// in-memory read caching so embeddings survive app restarts without requiring
+/// native SQLite/FFI dependencies.
 final class FileVectorStore implements AiVectorStore {
   /// Creates a disk-backed vector store inside [directory].
   FileVectorStore({required this.directory});
@@ -12,13 +13,17 @@ final class FileVectorStore implements AiVectorStore {
   /// Directory holding `vectors.json`.
   final String directory;
 
+  Map<String, VectorDocument>? _cache;
+
   File get _file => File('$directory${Platform.pathSeparator}vectors.json');
 
   Future<Map<String, VectorDocument>> _readMap() async {
-    if (!await _file.exists()) return {};
+    final cached = _cache;
+    if (cached != null) return cached;
+    if (!await _file.exists()) return _cache = {};
     try {
       final decoded = jsonDecode(await _file.readAsString());
-      if (decoded is! List) return {};
+      if (decoded is! List) return _cache = {};
       final map = <String, VectorDocument>{};
       for (final raw in decoded) {
         if (raw is Map) {
@@ -26,13 +31,14 @@ final class FileVectorStore implements AiVectorStore {
           map[doc.id] = doc;
         }
       }
-      return map;
+      return _cache = map;
     } catch (_) {
-      return {};
+      return _cache = {};
     }
   }
 
   Future<void> _writeMap(Map<String, VectorDocument> docs) async {
+    _cache = docs;
     await Directory(directory).create(recursive: true);
     final temp = File('${_file.path}.tmp.${pid}_${identityHashCode(docs)}');
     await temp.writeAsString(
@@ -47,7 +53,7 @@ final class FileVectorStore implements AiVectorStore {
 
   @override
   Future<void> upsertAll(List<VectorDocument> documents) async {
-    final map = await _readMap();
+    final map = Map<String, VectorDocument>.of(await _readMap());
     for (final d in documents) {
       map[d.id] = d;
     }
@@ -60,7 +66,7 @@ final class FileVectorStore implements AiVectorStore {
 
   @override
   Future<void> delete(String id) async {
-    final map = await _readMap();
+    final map = Map<String, VectorDocument>.of(await _readMap());
     if (map.remove(id) != null) {
       await _writeMap(map);
     }
@@ -68,6 +74,7 @@ final class FileVectorStore implements AiVectorStore {
 
   @override
   Future<void> clear() async {
+    _cache = {};
     if (await _file.exists()) {
       await _file.delete();
     }
@@ -78,11 +85,13 @@ final class FileVectorStore implements AiVectorStore {
     List<double> queryEmbedding, {
     int topK = 5,
     double minScore = -1.0,
+    Map<String, Object?>? where,
   }) async => rankVectorDocuments(
     (await _readMap()).values,
     queryEmbedding,
     topK: topK,
     minScore: minScore,
+    where: where,
   );
 
   @override
@@ -91,8 +100,30 @@ final class FileVectorStore implements AiVectorStore {
     required TextEmbedder embedder,
     int topK = 5,
     double minScore = -1.0,
+    Map<String, Object?>? where,
   }) async {
     final vec = await embedder(query);
-    return searchByVector(vec, topK: topK, minScore: minScore);
+    return searchByVector(vec, topK: topK, minScore: minScore, where: where);
+  }
+
+  @override
+  Future<List<VectorSearchHit>> searchHybrid(
+    String query, {
+    required TextEmbedder embedder,
+    int topK = 5,
+    double minScore = 0.0,
+    double vectorWeight = 0.7,
+    Map<String, Object?>? where,
+  }) async {
+    final vec = await embedder(query);
+    return rankHybridVectorDocuments(
+      (await _readMap()).values,
+      query: query,
+      queryEmbedding: vec,
+      topK: topK,
+      minScore: minScore,
+      vectorWeight: vectorWeight,
+      where: where,
+    );
   }
 }

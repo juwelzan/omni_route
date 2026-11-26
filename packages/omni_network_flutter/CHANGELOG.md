@@ -8,6 +8,11 @@
 - Added `OmniInspector.toHarJson()` (HAR 1.2 JSON export),
   `OmniInspector.toMarkdownReport()`, and a **"Copy HAR"** toolbar button in
   `OmniInspectorView`.
+- Upgraded `OmniInspector` & `OmniInspectorView` with `attachClient`, `attachAi`,
+  `recordWsLog`, `recordAiCall`, live **HTTP / WS / AI** tabs, total AI
+  token/USD counters, and WebSocket/AI sections in `toMarkdownReport()`.
+- Added realtime & AI Flutter widgets: `OmniChatView`, `OmniAiChatView`, and
+  `OmniModelPicker`.
 
 ## 0.1.0
 

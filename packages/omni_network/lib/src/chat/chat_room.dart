@@ -253,9 +253,13 @@ final class OmniChatRoom {
 
   /// Toggles an emoji reaction locally (optimistically) and notifies the server.
   Future<void> toggleReaction(String messageId, String emoji) async {
-    final idx = _messages.indexWhere((m) => m.id == messageId);
+    var targetId = messageId;
+    final idx = _messages.indexWhere(
+      (m) => m.id == messageId || m.localId == messageId,
+    );
     if (idx >= 0) {
       final m = _messages[idx];
+      targetId = m.id;
       final next = {
         for (final e in m.reactions.entries) e.key: [...e.value],
       };
@@ -272,14 +276,18 @@ final class OmniChatRoom {
       _emitMessages();
     }
     await chatClient.transmitFrame(
-      protocol.encodeReaction(roomId, messageId, emoji, chatClient.currentUserId),
+      protocol.encodeReaction(roomId, targetId, emoji, chatClient.currentUserId),
     );
   }
 
   /// Edits a sent message's text optimistically and notifies the server.
   Future<void> editMessage(String messageId, String newText) async {
-    final idx = _messages.indexWhere((m) => m.id == messageId);
+    var targetId = messageId;
+    final idx = _messages.indexWhere(
+      (m) => m.id == messageId || m.localId == messageId,
+    );
     if (idx >= 0) {
+      targetId = _messages[idx].id;
       final updated = _messages[idx].copyWith(
         parts: [ChatTextPart(newText)],
         editedAt: DateTime.now().toUtc(),
@@ -289,20 +297,24 @@ final class OmniChatRoom {
       _emitMessages();
     }
     await chatClient.transmitFrame(
-      protocol.encodeEdit(roomId, messageId, newText),
+      protocol.encodeEdit(roomId, targetId, newText),
     );
   }
 
   /// Soft-deletes a message locally and notifies the server.
   Future<void> deleteMessage(String messageId) async {
-    final idx = _messages.indexWhere((m) => m.id == messageId);
+    var targetId = messageId;
+    final idx = _messages.indexWhere(
+      (m) => m.id == messageId || m.localId == messageId,
+    );
     if (idx >= 0) {
+      targetId = _messages[idx].id;
       final updated = _messages[idx].copyWith(isDeleted: true, parts: const []);
       _messages[idx] = updated;
       await store.saveMessage(updated);
       _emitMessages();
     }
-    await chatClient.transmitFrame(protocol.encodeDelete(roomId, messageId));
+    await chatClient.transmitFrame(protocol.encodeDelete(roomId, targetId));
   }
 
   /// Loads the next older page of messages from [historyEndpoint] (using
@@ -420,7 +432,9 @@ final class OmniChatRoom {
           _emitMessages();
         }
       case ChatMessageEdited(:final messageId, :final parts, :final editedAt):
-        final idx = _messages.indexWhere((m) => m.id == messageId);
+        final idx = _messages.indexWhere(
+          (m) => m.id == messageId || m.localId == messageId,
+        );
         if (idx >= 0) {
           final updated = _messages[idx].copyWith(
             parts: parts,
@@ -431,7 +445,9 @@ final class OmniChatRoom {
           _emitMessages();
         }
       case ChatMessageDeleted(:final messageId):
-        final idx = _messages.indexWhere((m) => m.id == messageId);
+        final idx = _messages.indexWhere(
+          (m) => m.id == messageId || m.localId == messageId,
+        );
         if (idx >= 0) {
           final updated = _messages[idx].copyWith(
             isDeleted: true,
@@ -442,7 +458,9 @@ final class OmniChatRoom {
           _emitMessages();
         }
       case ChatReactionToggled(:final messageId, :final emoji, :final userId, :final added):
-        final idx = _messages.indexWhere((m) => m.id == messageId);
+        final idx = _messages.indexWhere(
+          (m) => m.id == messageId || m.localId == messageId,
+        );
         if (idx >= 0) {
           final next = {
             for (final e in _messages[idx].reactions.entries) e.key: [...e.value],

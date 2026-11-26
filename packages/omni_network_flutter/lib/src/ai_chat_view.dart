@@ -234,12 +234,11 @@ class _OmniAiChatViewState extends State<OmniAiChatView> {
               icon: const Icon(Icons.refresh, size: 20),
               onPressed: () {
                 unawaited(
-                  widget.thread
-                      .regenerateLast()
-                      .then((_) {})
-                      .catchError((Object e) {
-                        widget.onError?.call(e);
-                      }),
+                  widget.thread.regenerateLast().then((_) {}).catchError((
+                    Object e,
+                  ) {
+                    widget.onError?.call(e);
+                  }),
                 );
               },
             ),
@@ -329,73 +328,77 @@ class _AiMessageBubble extends StatelessWidget {
 
     return Align(
       alignment: isAi ? Alignment.centerLeft : Alignment.centerRight,
-      child: Container(
+      child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 640),
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (showThinking &&
-                message.thinking != null &&
-                message.thinking!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: ExpansionTile(
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: const EdgeInsets.only(bottom: 6),
-                  dense: true,
-                  title: Text(
-                    'Reasoning',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 4),
+          child: Material(
+            color: bg,
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showThinking &&
+                      message.thinking != null &&
+                      message.thinking!.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: ExpansionTile(
+                        tilePadding: EdgeInsets.zero,
+                        childrenPadding: const EdgeInsets.only(bottom: 6),
+                        dense: true,
+                        title: Text(
+                          'Reasoning',
+                          style: Theme.of(context).textTheme.labelSmall
+                              ?.copyWith(color: scheme.onSurfaceVariant),
+                        ),
+                        children: [
+                          SelectableText(
+                            message.thinking!,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: scheme.onSurfaceVariant),
+                          ),
+                        ],
+                      ),
                     ),
+                  SelectableText(
+                    message.text,
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: fg),
                   ),
-                  children: [
-                    SelectableText(
-                      message.thinking!,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
+                  if (isAi &&
+                      (message.model != null ||
+                          (showUsage && message.usage != null)))
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Wrap(
+                        spacing: 8,
+                        children: [
+                          if (message.model != null)
+                            Text(
+                              message.model!,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                          if (showUsage &&
+                              message.usage != null &&
+                              message.usage!.totalTokens > 0)
+                            Text(
+                              '${message.usage!.totalTokens} tok'
+                              '${message.usage!.estimatedCostUsd > 0 ? ' · \$${message.usage!.estimatedCostUsd.toStringAsFixed(4)}' : ''}',
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: scheme.onSurfaceVariant),
+                            ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                ],
               ),
-            SelectableText(
-              message.text,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: fg),
             ),
-            if (isAi && (message.model != null || (showUsage && message.usage != null)))
-              Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Wrap(
-                  spacing: 8,
-                  children: [
-                    if (message.model != null)
-                      Text(
-                        message.model!,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                    if (showUsage &&
-                        message.usage != null &&
-                        message.usage!.totalTokens > 0)
-                      Text(
-                        '${message.usage!.totalTokens} tok'
-                        '${message.usage!.estimatedCostUsd > 0 ? ' · \$${message.usage!.estimatedCostUsd.toStringAsFixed(4)}' : ''}',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: scheme.onSurfaceVariant,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-          ],
+          ),
         ),
       ),
     );

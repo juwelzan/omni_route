@@ -33,7 +33,13 @@ final class FileVectorStore implements AiVectorStore {
     List<double> queryEmbedding, {
     int topK = 5,
     double minScore = -1.0,
-  }) => _inner.searchByVector(queryEmbedding, topK: topK, minScore: minScore);
+    Map<String, Object?>? where,
+  }) => _inner.searchByVector(
+    queryEmbedding,
+    topK: topK,
+    minScore: minScore,
+    where: where,
+  );
 
   @override
   Future<List<VectorSearchHit>> search(
@@ -41,5 +47,29 @@ final class FileVectorStore implements AiVectorStore {
     required TextEmbedder embedder,
     int topK = 5,
     double minScore = -1.0,
-  }) => _inner.search(query, embedder: embedder, topK: topK, minScore: minScore);
+    Map<String, Object?>? where,
+  }) => _inner.search(
+    query,
+    embedder: embedder,
+    topK: topK,
+    minScore: minScore,
+    where: where,
+  );
+
+  @override
+  Future<List<VectorSearchHit>> searchHybrid(
+    String query, {
+    required TextEmbedder embedder,
+    int topK = 5,
+    double minScore = 0.0,
+    double vectorWeight = 0.7,
+    Map<String, Object?>? where,
+  }) => _inner.searchHybrid(
+    query,
+    embedder: embedder,
+    topK: topK,
+    minScore: minScore,
+    vectorWeight: vectorWeight,
+    where: where,
+  );
 }

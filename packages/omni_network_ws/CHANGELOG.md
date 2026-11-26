@@ -1,3 +1,10 @@
+## Unreleased
+
+- Consolidated WebSocket & SSE implementations into `omni_network`
+  (`OmniWebSocket`, `SseConnection`, `SseParser`, `parseSseByteStream`,
+  `WsWebAuthMode`); `omni_network_ws` now re-exports them cleanly for backward
+  compatibility.
+
 ## 0.1.0
 
 First tagged release (`omni_network_ws-v0.1.0`); no API changes from 0.1.0-dev.

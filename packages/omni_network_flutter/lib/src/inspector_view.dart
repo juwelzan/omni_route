@@ -93,7 +93,7 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
     final title = switch (_tab) {
       _InspectorTab.http => 'Network (${widget.inspector.entries.length})',
       _InspectorTab.ws => 'WebSocket (${widget.inspector.wsEntries.length})',
-      _InspectorTab.ai => 'AI (${widget.inspector.aiEntries.length})',
+      _InspectorTab.ai => 'AI Calls (${widget.inspector.aiEntries.length})',
     };
     final scheme = Theme.of(context).colorScheme;
     return Column(

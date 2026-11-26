@@ -30,6 +30,29 @@
   colours automatically on Android/colour terminals, treat empty `gzip` inputs
   safely, accept both `sha256/` and `sha256:` prefixes, and avoid microtask
   close races via `unawaited(_logController.close())`.
+- **Unified WebSocket, RPC & SSE**: Moved & upgraded `OmniWebSocket` and
+  `SseConnection` directly inside `omni_network` (`api.ws(...)`, `api.sse(...)`),
+  sharing IO `HttpClient` security (`proxy`, `pinnedSha256`, mTLS, custom DNS /
+  DoH) + auth refresh, adding typed `on`/`emit`/`request` RPC, heartbeats,
+  browser `WsWebAuthMode` (`queryParam` / `firstMessage`), POST SSE streams,
+  and `realtimeLogs` (`omni_network_ws` preserves backward compatibility via
+  re-export).
+- **Universal API Config Hub (`OmniApiHub`)**: Added multi-service management,
+  `OmniEnvironment` (`useEnvironment`), `ServiceConfig`, sliding-window
+  `RateLimit` (`RateLimiterInterceptor`), `loadRemoteConfig`, and declarative
+  `GraphqlEndpoint`, `WsEndpoint`, `SseEndpoint`, and `AiEndpoint` helpers.
+- **Multi-AI & Vector/RAG Engine (`OmniAi`)**: Added built-in adapters for
+  `OpenAiProvider`, `OpenAiCompatibleProvider`, `GeminiProvider`,
+  `AnthropicProvider`, `OllamaProvider`, and `CustomAiProvider` alongside
+  fallback routing (`AiModelRoute`), tool loops + `AiTool.fromEndpoint`,
+  structured JSON (`generateObject`), `MemoryVectorStore` / `FileVectorStore`
+  RAG, `compare`, bidirectional `openRealtime` WebSockets, USD budget caps
+  (`AiUsageTracker`), telemetry, and `MockAiProvider` in `testing.dart`.
+- **Unified Human & AI Chat**: Added `OmniChatClient` (`api.chat`),
+  `OmniChatRoom` (optimistic send, ack/delivery/read receipts, typing,
+  reactions, edit/delete, upload progress, history pagination, offline queue,
+  `@ai` hybrid assistant), `OmniAiThread` (`api.aiThread`) with sliding-window
+  summarization, and persistent `FileChatStore` / `MemoryChatStore`.
 
 ## 0.1.1
 

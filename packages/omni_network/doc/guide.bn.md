@@ -87,9 +87,9 @@ dev_dependencies:
 
 | Import | কী পাবেন |
 |---|---|
-| `package:omni_network/omni_network.dart` | সাধারণ সব কিছু: client, get/post, GraphQL, `metrics`, error, `OmniAuth`, `ApiKeyAuth`, `BasicAuth`, `HmacSignerAuth`, retry, cache, pagination, request state |
-| `package:omni_network/advanced.dart` | উপরের সব + `OmniNetworkAdvanced`, `FileCacheStore`, `FileQueueStore`, `OfflineQueue`, `CircuitBreaker`, `PrettyLogSink`, `MultiLogSink`, `Redactor`, `DnsOverHttpsResolver`, transport, cURL, `BearerAuth` |
-| `package:omni_network/testing.dart` | `OmniMock`, `MockResponse`, `MockTransport`, `RecordingTransport`, `RecordedExchange` — test-এর জন্য |
+| `package:omni_network/omni_network.dart` | সাধারণ সব কিছু: client, get/post, GraphQL, `api.ws`, `api.sse`, `OmniApiHub`, `api.ai`, `api.chat`, `api.aiThread`, `metrics`, error, `OmniAuth`, `ApiKeyAuth`, `BasicAuth`, `HmacSignerAuth`, retry, cache, pagination, request state |
+| `package:omni_network/advanced.dart` | উপরের সব + `OmniNetworkAdvanced`, `FileCacheStore`, `FileQueueStore`, `FileVectorStore`, `FileChatStore`, `MemoryVectorStore`, `MemoryChatStore`, `RateLimiterInterceptor`, `AiProvider`, `WsProtocol`, `ChatProtocolAdapter`, `OfflineQueue`, `CircuitBreaker`, `PrettyLogSink`, `MultiLogSink`, `Redactor`, `DnsOverHttpsResolver`, transport, cURL, `BearerAuth` |
+| `package:omni_network/testing.dart` | `OmniMock`, `MockResponse`, `MockTransport`, `RecordingTransport`, `RecordedExchange`, `MockAiProvider`, `MockAiReply` — test-এর জন্য |
 
 `omni_network` pure Dart — Flutter, router বা কোনো state management লাগে না।
 ভিতরে HTTP-র কাজ করে [Dio](https://pub.dev/packages/dio)।
@@ -1410,10 +1410,16 @@ await ws.close();
 ```
 
 - Error বা অস্বাভাবিক বন্ধে backoff দিয়ে আবার যুক্ত হয়; স্বাভাবিক বন্ধ (`1000`) বা `close()`-এর পরে নয়।
-- `headers` প্রতিটা সংযোগে চলে, তাই refresh করা token যায়। Browser handshake header দিতে দেয় না
-  (`OmniWebSocket.supportsHandshakeHeaders`) — Web-এ token query/প্রথম message-এ পাঠানোর নিয়ম backend-এর সাথে ঠিক করুন।
+- সরাসরি client থেকেই `api.ws('/live')` ও `api.sse('/events', method: HttpMethod.post, body: ...)` ব্যবহার করা যায় — এতে client-এর auth, `proxy`, `pinnedSha256`, mTLS, custom DNS ও redacted log অটো যুক্ত থাকে।
+- Typed event ও RPC: `ws.emit(...)`, `ws.on<T>(...)`, `ws.request<T>(...)` এবং browser-এর জন্য `WsWebAuthMode.queryParam` / `WsWebAuthMode.firstMessage`।
 - বিচ্ছিন্ন অবস্থায় `send` exception দেয় — চুপচাপ জমায় না। জমাতে চাইলে
   `bufferWhileDisconnected: true` (সর্বোচ্চ `maxBuffered`)।
+
+### Multi-API Hub, Multi-AI ও Unified Chat
+
+- **`OmniApiHub`**: এক জায়গায় সব microservice (`dev`/`staging`/`prod`), `RateLimit`, `loadRemoteConfig`, `GraphqlEndpoint`, `WsEndpoint`, `SseEndpoint`, ও `AiEndpoint` পরিচালনা।
+- **Multi-AI (`api.ai`)**: `OpenAiProvider`, `OpenAiCompatibleProvider`, `GeminiProvider`, `AnthropicProvider`, `OllamaProvider`, ও `CustomAiProvider` — automatic failover routes, `AiTool.fromEndpoint`, `generateObject`, `FileVectorStore` RAG, `compare`, ও `maxSessionBudgetUsd` বাজেট গার্ড।
+- **Chat (`api.chat`, `api.aiThread`)**: `OmniChatRoom`-এ optimistic delivery, typing, read receipt, emoji reaction, edit/delete, file upload, pagination, `@ai` হাইব্রিড অ্যাসিস্ট্যান্ট এবং `FileChatStore` লোকাল স্টোরেজ।
 
 ---
 
@@ -1618,6 +1624,9 @@ Login করা request cache হয় না যতক্ষণ না `cacheA
 | offline (RAM / disk) | `OfflineQueue(client: api, store: FileQueueStore(...)).sendOrQueue(...)` |
 | header যোগ / interceptor | `OmniInterceptor.inline(...)` |
 | test / record & replay | `OmniMock()..get(...)`, `RecordingTransport(transport)` |
-| inspector + HAR export | `OmniInspector()` + `MultiLogSink([PrettyLogSink(), inspector.sink('api')])`, `inspector.toHarJson()` |
+| inspector + HAR + WS/AI | `OmniInspector()` + `inspector.attachClient(api)`, `inspector.toHarJson()` |
+| WebSocket RPC ও POST SSE | `api.ws('/ws')` (`emit`/`on`/`request`), `api.sse('/ai', method: HttpMethod.post)` |
+| Multi-API Hub ও Multi-AI | `OmniApiHub(...)`, `api.ai.ask` / `stream` / `generateObject` / `askWithContext` |
+| Realtime ও `@ai` Chat + Flutter UI | `api.chat.room(...)`, `api.aiThread(...)`, `OmniChatView`, `OmniAiChatView`, `OmniModelPicker` |
 | cURL | `api.toCurl(request)` |
 | বন্ধ | `await api.close()` |

@@ -262,6 +262,9 @@ final class OmniAiThread {
         }
 
         final res = roundResponse;
+        if (cancel.isCancelled) {
+          throw const CancelledFailure();
+        }
         if (res == null) break;
 
         _llmHistory.add(
