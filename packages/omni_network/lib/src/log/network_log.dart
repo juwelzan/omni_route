@@ -94,3 +94,25 @@ final class PrintLogSink implements LogSink {
   @override
   void log(NetworkLogRecord record) => print(record.message);
 }
+
+/// Forwards every log record to multiple [sinks] (e.g. terminal `PrettyLogSink`
+/// and in-app `OmniInspector` simultaneously). Exceptions in individual sinks
+/// are isolated so the remaining sinks still receive every record.
+final class MultiLogSink implements LogSink {
+  /// Creates a fan-out sink forwarding to [sinks].
+  const MultiLogSink(this.sinks);
+
+  /// Target sinks invoked in order.
+  final List<LogSink> sinks;
+
+  @override
+  void log(NetworkLogRecord record) {
+    for (final sink in sinks) {
+      try {
+        sink.log(record);
+      } catch (_) {
+        // Keep other sinks unaffected.
+      }
+    }
+  }
+}

@@ -1,12 +1,18 @@
 import 'package:dio/dio.dart';
 
 import '../core/omni_network_exception.dart';
+import 'dns_resolver.dart';
 
-/// Web/non-IO stub: browser handles TLS, HTTP/2/HTTP/3, and proxies natively.
+/// Web/non-IO stub: browser handles TLS, HTTP/2/HTTP/3, DNS, and proxies natively.
 HttpClientAdapter? buildConfiguredAdapter({
   String? proxy,
   List<String> pinnedSha256 = const [],
   bool allowBadProxyCertificate = true,
+  List<int>? clientCertificateBytes,
+  List<int>? clientPrivateKeyBytes,
+  String? clientCertificatePassword,
+  String? dnsOverHttps,
+  DnsLookup? dnsLookup,
   int? maxConnectionsPerHost,
   Duration? idleConnectionTimeout,
   bool enableHttp2 = false,

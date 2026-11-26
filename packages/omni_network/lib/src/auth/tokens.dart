@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:meta/meta.dart';
 
@@ -13,6 +14,32 @@ final class Tokens {
     this.expiresAt,
     this.expiresIn,
   });
+
+  /// Creates [Tokens] from a JWT [access] string, automatically extracting its
+  /// `exp` claim into [expiresAt] when present so `OmniAuth` can refresh
+  /// proactively before expiry without waiting for a 401 round-trip.
+  factory Tokens.fromJwt(String access, {String? refresh}) =>
+      Tokens(access: access, refresh: refresh, expiresAt: jwtExpiration(access));
+
+  /// Extracts the `exp` UTC timestamp from a JWT string, or `null` if invalid
+  /// or absent.
+  static DateTime? jwtExpiration(String jwt) {
+    final parts = jwt.split('.');
+    if (parts.length != 3) return null;
+    try {
+      final padded = base64Url.normalize(parts[1]);
+      final json = jsonDecode(utf8.decode(base64Url.decode(padded)));
+      if (json is! Map) return null;
+      final exp = json['exp'];
+      if (exp is! num) return null;
+      return DateTime.fromMillisecondsSinceEpoch(
+        (exp * 1000).round(),
+        isUtc: true,
+      );
+    } on FormatException {
+      return null;
+    }
+  }
 
   /// Access token sent as `Authorization: Bearer …`.
   final String access;

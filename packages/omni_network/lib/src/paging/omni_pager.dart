@@ -52,6 +52,9 @@ final class OmniPager<T> {
 
   final List<T> _items = [];
   final Set<String> _seenCursors = {};
+  final StreamController<void> _changes = StreamController<void>.broadcast(
+    sync: true,
+  );
   Object? _cursor;
   bool _hasMore = true;
   int _pages = 0;
@@ -59,6 +62,13 @@ final class OmniPager<T> {
   Future<List<T>>? _loading;
   OmniCancelToken? _token;
   bool _closed = false;
+
+  /// Emits whenever [items], [isLoading], [hasMore], or [lastError] changes.
+  Stream<void> get changes => _changes.stream;
+
+  void _notify() {
+    if (!_closed && !_changes.isClosed) _changes.add(null);
+  }
 
   /// All items loaded so far (unmodifiable view).
   List<T> get items => List.unmodifiable(_items);
@@ -79,7 +89,10 @@ final class OmniPager<T> {
   Future<List<T>> next() {
     if (_closed) throw StateError('OmniPager is closed');
     if (!_hasMore) return Future.value(const []);
-    return _loading ??= _load();
+    final alreadyLoading = _loading != null;
+    final future = _loading ??= _load();
+    if (!alreadyLoading) _notify();
+    return future;
   }
 
   Future<List<T>> _load() async {
@@ -145,6 +158,7 @@ final class OmniPager<T> {
       if (generation == _generation) {
         _loading = null;
         _token = null;
+        _notify();
       }
     }
   }
@@ -162,6 +176,7 @@ final class OmniPager<T> {
     _hasMore = true;
     _pages = 0;
     lastError = null;
+    _notify();
   }
 
   /// [reset] and load the first page.
@@ -175,5 +190,6 @@ final class OmniPager<T> {
     if (_closed) return;
     reset();
     _closed = true;
+    await _changes.close();
   }
 }

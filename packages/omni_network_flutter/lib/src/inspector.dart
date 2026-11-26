@@ -1,4 +1,5 @@
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:omni_network/advanced.dart';
@@ -179,6 +180,118 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
     _entries.clear();
     _open.clear();
     notifyListeners();
+  }
+
+  /// Exports recorded exchanges as a HAR 1.2 JSON string (chronological order,
+  /// already redacted by `OmniNetwork`'s `Redactor`).
+  String toHarJson({bool pretty = true}) {
+    String? headerValue(Map<String, String> headers, String lowerName) {
+      for (final e in headers.entries) {
+        if (e.key.toLowerCase() == lowerName) return e.value;
+      }
+      return null;
+    }
+
+    final harEntries = [
+      for (final e in _entries)
+        () {
+          final uri = Uri.tryParse(e.url);
+          final queryString = uri == null
+              ? const <Map<String, String>>[]
+              : [
+                  for (final q in uri.queryParametersAll.entries)
+                    for (final v in q.value) {'name': q.key, 'value': v},
+                ];
+          final elapsedMs = e.duration?.inMilliseconds ?? 0;
+          final reqMime =
+              headerValue(e.requestHeaders, 'content-type') ?? 'text/plain';
+          final resMime =
+              headerValue(e.responseHeaders, 'content-type') ??
+              'application/octet-stream';
+          return {
+            'startedDateTime': e.startedAt.toUtc().toIso8601String(),
+            'time': elapsedMs,
+            'request': {
+              'method': e.method,
+              'url': e.url,
+              'httpVersion': 'HTTP/1.1',
+              'headers': [
+                for (final h in e.requestHeaders.entries)
+                  {'name': h.key, 'value': h.value},
+              ],
+              'queryString': queryString,
+              if (e.requestBody case final reqBody?)
+                'postData': {'mimeType': reqMime, 'text': reqBody},
+              'headersSize': -1,
+              'bodySize': e.requestBody?.length ?? 0,
+            },
+            'response': {
+              'status': e.statusCode ?? 0,
+              'statusText': e.error ?? '',
+              'httpVersion': 'HTTP/1.1',
+              'headers': [
+                for (final h in e.responseHeaders.entries)
+                  {'name': h.key, 'value': h.value},
+              ],
+              'content': {
+                'size': e.responseBody?.length ?? 0,
+                'mimeType': resMime,
+                'text': ?e.responseBody,
+              },
+              'headersSize': -1,
+              'bodySize': e.responseBody?.length ?? 0,
+            },
+            'cache': const <String, Object?>{},
+            'timings': {'send': 0, 'wait': elapsedMs, 'receive': 0},
+            '_label': e.label,
+            if (e.source case final s?) '_source': s.name,
+            '_error': ?e.error,
+          };
+        }(),
+    ];
+
+    final root = {
+      'log': {
+        'version': '1.2',
+        'creator': const {'name': 'OmniInspector', 'version': '1.0'},
+        'entries': harEntries,
+      },
+    };
+    return pretty
+        ? const JsonEncoder.withIndent('  ').convert(root)
+        : jsonEncode(root);
+  }
+
+  /// Renders recorded requests as a redacted Markdown bug-report summary.
+  String toMarkdownReport() {
+    final buf = StringBuffer('# OmniNetwork Inspector Report\n\n');
+    final all = entries;
+    final errors = all
+        .where(
+          (e) =>
+              e.status == InspectorStatus.failed ||
+              e.status == InspectorStatus.clientError ||
+              e.status == InspectorStatus.serverError,
+        )
+        .length;
+    buf
+      ..writeln('- Recorded requests: ${all.length}')
+      ..writeln('- Failed / 4xx-5xx: $errors\n');
+    for (final e in all) {
+      final status = e.statusCode?.toString() ?? e.status.name;
+      final ms = e.duration == null ? '-' : '${e.duration!.inMilliseconds} ms';
+      buf
+        ..writeln('## [${e.label}] ${e.method} ${e.url}')
+        ..writeln('- Status: `$status` · Duration: `$ms`')
+        ..writeln('- Timestamp: `${e.startedAt.toUtc().toIso8601String()}`');
+      if (e.error != null) buf.writeln('- Error: `${e.error}`');
+      if (e.source != null) buf.writeln('- Source: `${e.source!.name}`');
+      buf
+        ..writeln('\n```bash')
+        ..writeln(e.toCurl())
+        ..writeln('```\n');
+    }
+    return buf.toString();
   }
 }
 

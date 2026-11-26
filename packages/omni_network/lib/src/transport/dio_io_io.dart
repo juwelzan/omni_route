@@ -6,6 +6,7 @@ import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 
 import '../core/omni_network_exception.dart';
+import 'dns_resolver.dart';
 import 'pin_verifier.dart';
 
 /// Normalizes a user-supplied [proxy] string into an [HttpClient.findProxy]
@@ -44,13 +45,15 @@ import 'pin_verifier.dart';
 }
 
 /// Builds a configured [HttpClientAdapter] for `dart:io` platforms.
-///
-/// Returns `null` only when no custom configuration was requested and default
-/// `Dio` behavior is sufficient.
 HttpClientAdapter? buildConfiguredAdapter({
   String? proxy,
   List<String> pinnedSha256 = const [],
   bool allowBadProxyCertificate = true,
+  List<int>? clientCertificateBytes,
+  List<int>? clientPrivateKeyBytes,
+  String? clientCertificatePassword,
+  String? dnsOverHttps,
+  DnsLookup? dnsLookup,
   int? maxConnectionsPerHost,
   Duration? idleConnectionTimeout,
   bool enableHttp2 = false,
@@ -61,19 +64,55 @@ HttpClientAdapter? buildConfiguredAdapter({
       ? null
       : CertificatePinMatcher(pinnedSha256);
 
+  final hasMtls =
+      clientCertificateBytes != null || clientPrivateKeyBytes != null;
+  final resolvedDns =
+      dnsLookup ??
+      (dnsOverHttps != null
+          ? DnsOverHttpsResolver(endpoint: Uri.parse(dnsOverHttps)).resolve
+          : null);
+
+  SecurityContext? createSecurityContext() {
+    if (matcher == null && !hasMtls) return null;
+    // When pinning is active, disable OS/user trusted roots so every TLS
+    // certificate must pass SHA-256 verification.
+    final ctx = SecurityContext(withTrustedRoots: matcher == null);
+    if (clientCertificateBytes != null) {
+      ctx.useCertificateChainBytes(
+        clientCertificateBytes,
+        password: clientCertificatePassword,
+      );
+    }
+    if (clientPrivateKeyBytes != null) {
+      ctx.usePrivateKeyBytes(
+        clientPrivateKeyBytes,
+        password: clientCertificatePassword,
+      );
+    }
+    return ctx;
+  }
+
+  bool Function(X509Certificate cert, String host, int port)? badCertFn() {
+    if (matcher != null) {
+      return (cert, _, _) => matcher.matchesDer(
+        cert.der,
+        startValidity: cert.startValidity,
+        endValidity: cert.endValidity,
+      );
+    }
+    if (proxyConfig != null && allowBadProxyCertificate) {
+      return (_, _, _) => true;
+    }
+    return null;
+  }
+
   HttpClient createClient() {
-    // Disabling trusted roots forces EVERY TLS certificate through
-    // badCertificateCallback so malicious or user-installed CAs cannot bypass
-    // SHA-256 pinning silently.
-    final client = matcher != null
-        ? HttpClient(context: SecurityContext(withTrustedRoots: false))
+    final securityContext = createSecurityContext();
+    final client = securityContext != null
+        ? HttpClient(context: securityContext)
         : HttpClient();
 
-    if (idleConnectionTimeout != null) {
-      client.idleTimeout = idleConnectionTimeout;
-    } else {
-      client.idleTimeout = const Duration(seconds: 3);
-    }
+    client.idleTimeout = idleConnectionTimeout ?? const Duration(seconds: 3);
     if (maxConnectionsPerHost != null) {
       client.maxConnectionsPerHost = maxConnectionsPerHost;
     }
@@ -81,17 +120,56 @@ HttpClientAdapter? buildConfiguredAdapter({
     if (proxyConfig != null) {
       final rule = proxyConfig.rule;
       client.findProxy = (_) => rule;
-      if (allowBadProxyCertificate && matcher == null) {
-        client.badCertificateCallback = (_, _, _) => true;
-      }
     }
 
-    if (matcher != null) {
-      client.badCertificateCallback = (cert, _, _) => matcher.matchesDer(
-        cert.der,
-        startValidity: cert.startValidity,
-        endValidity: cert.endValidity,
-      );
+    final badCert = badCertFn();
+    if (badCert != null) {
+      client.badCertificateCallback = badCert;
+    }
+
+    if (resolvedDns != null) {
+      client.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) {
+        if (proxyHost != null) {
+          return Socket.startConnect(proxyHost, proxyPort ?? 80);
+        }
+        final port = url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80);
+        ConnectionTask<Socket>? tcpTask;
+        var cancelled = false;
+        Future<Socket> connect() async {
+          Object connectHost = url.host;
+          if (InternetAddress.tryParse(url.host) == null) {
+            final ips = await resolvedDns(url.host);
+            if (cancelled) {
+              throw const SocketException('Connection attempt cancelled');
+            }
+            if (ips.isNotEmpty) {
+              connectHost = InternetAddress.tryParse(ips.first) ?? ips.first;
+            }
+          }
+          tcpTask = await Socket.startConnect(connectHost, port);
+          if (cancelled) {
+            tcpTask!.cancel();
+            throw const SocketException('Connection attempt cancelled');
+          }
+          final socket = await tcpTask!.socket;
+          if (url.scheme != 'https') return socket;
+          return SecureSocket.secure(
+            socket,
+            host: url.host,
+            context: securityContext,
+            onBadCertificate: badCert == null
+                ? null
+                : (cert) => badCert(cert, url.host, port),
+          );
+        }
+
+        return Future.value(
+          ConnectionTask.fromSocket(connect(), () {
+            cancelled = true;
+            tcpTask?.cancel();
+          }),
+        );
+      };
     }
 
     final custom = onHttpClientCreate?.call(client);
@@ -112,8 +190,11 @@ HttpClientAdapter? buildConfiguredAdapter({
         if (proxyConfig?.uri != null) {
           settings.proxy = proxyConfig!.uri;
         }
+        final ctx = createSecurityContext();
+        if (ctx != null) {
+          settings.context = ctx;
+        }
         if (matcher != null) {
-          settings.context = SecurityContext(withTrustedRoots: false);
           settings.onBadCertificate = (cert) => matcher.matchesDer(
             cert.der,
             startValidity: cert.startValidity,
@@ -126,8 +207,6 @@ HttpClientAdapter? buildConfiguredAdapter({
     ),
     fallbackAdapter: ioAdapter,
   );
-  // Plain http:// URLs cannot negotiate h2 via TLS ALPN, so route them through
-  // IOHttpClientAdapter directly instead of assuming h2c on plaintext sockets.
   return _SchemeRoutingHttpAdapter(h2Adapter, ioAdapter);
 }
 

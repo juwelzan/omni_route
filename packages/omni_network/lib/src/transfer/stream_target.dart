@@ -28,7 +28,7 @@ final class OmniStreamResponse {
 }
 
 /// Forwards a download body to a stream. Internal.
-final class StreamTarget implements DownloadTarget {
+final class StreamTarget extends DownloadTarget {
   /// Creates a target; [onCancel] aborts the request.
   StreamTarget(void Function() onCancel) {
     _controller = StreamController<List<int>>(onCancel: onCancel);

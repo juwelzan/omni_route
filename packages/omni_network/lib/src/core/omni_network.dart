@@ -26,11 +26,14 @@ import '../transfer/file_target_stub.dart'
     if (dart.library.io) '../transfer/file_target_io.dart';
 import '../transfer/multipart.dart';
 import '../transport/dio_transport.dart';
+import '../transport/dns_resolver.dart';
 import '../transport/transport.dart';
 import 'cancel_signal.dart';
 import 'cancel_token.dart';
 import 'decoding.dart';
+import 'gzip_stub.dart' if (dart.library.io) 'gzip_io.dart';
 import 'interceptor.dart';
+import 'omni_metrics.dart';
 import 'omni_network_exception.dart';
 import 'omni_request.dart';
 import 'omni_response.dart';
@@ -60,6 +63,13 @@ final class OmniNetwork {
   ///   raw base64, or hex) enforced on every TLS handshake.
   /// * [enableHttp2]: enables HTTP/2 multiplexing with TLS ALPN fallback to
   ///   HTTP/1.1 on IO platforms.
+  /// * [clientCertificateBytes], [clientPrivateKeyBytes],
+  ///   [clientCertificatePassword]: Mutual TLS (mTLS) client certificate chain
+  ///   and private key bytes on IO platforms.
+  /// * [dnsOverHttps], [dnsLookup]: custom DNS resolution or DNS-over-HTTPS
+  ///   endpoint on IO platforms.
+  /// * [slowRequestThreshold], [onSlowRequest]: invokes [onSlowRequest] when
+  ///   a network call meets or exceeds [slowRequestThreshold].
   /// * [maxConnectionsPerHost], [idleConnectionTimeout]: connection pool
   ///   tuning on IO platforms.
   /// * [decoders]: global model decoder registry (`{User: User.fromJson}`) so
@@ -108,6 +118,13 @@ final class OmniNetwork {
     bool allowBadProxyCertificate = true,
     List<String> pinnedSha256 = const [],
     bool enableHttp2 = false,
+    List<int>? clientCertificateBytes,
+    List<int>? clientPrivateKeyBytes,
+    String? clientCertificatePassword,
+    String? dnsOverHttps,
+    DnsLookup? dnsLookup,
+    Duration? slowRequestThreshold,
+    void Function(Uri uri, Duration elapsed)? onSlowRequest,
     int? maxConnectionsPerHost,
     Duration? idleConnectionTimeout,
     int? maxConcurrentRequests,
@@ -136,12 +153,17 @@ final class OmniNetwork {
         (proxy != null ||
             pinnedSha256.isNotEmpty ||
             enableHttp2 ||
+            clientCertificateBytes != null ||
+            clientPrivateKeyBytes != null ||
+            dnsOverHttps != null ||
+            dnsLookup != null ||
             maxConnectionsPerHost != null ||
             idleConnectionTimeout != null)) {
       throw ArgumentError(
         'Cannot combine a custom transport: with proxy:, pinnedSha256:, '
-        'enableHttp2:, maxConnectionsPerHost:, or idleConnectionTimeout:. '
-        'Configure those on DioTransport.configured(...) directly.',
+        'enableHttp2:, mTLS, DNS, maxConnectionsPerHost:, or '
+        'idleConnectionTimeout:. Configure those on DioTransport.configured(...) '
+        'directly.',
       );
     }
 
@@ -154,6 +176,10 @@ final class OmniNetwork {
         effectiveProxy != null ||
         pinnedSha256.isNotEmpty ||
         enableHttp2 ||
+        clientCertificateBytes != null ||
+        clientPrivateKeyBytes != null ||
+        dnsOverHttps != null ||
+        dnsLookup != null ||
         connectTimeout != null ||
         sendTimeout != null ||
         receiveTimeout != null ||
@@ -167,6 +193,11 @@ final class OmniNetwork {
                 proxy: effectiveProxy,
                 pinnedSha256: pinnedSha256,
                 allowBadProxyCertificate: allowBadProxyCertificate,
+                clientCertificateBytes: clientCertificateBytes,
+                clientPrivateKeyBytes: clientPrivateKeyBytes,
+                clientCertificatePassword: clientCertificatePassword,
+                dnsOverHttps: dnsOverHttps,
+                dnsLookup: dnsLookup,
                 connectTimeout: connectTimeout,
                 sendTimeout: sendTimeout,
                 receiveTimeout: receiveTimeout,
@@ -184,6 +215,8 @@ final class OmniNetwork {
       sendTimeout: sendTimeout,
       receiveTimeout: receiveTimeout,
       maxConcurrentRequests: maxConcurrentRequests,
+      slowRequestThreshold: slowRequestThreshold,
+      onSlowRequest: onSlowRequest,
       decoders: decoders,
       transport: resolvedTransport,
       ownsTransport: transport == null,
@@ -226,6 +259,8 @@ final class OmniNetwork {
     Duration? sendTimeout,
     Duration? receiveTimeout,
     int? maxConcurrentRequests,
+    Duration? slowRequestThreshold,
+    void Function(Uri uri, Duration elapsed)? onSlowRequest,
     Map<Type, JsonDecoder<Object?>> decoders = const {},
     ResponseAdapter responseAdapter = const PlainResponseAdapter(),
     bool enableLogging = false,
@@ -263,6 +298,8 @@ final class OmniNetwork {
       sendTimeout: sendTimeout ?? dio.options.sendTimeout,
       receiveTimeout: receiveTimeout ?? dio.options.receiveTimeout,
       maxConcurrentRequests: maxConcurrentRequests,
+      slowRequestThreshold: slowRequestThreshold,
+      onSlowRequest: onSlowRequest,
       decoders: decoders,
       transport: DioTransport(dio: dio),
       ownsTransport: closeDio,
@@ -295,6 +332,8 @@ final class OmniNetwork {
     this.sendTimeout,
     this.receiveTimeout,
     this.maxConcurrentRequests,
+    this.slowRequestThreshold,
+    this.onSlowRequest,
     Map<Type, JsonDecoder<Object?>> decoders = const {},
     required this._transport,
     required this._ownsTransport,
@@ -395,6 +434,55 @@ final class OmniNetwork {
   final int? maxConcurrentRequests;
   int _activeSlots = 0;
   final Queue<Completer<void>> _slotWaiters = Queue<Completer<void>>();
+
+  /// Latency threshold at or above which [onSlowRequest] fires.
+  final Duration? slowRequestThreshold;
+
+  /// Callback invoked when a non-cached request meets/exceeds
+  /// [slowRequestThreshold].
+  final void Function(Uri uri, Duration elapsed)? onSlowRequest;
+
+  int _totalRequests = 0;
+  int _successCount = 0;
+  int _failureCount = 0;
+  int _cacheHits = 0;
+  int _revalidatedCount = 0;
+  int _activeMetricRequests = 0;
+  Duration _totalLatency = Duration.zero;
+  Duration? _lastLatency;
+
+  /// Current runtime telemetry snapshot for this client.
+  OmniNetworkMetrics get metrics => OmniNetworkMetrics(
+    totalRequests: _totalRequests,
+    successCount: _successCount,
+    failureCount: _failureCount,
+    cacheHits: _cacheHits,
+    revalidatedCount: _revalidatedCount,
+    activeRequests: _activeMetricRequests,
+    averageLatency: _totalRequests == 0
+        ? Duration.zero
+        : Duration(
+            microseconds: _totalLatency.inMicroseconds ~/ _totalRequests,
+          ),
+    lastLatency: _lastLatency,
+  );
+
+  /// Resets cumulative [metrics] counters.
+  void resetMetrics() {
+    _totalRequests = 0;
+    _successCount = 0;
+    _failureCount = 0;
+    _cacheHits = 0;
+    _revalidatedCount = 0;
+    _totalLatency = Duration.zero;
+    _lastLatency = null;
+  }
+
+  final StreamController<NetworkLogRecord> _logController =
+      StreamController<NetworkLogRecord>.broadcast(sync: true);
+
+  /// Stream of redacted [NetworkLogRecord] events emitted while logging is on.
+  Stream<NetworkLogRecord> get logStream => _logController.stream;
 
   final Map<Type, JsonDecoder<Object?>> _decoders;
 
@@ -592,9 +680,14 @@ final class OmniNetwork {
         ..logRequestBody = _baseLogOptions.requestBody
         ..logResponseBody = _logResponse;
     } else if (_enableLogging && (_logInRelease || !isReleaseBuild)) {
-      final sink = _customLogSink ?? (_ownedPrettySink ??= PrettyLogSink(options: options));
+      final targetSink =
+          _customLogSink ?? (_ownedPrettySink ??= PrettyLogSink(options: options));
       _logger = NetworkLogger(
-        sink,
+        _TapLogSink(targetSink, (record) {
+          if (!_closed && !_logController.isClosed) {
+            _logController.add(record);
+          }
+        }),
         redactor,
         logBodies: _logBodies,
         logRequestBody: _baseLogOptions.requestBody,
@@ -839,10 +932,77 @@ final class OmniNetwork {
     return Uri(queryParameters: normalized).query;
   }
 
+  /// Executes a GraphQL [query] / mutation at [path], unwraps `data` (and
+  /// optional [dataKey]), throws [DecodeFailure] when `errors` is non-empty,
+  /// and decodes the payload into `T`.
+  Future<T> graphql<T>(
+    String path, {
+    required String query,
+    Map<String, Object?> variables = const {},
+    String? operationName,
+    String? dataKey,
+    JsonDecoder<T>? decoder,
+    Map<String, Object?> queryParams = const {},
+    Map<String, String> headers = const {},
+    Duration? timeout,
+    OmniCancelToken? cancelToken,
+    RetryPolicy? retry,
+    bool auth = true,
+  }) async => (await graphqlResponse<T>(
+    path,
+    query: query,
+    variables: variables,
+    operationName: operationName,
+    dataKey: dataKey,
+    decoder: decoder,
+    queryParams: queryParams,
+    headers: headers,
+    timeout: timeout,
+    cancelToken: cancelToken,
+    retry: retry,
+    auth: auth,
+  )).data;
+
+  /// Like [graphql] but returns the full [OmniResponse].
+  Future<OmniResponse<T>> graphqlResponse<T>(
+    String path, {
+    required String query,
+    Map<String, Object?> variables = const {},
+    String? operationName,
+    String? dataKey,
+    JsonDecoder<T>? decoder,
+    Map<String, Object?> queryParams = const {},
+    Map<String, String> headers = const {},
+    Duration? timeout,
+    OmniCancelToken? cancelToken,
+    RetryPolicy? retry,
+    bool auth = true,
+  }) => _send<T>(
+    _req(
+      HttpMethod.post,
+      path,
+      {
+        'query': query,
+        if (variables.isNotEmpty) 'variables': variables,
+        'operationName': ?operationName,
+      },
+      queryParams,
+      headers,
+      timeout,
+      cancelToken,
+      retry,
+      null,
+      auth,
+    ),
+    decoder: decoder,
+    adapter: _GraphqlResponseAdapter(dataKey: dataKey),
+  );
+
   /// POSTs [body] (JSON value, `String` or bytes) and decodes the response.
   Future<T> post<T>(
     String path, {
     Object? body,
+    bool compress = false,
     JsonDecoder<T>? decoder,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -854,6 +1014,7 @@ final class OmniNetwork {
   }) async => (await postResponse<T>(
     path,
     body: body,
+    compress: compress,
     decoder: decoder,
     query: query,
     headers: headers,
@@ -868,6 +1029,7 @@ final class OmniNetwork {
   Future<OmniResponse<T>> postResponse<T>(
     String path, {
     Object? body,
+    bool compress = false,
     JsonDecoder<T>? decoder,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -888,6 +1050,7 @@ final class OmniNetwork {
       retry,
       null,
       auth,
+      compress: compress,
     ),
     decoder: decoder,
     adapter: adapter,
@@ -897,6 +1060,7 @@ final class OmniNetwork {
   Future<T> put<T>(
     String path, {
     Object? body,
+    bool compress = false,
     JsonDecoder<T>? decoder,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -908,6 +1072,7 @@ final class OmniNetwork {
   }) async => (await putResponse<T>(
     path,
     body: body,
+    compress: compress,
     decoder: decoder,
     query: query,
     headers: headers,
@@ -922,6 +1087,7 @@ final class OmniNetwork {
   Future<OmniResponse<T>> putResponse<T>(
     String path, {
     Object? body,
+    bool compress = false,
     JsonDecoder<T>? decoder,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -942,6 +1108,7 @@ final class OmniNetwork {
       retry,
       null,
       auth,
+      compress: compress,
     ),
     decoder: decoder,
     adapter: adapter,
@@ -951,6 +1118,7 @@ final class OmniNetwork {
   Future<T> patch<T>(
     String path, {
     Object? body,
+    bool compress = false,
     JsonDecoder<T>? decoder,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -962,6 +1130,7 @@ final class OmniNetwork {
   }) async => (await patchResponse<T>(
     path,
     body: body,
+    compress: compress,
     decoder: decoder,
     query: query,
     headers: headers,
@@ -976,6 +1145,7 @@ final class OmniNetwork {
   Future<OmniResponse<T>> patchResponse<T>(
     String path, {
     Object? body,
+    bool compress = false,
     JsonDecoder<T>? decoder,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -996,6 +1166,7 @@ final class OmniNetwork {
       retry,
       null,
       auth,
+      compress: compress,
     ),
     decoder: decoder,
     adapter: adapter,
@@ -1089,11 +1260,13 @@ final class OmniNetwork {
     OmniCancelToken? cancelToken,
     RetryPolicy? retry,
     CachePolicy? cache,
-    bool auth,
-  ) => OmniRequest(
+    bool auth, {
+    bool compress = false,
+  }) => OmniRequest(
     method,
     path,
     body: body,
+    compress: compress,
     query: query,
     headers: headers,
     timeout: timeout,
@@ -1284,16 +1457,18 @@ final class OmniNetwork {
 
   /// Downloads [path] into memory. See [upload] for timeouts/cancel.
   /// [onProgress] receives bytes received and `content-length` (if sent).
+  /// Optional [expectedSha256] verifies the integrity digest before returning.
   Future<Uint8List> downloadBytes(
     String path, {
     ProgressCallback? onProgress,
+    String? expectedSha256,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     Duration? timeout,
     Duration? idleTimeout,
     OmniCancelToken? cancelToken,
   }) async {
-    final target = BytesTarget();
+    final target = BytesTarget(expectedSha256: expectedSha256);
     await _downloadTo(
       target,
       OmniRequest.get(
@@ -1364,13 +1539,15 @@ final class OmniNetwork {
   ///
   /// Data is written to `<filePath>.part` and renamed on success. When the
   /// download fails or is cancelled the `.part` file is kept; with
-  /// [resume] a later call continues it using an HTTP `Range` request if
-  /// the server answers `206`, or starts over if it answers `200`.
-  /// Returns the final response (status and headers; empty body).
+  /// [resume] a later call sends `Range` + `If-Range` (from cached ETag or
+  /// Last-Modified) and continues if the server answers `206`, or starts over
+  /// if it answers `200`. Optional [expectedSha256] verifies file integrity
+  /// before replacing [filePath].
   Future<OmniRawResponse> downloadToFile(
     String path,
     String filePath, {
     bool resume = false,
+    String? expectedSha256,
     ProgressCallback? onProgress,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
@@ -1378,7 +1555,7 @@ final class OmniNetwork {
     Duration? idleTimeout,
     OmniCancelToken? cancelToken,
   }) => _downloadTo(
-    FileTarget(filePath, resume: resume),
+    FileTarget(filePath, resume: resume, expectedSha256: expectedSha256),
     OmniRequest.get(
       path,
       query: query,
@@ -1398,8 +1575,16 @@ final class OmniNetwork {
     Duration? idleTimeout,
   ) async {
     final from = await target.existingLength();
+    var outgoing = request;
+    if (from > 0) {
+      outgoing = outgoing.withHeader('Range', 'bytes=$from-');
+      final validator = await target.existingValidator();
+      if (validator != null && outgoing.header('if-range') == null) {
+        outgoing = outgoing.withHeader('If-Range', validator);
+      }
+    }
     final raw = await _pipeline(
-      from > 0 ? request.withHeader('Range', 'bytes=$from-') : request,
+      outgoing,
       _Transfer(
         target: target,
         onReceive: onProgress,
@@ -1433,6 +1618,8 @@ final class OmniNetwork {
     }
     var current = request;
     final epoch = _cancelEpoch;
+    final watch = Stopwatch()..start();
+    _activeMetricRequests++;
     try {
       for (final i in interceptors) {
         final r = current;
@@ -1444,8 +1631,38 @@ final class OmniNetwork {
         final r = current;
         response = await _guard(() => i.onResponse(r, res));
       }
+      final elapsed = watch.elapsed;
+      _totalRequests++;
+      _totalLatency += elapsed;
+      _lastLatency = elapsed;
+      if (response.isSuccess) {
+        _successCount++;
+      } else {
+        _failureCount++;
+      }
+      if (response.source == ResponseSource.cache) {
+        _cacheHits++;
+      } else if (response.source == ResponseSource.revalidated) {
+        _revalidatedCount++;
+      }
+      final slowLimit = slowRequestThreshold;
+      if (response.source != ResponseSource.cache &&
+          slowLimit != null &&
+          elapsed >= slowLimit) {
+        final slowCb = onSlowRequest;
+        if (slowCb != null) {
+          try {
+            slowCb(response.requestUri ?? safeUri(_resolveUri(current)), elapsed);
+          } catch (_) {}
+        }
+      }
       return response;
     } on OmniNetworkException catch (e) {
+      final elapsed = watch.elapsed;
+      _totalRequests++;
+      _failureCount++;
+      _totalLatency += elapsed;
+      _lastLatency = elapsed;
       for (final i in interceptors.reversed) {
         try {
           await i.onError(current, e);
@@ -1454,6 +1671,8 @@ final class OmniNetwork {
         }
       }
       rethrow;
+    } finally {
+      _activeMetricRequests--;
     }
   }
 
@@ -1545,9 +1764,7 @@ final class OmniNetwork {
     int epoch,
   ) async {
     final auth = _bearer;
-    if (request.skipAuth ||
-        insideRefresh ||
-        request.header(auth.headerName) != null) {
+    if (request.skipAuth || insideRefresh || auth.hasCredential(request)) {
       return _sendOnce(request, t);
     }
     final refreshesBefore = auth.refreshCount;
@@ -1820,6 +2037,9 @@ final class OmniNetwork {
     final length = res.contentLength;
     final total = length == null ? null : length + received;
     if (target is StreamTarget) target.head(res.statusCode, res.headers);
+    await target.saveValidator(
+      res.headers['etag'] ?? res.headers['last-modified'],
+    );
     await target.begin(append: append);
     final done = Completer<void>();
     void fail(Object e) {
@@ -1929,6 +2149,7 @@ final class OmniNetwork {
     }
     _inflight.clear();
     if (_ownsTransport) await _transport.close(force: true);
+    if (!_logController.isClosed) unawaited(_logController.close());
   }
 
   Uri _resolveUri(OmniRequest request) {
@@ -1988,20 +2209,21 @@ final class OmniNetwork {
       );
     }
     void type(String t) => headers.putIfAbsent('content-type', () => t);
+    final Uint8List rawBytes;
     switch (body) {
       case Uint8List():
         type('application/octet-stream');
-        return body;
+        rawBytes = body;
       case List<int>():
         type('application/octet-stream');
-        return Uint8List.fromList(body);
+        rawBytes = Uint8List.fromList(body);
       case String():
         type('text/plain; charset=utf-8');
-        return utf8.encode(body);
+        rawBytes = utf8.encode(body);
       case Map() || List() || num() || bool():
         type('application/json; charset=utf-8');
         try {
-          return utf8.encode(jsonEncode(body));
+          rawBytes = utf8.encode(jsonEncode(body));
         } on JsonUnsupportedObjectError catch (e) {
           throw RequestFailure(
             'Body is not JSON-encodable',
@@ -2016,6 +2238,14 @@ final class OmniNetwork {
           uri: safeUri(uri),
         );
     }
+    if (request.compress && !headers.containsKey('content-encoding')) {
+      final zipped = tryGzipCompress(rawBytes);
+      if (zipped != null) {
+        headers['content-encoding'] = 'gzip';
+        return zipped;
+      }
+    }
+    return rawBytes;
   }
 
   static Uri _parseBase(String baseUrl) {
@@ -2071,4 +2301,71 @@ final class _Transfer {
   final Duration? overall;
   final Duration? idle;
   final int resumeFrom;
+}
+
+final class _TapLogSink implements LogSink {
+  _TapLogSink(this.inner, this.onRecord);
+
+  final LogSink inner;
+  final void Function(NetworkLogRecord record) onRecord;
+
+  @override
+  void log(NetworkLogRecord record) {
+    try {
+      inner.log(record);
+    } catch (_) {}
+    try {
+      onRecord(record);
+    } catch (_) {}
+  }
+}
+
+final class _GraphqlResponseAdapter implements ResponseAdapter {
+  const _GraphqlResponseAdapter({this.dataKey});
+
+  final String? dataKey;
+
+  @override
+  Object? unwrap(Object? json, OmniRawResponse response) {
+    if (json is! Map) {
+      throw DecodeFailure(
+        'Expected a GraphQL JSON object response',
+        uri: response.requestUri,
+      );
+    }
+    final errors = json['errors'];
+    if (errors is List && errors.isNotEmpty) {
+      final messages = errors
+          .map((e) => e is Map ? (e['message']?.toString() ?? '$e') : '$e')
+          .join('; ');
+      throw DecodeFailure(
+        'GraphQL errors: $messages',
+        uri: response.requestUri,
+        cause: errors,
+      );
+    }
+    if (errors != null && errors is! List) {
+      throw DecodeFailure(
+        'GraphQL errors: $errors',
+        uri: response.requestUri,
+        cause: errors,
+      );
+    }
+    if (!json.containsKey('data')) {
+      throw DecodeFailure(
+        'GraphQL response is missing "data"',
+        uri: response.requestUri,
+      );
+    }
+    final data = json['data'];
+    final key = dataKey;
+    if (key == null) return data;
+    if (data is! Map || !data.containsKey(key)) {
+      throw DecodeFailure(
+        'GraphQL "data" is missing "$key"',
+        uri: response.requestUri,
+      );
+    }
+    return data[key];
+  }
 }

@@ -6,6 +6,7 @@ import '../core/cancel_signal.dart';
 import '../core/omni_network_exception.dart';
 import '../core/omni_response.dart';
 import 'dio_io_stub.dart' if (dart.library.io) 'dio_io_io.dart';
+import 'dns_resolver.dart';
 import 'transport.dart';
 
 /// Default [Transport] backed by `package:dio`.
@@ -31,6 +32,11 @@ final class DioTransport implements ProgressReportingTransport {
     String? proxy,
     List<String> pinnedSha256 = const [],
     bool allowBadProxyCertificate = true,
+    List<int>? clientCertificateBytes,
+    List<int>? clientPrivateKeyBytes,
+    String? clientCertificatePassword,
+    String? dnsOverHttps,
+    DnsLookup? dnsLookup,
     Duration? connectTimeout,
     Duration? sendTimeout,
     Duration? receiveTimeout,
@@ -43,6 +49,10 @@ final class DioTransport implements ProgressReportingTransport {
     final hasAdapterConfig =
         proxy != null ||
         pinnedSha256.isNotEmpty ||
+        clientCertificateBytes != null ||
+        clientPrivateKeyBytes != null ||
+        dnsOverHttps != null ||
+        dnsLookup != null ||
         maxConnectionsPerHost != null ||
         idleConnectionTimeout != null ||
         enableHttp2 ||
@@ -55,6 +65,11 @@ final class DioTransport implements ProgressReportingTransport {
                 proxy: proxy,
                 pinnedSha256: pinnedSha256,
                 allowBadProxyCertificate: allowBadProxyCertificate,
+                clientCertificateBytes: clientCertificateBytes,
+                clientPrivateKeyBytes: clientPrivateKeyBytes,
+                clientCertificatePassword: clientCertificatePassword,
+                dnsOverHttps: dnsOverHttps,
+                dnsLookup: dnsLookup,
                 maxConnectionsPerHost: maxConnectionsPerHost,
                 idleConnectionTimeout: idleConnectionTimeout,
                 enableHttp2: enableHttp2,

@@ -58,6 +58,10 @@ final class CertificatePinMatcher {
     return false;
   }
 
+  /// Returns `true` when raw SHA-256 digest [bytes] match any configured pin.
+  bool matchesDigestBytes(List<int> bytes) =>
+      _matchesDigest(bytes is Uint8List ? bytes : Uint8List.fromList(bytes));
+
   static bool _constantTimeEquals(Uint8List a, Uint8List b) {
     if (a.length != b.length) return false;
     var diff = 0;
@@ -73,7 +77,8 @@ final class CertificatePinMatcher {
       throw ArgumentError.value(raw, 'pinnedSha256', 'Pin cannot be empty');
     }
     if (normalized.length >= 7 &&
-        normalized.substring(0, 7).toLowerCase() == 'sha256/') {
+        (normalized.substring(0, 7).toLowerCase() == 'sha256/' ||
+            normalized.substring(0, 7).toLowerCase() == 'sha256:')) {
       normalized = normalized.substring(7).trim();
     }
 

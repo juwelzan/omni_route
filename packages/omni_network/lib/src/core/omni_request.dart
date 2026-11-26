@@ -44,6 +44,7 @@ final class OmniRequest {
     this.query = const {},
     this.headers = const {},
     this.body,
+    this.compress = false,
     this.timeout,
     this.connectTimeout,
     this.sendTimeout,
@@ -86,6 +87,7 @@ final class OmniRequest {
   const OmniRequest.post(
     String path, {
     Object? body,
+    bool compress = false,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     Duration? timeout,
@@ -100,6 +102,7 @@ final class OmniRequest {
          HttpMethod.post,
          path,
          body: body,
+         compress: compress,
          query: query,
          headers: headers,
          timeout: timeout,
@@ -116,6 +119,7 @@ final class OmniRequest {
   const OmniRequest.put(
     String path, {
     Object? body,
+    bool compress = false,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     Duration? timeout,
@@ -130,6 +134,7 @@ final class OmniRequest {
          HttpMethod.put,
          path,
          body: body,
+         compress: compress,
          query: query,
          headers: headers,
          timeout: timeout,
@@ -146,6 +151,7 @@ final class OmniRequest {
   const OmniRequest.patch(
     String path, {
     Object? body,
+    bool compress = false,
     Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     Duration? timeout,
@@ -160,6 +166,7 @@ final class OmniRequest {
          HttpMethod.patch,
          path,
          body: body,
+         compress: compress,
          query: query,
          headers: headers,
          timeout: timeout,
@@ -246,6 +253,10 @@ final class OmniRequest {
   /// Request body, see class docs.
   final Object? body;
 
+  /// Whether to gzip-compress encoded request bodies on IO platforms (`post`,
+  /// `put`, `patch`) and attach `Content-Encoding: gzip`.
+  final bool compress;
+
   /// Overall deadline for this request; overrides the client's timeout.
   final Duration? timeout;
 
@@ -280,6 +291,7 @@ final class OmniRequest {
     Map<String, Object?>? query,
     Map<String, String>? headers,
     Object? body = _unset,
+    bool? compress,
     Duration? timeout,
     Duration? connectTimeout,
     Duration? sendTimeout,
@@ -294,6 +306,7 @@ final class OmniRequest {
     query: query ?? this.query,
     headers: headers ?? this.headers,
     body: identical(body, _unset) ? this.body : body,
+    compress: compress ?? this.compress,
     timeout: timeout ?? this.timeout,
     connectTimeout: connectTimeout ?? this.connectTimeout,
     sendTimeout: sendTimeout ?? this.sendTimeout,

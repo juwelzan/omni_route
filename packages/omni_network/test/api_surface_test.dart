@@ -8,6 +8,10 @@ import 'package:test/test.dart';
 /// Names an app sees with `import 'package:omni_network/omni_network.dart'`.
 const simple = [
   'OmniNetwork',
+  'OmniNetworkMetrics',
+  'ApiKeyAuth',
+  'BasicAuth',
+  'HmacSignerAuth',
   'OmniRequest',
   'HttpMethod',
   'OmniResponse',
@@ -72,11 +76,13 @@ const advancedOnly = [
   'EnvelopeResponseAdapter',
   'LogSink',
   'PrintLogSink',
+  'MultiLogSink',
   'NetworkLogRecord',
   'Redactor',
   'CircuitBreaker',
   'OfflineQueue',
   'QueueStore',
+  'FileQueueStore',
   'QueuedRequest',
   'MultipartBody',
   'OmniStreamResponse',
@@ -87,6 +93,8 @@ const advancedOnly = [
   'JsonDecoder',
   'ProgressCallback',
   'CurlImport',
+  'DnsLookup',
+  'DnsOverHttpsResolver',
 ];
 
 const testingOnly = [
@@ -94,6 +102,8 @@ const testingOnly = [
   'MockResponse',
   'MockRequest',
   'MockTransport',
+  'RecordingTransport',
+  'RecordedExchange',
 ];
 
 /// Analyzes a file that mentions [names] as types under [imports] and

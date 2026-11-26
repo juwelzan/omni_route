@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:meta/meta.dart';
+
 import '../core/omni_network.dart';
 import '../core/omni_network_exception.dart';
 import '../core/omni_request.dart';
@@ -61,7 +63,32 @@ final class BearerAuth implements AuthProvider {
     this.headerName = 'Authorization',
     this.refreshTimeout = const Duration(seconds: 30),
     this.isExpiring,
-  }) : isExpired = isExpired ?? _is401;
+  }) : isExpired = isExpired ?? _is401,
+       _customAttach = null,
+       _customHasCredential = null;
+
+  /// Internal custom signer constructor used by `ApiKeyAuth` and
+  /// `HmacSignerAuth`.
+  @internal
+  BearerAuth.custom({
+    FutureOr<String?> Function()? token,
+    required OmniRequest Function(OmniRequest request, String? token) attach,
+    bool Function(OmniRequest request)? hasCredential,
+    this.headerName = 'Authorization',
+  }) : token = token ?? _emptyToken,
+       refresh = null,
+       onRefreshFailed = null,
+       isExpired = _is401,
+       scheme = '',
+       refreshTimeout = const Duration(seconds: 30),
+       isExpiring = null,
+       _customAttach = attach,
+       _customHasCredential = hasCredential;
+
+  static String? _emptyToken() => null;
+
+  final OmniRequest Function(OmniRequest request, String? token)? _customAttach;
+  final bool Function(OmniRequest request)? _customHasCredential;
 
   /// When it returns `true` before a request, the token is refreshed first
   /// (single flight), e.g. because it expires within seconds.
@@ -107,23 +134,35 @@ final class BearerAuth implements AuthProvider {
   @override
   BearerAuth bearerFor(OmniNetwork client) => this;
 
+  /// Whether [request] already carries an explicit credential. Internal.
+  bool hasCredential(OmniRequest request) =>
+      _customHasCredential?.call(request) ?? request.header(headerName) != null;
+
   /// [request] with the token header added. Internal.
-  OmniRequest attach(OmniRequest request, String? token) =>
-      token == null || token.isEmpty
-      ? request
-      : request.withHeader(
-          headerName,
-          scheme.isEmpty ? token : '$scheme $token',
-        );
+  OmniRequest attach(OmniRequest request, String? token) {
+    final custom = _customAttach;
+    if (custom != null) return custom(request, token);
+    return token == null || token.isEmpty
+        ? request
+        : request.withHeader(
+            headerName,
+            scheme.isEmpty ? token : '$scheme $token',
+          );
+  }
 
   /// The token to use now, waiting for a running refresh first. Internal.
   Future<String?> current() async {
     final running = _inFlight;
+    final checkExpiring = isExpiring;
     if (running != null) {
       await running;
-    } else if (refresh != null && (isExpiring?.call() ?? false)) {
+    } else if (refresh != null && checkExpiring != null) {
       final used = await token();
-      await (_inFlight ??= _run(used));
+      if (checkExpiring()) {
+        await (_inFlight ??= _run(used));
+      } else {
+        return used;
+      }
     }
     return token();
   }

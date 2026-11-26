@@ -101,6 +101,22 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           'Network (${widget.inspector.entries.length})',
           actions: [
             IconButton(
+              tooltip: 'Copy HAR',
+              icon: const Icon(Icons.download_outlined),
+              onPressed: widget.inspector.entries.isEmpty
+                  ? null
+                  : () {
+                      Clipboard.setData(
+                        ClipboardData(text: widget.inspector.toHarJson()),
+                      );
+                      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+                        const SnackBar(
+                          content: Text('HAR copied to clipboard'),
+                        ),
+                      );
+                    },
+            ),
+            IconButton(
               tooltip: 'Clear',
               icon: const Icon(Icons.delete_outline),
               onPressed: widget.inspector.clear,

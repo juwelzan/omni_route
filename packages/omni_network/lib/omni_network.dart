@@ -9,6 +9,7 @@
 library;
 
 // Client, requests and responses.
+export 'src/core/omni_metrics.dart' show OmniNetworkMetrics;
 export 'src/core/omni_network.dart' show OmniNetwork;
 export 'src/core/omni_request.dart' show OmniRequest, HttpMethod;
 export 'src/core/omni_response.dart' show OmniResponse, OmniRawResponse;
@@ -32,6 +33,8 @@ export 'src/core/omni_network_exception.dart'
 export 'src/core/result.dart' show Result, Ok, Err, OmniResultFuture;
 
 // Features.
+export 'src/auth/auth_providers.dart'
+    show ApiKeyAuth, BasicAuth, HmacSignerAuth;
 export 'src/auth/omni_auth.dart' show OmniAuth, AuthState;
 export 'src/auth/tokens.dart' show Tokens;
 export 'src/core/interceptor.dart' show OmniInterceptor;

@@ -4,9 +4,9 @@ import 'download_target.dart';
 const bool fileDownloadSupported = false;
 
 /// Unsupported on this platform (e.g. Web). Internal.
-final class FileTarget implements DownloadTarget {
+final class FileTarget extends DownloadTarget {
   /// Always throws [UnsupportedError].
-  FileTarget(String path, {required bool resume}) {
+  FileTarget(String path, {required bool resume, String? expectedSha256}) {
     throw UnsupportedError('downloadToFile is not supported on this platform');
   }
 

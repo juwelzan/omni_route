@@ -5,6 +5,9 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
+export 'file_queue_store_stub.dart'
+    if (dart.library.io) 'file_queue_store_io.dart';
+
 import '../core/omni_request.dart';
 
 /// Headers never written to a queue store (credentials are re-added by the
