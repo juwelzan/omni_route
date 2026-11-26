@@ -607,4 +607,81 @@ void main() {
       expect(received, spy.reported);
     });
   });
+
+  group('FileCacheStore (Persistent Disk Cache)', () {
+    test('persists cached responses across client instances offline and evicts LRU',
+        () async {
+      final dir = await Directory.systemTemp.createTemp('omni_disk_cache_');
+      addTearDown(() => dir.delete(recursive: true));
+
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      final port = server.port;
+      var hits = 0;
+      server.listen((req) async {
+        hits++;
+        req.response
+          ..headers.contentType = ContentType.json
+          ..headers.set('cache-control', 'max-age=300')
+          ..write(jsonEncode({'id': hits, 'name': req.uri.path}));
+        await req.response.close();
+      });
+
+      final client1 = OmniNetwork(
+        baseUrl: 'http://127.0.0.1:$port',
+        cache: OmniCache(
+          store: FileCacheStore(directory: dir.path, maxEntries: 2),
+          policy: CachePolicy.networkFirst,
+        ),
+        decoders: {_Person: _Person.fromJson},
+      );
+
+      final live = await client1.get<_Person>('/profile');
+      expect((live.id, live.name), (1, '/profile'));
+      expect(hits, 1);
+      await client1.close();
+
+      // Shut down the server completely so client2 is offline.
+      await server.close(force: true);
+
+      final client2 = OmniNetwork(
+        baseUrl: 'http://127.0.0.1:$port',
+        cache: OmniCache(
+          store: FileCacheStore(directory: dir.path, maxEntries: 2),
+          policy: CachePolicy.networkFirst,
+        ),
+        decoders: {_Person: _Person.fromJson},
+      );
+      addTearDown(client2.close);
+
+      final cachedOffline = await client2.get<_Person>('/profile');
+      expect((cachedOffline.id, cachedOffline.name), (1, '/profile'));
+
+      // Check direct store eviction at maxEntries: 2.
+      final store = FileCacheStore(directory: dir.path, maxEntries: 2);
+      final now = DateTime.now();
+      for (final k in ['k1', 'k2', 'k3']) {
+        await store.set(
+          k,
+          CacheEntry(
+            url: 'https://example.test/$k',
+            statusCode: 200,
+            headers: const {'content-type': 'application/json'},
+            body: Uint8List.fromList([1, 2, 3]),
+            storedAt: now,
+            expiresAt: now.add(const Duration(minutes: 5)),
+          ),
+        );
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      final files = dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList();
+      expect(files, hasLength(2));
+
+      await store.clear();
+      expect(dir.listSync(), isEmpty);
+    });
+  });
 }

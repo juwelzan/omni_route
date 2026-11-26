@@ -4,6 +4,9 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 
+export 'file_cache_store_stub.dart'
+    if (dart.library.io) 'file_cache_store_io.dart';
+
 /// One stored response.
 @immutable
 final class CacheEntry {

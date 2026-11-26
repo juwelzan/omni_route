@@ -48,6 +48,25 @@ final class LogOptions {
   /// `↪`, so nothing is cut: Android and iOS drop the end of a log line
   /// longer than about 1000 bytes.
   final int maxLineLength;
+
+  /// Copy with selected fields replaced.
+  LogOptions copyWith({
+    bool? headers,
+    bool? requestBody,
+    bool? responseBody,
+    int? maxLines,
+    bool? colors,
+    int? width,
+    int? maxLineLength,
+  }) => LogOptions(
+    headers: headers ?? this.headers,
+    requestBody: requestBody ?? this.requestBody,
+    responseBody: responseBody ?? this.responseBody,
+    maxLines: maxLines ?? this.maxLines,
+    colors: colors ?? this.colors,
+    width: width ?? this.width,
+    maxLineLength: maxLineLength ?? this.maxLineLength,
+  );
 }
 
 /// Prints each call as one block: method and URL, then status, time, size
@@ -81,19 +100,39 @@ final class LogOptions {
 final class PrettyLogSink implements LogSink {
   /// Creates the sink.
   PrettyLogSink({
-    this.options = const LogOptions(),
+    LogOptions options = const LogOptions(),
     void Function(String)? printer,
     Logger? logger,
-  }) : _printer = printer,
+  }) : _options = options,
+       _printer = printer,
        _colors = options.colors ?? terminalSupportsColors(),
+       _customLogger = printer == null && logger != null,
        _logger = printer != null ? null : logger;
 
   /// Formatting options.
-  final LogOptions options;
+  LogOptions get options => _options;
+  LogOptions _options;
 
   final void Function(String)? _printer;
-  final bool _colors;
+  bool _colors;
+  final bool _customLogger;
   Logger? _logger;
+
+  /// Updates formatting options at runtime (used by `OmniNetwork` when toggling
+  /// `logResponse` or `logColors` dynamically without dropping pending pairs).
+  @internal
+  void updateOptions(LogOptions next) {
+    final nextColors = next.colors ?? terminalSupportsColors();
+    final rebuildLogger =
+        !_customLogger &&
+        _printer == null &&
+        (_colors != nextColors || _options.width != next.width);
+    _options = next;
+    _colors = nextColors;
+    if (rebuildLogger) {
+      _logger = null;
+    }
+  }
 
   // Created on first use, so a sink given a printer never builds one.
   Logger get _out => _logger ??= _defaultLogger();

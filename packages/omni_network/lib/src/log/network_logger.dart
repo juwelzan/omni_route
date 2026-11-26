@@ -22,7 +22,13 @@ Future<T> withLogNote<T>(String note, Future<T> Function() body) {
 /// Formats redacted records and hands them to a [LogSink]. Internal.
 final class NetworkLogger {
   /// Creates a logger.
-  NetworkLogger(this.sink, this.redactor, {this.logBodies = true});
+  NetworkLogger(
+    this.sink,
+    this.redactor, {
+    this.logBodies = true,
+    this.logRequestBody = true,
+    this.logResponseBody = true,
+  });
 
   /// Destination.
   final LogSink sink;
@@ -30,8 +36,14 @@ final class NetworkLogger {
   /// Redaction rules.
   final Redactor redactor;
 
-  /// Whether request/response bodies are included (redacted).
-  final bool logBodies;
+  /// Whether bodies are enabled overall.
+  bool logBodies;
+
+  /// Whether outgoing request bodies are included (when [logBodies] is true).
+  bool logRequestBody;
+
+  /// Whether incoming response bodies are included (when [logBodies] is true).
+  bool logResponseBody;
 
   static const _tag = '[OmniNetwork';
 
@@ -39,7 +51,7 @@ final class NetworkLogger {
   void request(int id, TransportRequest r) {
     final url = redactor.uri(r.uri);
     final headers = redactor.headers(r.headers);
-    final body = !logBodies
+    final body = !(logBodies && logRequestBody)
         ? null
         : r.bodyStream != null
         ? '<${r.contentLength ?? '?'} bytes, '
@@ -73,7 +85,7 @@ final class NetworkLogger {
   void response(int id, TransportRequest r, OmniRawResponse res) {
     final url = redactor.uri(r.uri);
     final headers = redactor.headers(res.headers);
-    final body = logBodies
+    final body = (logBodies && logResponseBody)
         ? redactor.body(
             res.bodyBytes,
             res.headers['content-type'],

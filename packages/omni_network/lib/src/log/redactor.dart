@@ -165,7 +165,7 @@ final class Redactor {
       }
     } else if (type.contains('x-www-form-urlencoded')) {
       text = form(utf8.decode(bytes, allowMalformed: true));
-    } else if (type.startsWith('text/')) {
+    } else if (_isTextualType(type)) {
       text = utf8.decode(bytes, allowMalformed: true);
     } else {
       final label = type.isEmpty ? 'unknown type' : type;
@@ -177,4 +177,15 @@ final class Redactor {
     }
     return text;
   }
+
+  static bool _isTextualType(String type) =>
+      type.startsWith('text/') ||
+      type.contains('xml') ||
+      type.contains('yaml') ||
+      type.contains('yml') ||
+      type.contains('graphql') ||
+      type.contains('javascript') ||
+      type.contains('ecmascript') ||
+      type.contains('csv') ||
+      type.contains('sql');
 }

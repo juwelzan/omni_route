@@ -67,6 +67,7 @@ const advancedOnly = [
   'CacheStore',
   'CacheEntry',
   'MemoryCacheStore',
+  'FileCacheStore',
   'ResponseAdapter',
   'EnvelopeResponseAdapter',
   'LogSink',

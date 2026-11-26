@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection' show Queue;
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -67,13 +68,20 @@ final class OmniNetwork {
   ///   transport you pass in is **not** closed by [close]; you own it.
   /// * [responseAdapter]: applied to every JSON body before decoding,
   ///   e.g. [EnvelopeResponseAdapter]; overridable per call.
-  /// * [enableLogging]: the single logging switch (`true`/`false`, default
-  ///   `false`). When on, each call is printed in the terminal as one framed
-  ///   block — method, URL, status, time, size and the pretty-printed
-  ///   response — see [PrettyLogSink] and [logOptions]. Secrets are always
-  ///   redacted by [redactor]. Release builds never log unless
-  ///   [logInRelease] is `true`. When off, nothing is formatted and
-  ///   [logSink] is never called. Pass [logSink] to send records elsewhere.
+  /// * [enableLogging]: the master terminal/logger switch (`true`/`false`,
+  ///   default `false`; also mutable at runtime via `api.enableLogging`).
+  ///   When on, each call prints the full response cleanly via `logger` with
+  ///   ANSI colours — see [PrettyLogSink], [logResponse], [logColors], and
+  ///   [logOptions].
+  /// * [logResponse]: controls whether full response bodies are printed in
+  ///   terminal/logs (defaults to [logOptions.responseBody] and [logBodies];
+  ///   mutable at runtime via `api.logResponse`). Set to `false` to hide
+  ///   response bodies while keeping request/status lines.
+  /// * [logColors]: shortcut to force ANSI terminal colours `true`/`false`
+  ///   (`null` auto-detects from terminal/IDE). Also mutable at runtime via
+  ///   `api.logColors`.
+  /// * [maxConcurrentRequests]: optional limit on parallel in-flight transport
+  ///   calls; queued callers still respect `timeout` and `cancelToken`.
   /// * [interceptors]: see [OmniInterceptor].
   /// * [auth]: token management, usually an [OmniAuth] (login/logout,
   ///   refresh on 401 or before expiry, storage). Without [auth] and
@@ -102,10 +110,13 @@ final class OmniNetwork {
     bool enableHttp2 = false,
     int? maxConnectionsPerHost,
     Duration? idleConnectionTimeout,
+    int? maxConcurrentRequests,
     Map<Type, JsonDecoder<Object?>> decoders = const {},
     Transport? transport,
     ResponseAdapter responseAdapter = const PlainResponseAdapter(),
     bool enableLogging = false,
+    bool? logResponse,
+    bool? logColors,
     LogSink? logSink,
     LogOptions logOptions = const LogOptions(),
     bool logInRelease = false,
@@ -172,11 +183,14 @@ final class OmniNetwork {
       connectTimeout: connectTimeout,
       sendTimeout: sendTimeout,
       receiveTimeout: receiveTimeout,
+      maxConcurrentRequests: maxConcurrentRequests,
       decoders: decoders,
       transport: resolvedTransport,
       ownsTransport: transport == null,
       responseAdapter: responseAdapter,
       enableLogging: enableLogging,
+      logResponse: logResponse,
+      logColors: logColors,
       logSink: logSink,
       logOptions: logOptions,
       logInRelease: logInRelease,
@@ -211,9 +225,12 @@ final class OmniNetwork {
     Duration? connectTimeout,
     Duration? sendTimeout,
     Duration? receiveTimeout,
+    int? maxConcurrentRequests,
     Map<Type, JsonDecoder<Object?>> decoders = const {},
     ResponseAdapter responseAdapter = const PlainResponseAdapter(),
     bool enableLogging = false,
+    bool? logResponse,
+    bool? logColors,
     LogSink? logSink,
     LogOptions logOptions = const LogOptions(),
     bool logInRelease = false,
@@ -245,11 +262,14 @@ final class OmniNetwork {
       connectTimeout: connectTimeout ?? dio.options.connectTimeout,
       sendTimeout: sendTimeout ?? dio.options.sendTimeout,
       receiveTimeout: receiveTimeout ?? dio.options.receiveTimeout,
+      maxConcurrentRequests: maxConcurrentRequests,
       decoders: decoders,
       transport: DioTransport(dio: dio),
       ownsTransport: closeDio,
       responseAdapter: responseAdapter,
       enableLogging: enableLogging,
+      logResponse: logResponse,
+      logColors: logColors,
       logSink: logSink,
       logOptions: logOptions,
       logInRelease: logInRelease,
@@ -274,16 +294,19 @@ final class OmniNetwork {
     this.connectTimeout,
     this.sendTimeout,
     this.receiveTimeout,
+    this.maxConcurrentRequests,
     Map<Type, JsonDecoder<Object?>> decoders = const {},
     required this._transport,
     required this._ownsTransport,
     this.responseAdapter = const PlainResponseAdapter(),
-    this.enableLogging = false,
+    this._enableLogging = false,
+    bool? logResponse,
+    bool? logColors,
     LogSink? logSink,
     LogOptions logOptions = const LogOptions(),
-    bool logInRelease = false,
+    this._logInRelease = false,
     this.redactor = const Redactor(),
-    bool logBodies = true,
+    this._logBodies = true,
     List<OmniInterceptor> interceptors = const [],
     AuthProvider? auth,
     FutureOr<String?> Function()? token,
@@ -297,19 +320,21 @@ final class OmniNetwork {
          auth == null || token == null,
          'Pass either token: or auth:, not both',
        ),
+       assert(
+         maxConcurrentRequests == null || maxConcurrentRequests >= 1,
+         'maxConcurrentRequests must be at least 1',
+       ),
        _provider =
            auth ?? (token == null ? OmniAuth() : BearerAuth(token: token)),
        interceptors = List.unmodifiable(interceptors),
-       _logger = enableLogging && (logInRelease || !isReleaseBuild)
-           ? NetworkLogger(
-               logSink ?? PrettyLogSink(options: logOptions),
-               redactor,
-               logBodies: logBodies,
-             )
-           : null,
+       _logResponse = logResponse ?? logOptions.responseBody,
+       _logColors = logColors ?? logOptions.colors,
+       _baseLogOptions = logOptions,
+       _customLogSink = logSink,
        baseUri = baseUrl == null ? null : _parseBase(baseUrl),
-       headers = Map.unmodifiable(_lower(headers)),
+       _headers = _lower(headers),
        _decoders = Map.unmodifiable(decoders) {
+    _syncLogger();
     // Bind the auth provider now so misuse (one OmniAuth for two clients)
     // fails at construction, not on the first request.
     _bearer;
@@ -318,8 +343,41 @@ final class OmniNetwork {
   /// Parsed base URL (always ending in `/`), or `null`.
   final Uri? baseUri;
 
-  /// Default headers (lower-case names).
-  final Map<String, String> headers;
+  final Map<String, String> _headers;
+
+  /// Default headers (lower-case names). Unmodifiable view; update at runtime
+  /// with [setHeader], [removeHeader], and [clearHeaders].
+  Map<String, String> get headers => Map.unmodifiable(_headers);
+
+  /// Sets or replaces a default header sent with subsequent requests.
+  void setHeader(String name, String value) {
+    _headers[name.toLowerCase()] = value;
+  }
+
+  /// Removes a default header by [name] (case-insensitive).
+  void removeHeader(String name) {
+    _headers.remove(name.toLowerCase());
+  }
+
+  /// Removes all default headers from this client.
+  void clearHeaders() {
+    _headers.clear();
+  }
+
+  /// Clears all entries stored in [cache] (no-op if no cache is configured).
+  Future<void> clearCache() async => await cache?.clear();
+
+  /// Invalidates cached GET entries for [pathOrUrl] (resolved against
+  /// [baseUri] when relative) plus optional [query].
+  Future<void> invalidateCache(
+    String pathOrUrl, {
+    Map<String, Object?> query = const {},
+  }) async {
+    final target = cache;
+    if (target == null) return;
+    final uri = _resolveUri(OmniRequest.get(pathOrUrl, query: query));
+    await target.invalidate(uri.toString());
+  }
 
   /// Default overall request timeout.
   final Duration timeout;
@@ -332,6 +390,11 @@ final class OmniNetwork {
 
   /// Default response receive timeout (when supported by the transport).
   final Duration? receiveTimeout;
+
+  /// Maximum concurrent in-flight network requests, or `null` for unlimited.
+  final int? maxConcurrentRequests;
+  int _activeSlots = 0;
+  final Queue<Completer<void>> _slotWaiters = Queue<Completer<void>>();
 
   final Map<Type, JsonDecoder<Object?>> _decoders;
 
@@ -455,19 +518,90 @@ final class OmniNetwork {
   /// Redaction rules for logs and [toCurl].
   final Redactor redactor;
 
-  /// Whether logging was requested. See the constructor and [isLogging].
-  final bool enableLogging;
+  final LogOptions _baseLogOptions;
+  final bool _logInRelease;
+  final bool _logBodies;
+  final LogSink? _customLogSink;
+  PrettyLogSink? _ownedPrettySink;
+  bool _enableLogging;
+  bool _logResponse;
+  bool? _logColors;
 
-  /// Whether calls are actually logged (`enableLogging`, and not a release
-  /// build unless `logInRelease`).
-  bool get isLogging => _logger != null;
+  /// Whether logging is turned on for this client (mutable at runtime).
+  ///
+  /// Setting this to `true` enables full terminal/logger printing via
+  /// [PrettyLogSink] (or the configured `logSink`); setting it to `false`
+  /// disables logging immediately. See also [logResponse] and [isLogging].
+  bool get enableLogging => _enableLogging;
+  set enableLogging(bool value) {
+    if (_enableLogging == value) return;
+    _enableLogging = value;
+    _syncLogger();
+  }
+
+  /// Whether full response bodies are printed when logging is enabled
+  /// (mutable at runtime).
+  ///
+  /// Defaults to `true` (unless disabled via `LogOptions(responseBody: false)`
+  /// or `logBodies: false`). Set to `true` to print complete 500–1000+ line
+  /// responses in the console/terminal, or `false` to omit response bodies.
+  bool get logResponse => _logResponse;
+  set logResponse(bool value) {
+    if (_logResponse == value) return;
+    _logResponse = value;
+    _syncLogger();
+  }
+
+  /// ANSI colour setting for the built-in logger (`null` = auto-detect
+  /// terminal/IDE colour support). Mutable at runtime.
+  bool? get logColors => _logColors;
+  set logColors(bool? value) {
+    if (_logColors == value) return;
+    _logColors = value;
+    _syncLogger();
+  }
+
+  /// Whether calls are actually logged right now (`enableLogging`, and not a
+  /// release build unless `logInRelease`).
+  bool get isLogging => _enableLogging && (_logInRelease || !isReleaseBuild);
 
   /// Whether this is a release/product build. Tests may override it.
   @visibleForTesting
   static bool isReleaseBuild = const bool.fromEnvironment('dart.vm.product');
 
-  final NetworkLogger? _logger;
+  NetworkLogger? _logger;
   int _logSeq = 0;
+
+  LogOptions _resolvedLogOptions() => LogOptions(
+    headers: _baseLogOptions.headers,
+    requestBody: _baseLogOptions.requestBody,
+    responseBody: _logResponse && _logBodies,
+    maxLines: _baseLogOptions.maxLines,
+    colors: _logColors,
+    width: _baseLogOptions.width,
+    maxLineLength: _baseLogOptions.maxLineLength,
+  );
+
+  void _syncLogger() {
+    final options = _resolvedLogOptions();
+    _ownedPrettySink?.updateOptions(options);
+    final existing = _logger;
+    if (existing != null) {
+      existing
+        ..logBodies = _logBodies
+        ..logRequestBody = _baseLogOptions.requestBody
+        ..logResponseBody = _logResponse;
+    } else if (_enableLogging && (_logInRelease || !isReleaseBuild)) {
+      final sink = _customLogSink ?? (_ownedPrettySink ??= PrettyLogSink(options: options));
+      _logger = NetworkLogger(
+        sink,
+        redactor,
+        logBodies: _logBodies,
+        logRequestBody: _baseLogOptions.requestBody,
+        logResponseBody: _logResponse,
+      );
+    }
+  }
 
   /// Default [ResponseAdapter] for typed calls.
   final ResponseAdapter responseAdapter;
@@ -1454,7 +1588,8 @@ final class OmniNetwork {
 
   Future<OmniRawResponse> _sendOnce(OmniRequest request, _Transfer? t) async {
     if (_closed) throw const ClosedFailure();
-    final log = _logger;
+    _syncLogger();
+    final log = isLogging ? _logger : null;
     if (log == null) return _network(_resolve(request), request, t);
     final id = ++_logSeq;
     final watch = Stopwatch()..start();
@@ -1575,7 +1710,9 @@ final class OmniNetwork {
     final watch = Stopwatch()..start();
     final target = t?.target;
     Future<OmniRawResponse>? work;
+    var hasSlot = false;
     try {
+      hasSlot = await _acquireSlot(signal);
       kick();
       final response = await Future.any<OmniRawResponse>([
         work = Future.sync(
@@ -1612,11 +1749,47 @@ final class OmniNetwork {
     } on Exception catch (e) {
       throw ConnectionFailure('Transport error', uri: uri, cause: e);
     } finally {
+      if (hasSlot) _releaseSlot();
       timer?.cancel();
       idle?.cancel();
       detach?.call();
       _pending.remove(signal);
     }
+  }
+
+  Future<bool> _acquireSlot(CancelSignal signal) async {
+    final limit = maxConcurrentRequests;
+    if (limit == null) return false;
+    if (signal.isCancelled) throw const CancelledFailure();
+    if (_activeSlots < limit) {
+      _activeSlots++;
+      return true;
+    }
+    final gate = Completer<void>();
+    _slotWaiters.addLast(gate);
+    final cancelSub = signal.whenCancelled.then((_) {
+      if (!gate.isCompleted) {
+        _slotWaiters.remove(gate);
+        gate.completeError(const CancelledFailure());
+      }
+    });
+    try {
+      await gate.future;
+      return true;
+    } finally {
+      cancelSub.ignore();
+    }
+  }
+
+  void _releaseSlot() {
+    while (_slotWaiters.isNotEmpty) {
+      final next = _slotWaiters.removeFirst();
+      if (!next.isCompleted) {
+        next.complete();
+        return;
+      }
+    }
+    if (_activeSlots > 0) _activeSlots--;
   }
 
   Future<OmniRawResponse> _download(
@@ -1703,7 +1876,7 @@ final class OmniNetwork {
   /// Throws [RequestFailure] for an unresolvable URL or unsupported body.
   TransportRequest _resolve(OmniRequest request) {
     final uri = _resolveUri(request);
-    final merged = {...headers, ..._lower(request.headers)};
+    final merged = {..._headers, ..._lower(request.headers)};
     final reqConnectTimeout = request.connectTimeout ?? connectTimeout;
     final reqSendTimeout = request.sendTimeout ?? sendTimeout;
     final reqReceiveTimeout = request.receiveTimeout ?? receiveTimeout;
