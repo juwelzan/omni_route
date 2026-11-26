@@ -1,8 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:meta/meta.dart';
 
 import '../ai/ai_models.dart';
+
+/// Optional encryption transformer applied by `OmniChatClient` to chat text
+/// payloads before sending over WebSocket (E2EE) and/or persisting to disk.
+abstract interface class ChatCipher {
+  /// Encrypts [plaintext] into an encrypted string representation.
+  FutureOr<String> encrypt(String plaintext);
+
+  /// Decrypts [ciphertext] back to plain UTF-8 text.
+  FutureOr<String> decrypt(String ciphertext);
+}
 
 /// Role of a participant in a chat room or AI thread.
 enum ChatParticipantKind {

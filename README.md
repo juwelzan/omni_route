@@ -1876,11 +1876,12 @@ final hub = OmniApiHub(
   ),
 );
 
-// ২. Multi-AI (ask, stream, tool-calling, structured JSON, RAG ও parallel compare)
+// ২. Multi-AI (ask, stream+tools, streamObject, PII guardrail, semantic cache, RAG ও voice/image)
 final reply = await hub.ai.ask('Flutter-এ cache কী কাজে লাগে?');
 final structured = await hub.ai.generateObject('Summary দাও', decoder: Summary.fromJson);
+final health = await hub.healthCheckAll();
 
-// ৩. Human + @ai হাইব্রিড চ্যাট ও Flutter UI উইজেট
+// ৩. Human + @ai হাইব্রিড চ্যাট (search, E2EE ChatCipher সহ) ও Flutter UI উইজেট
 final room = hub.chat().room('support_1')..attachAiAssistant(hub.primary.aiThread('bot'));
 // Flutter UI: OmniChatView(room: room), OmniAiChatView(thread: ...), OmniModelPicker(...)
 ```

@@ -573,24 +573,84 @@ final class OmniNetwork {
   int _cacheHits = 0;
   int _revalidatedCount = 0;
   int _activeMetricRequests = 0;
+  int _wsReconnectCount = 0;
   Duration _totalLatency = Duration.zero;
   Duration? _lastLatency;
+  final List<int> _latencyWindowUs = [];
+  final Map<String, ({int count, int failures, int totalUs})> _endpointStats =
+      {};
 
-  /// Current runtime telemetry snapshot for this client.
-  OmniNetworkMetrics get metrics => OmniNetworkMetrics(
-    totalRequests: _totalRequests,
-    successCount: _successCount,
-    failureCount: _failureCount,
-    cacheHits: _cacheHits,
-    revalidatedCount: _revalidatedCount,
-    activeRequests: _activeMetricRequests,
-    averageLatency: _totalRequests == 0
-        ? Duration.zero
-        : Duration(
-            microseconds: _totalLatency.inMicroseconds ~/ _totalRequests,
+  static const int _maxLatencyWindow = 1000;
+
+  void _recordMetric(
+    OmniRequest request,
+    Duration elapsed, {
+    required bool success,
+  }) {
+    _totalRequests++;
+    _totalLatency += elapsed;
+    _lastLatency = elapsed;
+    if (success) {
+      _successCount++;
+    } else {
+      _failureCount++;
+    }
+    _latencyWindowUs.add(elapsed.inMicroseconds);
+    if (_latencyWindowUs.length > _maxLatencyWindow) {
+      _latencyWindowUs.removeAt(0);
+    }
+    final cleanPath = _resolveUri(request).path;
+    final key = '${request.method.verb} $cleanPath';
+    final prev = _endpointStats[key];
+    _endpointStats[key] = (
+      count: (prev?.count ?? 0) + 1,
+      failures: (prev?.failures ?? 0) + (success ? 0 : 1),
+      totalUs: (prev?.totalUs ?? 0) + elapsed.inMicroseconds,
+    );
+  }
+
+  static Duration _percentile(List<int> sortedUs, double p) {
+    if (sortedUs.isEmpty) return Duration.zero;
+    final idx = ((sortedUs.length - 1) * p).round().clamp(
+      0,
+      sortedUs.length - 1,
+    );
+    return Duration(microseconds: sortedUs[idx]);
+  }
+
+  /// Current runtime telemetry snapshot for this client (including P50/P95/P99
+  /// rolling latencies, WebSocket reconnect count, and per-endpoint stats).
+  OmniNetworkMetrics get metrics {
+    final sorted = [..._latencyWindowUs]..sort();
+    return OmniNetworkMetrics(
+      totalRequests: _totalRequests,
+      successCount: _successCount,
+      failureCount: _failureCount,
+      cacheHits: _cacheHits,
+      revalidatedCount: _revalidatedCount,
+      activeRequests: _activeMetricRequests,
+      averageLatency: _totalRequests == 0
+          ? Duration.zero
+          : Duration(
+              microseconds: _totalLatency.inMicroseconds ~/ _totalRequests,
+            ),
+      lastLatency: _lastLatency,
+      p50Latency: _percentile(sorted, 0.50),
+      p95Latency: _percentile(sorted, 0.95),
+      p99Latency: _percentile(sorted, 0.99),
+      wsReconnectCount: _wsReconnectCount,
+      byEndpoint: Map.unmodifiable({
+        for (final e in _endpointStats.entries)
+          e.key: EndpointMetrics(
+            count: e.value.count,
+            failures: e.value.failures,
+            averageLatency: Duration(
+              microseconds: e.value.totalUs ~/ e.value.count,
+            ),
           ),
-    lastLatency: _lastLatency,
-  );
+      }),
+    );
+  }
 
   /// Resets cumulative [metrics] counters.
   void resetMetrics() {
@@ -599,8 +659,11 @@ final class OmniNetwork {
     _failureCount = 0;
     _cacheHits = 0;
     _revalidatedCount = 0;
+    _wsReconnectCount = 0;
     _totalLatency = Duration.zero;
     _lastLatency = null;
+    _latencyWindowUs.clear();
+    _endpointStats.clear();
   }
 
   final StreamController<NetworkLogRecord> _logController =
@@ -1734,6 +1797,7 @@ final class OmniNetwork {
     }
 
     late final OmniWebSocket socket;
+    var openedOnce = false;
     socket = OmniWebSocket(
       resolvedUri,
       protocols: protocols,
@@ -1752,6 +1816,13 @@ final class OmniNetwork {
       connector: connector ?? _wsConnector,
       customClientFactory: _httpClientFactory,
       onLog: (direction, summary) {
+        if (direction == 'open') {
+          if (openedOnce) {
+            _wsReconnectCount++;
+          } else {
+            openedOnce = true;
+          }
+        }
         if (isLogging && !_realtimeLogController.isClosed) {
           final isBody = direction == 'out' || direction == 'in';
           final trimmed = summary.trimLeft();
@@ -1893,14 +1964,7 @@ final class OmniNetwork {
         response = await _guard(() => i.onResponse(r, res));
       }
       final elapsed = watch.elapsed;
-      _totalRequests++;
-      _totalLatency += elapsed;
-      _lastLatency = elapsed;
-      if (response.isSuccess) {
-        _successCount++;
-      } else {
-        _failureCount++;
-      }
+      _recordMetric(current, elapsed, success: response.isSuccess);
       if (response.source == ResponseSource.cache) {
         _cacheHits++;
       } else if (response.source == ResponseSource.revalidated) {
@@ -1920,10 +1984,7 @@ final class OmniNetwork {
       return response;
     } on OmniNetworkException catch (e) {
       final elapsed = watch.elapsed;
-      _totalRequests++;
-      _failureCount++;
-      _totalLatency += elapsed;
-      _lastLatency = elapsed;
+      _recordMetric(current, elapsed, success: false);
       for (final i in interceptors.reversed) {
         try {
           await i.onError(current, e);

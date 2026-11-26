@@ -237,6 +237,7 @@ final class OmniAiThread {
           payload,
           model: _model,
           options: callOpts,
+          autoExecuteTools: false,
           cancelToken: cancel,
         )) {
           switch (ev) {

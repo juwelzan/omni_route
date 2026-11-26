@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection' show Queue;
+import 'dart:typed_data';
 
 import '../ai/ai_models.dart';
 import '../ai/ai_provider.dart';
@@ -37,7 +38,8 @@ final class MockAiReply {
 /// Offline programmable [AiProvider] for testing `OmniAi`, fallback routing,
 /// tool-calling loops, streaming chunks, and embeddings without real keys or
 /// network traffic.
-final class MockAiProvider implements AiProvider {
+final class MockAiProvider
+    implements AiProvider, AiBatchEmbedProvider, AiMediaProvider {
   /// Creates a mock AI provider.
   MockAiProvider({
     this.id = 'mock_ai',
@@ -50,8 +52,17 @@ final class MockAiProvider implements AiProvider {
     this.streamChunkSize = 4,
     this.chunkDelay = Duration.zero,
     List<double> Function(String text)? embedder,
+    FutureOr<String> Function(Uint8List audio, String mimeType, String model)?
+    transcriber,
+    FutureOr<Uint8List> Function(String text, String voice, String model)?
+    speaker,
+    FutureOr<List<AiGeneratedImage>> Function(String prompt, String model)?
+    imageGenerator,
   }) : _handler = handler, // ignore: prefer_initializing_formals
-       _embedder = embedder; // ignore: prefer_initializing_formals
+       _embedder = embedder, // ignore: prefer_initializing_formals
+       _transcriber = transcriber, // ignore: prefer_initializing_formals
+       _speaker = speaker, // ignore: prefer_initializing_formals
+       _imageGenerator = imageGenerator; // ignore: prefer_initializing_formals
 
   @override
   final String id;
@@ -69,6 +80,12 @@ final class MockAiProvider implements AiProvider {
   )?
   _handler;
   final List<double> Function(String text)? _embedder;
+  final FutureOr<String> Function(Uint8List audio, String mimeType, String model)?
+  _transcriber;
+  final FutureOr<Uint8List> Function(String text, String voice, String model)?
+  _speaker;
+  final FutureOr<List<AiGeneratedImage>> Function(String prompt, String model)?
+  _imageGenerator;
   final Queue<FutureOr<MockAiReply> Function()> _queue = Queue();
 
   /// History of all prompts recorded by this mock.
@@ -169,6 +186,81 @@ final class MockAiProvider implements AiProvider {
     }
     final len = text.isEmpty ? 1.0 : text.length.toDouble();
     return [for (final x in v) x / len];
+  }
+
+  @override
+  Future<List<List<double>>> embedBatch(
+    OmniNetwork client, {
+    required String model,
+    required List<String> texts,
+    OmniCancelToken? cancelToken,
+  }) async => [
+    for (final t in texts)
+      await embed(client, model: model, text: t, cancelToken: cancelToken),
+  ];
+
+  @override
+  Future<AiTranscriptionResult> transcribeAudio(
+    OmniNetwork client, {
+    required Uint8List audioBytes,
+    required String mimeType,
+    required String model,
+    String? language,
+    String? prompt,
+    OmniCancelToken? cancelToken,
+  }) async {
+    final txt = _transcriber != null
+        ? await _transcriber(audioBytes, mimeType, model)
+        : 'Mock transcript (${audioBytes.length} bytes)';
+    return AiTranscriptionResult(
+      text: txt,
+      language: language,
+      model: model,
+      providerId: id,
+    );
+  }
+
+  @override
+  Future<AiSpeechResult> generateSpeech(
+    OmniNetwork client, {
+    required String text,
+    required String model,
+    String voice = 'alloy',
+    String format = 'mp3',
+    OmniCancelToken? cancelToken,
+  }) async {
+    final bytes = _speaker != null
+        ? await _speaker(text, voice, model)
+        : Uint8List.fromList(text.codeUnits);
+    return AiSpeechResult(
+      bytes: bytes,
+      mimeType: 'audio/$format',
+      model: model,
+      providerId: id,
+    );
+  }
+
+  @override
+  Future<List<AiGeneratedImage>> generateImage(
+    OmniNetwork client, {
+    required String prompt,
+    required String model,
+    String size = '1024x1024',
+    int n = 1,
+    OmniCancelToken? cancelToken,
+  }) async {
+    if (_imageGenerator != null) {
+      return _imageGenerator(prompt, model);
+    }
+    return [
+      for (var i = 0; i < n; i++)
+        AiGeneratedImage(
+          url: 'https://mock.image/$i/${Uri.encodeComponent(prompt)}.png',
+          revisedPrompt: prompt,
+          model: model,
+          providerId: id,
+        ),
+    ];
   }
 
   @override

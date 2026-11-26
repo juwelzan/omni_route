@@ -25,6 +25,8 @@ final class ChatConfig {
     this.webAuthMode,
     this.fallbackHttpSendPath,
     this.uploadPath = '/files/upload',
+    this.cipher,
+    this.encryptLocalStore = false,
   });
 
   /// Default WebSocket endpoint path or URL.
@@ -47,6 +49,13 @@ final class ChatConfig {
 
   /// Default file upload endpoint for media/document attachments.
   final String uploadPath;
+
+  /// Optional application encryption hook for E2EE text payloads over wire
+  /// frames (and optionally in `ChatStore` when [encryptLocalStore] is `true`).
+  final ChatCipher? cipher;
+
+  /// Whether [cipher] also encrypts messages persisted in `ChatStore`.
+  final bool encryptLocalStore;
 }
 
 /// Unified realtime chat coordinator managing a shared [OmniWebSocket],
@@ -65,6 +74,8 @@ final class OmniChatClient {
        currentUserName = config.currentUserName,
        protocol = config.protocol,
        store = store ?? MemoryChatStore(),
+       cipher = config.cipher,
+       encryptLocalStore = config.encryptLocalStore,
        _offlineStore = offlineQueueStore,
        _wsPath = config.wsPath,
        _webAuthMode = config.webAuthMode,
@@ -85,6 +96,12 @@ final class OmniChatClient {
 
   /// Chat message persistence store.
   final ChatStore store;
+
+  /// Optional message cipher hook configured on `ChatConfig`.
+  final ChatCipher? cipher;
+
+  /// Whether persisted local cache messages should stay encrypted at rest.
+  final bool encryptLocalStore;
 
   final QueueStore? _offlineStore;
   final String _wsPath;

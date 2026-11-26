@@ -9,7 +9,7 @@
 library;
 
 // Client, requests and responses.
-export 'src/core/omni_metrics.dart' show OmniNetworkMetrics;
+export 'src/core/omni_metrics.dart' show OmniNetworkMetrics, EndpointMetrics;
 export 'src/core/omni_network.dart' show OmniNetwork;
 export 'src/core/omni_request.dart' show OmniRequest, HttpMethod;
 export 'src/core/omni_response.dart' show OmniResponse, OmniRawResponse;
@@ -46,12 +46,14 @@ export 'src/hub/api_environment.dart'
     show
         OmniEnvironment,
         ServiceConfig,
+        ServiceHealth,
         RateLimit,
         GraphqlEndpoint,
         WsEndpoint,
         SseEndpoint,
         AiEndpoint;
 export 'src/hub/api_hub.dart' show OmniApiHub;
+export 'src/ai/ai_guardrail.dart' show AiGuardrail, AiGuardrailAction;
 export 'src/ai/ai_models.dart'
     show
         AiRole,
@@ -76,13 +78,20 @@ export 'src/ai/ai_models.dart'
         AiTool,
         AiRequestOptions,
         AiTarget,
+        AiRoutingStrategy,
         AiModelRoute,
         AiModelCost,
+        AiStreamingObject,
+        AiTranscriptionResult,
+        AiSpeechResult,
+        AiGeneratedImage,
         AiRealtimeEvent,
         AiRealtimeTextDelta,
         AiRealtimeAudioDelta,
         AiRealtimeJsonEvent;
 export 'src/ai/ai_provider.dart' show AiRealtimeSession;
+export 'src/ai/ai_semantic_cache.dart' show AiSemanticCache;
+export 'src/ai/vector_store.dart' show TextSplitter;
 export 'src/ai/ai_providers_builtin.dart'
     show
         OpenAiProvider,
@@ -96,6 +105,7 @@ export 'src/chat/ai_thread.dart'
     show OmniAiThread, AiThreadState, SlidingWindowContext;
 export 'src/chat/chat_models.dart'
     show
+        ChatCipher,
         ChatParticipantKind,
         ChatParticipant,
         MessageDeliveryStatus,

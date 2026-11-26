@@ -1417,9 +1417,9 @@ await ws.close();
 
 ### Multi-API Hub, Multi-AI ও Unified Chat
 
-- **`OmniApiHub`**: এক জায়গায় সব microservice (`dev`/`staging`/`prod`), `RateLimit`, `loadRemoteConfig`, `GraphqlEndpoint`, `WsEndpoint`, `SseEndpoint`, ও `AiEndpoint` পরিচালনা।
-- **Multi-AI (`api.ai`)**: `OpenAiProvider`, `OpenAiCompatibleProvider`, `GeminiProvider`, `AnthropicProvider`, `OllamaProvider`, ও `CustomAiProvider` — automatic failover routes, `AiTool.fromEndpoint`, `generateObject`, `FileVectorStore` RAG, `compare`, ও `maxSessionBudgetUsd` বাজেট গার্ড।
-- **Chat (`api.chat`, `api.aiThread`)**: `OmniChatRoom`-এ optimistic delivery, typing, read receipt, emoji reaction, edit/delete, file upload, pagination, `@ai` হাইব্রিড অ্যাসিস্ট্যান্ট এবং `FileChatStore` লোকাল স্টোরেজ।
+- **`OmniApiHub`**: এক জায়গায় সব microservice (`dev`/`staging`/`prod`), `RateLimit`, `loadRemoteConfig`, `healthCheckAll()`, `setGlobalHeader()`, `toolsFromRegistry()`, `GraphqlEndpoint`, `WsEndpoint`, `SseEndpoint`, ও `AiEndpoint` পরিচালনা।
+- **Multi-AI (`api.ai`)**: `OpenAiProvider`, `OpenAiCompatibleProvider`, `GeminiProvider`, `AnthropicProvider`, `OllamaProvider`, ও `CustomAiProvider` — smart/hedged routing + `429 Retry-After` cooldown, `stream()`-এ স্বয়ংক্রিয় tool loop, `streamObject<T>` ও JSON `autoRepair`, `AiGuardrail` PII/secret মাস্কিং, `AiSemanticCache`, Voice (`transcribeAudio`, `generateSpeech`), Image (`generateImage`), Anthropic `promptCaching`, এবং `TextSplitter` + `indexText` + `searchHybrid` RAG।
+- **Chat (`api.chat`, `api.aiThread`)**: `OmniChatRoom`-এ optimistic delivery, typing, read receipt, emoji reaction, edit/delete, file upload, pagination, `search()`, `threadMessages()`, E2EE `ChatCipher`, `@ai` হাইব্রিড অ্যাসিস্ট্যান্ট এবং `FileChatStore` লোকাল স্টোরেজ।
 
 ---
 
@@ -1626,7 +1626,8 @@ Login করা request cache হয় না যতক্ষণ না `cacheA
 | test / record & replay | `OmniMock()..get(...)`, `RecordingTransport(transport)` |
 | inspector + HAR + WS/AI | `OmniInspector()` + `inspector.attachClient(api)`, `inspector.toHarJson()` |
 | WebSocket RPC ও POST SSE | `api.ws('/ws')` (`emit`/`on`/`request`), `api.sse('/ai', method: HttpMethod.post)` |
-| Multi-API Hub ও Multi-AI | `OmniApiHub(...)`, `api.ai.ask` / `stream` / `generateObject` / `askWithContext` |
-| Realtime ও `@ai` Chat + Flutter UI | `api.chat.room(...)`, `api.aiThread(...)`, `OmniChatView`, `OmniAiChatView`, `OmniModelPicker` |
+| telemetry ও P95/P99 latency | `api.metrics` (`p50Latency`, `p95Latency`, `p99Latency`, `byEndpoint`, `wsReconnectCount`), `api.resetMetrics()` |
+| Multi-API Hub ও Multi-AI | `OmniApiHub(...)` (`healthCheckAll`, `toolsFromRegistry`), `api.ai` (`streamObject`, `AiGuardrail`, `AiSemanticCache`, `transcribeAudio`, `generateSpeech`, `generateImage`) |
+| Realtime ও `@ai` Chat + Flutter UI | `api.chat.room(...)` (`search`, `threadMessages`, `ChatCipher`), `api.aiThread(...)`, `OmniChatView`, `OmniAiChatView`, `OmniModelPicker` |
 | cURL | `api.toCurl(request)` |
 | বন্ধ | `await api.close()` |

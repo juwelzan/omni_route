@@ -291,13 +291,13 @@ await api.get<User>('/me',
 | load page by page | `api.paginate<User>('/users', decoder: User.fromJson, strategy: const PagePagination())` (listens via `pager.changes`) |
 | show loading / data / error in UI | `api.watch<User>(...)` + `OmniRequestBuilder` / `OmniPagedListView` in [`omni_network_flutter`](../omni_network_flutter) |
 | quick inline interceptor | `OmniInterceptor.inline(onRequest: ..., onResponse: ..., onError: ...)` |
-| telemetry & slow requests | `api.metrics`, `api.resetMetrics()`, `slowRequestThreshold:` + `onSlowRequest:` |
+| telemetry & slow requests | `api.metrics` (P50/P95/P99 latency, `byEndpoint`, `wsReconnectCount`), `api.resetMetrics()`, `slowRequestThreshold:` + `onSlowRequest:` |
 | proxy / SSL pin / DoH / mTLS | `OmniNetwork(proxy: ..., pinnedSha256: [...], dnsOverHttps: ..., clientCertificateBytes: ...)` |
 | WebSocket, typed events & RPC | `api.ws('/live')` → `.emit()`, `.on<T>()`, `.request<T>()`, `WsWebAuthMode` |
 | SSE (GET / POST AI streams) | `api.sse('/stream', method: HttpMethod.post, body: ...)` |
-| Multi-service Hub & env switching | `OmniApiHub(environments: ..., services: ...)` → `.useEnvironment()`, `.loadRemoteConfig()`, `RateLimit` |
-| Multi-AI (GPT/Gemini/Claude/Ollama) | `OmniNetwork(ai: AiConfig(...))` → `api.ai.ask/stream/chat/generateObject/embed/askWithContext/compare/openRealtime` |
-| Unified Human & `@ai` Chat | `api.chat.room('room_1')` (optimistic send, typing, reactions, file upload, pagination, `@ai`), `api.aiThread(...)`, `FileChatStore` |
+| Multi-service Hub & env switching | `OmniApiHub(environments: ..., services: ...)` → `.useEnvironment()`, `.loadRemoteConfig()`, `.healthCheckAll()`, `.toolsFromRegistry()`, `RateLimit` |
+| Multi-AI, Voice/Image & Guardrails | `OmniNetwork(ai: AiConfig(...))` → `ask`, `stream` (with tools), `streamObject`, `generateObject` (auto-repair), `AiGuardrail`, `AiSemanticCache`, `transcribeAudio`, `generateSpeech`, `generateImage`, `TextSplitter` / `indexText` |
+| Unified Human & `@ai` Chat | `api.chat.room('room_1')` (optimistic send, typing, reactions, file upload, pagination, `search()`, `threadMessages()`, E2EE `ChatCipher`, `@ai`), `api.aiThread(...)`, `FileChatStore` |
 | migrate from Dio | `OmniNetwork.fromDio(dio)` |
 | cancel requests | `OmniCancelToken`, `api.cancelAll()` |
 | record / mock without server | `OmniMock`, `RecordingTransport` & `MockAiProvider` from `package:omni_network/testing.dart` |

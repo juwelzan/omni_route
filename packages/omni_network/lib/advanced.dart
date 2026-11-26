@@ -7,7 +7,8 @@ library;
 export 'omni_network.dart';
 
 export 'src/ai/ai_models.dart' show AiUsageTracker;
-export 'src/ai/ai_provider.dart' show AiProvider;
+export 'src/ai/ai_provider.dart'
+    show AiProvider, AiBatchEmbedProvider, AiMediaProvider;
 export 'src/ai/omni_ai.dart' show AiCallLogRecord;
 export 'src/ai/vector_store.dart'
     show
@@ -17,7 +18,10 @@ export 'src/ai/vector_store.dart'
         MemoryVectorStore,
         FileVectorStore,
         TextEmbedder,
-        cosineSimilarity;
+        BatchTextEmbedder,
+        cosineSimilarity,
+        rankVectorDocuments,
+        rankHybridVectorDocuments;
 export 'src/auth/bearer_auth.dart' show BearerAuth, AuthProvider;
 export 'src/auth/tokens.dart' show TokenStorage, MemoryTokenStorage;
 
@@ -39,7 +43,7 @@ export 'src/chat/chat_store.dart'
     show ChatStore, MemoryChatStore, FileChatStore;
 export 'src/core/cancel_signal.dart' show CancelSignal;
 export 'src/core/decoding.dart' show JsonDecoder;
-export 'src/core/omni_metrics.dart' show OmniNetworkMetrics;
+export 'src/core/omni_metrics.dart' show OmniNetworkMetrics, EndpointMetrics;
 export 'src/core/omni_network.dart' show OmniNetworkAdvanced;
 export 'src/core/response_adapter.dart';
 export 'src/curl/curl.dart' show parseCurl, CurlImport;

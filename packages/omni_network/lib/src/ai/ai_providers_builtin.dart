@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import '../core/cancel_token.dart';
 import '../core/omni_network.dart';
 import '../core/omni_network_exception.dart';
+import '../transfer/multipart.dart' show UploadFile;
 import 'ai_models.dart';
 import 'ai_provider.dart';
 import 'ai_stream_helpers.dart';
@@ -11,7 +13,8 @@ import 'ai_stream_helpers.dart';
 /// Shared OpenAI wire-format adapter powering [OpenAiProvider] as well as
 /// OpenAI-compatible backends (Groq, OpenRouter, DeepSeek, Together, Azure
 /// OpenAI, vLLM, LM Studio, or an app backend proxy).
-base class OpenAiCompatibleProvider implements AiProvider {
+base class OpenAiCompatibleProvider
+    implements AiProvider, AiBatchEmbedProvider, AiMediaProvider {
   /// Creates an OpenAI-compatible provider adapter.
   OpenAiCompatibleProvider({
     this.id = 'openai_compatible',
@@ -177,6 +180,7 @@ base class OpenAiCompatibleProvider implements AiProvider {
       if (raw.isEmpty || raw == '[DONE]') continue;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) continue;
+      throwIfAiErrorEnvelope(decoded);
       if (decoded['usage'] is Map) {
         usage = _decodeOpenAiUsage(Map<String, Object?>.from(decoded['usage']! as Map));
       }
@@ -269,6 +273,143 @@ base class OpenAiCompatibleProvider implements AiProvider {
     final first = data.first as Map;
     final vec = first['embedding']! as List;
     return [for (final n in vec) (n as num).toDouble()];
+  }
+
+  @override
+  Future<List<List<double>>> embedBatch(
+    OmniNetwork client, {
+    required String model,
+    required List<String> texts,
+    OmniCancelToken? cancelToken,
+  }) async {
+    if (texts.isEmpty) return const [];
+    final json = await postAiJson(
+      client,
+      _endpoint(embeddingsPath),
+      body: {'model': model, 'input': texts},
+      headers: await _buildHeaders(),
+      skipAuth: !useClientAuth,
+      cancelToken: cancelToken,
+    );
+    final data = json['data'];
+    if (data is! List) {
+      throw const DecodeFailure('Batch embedding response missing "data"');
+    }
+    return [
+      for (final item in data)
+        [
+          for (final n in ((item as Map)['embedding']! as List))
+            (n as num).toDouble(),
+        ],
+    ];
+  }
+
+  @override
+  Future<AiTranscriptionResult> transcribeAudio(
+    OmniNetwork client, {
+    required Uint8List audioBytes,
+    required String mimeType,
+    required String model,
+    String? language,
+    String? prompt,
+    OmniCancelToken? cancelToken,
+  }) async {
+    final json = await postAiMultipart(
+      client,
+      _endpoint('/audio/transcriptions'),
+      fields: {
+        'model': model,
+        'language': ?language,
+        'prompt': ?prompt,
+      },
+      files: [
+        UploadFile.fromBytes(
+          'file',
+          audioBytes,
+          filename: 'audio.${_extFromMime(mimeType)}',
+          contentType: mimeType,
+        ),
+      ],
+      headers: await _buildHeaders(),
+      skipAuth: !useClientAuth,
+      cancelToken: cancelToken,
+    );
+    return AiTranscriptionResult(
+      text: json['text'] as String? ?? '',
+      language: json['language'] as String? ?? language,
+      durationSeconds: (json['duration'] as num?)?.toDouble(),
+      model: model,
+      providerId: id,
+      raw: json,
+    );
+  }
+
+  @override
+  Future<AiSpeechResult> generateSpeech(
+    OmniNetwork client, {
+    required String text,
+    required String model,
+    String voice = 'alloy',
+    String format = 'mp3',
+    OmniCancelToken? cancelToken,
+  }) async {
+    final raw = await postAiBytes(
+      client,
+      _endpoint('/audio/speech'),
+      body: {
+        'model': model,
+        'input': text,
+        'voice': voice,
+        'response_format': format,
+      },
+      headers: await _buildHeaders(),
+      skipAuth: !useClientAuth,
+      cancelToken: cancelToken,
+    );
+    return AiSpeechResult(
+      bytes: raw.bodyBytes,
+      mimeType: raw.headers['content-type'] ?? _mimeFromAudioFormat(format),
+      model: model,
+      providerId: id,
+    );
+  }
+
+  @override
+  Future<List<AiGeneratedImage>> generateImage(
+    OmniNetwork client, {
+    required String prompt,
+    required String model,
+    String size = '1024x1024',
+    int n = 1,
+    OmniCancelToken? cancelToken,
+  }) async {
+    final json = await postAiJson(
+      client,
+      _endpoint('/images/generations'),
+      body: {
+        'model': model,
+        'prompt': prompt,
+        'size': size,
+        'n': n,
+      },
+      headers: await _buildHeaders(),
+      skipAuth: !useClientAuth,
+      cancelToken: cancelToken,
+    );
+    final data = json['data'] as List? ?? const [];
+    return [
+      for (final entry in data)
+        if (entry is Map)
+          AiGeneratedImage(
+            bytes: entry['b64_json'] is String
+                ? base64Decode(entry['b64_json']! as String)
+                : null,
+            url: entry['url'] as String?,
+            revisedPrompt: entry['revised_prompt'] as String?,
+            model: model,
+            providerId: id,
+          ),
+    ];
   }
 
   @override
@@ -404,8 +545,9 @@ final class OpenAiProvider extends OpenAiCompatibleProvider {
 }
 
 /// Google Gemini (`generateContent`, `streamGenerateContent?alt=sse`,
-/// Embeddings, Multimodal, Function Calling & Live WebSocket) adapter.
-final class GeminiProvider implements AiProvider {
+/// Embeddings, Multimodal, Audio Transcription, Imagen & Live WebSocket) adapter.
+final class GeminiProvider
+    implements AiProvider, AiBatchEmbedProvider, AiMediaProvider {
   /// Creates a Gemini adapter.
   GeminiProvider({
     this.id = 'gemini',
@@ -500,7 +642,12 @@ final class GeminiProvider implements AiProvider {
               'inlineData': {'mimeType': mimeType, 'data': base64Encode(bytes)},
             });
           case AiImageUrlPart(:final url):
-            parts.add({'text': url});
+            parts.add({
+              'fileData': {
+                'mimeType': _guessImageMime(url),
+                'fileUri': url,
+              },
+            });
           case AiToolCallPart(:final name, :final arguments):
             parts.add({
               'functionCall': {'name': name, 'args': arguments},
@@ -604,6 +751,7 @@ final class GeminiProvider implements AiProvider {
       final decoded = jsonDecode(raw);
       if (decoded is! Map) continue;
       final map = Map<String, Object?>.from(decoded);
+      throwIfAiErrorEnvelope(map);
       if (map['usageMetadata'] is Map) {
         usage = _decodeGeminiUsage(
           Map<String, Object?>.from(map['usageMetadata']! as Map),
@@ -694,6 +842,137 @@ final class GeminiProvider implements AiProvider {
       throw const DecodeFailure('Gemini embedding response missing values');
     }
     return [for (final n in values) (n as num).toDouble()];
+  }
+
+  @override
+  Future<List<List<double>>> embedBatch(
+    OmniNetwork client, {
+    required String model,
+    required List<String> texts,
+    OmniCancelToken? cancelToken,
+  }) async {
+    if (texts.isEmpty) return const [];
+    final (url, reqHeaders) = await _target(
+      '/models/$model:batchEmbedContents',
+    );
+    final json = await postAiJson(
+      client,
+      url,
+      body: {
+        'requests': [
+          for (final t in texts)
+            {
+              'model': 'models/$model',
+              'content': {
+                'parts': [
+                  {'text': t},
+                ],
+              },
+            },
+        ],
+      },
+      headers: reqHeaders,
+      skipAuth: !useClientAuth,
+      cancelToken: cancelToken,
+    );
+    final embeddings = json['embeddings'] as List?;
+    if (embeddings == null) {
+      throw const DecodeFailure(
+        'Gemini batchEmbedContents response missing "embeddings"',
+      );
+    }
+    return [
+      for (final item in embeddings)
+        [
+          for (final n in ((item as Map)['values']! as List))
+            (n as num).toDouble(),
+        ],
+    ];
+  }
+
+  @override
+  Future<AiTranscriptionResult> transcribeAudio(
+    OmniNetwork client, {
+    required Uint8List audioBytes,
+    required String mimeType,
+    required String model,
+    String? language,
+    String? prompt,
+    OmniCancelToken? cancelToken,
+  }) async {
+    final instruction =
+        prompt ??
+        'Transcribe the provided audio verbatim'
+            '${language == null ? '' : ' in $language'}. Return only the transcript text.';
+    final res = await generate(
+      client,
+      model: model,
+      messages: [
+        AiMessage.userParts([
+          AiPart.audioBytes(audioBytes, mimeType: mimeType),
+          AiPart.text(instruction),
+        ]),
+      ],
+      cancelToken: cancelToken,
+    );
+    return AiTranscriptionResult(
+      text: res.text.trim(),
+      language: language,
+      model: res.model,
+      providerId: id,
+      raw: res.raw,
+    );
+  }
+
+  @override
+  Future<AiSpeechResult> generateSpeech(
+    OmniNetwork client, {
+    required String text,
+    required String model,
+    String voice = 'alloy',
+    String format = 'mp3',
+    OmniCancelToken? cancelToken,
+  }) => throw UnsupportedError(
+    'GeminiProvider does not expose a standalone audio/speech TTS endpoint; '
+    'use OpenAiProvider or openRealtime for live Gemini audio output.',
+  );
+
+  @override
+  Future<List<AiGeneratedImage>> generateImage(
+    OmniNetwork client, {
+    required String prompt,
+    required String model,
+    String size = '1024x1024',
+    int n = 1,
+    OmniCancelToken? cancelToken,
+  }) async {
+    final (url, reqHeaders) = await _target('/models/$model:predict');
+    final json = await postAiJson(
+      client,
+      url,
+      body: {
+        'instances': [
+          {'prompt': prompt},
+        ],
+        'parameters': {'sampleCount': n},
+      },
+      headers: reqHeaders,
+      skipAuth: !useClientAuth,
+      cancelToken: cancelToken,
+    );
+    final predictions = json['predictions'] as List? ?? const [];
+    return [
+      for (final p in predictions)
+        if (p is Map)
+          AiGeneratedImage(
+            bytes: p['bytesBase64Encoded'] is String
+                ? base64Decode(p['bytesBase64Encoded']! as String)
+                : null,
+            mimeType: p['mimeType'] as String? ?? 'image/png',
+            model: model,
+            providerId: id,
+          ),
+    ];
   }
 
   @override
@@ -883,10 +1162,11 @@ final class AnthropicProvider implements AiProvider {
   String _endpoint(String path) =>
       '${baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl}$path';
 
-  Future<Map<String, String>> _buildHeaders() async {
+  Future<Map<String, String>> _buildHeaders({bool promptCaching = false}) async {
     final key = await apiKey?.call();
     return {
       'anthropic-version': anthropicVersion,
+      if (promptCaching) 'anthropic-beta': 'prompt-caching-2024-07-31',
       ...headers,
       if (key != null && key.isNotEmpty) 'x-api-key': key,
     };
@@ -959,7 +1239,16 @@ final class AnthropicProvider implements AiProvider {
     return {
       'model': model,
       'max_tokens': options.maxTokens ?? 4096,
-      if (systemTexts.isNotEmpty) 'system': systemTexts.join('\n\n'),
+      if (systemTexts.isNotEmpty)
+        'system': options.promptCaching
+            ? [
+                {
+                  'type': 'text',
+                  'text': systemTexts.join('\n\n'),
+                  'cache_control': const {'type': 'ephemeral'},
+                },
+              ]
+            : systemTexts.join('\n\n'),
       'messages': outMessages,
       if (stream) 'stream': true,
       if (options.temperature != null) 'temperature': options.temperature,
@@ -997,7 +1286,7 @@ final class AnthropicProvider implements AiProvider {
         options: options,
         stream: false,
       ),
-      headers: await _buildHeaders(),
+      headers: await _buildHeaders(promptCaching: options.promptCaching),
       skipAuth: !useClientAuth,
       cancelToken: cancelToken,
     );
@@ -1025,7 +1314,10 @@ final class AnthropicProvider implements AiProvider {
       }
     }
     final rawUsage = json['usage'] as Map?;
-    final inputTokens = rawUsage?['input_tokens'] as int? ?? 0;
+    final inputTokens =
+        (rawUsage?['input_tokens'] as int? ?? 0) +
+        (rawUsage?['cache_read_input_tokens'] as int? ?? 0) +
+        (rawUsage?['cache_creation_input_tokens'] as int? ?? 0);
     final outputTokens = rawUsage?['output_tokens'] as int? ?? 0;
     return AiResponse(
       text: textBuf.toString(),
@@ -1065,7 +1357,7 @@ final class AnthropicProvider implements AiProvider {
         options: options,
         stream: true,
       ),
-      headers: await _buildHeaders(),
+      headers: await _buildHeaders(promptCaching: options.promptCaching),
       skipAuth: !useClientAuth,
       cancelToken: cancelToken,
     )) {
@@ -1073,6 +1365,7 @@ final class AnthropicProvider implements AiProvider {
       if (raw.isEmpty) continue;
       final decoded = jsonDecode(raw);
       if (decoded is! Map) continue;
+      throwIfAiErrorEnvelope(decoded);
       final type = decoded['type'] as String?;
       if (type == 'message_start' && decoded['message'] is Map) {
         final msg = decoded['message']! as Map;
@@ -1167,7 +1460,7 @@ final class AnthropicProvider implements AiProvider {
 }
 
 /// Ollama local LLM (`/api/chat`, NDJSON streaming & `/api/embed`) adapter.
-final class OllamaProvider implements AiProvider {
+final class OllamaProvider implements AiProvider, AiBatchEmbedProvider {
   /// Creates an Ollama adapter targeting [baseUrl] (default local daemon).
   OllamaProvider({
     this.id = 'ollama',
@@ -1383,6 +1676,33 @@ final class OllamaProvider implements AiProvider {
   }
 
   @override
+  Future<List<List<double>>> embedBatch(
+    OmniNetwork client, {
+    required String model,
+    required List<String> texts,
+    OmniCancelToken? cancelToken,
+  }) async {
+    if (texts.isEmpty) return const [];
+    final json = await postAiJson(
+      client,
+      _endpoint('/api/embed'),
+      body: {'model': model, 'input': texts},
+      headers: headers,
+      cancelToken: cancelToken,
+    );
+    final embeddings = json['embeddings'] as List?;
+    if (embeddings == null) {
+      throw const DecodeFailure(
+        'Ollama batch embed response missing "embeddings"',
+      );
+    }
+    return [
+      for (final row in embeddings)
+        [for (final n in (row as List)) (n as num).toDouble()],
+    ];
+  }
+
+  @override
   Future<AiRealtimeSession> openRealtime(
     OmniNetwork client, {
     required String model,
@@ -1395,7 +1715,8 @@ final class OllamaProvider implements AiProvider {
 
 /// Callback-based adapter for integrating any custom app backend or proprietary
 /// LLM HTTP/SSE gateway into `OmniAi`.
-final class CustomAiProvider implements AiProvider {
+final class CustomAiProvider
+    implements AiProvider, AiBatchEmbedProvider, AiMediaProvider {
   /// Creates a custom AI adapter from handler callbacks.
   const CustomAiProvider({
     required this.id,
@@ -1422,9 +1743,48 @@ final class CustomAiProvider implements AiProvider {
       OmniCancelToken? cancelToken,
     )?
     onEmbed,
+    Future<List<List<double>>> Function(
+      OmniNetwork client,
+      String model,
+      List<String> texts,
+      OmniCancelToken? cancelToken,
+    )?
+    onEmbedBatch,
+    Future<AiTranscriptionResult> Function(
+      OmniNetwork client,
+      Uint8List audioBytes,
+      String mimeType,
+      String model,
+      String? language,
+      String? prompt,
+      OmniCancelToken? cancelToken,
+    )?
+    onTranscribe,
+    Future<AiSpeechResult> Function(
+      OmniNetwork client,
+      String text,
+      String model,
+      String voice,
+      String format,
+      OmniCancelToken? cancelToken,
+    )?
+    onSpeak,
+    Future<List<AiGeneratedImage>> Function(
+      OmniNetwork client,
+      String prompt,
+      String model,
+      String size,
+      int n,
+      OmniCancelToken? cancelToken,
+    )?
+    onGenerateImage,
   }) : _onGenerate = onGenerate, // ignore: prefer_initializing_formals
        _onStream = onStream, // ignore: prefer_initializing_formals
-       _onEmbed = onEmbed; // ignore: prefer_initializing_formals
+       _onEmbed = onEmbed, // ignore: prefer_initializing_formals
+       _onEmbedBatch = onEmbedBatch, // ignore: prefer_initializing_formals
+       _onTranscribe = onTranscribe, // ignore: prefer_initializing_formals
+       _onSpeak = onSpeak, // ignore: prefer_initializing_formals
+       _onGenerateImage = onGenerateImage; // ignore: prefer_initializing_formals
 
   @override
   final String id;
@@ -1454,6 +1814,45 @@ final class CustomAiProvider implements AiProvider {
     OmniCancelToken? cancelToken,
   )?
   _onEmbed;
+
+  final Future<List<List<double>>> Function(
+    OmniNetwork client,
+    String model,
+    List<String> texts,
+    OmniCancelToken? cancelToken,
+  )?
+  _onEmbedBatch;
+
+  final Future<AiTranscriptionResult> Function(
+    OmniNetwork client,
+    Uint8List audioBytes,
+    String mimeType,
+    String model,
+    String? language,
+    String? prompt,
+    OmniCancelToken? cancelToken,
+  )?
+  _onTranscribe;
+
+  final Future<AiSpeechResult> Function(
+    OmniNetwork client,
+    String text,
+    String model,
+    String voice,
+    String format,
+    OmniCancelToken? cancelToken,
+  )?
+  _onSpeak;
+
+  final Future<List<AiGeneratedImage>> Function(
+    OmniNetwork client,
+    String prompt,
+    String model,
+    String size,
+    int n,
+    OmniCancelToken? cancelToken,
+  )?
+  _onGenerateImage;
 
   @override
   bool get supportsStreaming => _onStream != null;
@@ -1509,6 +1908,72 @@ final class CustomAiProvider implements AiProvider {
   }
 
   @override
+  Future<List<List<double>>> embedBatch(
+    OmniNetwork client, {
+    required String model,
+    required List<String> texts,
+    OmniCancelToken? cancelToken,
+  }) async {
+    final batchFn = _onEmbedBatch;
+    if (batchFn != null) return batchFn(client, model, texts, cancelToken);
+    return [
+      for (final t in texts)
+        await embed(client, model: model, text: t, cancelToken: cancelToken),
+    ];
+  }
+
+  @override
+  Future<AiTranscriptionResult> transcribeAudio(
+    OmniNetwork client, {
+    required Uint8List audioBytes,
+    required String mimeType,
+    required String model,
+    String? language,
+    String? prompt,
+    OmniCancelToken? cancelToken,
+  }) {
+    final fn = _onTranscribe;
+    if (fn == null) {
+      throw UnsupportedError('CustomAiProvider "$id" has no transcribe handler');
+    }
+    return fn(client, audioBytes, mimeType, model, language, prompt, cancelToken);
+  }
+
+  @override
+  Future<AiSpeechResult> generateSpeech(
+    OmniNetwork client, {
+    required String text,
+    required String model,
+    String voice = 'alloy',
+    String format = 'mp3',
+    OmniCancelToken? cancelToken,
+  }) {
+    final fn = _onSpeak;
+    if (fn == null) {
+      throw UnsupportedError('CustomAiProvider "$id" has no speech handler');
+    }
+    return fn(client, text, model, voice, format, cancelToken);
+  }
+
+  @override
+  Future<List<AiGeneratedImage>> generateImage(
+    OmniNetwork client, {
+    required String prompt,
+    required String model,
+    String size = '1024x1024',
+    int n = 1,
+    OmniCancelToken? cancelToken,
+  }) {
+    final fn = _onGenerateImage;
+    if (fn == null) {
+      throw UnsupportedError(
+        'CustomAiProvider "$id" has no image generator handler',
+      );
+    }
+    return fn(client, prompt, model, size, n, cancelToken);
+  }
+
+  @override
   Future<AiRealtimeSession> openRealtime(
     OmniNetwork client, {
     required String model,
@@ -1546,7 +2011,11 @@ Map<String, Object?> _encodeOpenAiMessage(AiMessage msg) {
     };
   }
   final hasBinary = msg.parts.any(
-    (p) => p is AiImageBytesPart || p is AiImageUrlPart || p is AiAudioBytesPart,
+    (p) =>
+        p is AiImageBytesPart ||
+        p is AiImageUrlPart ||
+        p is AiAudioBytesPart ||
+        p is AiDocumentPart,
   );
   if (!hasBinary) {
     return {
@@ -1578,13 +2047,51 @@ Map<String, Object?> _encodeOpenAiMessage(AiMessage msg) {
             'format': mimeType.split('/').last,
           },
         });
-      case AiDocumentPart(:final name, :final mimeType):
-        contentList.add({'type': 'text', 'text': '[file:$name ($mimeType)]'});
+      case AiDocumentPart(:final bytes, :final name, :final mimeType):
+        if (mimeType.startsWith('text/') || mimeType == 'application/json') {
+          contentList.add({
+            'type': 'text',
+            'text':
+                'Document (${name ?? mimeType}):\n'
+                '${utf8.decode(bytes, allowMalformed: true)}',
+          });
+        } else {
+          contentList.add({
+            'type': 'file',
+            'file': {
+              'filename': name ?? 'document.${_extFromMime(mimeType)}',
+              'file_data': 'data:$mimeType;base64,${base64Encode(bytes)}',
+            },
+          });
+        }
       case AiToolCallPart() || AiToolResultPart():
         break;
     }
   }
   return {'role': msg.role.name, 'content': contentList};
+}
+
+String _extFromMime(String mimeType) {
+  final slash = mimeType.lastIndexOf('/');
+  if (slash < 0 || slash == mimeType.length - 1) return 'bin';
+  final raw = mimeType.substring(slash + 1).toLowerCase();
+  return raw == 'mpeg' ? 'mp3' : raw.split(';').first;
+}
+
+String _mimeFromAudioFormat(String format) => switch (format.toLowerCase()) {
+  'wav' => 'audio/wav',
+  'opus' => 'audio/opus',
+  'aac' => 'audio/aac',
+  'flac' => 'audio/flac',
+  _ => 'audio/mpeg',
+};
+
+String _guessImageMime(String url) {
+  final lower = url.toLowerCase();
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  if (lower.endsWith('.gif')) return 'image/gif';
+  return 'image/jpeg';
 }
 
 AiUsage _decodeOpenAiUsage(Map<String, Object?> usage) {

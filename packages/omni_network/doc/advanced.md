@@ -444,8 +444,9 @@ final sse = api.sse('/ai/stream', method: HttpMethod.post, body: {'prompt': 'Hi'
 ## Universal API Hub (`OmniApiHub`)
 
 Manage multiple environments (`dev`/`prod`), per-service `RateLimit`s, remote
-JSON config updates, and declarative REST / GraphQL / WS / SSE / AI specs from
-one coordinator:
+JSON config updates, health probing (`healthCheckAll`), dynamic global headers,
+and declarative REST / GraphQL / WS / SSE / AI specs (including auto-generating
+`AiTool`s directly from an `EndpointRegistry`) from one coordinator:
 
 ```dart
 final hub = OmniApiHub(
@@ -467,21 +468,30 @@ final hub = OmniApiHub(
 );
 await hub.useEnvironment('staging');
 await hub.loadRemoteConfig(remoteJson);
+hub.setGlobalHeader('X-Tenant', 'acme');
+final health = await hub.healthCheckAll();
+final tools = hub.toolsFromRegistry(myEndpointRegistry);
 final summary = await hub.callAi(aiSpec, input: {'topic': 'Release'});
 ```
 
-## Multi-AI & RAG (`OmniAi`)
+## Multi-AI, Voice/Image, Guardrails & Hybrid RAG (`OmniAi`)
 
 Configure `OpenAiProvider`, `OpenAiCompatibleProvider` (Groq/OpenRouter/DeepSeek/vLLM),
 `GeminiProvider`, `AnthropicProvider`, `OllamaProvider`, or `CustomAiProvider`,
-with ordered failover routes, `AiTool.fromEndpoint(...)` tool calling, structured
-JSON decoding (`generateObject`), `FileVectorStore` / `MemoryVectorStore` RAG,
-`openRealtime` WebSocket sessions, and USD session budget caps:
+with ordered / `lowestLatency` / `lowestCost` / `hedged` routing + automatic
+`429 Retry-After` cooldown failover, streaming tool loops, progressive
+`streamObject<T>` with JSON `autoRepair`, `AiTool.fromEndpoint` / `fromRegistry`,
+`AiGuardrail` PII/secret scrubbing, `AiSemanticCache`, `transcribeAudio` /
+`generateSpeech` / `generateImage`, `TextSplitter` chunking + `indexText` +
+`searchHybrid`, Anthropic `promptCaching`, `openRealtime` WebSockets, and USD
+session budget caps:
 
 ```dart
 final api = OmniNetwork(
   ai: AiConfig(
     defaultModel: 'smart',
+    guardrail: const AiGuardrail.piiMask(restoreInResponse: true),
+    semanticCache: AiSemanticCache(store: MemoryVectorStore()),
     providers: {
       'openai': OpenAiProvider(apiKey: () => openAiKey),
       'gemini': GeminiProvider(apiKey: () => geminiKey),
@@ -489,10 +499,13 @@ final api = OmniNetwork(
       'ollama': OllamaProvider(),
     },
     routes: const {
-      'smart': AiModelRoute([
-        AiTarget('claude', model: 'claude-3-7-sonnet-latest'),
-        AiTarget('openai', model: 'gpt-4o'),
-      ]),
+      'smart': AiModelRoute(
+        [
+          AiTarget('claude', model: 'claude-3-7-sonnet-latest'),
+          AiTarget('openai', model: 'gpt-4o'),
+        ],
+        strategy: AiRoutingStrategy.hedged,
+      ),
     },
     maxSessionBudgetUsd: 1.00,
   ),
@@ -501,7 +514,10 @@ final api = OmniNetwork(
 final answer = await api.ai.ask('Summarize architecture');
 final stream = api.ai.stream('Write release notes');
 final obj = await api.ai.generateObject('Extract tasks', decoder: TaskList.fromJson);
-final comparison = await api.ai.compare('Compare models', models: ['openai:gpt-4o', 'gemini:gemini-2.5-flash']);
+final partialStream = api.ai.streamObject('Extract tasks', decoder: TaskList.fromJson);
+final stt = await api.ai.transcribeAudio(audioBytes, mimeType: 'audio/mp3');
+final tts = await api.ai.generateSpeech('Hello world');
+final imgs = await api.ai.generateImage('Minimal app icon');
 ```
 
 ## Unified Human & `@ai` Chat
@@ -511,10 +527,12 @@ final comparison = await api.ai.compare('Compare models', models: ['openai:gpt-4
 final thread = api.aiThread('assistant_1', store: FileChatStore(directory: chatDir));
 await thread.sendAndWait('Hello!');
 
-// Realtime WebSocket chat room (optimistic send, reactions, typing, file upload, @ai):
+// Realtime WebSocket chat room (optimistic send, reactions, typing, file upload,
+// search(), threadMessages(), optional E2EE ChatCipher, and @ai assistant):
 final room = api.chat.room('team_room', historyEndpoint: '/chat/history');
 room.attachAiAssistant(thread, triggerPrefix: '@ai');
 await room.sendText('Hey team! @ai draft today\'s standup');
+final hits = await room.search('standup');
 ```
 
 ## Testing, recording and replay

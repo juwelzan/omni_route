@@ -53,6 +53,24 @@
   reactions, edit/delete, upload progress, history pagination, offline queue,
   `@ai` hybrid assistant), `OmniAiThread` (`api.aiThread`) with sliding-window
   summarization, and persistent `FileChatStore` / `MemoryChatStore`.
+- **Advanced AI Resilience, Privacy & Media**: Added `AiGuardrail` (PII &
+  secret masking/restoration/blocking before calling external LLMs),
+  `AiSemanticCache` (cosine vector + exact-hash TTL prompt cache),
+  `AiStreamingObject<T>` via `streamObject<T>` with progressive partial JSON
+  decoding and automatic 1-retry `autoRepair` on `generateObject`, multi-round
+  tool execution inside `api.ai.stream()` / `streamChat()`, mid-stream JSON
+  error detection (`throwIfAiErrorEnvelope`), smart routing (`lowestLatency`,
+  `lowestCost`, `hedged` race), `429 Retry-After` target cooldown failover,
+  Anthropic `promptCaching`, `embedBatch` / `TextSplitter` / `indexText` /
+  metadata-filtered `searchHybrid` RAG + cached `FileVectorStore` reads, and
+  `AiMediaProvider` voice & image APIs (`transcribeAudio`, `generateSpeech`,
+  `generateImage`).
+- **Observability, Hub & Chat Upgrades**: Extended `OmniNetworkMetrics` with
+  `p50Latency`, `p95Latency`, `p99Latency`, `wsReconnectCount`, and
+  `EndpointMetrics` per endpoint; added `OmniApiHub.healthCheckAll()`,
+  `setGlobalHeader` / `removeGlobalHeader`, and `toolsFromRegistry` /
+  `AiTool.fromRegistry`; added optional `ChatCipher` E2EE/at-rest encryption,
+  `room.search(...)`, and `room.threadMessages(...)` on `OmniChatRoom`.
 
 ## 0.1.1
 

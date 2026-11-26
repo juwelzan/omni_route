@@ -122,9 +122,49 @@ final class OmniChatRoom {
     _restored = true;
     final cached = await store.loadMessages(roomId);
     if (cached.isNotEmpty) {
-      _mergeMessages(cached);
+      final decoded = [for (final m in cached) await _decryptMessage(m)];
+      _mergeMessages(decoded);
     }
   }
+
+  /// Searches room history (restoring local cache if needed) by text [query],
+  /// optional [senderId], [isAi] flag, or [hasAttachments].
+  Future<List<ChatMessage>> search(
+    String query, {
+    String? senderId,
+    bool? isAi,
+    bool? hasAttachments,
+  }) async {
+    await restore();
+    final q = query.trim().toLowerCase();
+    return [
+      for (final m in _messages)
+        if (!m.isDeleted &&
+            (senderId == null || m.senderId == senderId) &&
+            (isAi == null || m.isAi == isAi) &&
+            (hasAttachments == null ||
+                hasAttachments ==
+                    m.parts.any((p) => p is ChatMediaPart || p is ChatFilePart)) &&
+            (q.isEmpty ||
+                m.text.toLowerCase().contains(q) ||
+                (m.senderName?.toLowerCase().contains(q) ?? false) ||
+                m.parts.any(
+                  (p) => switch (p) {
+                    ChatFilePart(:final name) => name.toLowerCase().contains(q),
+                    ChatMediaPart(:final name?) => name.toLowerCase().contains(q),
+                    _ => false,
+                  },
+                )))
+          m,
+    ];
+  }
+
+  /// Returns the parent message (if cached locally) followed by all replies
+  /// referencing [parentMessageId] in chronological order.
+  List<ChatMessage> threadMessages(String parentMessageId) => [
+    for (final m in _messages)
+      if (m.id == parentMessageId || m.replyToId == parentMessageId) m,
+  ];
 
   /// Sends a plain-text message optimistically.
   Future<ChatMessage> sendText(String text, {String? replyToId}) =>
@@ -151,7 +191,7 @@ final class OmniChatRoom {
       status: MessageDeliveryStatus.sending,
     );
     _upsert(msg);
-    await store.saveMessage(msg);
+    await _saveToStore(msg);
     await _dispatchSend(msg);
     return msg;
   }
@@ -197,9 +237,10 @@ final class OmniChatRoom {
   }
 
   Future<void> _dispatchSend(ChatMessage msg) async {
+    final wireMsg = await _encryptMessage(msg);
     final sent = await chatClient.transmitFrame(
-      protocol.encodeSend(msg),
-      enqueueFallback: msg,
+      protocol.encodeSend(wireMsg),
+      enqueueFallback: wireMsg,
     );
     if (!sent && msg.localId != null) {
       // Keep status `sending` when buffered/offline queued; caller gets instant UI.
@@ -293,11 +334,13 @@ final class OmniChatRoom {
         editedAt: DateTime.now().toUtc(),
       );
       _messages[idx] = updated;
-      await store.saveMessage(updated);
+      await _saveToStore(updated);
       _emitMessages();
     }
+    final cipher = chatClient.cipher;
+    final wireText = cipher == null ? newText : await cipher.encrypt(newText);
     await chatClient.transmitFrame(
-      protocol.encodeEdit(roomId, targetId, newText),
+      protocol.encodeEdit(roomId, targetId, wireText),
     );
   }
 
@@ -387,11 +430,15 @@ final class OmniChatRoom {
     if (_closed) return;
     switch (event) {
       case ChatMessageReceived(:final message):
+        if (chatClient.cipher != null && message.metadata['_e2ee'] == true) {
+          unawaited(_acceptEncryptedInbound(message));
+          return;
+        }
         _upsert(message);
         if (message.senderId != chatClient.currentUserId && !message.isAi) {
           _unreadCount++;
         }
-        _persist(store.saveMessage(message));
+        _persist(message);
       case ChatMessageAcked(:final localId, :final serverId, :final status, :final createdAt):
         final idx = _messages.indexWhere(
           (m) => m.localId == localId || m.id == localId,
@@ -418,7 +465,7 @@ final class OmniChatRoom {
             metadata: existing.metadata,
           );
           _messages[idx] = confirmed;
-          _persist(store.saveMessage(confirmed));
+          _persist(confirmed);
           _emitMessages();
         }
       case ChatDeliveryUpdated(:final messageId, :final status):
@@ -428,7 +475,7 @@ final class OmniChatRoom {
         if (idx >= 0) {
           final updated = _messages[idx].copyWith(status: status);
           _messages[idx] = updated;
-          _persist(store.saveMessage(updated));
+          _persist(updated);
           _emitMessages();
         }
       case ChatMessageEdited(:final messageId, :final parts, :final editedAt):
@@ -441,7 +488,7 @@ final class OmniChatRoom {
             editedAt: editedAt,
           );
           _messages[idx] = updated;
-          _persist(store.saveMessage(updated));
+          _persist(updated);
           _emitMessages();
         }
       case ChatMessageDeleted(:final messageId):
@@ -454,7 +501,7 @@ final class OmniChatRoom {
             parts: const [],
           );
           _messages[idx] = updated;
-          _persist(store.saveMessage(updated));
+          _persist(updated);
           _emitMessages();
         }
       case ChatReactionToggled(:final messageId, :final emoji, :final userId, :final added):
@@ -474,7 +521,7 @@ final class OmniChatRoom {
           }
           final updated = _messages[idx].copyWith(reactions: next);
           _messages[idx] = updated;
-          _persist(store.saveMessage(updated));
+          _persist(updated);
           _emitMessages();
         }
       case ChatTypingEvent(:final indicator):
@@ -556,8 +603,54 @@ final class OmniChatRoom {
     _emitMessages();
   }
 
-  void _persist(FutureOr<void> result) {
-    if (result is Future<void>) unawaited(result);
+  Future<ChatMessage> _encryptMessage(ChatMessage m) async {
+    final cipher = chatClient.cipher;
+    if (cipher == null || m.parts.every((p) => p is! ChatTextPart)) return m;
+    final nextParts = <ChatPart>[
+      for (final p in m.parts)
+        if (p is ChatTextPart) ChatTextPart(await cipher.encrypt(p.text)) else p,
+    ];
+    return m.copyWith(
+      parts: nextParts,
+      metadata: {...m.metadata, '_e2ee': true},
+    );
+  }
+
+  Future<ChatMessage> _decryptMessage(ChatMessage m) async {
+    final cipher = chatClient.cipher;
+    if (cipher == null || m.metadata['_e2ee'] != true) return m;
+    final nextParts = <ChatPart>[
+      for (final p in m.parts)
+        if (p is ChatTextPart) ChatTextPart(await cipher.decrypt(p.text)) else p,
+    ];
+    final nextMeta = Map<String, Object?>.of(m.metadata)..remove('_e2ee');
+    return m.copyWith(parts: nextParts, metadata: nextMeta);
+  }
+
+  Future<void> _acceptEncryptedInbound(ChatMessage message) async {
+    final decrypted = await _decryptMessage(message);
+    if (_closed) return;
+    _upsert(decrypted);
+    if (decrypted.senderId != chatClient.currentUserId && !decrypted.isAi) {
+      _unreadCount++;
+    }
+    await _saveToStore(decrypted);
+  }
+
+  Future<void> _saveToStore(ChatMessage message) async {
+    final toSave = chatClient.encryptLocalStore
+        ? await _encryptMessage(message)
+        : message;
+    await store.saveMessage(toSave);
+  }
+
+  void _persist(ChatMessage message) {
+    if (!chatClient.encryptLocalStore || chatClient.cipher == null) {
+      final res = store.saveMessage(message);
+      if (res is Future<void>) unawaited(res);
+      return;
+    }
+    unawaited(_saveToStore(message));
   }
 
   void _emitMessages() {

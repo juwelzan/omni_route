@@ -8,6 +8,7 @@ import '../core/cancel_token.dart';
 import '../core/interceptor.dart';
 import '../core/omni_network.dart';
 import '../core/omni_network_exception.dart';
+import '../core/omni_request.dart';
 import '../endpoint/endpoint.dart';
 import '../log/network_log.dart';
 import '../log/pretty_log.dart';
@@ -77,6 +78,86 @@ final class OmniApiHub {
   /// Broadcast stream emitting environment name whenever [useEnvironment] or
   /// [loadRemoteConfig] switches settings.
   Stream<String> get changes => _envChanges.stream;
+
+  /// Sets or replaces header [name] dynamically across all currently built
+  /// service clients as well as future service builds on this hub.
+  void setGlobalHeader(String name, String value) {
+    final lower = name.toLowerCase();
+    for (final client in _clients.values) {
+      client.setHeader(lower, value);
+    }
+    final support = _aiSupportClient;
+    support?.setHeader(lower, value);
+    for (final entry in _serviceConfigs.entries) {
+      _serviceConfigs[entry.key] = entry.value.copyWith(
+        headers: {...entry.value.headers, lower: value},
+      );
+    }
+  }
+
+  /// Removes a global header [name] across active and configured services.
+  void removeGlobalHeader(String name) {
+    final lower = name.toLowerCase();
+    for (final client in _clients.values) {
+      client.removeHeader(lower);
+    }
+    _aiSupportClient?.removeHeader(lower);
+    for (final entry in _serviceConfigs.entries) {
+      final next = Map<String, String>.of(entry.value.headers)..remove(lower);
+      _serviceConfigs[entry.key] = entry.value.copyWith(headers: next);
+    }
+  }
+
+  /// Probes [path] (default `'/health'`) concurrently across every registered
+  /// service, reporting status code, latency, and any error.
+  Future<Map<String, ServiceHealth>> healthCheckAll({
+    String path = '/health',
+    Duration timeout = const Duration(seconds: 5),
+    bool auth = false,
+  }) async {
+    final names = _serviceConfigs.keys.toList(growable: false);
+    final entries = await Future.wait([
+      for (final name in names)
+        () async {
+          final sw = Stopwatch()..start();
+          try {
+            final res = await service(name).sendRaw(
+              OmniRequest.get(path, timeout: timeout, skipAuth: !auth),
+            );
+            return MapEntry(
+              name,
+              ServiceHealth(
+                serviceName: name,
+                isHealthy: res.isSuccess,
+                statusCode: res.statusCode,
+                latency: sw.elapsed,
+              ),
+            );
+          } catch (e) {
+            return MapEntry(
+              name,
+              ServiceHealth(
+                serviceName: name,
+                isHealthy: false,
+                latency: sw.elapsed,
+                error: '$e',
+              ),
+            );
+          }
+        }(),
+    ]);
+    return {for (final e in entries) e.key: e.value};
+  }
+
+  /// Converts an entire [EndpointRegistry] into callable [AiTool] definitions
+  /// backed by [serviceName] (or [primary]).
+  List<AiTool> toolsFromRegistry(
+    EndpointRegistry registry, {
+    String? serviceName,
+  }) => AiTool.fromRegistry(
+    registry,
+    client: serviceName == null ? primary : service(serviceName),
+  );
 
   /// Default or `'core'` service client (falls back to the first registered
   /// service when `'default'`/`'core'` are absent).

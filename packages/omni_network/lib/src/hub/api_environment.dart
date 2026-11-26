@@ -444,3 +444,31 @@ final class AiEndpoint<T> {
   /// Generation options.
   final AiRequestOptions options;
 }
+
+/// Result of probing a service's health endpoint via `OmniApiHub.healthCheckAll`.
+@immutable
+final class ServiceHealth {
+  /// Creates a service health snapshot.
+  const ServiceHealth({
+    required this.serviceName,
+    required this.isHealthy,
+    this.statusCode,
+    required this.latency,
+    this.error,
+  });
+
+  /// Registered service key in `OmniApiHub`.
+  final String serviceName;
+
+  /// Whether the service answered with a 2xx HTTP status.
+  final bool isHealthy;
+
+  /// HTTP status code if a response arrived.
+  final int? statusCode;
+
+  /// Round-trip check latency.
+  final Duration latency;
+
+  /// Failure description if unhealthy/unreachable.
+  final String? error;
+}
