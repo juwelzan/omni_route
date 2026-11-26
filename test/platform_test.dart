@@ -18,18 +18,20 @@ class S extends OmniStatelessWidget {
   }
 }
 
-Widget app({OmniPageType transition = OmniPages.material, bool escape = false}) =>
-    OmniApp(
-      transition: transition,
-      escapeGoesBack: escape,
-      routes: [
-        OmniPage('/', (_) => const S('home')),
-        OmniPage('/a', (_) => const S('page a')),
-        OmniPage('/locked', (_) => const S('locked', blockBack: true)),
-        OmniPage('/fade', (_) => const S('fade'), transition: OmniPages.none),
-      ],
-      builder: (_, r) => MaterialApp.router(routerConfig: r),
-    );
+Widget app({
+  OmniPageType transition = OmniPages.material,
+  bool escape = false,
+}) => OmniApp(
+  transition: transition,
+  escapeGoesBack: escape,
+  routes: [
+    OmniPage('/', (_) => const S('home')),
+    OmniPage('/a', (_) => const S('page a')),
+    OmniPage('/locked', (_) => const S('locked', blockBack: true)),
+    OmniPage('/fade', (_) => const S('fade'), transition: OmniPages.none),
+  ],
+  builder: (_, r) => MaterialApp.router(routerConfig: r),
+);
 
 Future<void> openA(WidgetTester t, [String to = '/a']) async {
   await t.pumpWidget(app());

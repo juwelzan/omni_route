@@ -48,7 +48,8 @@ abstract final class OmniRoute {
 
   /// Registers [r] and [reg] for static helpers. Called by [OmniApp].
   @internal
-  static void attach(OmniRouter r, OmniRouteRegistry reg) => _apps.add((r, reg));
+  static void attach(OmniRouter r, OmniRouteRegistry reg) =>
+      _apps.add((r, reg));
 
   /// Updates [reg] during Hot Reload without altering active ordering.
   @internal

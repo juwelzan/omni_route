@@ -28,10 +28,7 @@ class _PlainWidget extends StatelessWidget {
       body: Column(
         children: [
           Text('$label:${cubit.state}'),
-          TextButton(
-            onPressed: cubit.increment,
-            child: const Text('inc'),
-          ),
+          TextButton(onPressed: cubit.increment, child: const Text('inc')),
         ],
       ),
     );
@@ -200,9 +197,10 @@ void main() {
         builder: (_, r) => MaterialApp.router(routerConfig: r),
       ),
     );
-    void listener() => seen.add(OmniRoute.currentListenable.value.location);
-    OmniRoute.currentListenable.addListener(listener);
-    addTearDown(() => OmniRoute.currentListenable.removeListener(listener));
+    final listenable = OmniRoute.currentListenable;
+    void listener() => seen.add(listenable.value.location);
+    listenable.addListener(listener);
+    addTearDown(() => listenable.removeListener(listener));
 
     await t.pumpAndSettle();
     expect(find.text('param:42'), findsOneWidget);

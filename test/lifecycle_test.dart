@@ -84,9 +84,7 @@ Widget app({String initial = '/'}) => OmniApp(
       builder: (_, _, s) => shell = s,
       branches: [
         OmniBranch(routes: [OmniPage('/t/feed', (_) => const Feed())]),
-        OmniBranch(
-          routes: [OmniPage('/t/plain', (_) => const Plain('plain'))],
-        ),
+        OmniBranch(routes: [OmniPage('/t/plain', (_) => const Plain('plain'))]),
       ],
     ),
   ],

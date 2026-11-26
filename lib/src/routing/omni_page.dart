@@ -72,8 +72,7 @@ abstract final class OmniPages {
   static Page<void> adaptive(LocalKey key, String? name, Widget child) {
     if (kIsWeb) return none(key, name, child);
     return switch (defaultTargetPlatform) {
-      TargetPlatform.iOS ||
-      TargetPlatform.macOS => cupertino(key, name, child),
+      TargetPlatform.iOS || TargetPlatform.macOS => cupertino(key, name, child),
       _ => material(key, name, child),
     };
   }
@@ -244,56 +243,56 @@ abstract final class OmniPages {
         isScrollControlled: isScrollControlled,
       );
 
-  static OmniTransitionBuilder _builderFor(
-    OmniTransition kind,
-    CurveTween c,
-  ) => switch (kind) {
-    OmniTransition.fade => (context, a, s, child) =>
-        FadeTransition(opacity: a.drive(c), child: child),
-    OmniTransition.slide => (context, a, s, child) {
-      final dir = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
-      return SlideTransition(
-        position: s
-            .drive(c)
-            .drive(Tween(begin: Offset.zero, end: Offset(-0.25 * dir, 0))),
-        child: SlideTransition(
-          position: a
-              .drive(c)
-              .drive(Tween(begin: Offset(1.0 * dir, 0), end: Offset.zero)),
+  static OmniTransitionBuilder _builderFor(OmniTransition kind, CurveTween c) =>
+      switch (kind) {
+        OmniTransition.fade => (context, a, s, child) => FadeTransition(
+          opacity: a.drive(c),
           child: child,
         ),
-      );
-    },
-    OmniTransition.slideUp => (context, a, s, child) => SlideTransition(
-      position: a
-          .drive(c)
-          .drive(Tween(begin: const Offset(0, 1), end: Offset.zero)),
-      child: child,
-    ),
-    OmniTransition.scale => (context, a, s, child) => FadeTransition(
-      opacity: a.drive(c),
-      child: ScaleTransition(
-        scale: a.drive(c).drive(Tween(begin: 0.92, end: 1.0)),
-        child: child,
-      ),
-    ),
-    OmniTransition.fadeScale => (context, a, s, child) => FadeTransition(
-      opacity: a.drive(c),
-      child: ScaleTransition(
-        scale: a.drive(c).drive(Tween(begin: 0.96, end: 1.0)),
-        child: child,
-      ),
-    ),
-    OmniTransition.fadeSlide => (context, a, s, child) => FadeTransition(
-      opacity: a.drive(c),
-      child: SlideTransition(
-        position: a
-            .drive(c)
-            .drive(Tween(begin: const Offset(0, 0.04), end: Offset.zero)),
-        child: child,
-      ),
-    ),
-  };
+        OmniTransition.slide => (context, a, s, child) {
+          final dir = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
+          return SlideTransition(
+            position: s
+                .drive(c)
+                .drive(Tween(begin: Offset.zero, end: Offset(-0.25 * dir, 0))),
+            child: SlideTransition(
+              position: a
+                  .drive(c)
+                  .drive(Tween(begin: Offset(1.0 * dir, 0), end: Offset.zero)),
+              child: child,
+            ),
+          );
+        },
+        OmniTransition.slideUp => (context, a, s, child) => SlideTransition(
+          position: a
+              .drive(c)
+              .drive(Tween(begin: const Offset(0, 1), end: Offset.zero)),
+          child: child,
+        ),
+        OmniTransition.scale => (context, a, s, child) => FadeTransition(
+          opacity: a.drive(c),
+          child: ScaleTransition(
+            scale: a.drive(c).drive(Tween(begin: 0.92, end: 1.0)),
+            child: child,
+          ),
+        ),
+        OmniTransition.fadeScale => (context, a, s, child) => FadeTransition(
+          opacity: a.drive(c),
+          child: ScaleTransition(
+            scale: a.drive(c).drive(Tween(begin: 0.96, end: 1.0)),
+            child: child,
+          ),
+        ),
+        OmniTransition.fadeSlide => (context, a, s, child) => FadeTransition(
+          opacity: a.drive(c),
+          child: SlideTransition(
+            position: a
+                .drive(c)
+                .drive(Tween(begin: const Offset(0, 0.04), end: Offset.zero)),
+            child: child,
+          ),
+        ),
+      };
 
   static String? _restorationId(LocalKey key) =>
       key is ValueKey<String> ? key.value : null;
@@ -318,8 +317,7 @@ class OmniNoTransitionPage<T> extends Page<T> {
 }
 
 class _OmniNoTransitionRoute<T> extends PageRoute<T> {
-  _OmniNoTransitionRoute(OmniNoTransitionPage<T> page)
-    : super(settings: page);
+  _OmniNoTransitionRoute(OmniNoTransitionPage<T> page) : super(settings: page);
 
   OmniNoTransitionPage<T> get _page => settings as OmniNoTransitionPage<T>;
 

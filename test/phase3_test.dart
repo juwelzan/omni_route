@@ -55,9 +55,7 @@ Widget app({
             ),
           ],
         ),
-        OmniBranch(
-          routes: [OmniPage('/t/other', (_) => const S('other'))],
-        ),
+        OmniBranch(routes: [OmniPage('/t/other', (_) => const S('other'))]),
       ],
     ),
     ...extra,

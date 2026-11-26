@@ -89,12 +89,8 @@ void main() {
           OmniStatefulShell(
             builder: (_, _, shell) => nav = shell,
             branches: [
-              OmniBranch(
-                routes: [OmniPage('/a', (_) => const S('Tab A'))],
-              ),
-              OmniBranch(
-                routes: [OmniPage('/b', (_) => const S('Tab B'))],
-              ),
+              OmniBranch(routes: [OmniPage('/a', (_) => const S('Tab A'))]),
+              OmniBranch(routes: [OmniPage('/b', (_) => const S('Tab B'))]),
             ],
           ),
         ],

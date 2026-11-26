@@ -194,7 +194,8 @@ class _OmniAppState extends State<OmniApp> {
     try {
       _blocs = OmniBlocRegistry(widget.blocs);
       _navKey =
-          widget.navigatorKey ?? GlobalKey<NavigatorState>(debugLabel: 'OmniRoot');
+          widget.navigatorKey ??
+          GlobalKey<NavigatorState>(debugLabel: 'OmniRoot');
       final registry = OmniRouteRegistry(
         widget.routes,
         rootNavigatorKey: _navKey,
@@ -218,8 +219,7 @@ class _OmniAppState extends State<OmniApp> {
             ? _guardRefresh
             : Listenable.merge([_guardRefresh, widget.refreshListenable]),
         onReady: () {
-          if (mounted &&
-              (widget.onNavigate != null || widget.logNavigation)) {
+          if (mounted && (widget.onNavigate != null || widget.logNavigation)) {
             _navigated();
           }
         },

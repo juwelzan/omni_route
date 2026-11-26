@@ -237,7 +237,11 @@ class OmniRouteRegistry {
               names[name] = stored;
             }
 
-            _byType.update(node.screenType, (_) => null, ifAbsent: () => fullPath);
+            _byType.update(
+              node.screenType,
+              (_) => null,
+              ifAbsent: () => fullPath,
+            );
             _trie.insert(fullPath, stored);
 
             walk(
@@ -252,10 +256,7 @@ class OmniRouteRegistry {
             );
 
           case OmniRouteGroup():
-            final compiledGroup = CompiledGroup(
-              id: nextGroupId++,
-              group: node,
-            );
+            final compiledGroup = CompiledGroup(id: nextGroupId++, group: node);
             routeGuards.addAll(node.guards);
             walk(
               node.routes,

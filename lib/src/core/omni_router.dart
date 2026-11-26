@@ -104,7 +104,8 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   BackButtonDispatcher get backButtonDispatcher => _backButtonDispatcher;
 
   /// Reactive listenable tracking the top [OmniRouteEntry].
-  ValueListenable<OmniRouteEntry> get currentListenable => _currentEntryNotifier;
+  ValueListenable<OmniRouteEntry> get currentListenable =>
+      _currentEntryNotifier;
 
   /// Current top route state (URI, decoded params, extra, metadata, key).
   OmniRouteState get state => _topPageFrame().toState();
@@ -756,9 +757,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         final node = chain[i];
         final isLast = i == chain.length - 1;
         final nodePath = _fillAncestorPath(node.fullPath, match.pathParameters);
-        final nodeUri = isLast && isLeafStack
-            ? uri
-            : Uri(path: nodePath);
+        final nodeUri = isLast && isLeafStack ? uri : Uri(path: nodePath);
         final nodeMatched = nodeUri.path.isEmpty ? '/' : nodeUri.path;
 
         _PageFrame? reused;
@@ -820,10 +819,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         return;
       }
 
-      final nextRoot = buildPageChain(
-        _rootStack,
-        route.sameNavigatorAncestors,
-      );
+      final nextRoot = buildPageChain(_rootStack, route.sameNavigatorAncestors);
       _completeRemovedNotIn(_rootStack, nextRoot);
       _rootStack
         ..clear()
@@ -838,7 +834,8 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       shellChain,
       0,
       prevShellFrame,
-      (prevChildren) => buildPageChain(prevChildren, route.sameNavigatorAncestors),
+      (prevChildren) =>
+          buildPageChain(prevChildren, route.sameNavigatorAncestors),
     );
     _rootStack
       ..clear()
@@ -863,7 +860,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         final prevChildren = reusable?.children ?? const <_StackFrame>[];
         final nextChildren = atLeaf
             ? buildLeaf(prevChildren)
-            : < _StackFrame>[
+            : <_StackFrame>[
                 _buildShellTree(
                   chain,
                   depth + 1,
@@ -887,9 +884,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
             : null;
         final branches = reusable != null
             ? reusable.branches
-            : [
-                for (final b in ss.branches) _seedBranchStack(b),
-              ];
+            : [for (final b in ss.branches) _seedBranchStack(b)];
         final prevBranchStack = branches[idx];
         branches[idx] = atLeaf
             ? buildLeaf(prevBranchStack)
@@ -1053,7 +1048,10 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     );
   }
 
-  _StackFrame? _removePageByKey(List<_StackFrame> frames, ValueKey<String> key) {
+  _StackFrame? _removePageByKey(
+    List<_StackFrame> frames,
+    ValueKey<String> key,
+  ) {
     for (var i = frames.length - 1; i >= 0; i--) {
       final f = frames[i];
       switch (f) {
@@ -1306,10 +1304,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     key: key,
     restorationScopeId: restorationScopeId,
     pages: pages,
-    observers: [
-      ...observers,
-      _OmniPopObserver(_onNavigatorDidPop),
-    ],
+    observers: [...observers, _OmniPopObserver(_onNavigatorDidPop)],
     onDidRemovePage: _handlePageRemoved,
   );
 
@@ -1355,11 +1350,8 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       animated: frame.animatedOverride,
       wrapGroups: compiled.groups.isEmpty
           ? null
-          : (ctx, state, innerChild) => _wrapGroups(
-              compiled.groups,
-              state,
-              innerChild,
-            ),
+          : (ctx, state, innerChild) =>
+                _wrapGroups(compiled.groups, state, innerChild),
     );
   }
 
@@ -1502,11 +1494,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
   String _serializeStack() {
     Object? encodeFrame(_StackFrame f) => switch (f) {
-      _PageFrame() => {
-        't': 'p',
-        'k': f.key.value,
-        'u': f.uri.toString(),
-      },
+      _PageFrame() => {'t': 'p', 'k': f.key.value, 'u': f.uri.toString()},
       _ShellFrame() => {
         't': 's',
         'k': f.key.value,
@@ -1567,7 +1555,11 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
             for (final c in rawChildren) ?decodeFrame(c),
           ];
           if (children.isEmpty) return null;
-          return _ShellFrame(shell: compiledShell, key: key, children: children);
+          return _ShellFrame(
+            shell: compiledShell,
+            key: key,
+            children: children,
+          );
         } else if (t == 'ss') {
           final id = item['id'] as int?;
           final compiledSS = _findCompiledStatefulShellById(id);
@@ -1578,11 +1570,11 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
             final list = i < rawBranches.length
                 ? (rawBranches[i] as List<Object?>? ?? const [])
                 : const [];
-            final parsed = <_StackFrame>[
-              for (final c in list) ?decodeFrame(c),
-            ];
+            final parsed = <_StackFrame>[for (final c in list) ?decodeFrame(c)];
             decodedBranches.add(
-              parsed.isEmpty ? _seedBranchStack(compiledSS.branches[i]) : parsed,
+              parsed.isEmpty
+                  ? _seedBranchStack(compiledSS.branches[i])
+                  : parsed,
             );
           }
           final idx = (item['i'] as int? ?? 0).clamp(
@@ -1669,10 +1661,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     );
   }
 
-  static String _fillAncestorPath(
-    String pattern,
-    Map<String, String> params,
-  ) {
+  static String _fillAncestorPath(String pattern, Map<String, String> params) {
     if (!pattern.contains(':')) return pattern;
     return OmniRouteRegistry.location(
       pattern,
@@ -1752,11 +1741,7 @@ class _PageFrame extends _StackFrame {
 }
 
 class _ShellFrame extends _StackFrame {
-  _ShellFrame({
-    required this.shell,
-    required this.key,
-    required this.children,
-  });
+  _ShellFrame({required this.shell, required this.key, required this.children});
 
   final CompiledShell shell;
   final ValueKey<String> key;
@@ -1808,7 +1793,9 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
           navKeys.add(last.shell.navigatorKey);
           collect(last.children);
         case _StatefulShellFrame():
-          navKeys.add(last.statefulShell.branches[last.currentIndex].navigatorKey);
+          navKeys.add(
+            last.statefulShell.branches[last.currentIndex].navigatorKey,
+          );
           collect(last.branches[last.currentIndex]);
       }
     }
@@ -1875,12 +1862,16 @@ class _OmniRouterHost extends StatefulWidget {
   State<_OmniRouterHost> createState() => _OmniRouterHostState();
 }
 
-class _OmniRouterHostState extends State<_OmniRouterHost> with RestorationMixin {
+class _OmniRouterHostState extends State<_OmniRouterHost>
+    with RestorationMixin {
   final RestorableStringN _savedStack = RestorableStringN(null);
   bool _restored = false;
 
   @override
-  String? get restorationId => widget.router.restorationScopeId;
+  String? get restorationId {
+    final id = widget.router.restorationScopeId;
+    return id == null ? null : '__omni_host_$id';
+  }
 
   @override
   void initState() {

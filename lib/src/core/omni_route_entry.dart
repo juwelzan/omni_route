@@ -81,6 +81,5 @@ class OmniNavigation {
 
 /// Internal sentinel entry representing an unmatched or error route.
 @internal
-OmniRouteEntry errorEntryFor(Uri uri) => OmniRouteEntry(
-  location: uri.path.isEmpty ? '/' : uri.path,
-);
+OmniRouteEntry errorEntryFor(Uri uri) =>
+    OmniRouteEntry(location: uri.path.isEmpty ? '/' : uri.path);

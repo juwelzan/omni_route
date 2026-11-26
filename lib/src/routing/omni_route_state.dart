@@ -78,9 +78,8 @@ class OmniRouteState {
       ));
 
   /// Finds the [OmniRouteState] above [context], or `null` if outside a route.
-  static OmniRouteState? maybeOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<OmniRouteStateScope>()
-      ?.state;
+  static OmniRouteState? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<OmniRouteStateScope>()?.state;
 
   /// Returns a copy of this state with updated fields.
   OmniRouteState copyWith({
