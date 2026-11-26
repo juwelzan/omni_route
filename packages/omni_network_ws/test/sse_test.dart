@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:omni_network/advanced.dart';
+import 'package:omni_network/advanced.dart'
+    hide SseConnection, SseEvent, SseParser, SseState;
 import 'package:omni_network/testing.dart';
 import 'package:omni_network_ws/omni_network_ws.dart';
 import 'package:test/test.dart';

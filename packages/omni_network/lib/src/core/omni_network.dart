@@ -6,9 +6,14 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart' show Dio;
 import 'package:meta/meta.dart';
 
+import '../ai/ai_models.dart';
+import '../ai/omni_ai.dart';
 import '../auth/bearer_auth.dart';
 import '../auth/omni_auth.dart';
 import '../cache/omni_cache.dart';
+import '../chat/ai_thread.dart';
+import '../chat/chat_store.dart';
+import '../chat/omni_chat_client.dart';
 import '../curl/curl.dart';
 import '../endpoint/endpoint.dart';
 import '../log/network_log.dart';
@@ -17,6 +22,9 @@ import '../log/pretty_log.dart';
 import '../log/redactor.dart';
 import '../paging/omni_pager.dart';
 import '../paging/pagination_strategy.dart';
+import '../realtime/sse.dart';
+import '../realtime/web_socket.dart';
+import '../realtime/ws_protocol.dart';
 import '../resilience/circuit_breaker.dart';
 import '../state/request_controller.dart';
 import '../resilience/retry_policy.dart';
@@ -25,6 +33,8 @@ import '../transfer/stream_target.dart';
 import '../transfer/file_target_stub.dart'
     if (dart.library.io) '../transfer/file_target_io.dart';
 import '../transfer/multipart.dart';
+import '../transport/dio_io_stub.dart'
+    if (dart.library.io) '../transport/dio_io_io.dart';
 import '../transport/dio_transport.dart';
 import '../transport/dns_resolver.dart';
 import '../transport/transport.dart';
@@ -108,6 +118,9 @@ final class OmniNetwork {
   ///   one network call; each caller keeps its own timeout and cancel.
   factory OmniNetwork({
     String? baseUrl,
+    String? wsBaseUrl,
+    WsWebAuthMode wsWebAuthMode = const WsWebAuthMode.queryParam(),
+    WebSocketConnector? wsConnector,
     Map<String, String> headers = const {},
     Duration timeout = const Duration(seconds: 30),
     Duration? connectTimeout,
@@ -148,6 +161,9 @@ final class OmniNetwork {
     bool deduplicate = true,
     bool followRedirects = true,
     int maxRedirects = 5,
+    AiConfig? ai,
+    ChatConfig chatConfig = const ChatConfig(),
+    ChatStore? chatStore,
   }) {
     if (transport != null &&
         (proxy != null ||
@@ -207,8 +223,27 @@ final class OmniNetwork {
               )
             : DioTransport());
 
+    final httpClientFactory = transport == null
+        ? buildConfiguredHttpClientFactory(
+            proxy: effectiveProxy,
+            pinnedSha256: pinnedSha256,
+            allowBadProxyCertificate: allowBadProxyCertificate,
+            clientCertificateBytes: clientCertificateBytes,
+            clientPrivateKeyBytes: clientPrivateKeyBytes,
+            clientCertificatePassword: clientCertificatePassword,
+            dnsOverHttps: dnsOverHttps,
+            dnsLookup: dnsLookup,
+            maxConnectionsPerHost: maxConnectionsPerHost,
+            idleConnectionTimeout: idleConnectionTimeout,
+          )
+        : null;
+
     return OmniNetwork._(
       baseUrl: baseUrl,
+      wsBaseUrl: wsBaseUrl,
+      wsWebAuthMode: wsWebAuthMode,
+      wsConnector: wsConnector,
+      httpClientFactory: httpClientFactory,
       headers: headers,
       timeout: timeout,
       connectTimeout: connectTimeout,
@@ -238,6 +273,9 @@ final class OmniNetwork {
       deduplicate: deduplicate,
       followRedirects: followRedirects,
       maxRedirects: maxRedirects,
+      ai: ai,
+      chatConfig: chatConfig,
+      chatStore: chatStore,
     );
   }
 
@@ -253,6 +291,9 @@ final class OmniNetwork {
   factory OmniNetwork.fromDio(
     Dio dio, {
     String? baseUrl,
+    String? wsBaseUrl,
+    WsWebAuthMode wsWebAuthMode = const WsWebAuthMode.queryParam(),
+    WebSocketConnector? wsConnector,
     Map<String, String> headers = const {},
     Duration timeout = const Duration(seconds: 30),
     Duration? connectTimeout,
@@ -280,6 +321,9 @@ final class OmniNetwork {
     bool deduplicate = true,
     bool followRedirects = true,
     int maxRedirects = 5,
+    AiConfig? ai,
+    ChatConfig chatConfig = const ChatConfig(),
+    ChatStore? chatStore,
     bool closeDio = false,
   }) {
     final dioBase = dio.options.baseUrl;
@@ -292,6 +336,9 @@ final class OmniNetwork {
     };
     return OmniNetwork._(
       baseUrl: resolvedBaseUrl,
+      wsBaseUrl: wsBaseUrl,
+      wsWebAuthMode: wsWebAuthMode,
+      wsConnector: wsConnector,
       headers: mergedHeaders,
       timeout: timeout,
       connectTimeout: connectTimeout ?? dio.options.connectTimeout,
@@ -321,11 +368,18 @@ final class OmniNetwork {
       deduplicate: deduplicate,
       followRedirects: followRedirects,
       maxRedirects: maxRedirects,
+      ai: ai,
+      chatConfig: chatConfig,
+      chatStore: chatStore,
     );
   }
 
   OmniNetwork._({
     String? baseUrl,
+    String? wsBaseUrl,
+    this.wsWebAuthMode = const WsWebAuthMode.queryParam(),
+    WebSocketConnector? wsConnector,
+    Object? Function()? httpClientFactory,
     Map<String, String> headers = const {},
     this.timeout = const Duration(seconds: 30),
     this.connectTimeout,
@@ -355,6 +409,9 @@ final class OmniNetwork {
     this.deduplicate = true,
     this.followRedirects = true,
     this.maxRedirects = 5,
+    AiConfig? ai,
+    ChatConfig chatConfig = const ChatConfig(),
+    ChatStore? chatStore,
   }) : assert(
          auth == null || token == null,
          'Pass either token: or auth:, not both',
@@ -365,6 +422,9 @@ final class OmniNetwork {
        ),
        _provider =
            auth ?? (token == null ? OmniAuth() : BearerAuth(token: token)),
+       _wsConnector = wsConnector, // ignore: prefer_initializing_formals
+       _httpClientFactory = httpClientFactory, // ignore: prefer_initializing_formals
+       wsBaseUri = wsBaseUrl == null ? null : _parseWsBase(wsBaseUrl),
        interceptors = List.unmodifiable(interceptors),
        _logResponse = logResponse ?? logOptions.responseBody,
        _logColors = logColors ?? logOptions.colors,
@@ -372,12 +432,77 @@ final class OmniNetwork {
        _customLogSink = logSink,
        baseUri = baseUrl == null ? null : _parseBase(baseUrl),
        _headers = _lower(headers),
-       _decoders = Map.unmodifiable(decoders) {
+       _decoders = Map.unmodifiable(decoders),
+       _aiConfig = ai ?? const AiConfig(),
+       _chatConfig = chatConfig, // ignore: prefer_initializing_formals
+       _chatStore = chatStore { // ignore: prefer_initializing_formals
     _syncLogger();
     // Bind the auth provider now so misuse (one OmniAuth for two clients)
     // fails at construction, not on the first request.
     _bearer;
   }
+
+  /// Parsed WebSocket base URL (always ending in `/`), or `null`.
+  final Uri? wsBaseUri;
+
+  /// Default Web auth strategy for [ws] connections in browsers.
+  final WsWebAuthMode wsWebAuthMode;
+
+  final WebSocketConnector? _wsConnector;
+  final Object? Function()? _httpClientFactory;
+  final Set<OmniWebSocket> _sockets = {};
+  final Set<SseConnection> _sseConnections = {};
+  final StreamController<WsLogRecord> _realtimeLogController =
+      StreamController<WsLogRecord>.broadcast();
+
+  final AiConfig _aiConfig;
+  final ChatConfig _chatConfig;
+  final ChatStore? _chatStore;
+  OmniAi? _ai;
+  OmniChatClient? _chat;
+  final Map<String, OmniAiThread> _aiThreads = {};
+
+  /// Unified Multi-AI client bound to this [OmniNetwork] (lazy; accepts runtime
+  /// provider/route additions via `api.ai.registerProvider(...)` and
+  /// `api.ai.setRoute(...)`).
+  OmniAi get ai => _ai ??= OmniAi(client: this, config: _aiConfig);
+
+  /// Updates [ai] providers & routing config dynamically at runtime.
+  void configureAi(AiConfig config) => ai.configure(config);
+
+  /// Unified realtime chat coordinator bound to this [OmniNetwork].
+  OmniChatClient get chat => _chat ??= OmniChatClient(
+    networkClient: this,
+    config: _chatConfig,
+    store: _chatStore,
+    connector: _wsConnector,
+  );
+
+  /// Opens or returns a cached [OmniAiThread] bound to [ai] with optional
+  /// persistence [store].
+  OmniAiThread aiThread(
+    String id, {
+    String? model,
+    String? systemPrompt,
+    List<AiTool> tools = const [],
+    AiRequestOptions options = const AiRequestOptions(),
+    SlidingWindowContext contextPolicy = const SlidingWindowContext(),
+    int maxToolRounds = 5,
+    ChatStore? store,
+  }) => _aiThreads[id] ??= OmniAiThread(
+    id: id,
+    ai: ai,
+    model: model,
+    systemPrompt: systemPrompt,
+    tools: tools,
+    options: options,
+    contextPolicy: contextPolicy,
+    maxToolRounds: maxToolRounds,
+    store: store ?? _chatStore,
+  );
+
+  /// Broadcast stream of redacted WebSocket lifecycle and frame logs.
+  Stream<WsLogRecord> get realtimeLogs => _realtimeLogController.stream;
 
   /// Parsed base URL (always ending in `/`), or `null`.
   final Uri? baseUri;
@@ -1567,6 +1692,142 @@ final class OmniNetwork {
     idleTimeout,
   );
 
+  /// Opens a reconnecting WebSocket connection sharing this client's auth,
+  /// default headers, security configuration (`proxy`, `pinnedSha256`, mTLS,
+  /// custom DNS / DoH), logging, and lifecycle.
+  OmniWebSocket ws(
+    String pathOrUrl, {
+    Map<String, Object?> query = const {},
+    Map<String, String> headers = const {},
+    Iterable<String>? protocols,
+    Duration minDelay = const Duration(milliseconds: 500),
+    Duration maxDelay = const Duration(seconds: 30),
+    int? maxReconnects,
+    bool bufferWhileDisconnected = false,
+    int maxBuffered = 100,
+    Duration? heartbeatInterval,
+    Duration pongTimeout = const Duration(seconds: 10),
+    WsProtocol protocol = const DefaultWsProtocol(),
+    WsWebAuthMode? webAuthMode,
+    bool auth = true,
+    bool closeWithClient = true,
+    FutureOr<void> Function(OmniWebSocket socket)? onOpen,
+    WebSocketConnector? connector,
+  }) {
+    if (_closed) {
+      throw ClosedFailure(uri: safeUri(_resolveWsUri(pathOrUrl, query)));
+    }
+    final resolvedUri = _resolveWsUri(pathOrUrl, query);
+    final safeTarget = redactor.uri(resolvedUri);
+
+    Future<Map<String, String>> resolveHeaders() async {
+      final baseReq = OmniRequest(
+        HttpMethod.get,
+        pathOrUrl,
+        query: query,
+        headers: {..._headers, ...headers},
+      );
+      final signed = auth
+          ? _bearer.attach(baseReq, await _bearer.current())
+          : baseReq;
+      return signed.headers;
+    }
+
+    late final OmniWebSocket socket;
+    socket = OmniWebSocket(
+      resolvedUri,
+      protocols: protocols,
+      headers: resolveHeaders,
+      minDelay: minDelay,
+      maxDelay: maxDelay,
+      maxReconnects: maxReconnects,
+      bufferWhileDisconnected: bufferWhileDisconnected,
+      maxBuffered: maxBuffered,
+      heartbeatInterval: heartbeatInterval,
+      pongTimeout: pongTimeout,
+      connectTimeout: connectTimeout,
+      protocol: protocol,
+      webAuthMode: webAuthMode ?? wsWebAuthMode,
+      onOpen: onOpen,
+      connector: connector ?? _wsConnector,
+      customClientFactory: _httpClientFactory,
+      onLog: (direction, summary) {
+        if (isLogging && !_realtimeLogController.isClosed) {
+          final isBody = direction == 'out' || direction == 'in';
+          final trimmed = summary.trimLeft();
+          final contentType =
+              trimmed.startsWith('{') || trimmed.startsWith('[')
+              ? 'application/json'
+              : 'text/plain';
+          _realtimeLogController.add(
+            WsLogRecord(
+              uri: safeTarget,
+              direction: direction,
+              summary: isBody
+                  ? (redactor.body(utf8.encode(summary), contentType) ??
+                        summary)
+                  : summary,
+              timestamp: DateTime.now(),
+            ),
+          );
+        }
+      },
+    );
+    if (closeWithClient) {
+      _sockets.add(socket);
+      unawaited(
+        socket.states
+            .firstWhere((s) => s == WebSocketState.closed)
+            .catchError((Object _) => WebSocketState.closed)
+            .whenComplete(() => _sockets.remove(socket)),
+      );
+    }
+    return socket;
+  }
+
+  /// Opens a reconnecting Server-Sent Events subscription sharing this client's
+  /// auth, interceptors, logging, and security configuration.
+  SseConnection sse(
+    String pathOrUrl, {
+    HttpMethod method = HttpMethod.get,
+    Object? body,
+    Map<String, Object?> query = const {},
+    Map<String, String> headers = const {},
+    String? lastEventId,
+    Duration retry = const Duration(seconds: 3),
+    Duration maxRetry = const Duration(seconds: 60),
+    int? maxReconnects,
+    bool auth = true,
+    bool closeWithClient = true,
+  }) {
+    if (_closed) {
+      throw ClosedFailure(uri: safeUri(_resolveUri(OmniRequest(method, pathOrUrl, query: query))));
+    }
+    final conn = SseConnection(
+      this,
+      pathOrUrl,
+      method: method,
+      body: body,
+      query: query,
+      headers: headers,
+      lastEventId: lastEventId,
+      retry: retry,
+      maxRetry: maxRetry,
+      maxReconnects: maxReconnects,
+      auth: auth,
+    );
+    if (closeWithClient) {
+      _sseConnections.add(conn);
+      unawaited(
+        conn.states
+            .firstWhere((s) => s == SseState.closed)
+            .catchError((Object _) => SseState.closed)
+            .whenComplete(() => _sseConnections.remove(conn)),
+      );
+    }
+    return conn;
+  }
+
   Future<OmniRawResponse> _downloadTo(
     DownloadTarget target,
     OmniRequest request,
@@ -2148,8 +2409,63 @@ final class OmniNetwork {
       s.signal.cancel();
     }
     _inflight.clear();
+    for (final ws in _sockets.toList()) {
+      unawaited(ws.close());
+    }
+    _sockets.clear();
+    for (final sse in _sseConnections.toList()) {
+      unawaited(sse.close());
+    }
+    _sseConnections.clear();
     if (_ownsTransport) await _transport.close(force: true);
+    if (_aiThreads.isNotEmpty) {
+      for (final t in _aiThreads.values.toList()) {
+        await t.close();
+      }
+      _aiThreads.clear();
+    }
+    final chatClient = _chat;
+    if (chatClient != null) await chatClient.close();
+    final aiClient = _ai;
+    if (aiClient != null) await aiClient.close();
     if (!_logController.isClosed) unawaited(_logController.close());
+    if (!_realtimeLogController.isClosed) {
+      unawaited(_realtimeLogController.close());
+    }
+  }
+
+  Uri _resolveWsUri(String pathOrUrl, Map<String, Object?> query) {
+    final Uri parsed;
+    try {
+      parsed = Uri.parse(pathOrUrl);
+    } on FormatException catch (e) {
+      throw RequestFailure('Invalid WebSocket path', cause: e);
+    }
+    Uri target;
+    if (parsed.hasScheme) {
+      if (!const {'ws', 'wss', 'http', 'https'}.contains(parsed.scheme)) {
+        throw RequestFailure('Unsupported WebSocket scheme "${parsed.scheme}"');
+      }
+      target = parsed;
+    } else {
+      final base = wsBaseUri ?? baseUri;
+      if (base == null) {
+        throw const RequestFailure(
+          'Relative WebSocket path used but no wsBaseUrl or baseUrl configured',
+        );
+      }
+      var rel = pathOrUrl;
+      while (rel.startsWith('/')) {
+        rel = rel.substring(1);
+      }
+      target = base.resolve(rel);
+    }
+    if (target.scheme == 'http') {
+      target = target.replace(scheme: 'ws');
+    } else if (target.scheme == 'https') {
+      target = target.replace(scheme: 'wss');
+    }
+    return _applyQuery(target, query);
   }
 
   Uri _resolveUri(OmniRequest request) {
@@ -2178,11 +2494,15 @@ final class OmniNetwork {
       }
       target = base.resolve(rel);
     }
-    if (request.query.isEmpty) return target;
+    return _applyQuery(target, request.query);
+  }
+
+  static Uri _applyQuery(Uri target, Map<String, Object?> query) {
+    if (query.isEmpty) return target;
     final all = <String, List<String>>{
       for (final e in target.queryParametersAll.entries) e.key: [...e.value],
     };
-    for (final MapEntry(:key, :value) in request.query.entries) {
+    for (final MapEntry(:key, :value) in query.entries) {
       if (value == null) continue;
       final values = value is Iterable
           ? [
@@ -2248,23 +2568,37 @@ final class OmniNetwork {
     return rawBytes;
   }
 
-  static Uri _parseBase(String baseUrl) {
-    final uri = Uri.tryParse(baseUrl);
-    if (uri == null ||
-        !(uri.scheme == 'http' || uri.scheme == 'https') ||
-        uri.host.isEmpty) {
-      throw ArgumentError.value(
-        baseUrl,
-        'baseUrl',
-        'must be an absolute http(s) URL',
-      );
+  static Uri _parseBase(String baseUrl) => _parseRootUrl(
+    baseUrl,
+    name: 'baseUrl',
+    schemes: const {'http', 'https'},
+    description: 'must be an absolute http(s) URL',
+  );
+
+  static Uri _parseWsBase(String wsBaseUrl) {
+    final uri = _parseRootUrl(
+      wsBaseUrl,
+      name: 'wsBaseUrl',
+      schemes: const {'ws', 'wss', 'http', 'https'},
+      description: 'must be an absolute ws(s)/http(s) URL',
+    );
+    if (uri.scheme == 'http') return uri.replace(scheme: 'ws');
+    if (uri.scheme == 'https') return uri.replace(scheme: 'wss');
+    return uri;
+  }
+
+  static Uri _parseRootUrl(
+    String raw, {
+    required String name,
+    required Set<String> schemes,
+    required String description,
+  }) {
+    final uri = Uri.tryParse(raw);
+    if (uri == null || !schemes.contains(uri.scheme) || uri.host.isEmpty) {
+      throw ArgumentError.value(raw, name, description);
     }
     if (uri.hasQuery || uri.hasFragment) {
-      throw ArgumentError.value(
-        baseUrl,
-        'baseUrl',
-        'must not contain a query or fragment',
-      );
+      throw ArgumentError.value(raw, name, 'must not contain a query or fragment');
     }
     return uri.path.endsWith('/') ? uri : uri.replace(path: '${uri.path}/');
   }

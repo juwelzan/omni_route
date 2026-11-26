@@ -1,21 +1,35 @@
 ## Unreleased
 
-- Logs print whole responses: no more `… N more lines` or
-  `… truncated` cuts. `LogOptions.maxLines` now defaults to `null` (every
-  line), and request/response bodies are no longer cut at 16,000
-  characters or summarised above 64 KB. Lines longer than
-  `maxLineLength` (now 160) continue on the next line after `↪` instead of
-  ending in `…`, so nothing is lost to the ~1000-byte line limit of the
-  Android and iOS logs.
-- Colours: successful calls are green with syntax-coloured JSON (keys,
-  strings, numbers, `true`/`false`/`null`); 4xx, 5xx and failures are red
-  (4xx used to be yellow). Automatic colours are now on in Android logs,
-  where `flutter run` and IDEs show them, and stay off on iOS.
-- Each block starts with the date and time (`2026-11-17 15:35:30.519`);
-  durations read `84 ms`, `1.24 s` or `2 min 05 s`.
-- The request body is pretty-printed like the response, and headers are
-  printed one per line.
-- `Redactor.body(maxChars:, maxBytes:)` accept `null` for no limit.
+- **Auth providers & JWT helper**: Added `Tokens.fromJwt` and
+  `Tokens.jwtExpiration` (plus `BearerAuth.current` loading restored storage
+  tokens before checking `isExpiring`), along with built-in `ApiKeyAuth`
+  (header or query), `BasicAuth`, and `HmacSignerAuth`.
+- **Dio transport enhancements**: One-line client configuration for `proxy`
+  (with `allowProxyInRelease` / `allowBadProxyCertificate`), `pinnedSha256`
+  (leaf and X.509 SPKI SHA-256 verification), stage timeouts
+  (`connectTimeout`, `sendTimeout`, `receiveTimeout` with `TimeoutStage`),
+  classified `ConnectionFailure.reason` (`ConnectionReason`), wire-level
+  `ProgressReportingTransport`, `enableHttp2`, `OmniNetwork.fromDio`,
+  mTLS (`clientCertificateBytes`, `clientPrivateKeyBytes`,
+  `clientCertificatePassword`), `dnsOverHttps` (`DnsOverHttpsResolver`),
+  and custom `dnsLookup`.
+- **DX, persistence & GraphQL**: Added runtime header helpers (`setHeader`,
+  `removeHeader`, `clearHeaders`), `OmniInterceptor.inline`, global `decoders`,
+  `postForm` / `postFormResponse`, `UploadFile.fromFile`, `FileCacheStore` +
+  `clearCache` / `invalidateCache`, `FileQueueStore` for persistent disk
+  queues, `maxConcurrentRequests`, `compress: true` gzip request bodies (IO),
+  `Endpoint` `:param` support & call overrides, `OmniNetwork.graphql` /
+  `graphqlResponse`, `If-Range` `.part.meta` validator persistence +
+  `expectedSha256` download verification, and `OmniPager.changes`.
+- **Observability & testing**: Added runtime `enableLogging`, `logResponse`,
+  and `logColors` setters, `logStream`, `MultiLogSink`, `OmniNetwork.metrics` /
+  `resetMetrics()`, `slowRequestThreshold` / `onSlowRequest`, and
+  `RecordingTransport` / `RecordedExchange` in `testing.dart`.
+- **Whole-body logging fixes**: Logs print whole responses without truncation
+  (`maxLines: null`), wrap long lines cleanly after `↪`, use green/red syntax
+  colours automatically on Android/colour terminals, treat empty `gzip` inputs
+  safely, accept both `sha256/` and `sha256:` prefixes, and avoid microtask
+  close races via `unawaited(_logController.close())`.
 
 ## 0.1.1
 

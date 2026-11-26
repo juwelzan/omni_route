@@ -39,6 +39,77 @@ export 'src/auth/omni_auth.dart' show OmniAuth, AuthState;
 export 'src/auth/tokens.dart' show Tokens;
 export 'src/core/interceptor.dart' show OmniInterceptor;
 export 'src/core/cancel_token.dart' show OmniCancelToken;
+export 'src/realtime/sse.dart' show SseConnection, SseEvent, SseState;
+export 'src/realtime/web_socket.dart' show OmniWebSocket, WebSocketState;
+export 'src/realtime/ws_protocol.dart' show WsWebAuthMode;
+export 'src/hub/api_environment.dart'
+    show
+        OmniEnvironment,
+        ServiceConfig,
+        RateLimit,
+        GraphqlEndpoint,
+        WsEndpoint,
+        SseEndpoint,
+        AiEndpoint;
+export 'src/hub/api_hub.dart' show OmniApiHub;
+export 'src/ai/ai_models.dart'
+    show
+        AiRole,
+        AiPart,
+        AiTextPart,
+        AiImageBytesPart,
+        AiImageUrlPart,
+        AiAudioBytesPart,
+        AiDocumentPart,
+        AiToolCallPart,
+        AiToolResultPart,
+        AiMessage,
+        AiUsage,
+        AiFinishReason,
+        AiResponse,
+        AiStreamEvent,
+        AiThinkingDelta,
+        AiTextDelta,
+        AiToolCallDelta,
+        AiCompleted,
+        AiStreamError,
+        AiTool,
+        AiRequestOptions,
+        AiTarget,
+        AiModelRoute,
+        AiModelCost,
+        AiRealtimeEvent,
+        AiRealtimeTextDelta,
+        AiRealtimeAudioDelta,
+        AiRealtimeJsonEvent;
+export 'src/ai/ai_provider.dart' show AiRealtimeSession;
+export 'src/ai/ai_providers_builtin.dart'
+    show
+        OpenAiProvider,
+        OpenAiCompatibleProvider,
+        GeminiProvider,
+        AnthropicProvider,
+        OllamaProvider,
+        CustomAiProvider;
+export 'src/ai/omni_ai.dart' show OmniAi, AiConfig;
+export 'src/chat/ai_thread.dart'
+    show OmniAiThread, AiThreadState, SlidingWindowContext;
+export 'src/chat/chat_models.dart'
+    show
+        ChatParticipantKind,
+        ChatParticipant,
+        MessageDeliveryStatus,
+        ChatPart,
+        ChatTextPart,
+        ChatMediaPart,
+        ChatFilePart,
+        ChatLocationPart,
+        ChatCustomPart,
+        ChatMessage,
+        TypingIndicator,
+        PresenceStatus;
+export 'src/chat/chat_room.dart' show OmniChatRoom;
+export 'src/chat/omni_chat_client.dart' show OmniChatClient, ChatConfig;
 export 'src/resilience/retry_policy.dart' show RetryPolicy;
 export 'src/cache/omni_cache.dart' show OmniCache, CachePolicy, ResponseSource;
 export 'src/transfer/multipart.dart' show UploadFile;

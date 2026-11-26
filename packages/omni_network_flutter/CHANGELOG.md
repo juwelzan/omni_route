@@ -1,3 +1,14 @@
+## Unreleased
+
+- Added `OmniRequestBuilder<T>` widget for reactive UI binding to
+  `RequestController<T>` (auto-load, refreshing state, empty view, error
+  retry).
+- Added `OmniPagedListView<T>` widget for infinite scrolling and
+  pull-to-refresh bound to `OmniPager<T>` via `OmniPager.changes`.
+- Added `OmniInspector.toHarJson()` (HAR 1.2 JSON export),
+  `OmniInspector.toMarkdownReport()`, and a **"Copy HAR"** toolbar button in
+  `OmniInspectorView`.
+
 ## 0.1.0
 
 First tagged release (`omni_network_flutter-v0.1.0`); no API changes from 0.1.0-dev.

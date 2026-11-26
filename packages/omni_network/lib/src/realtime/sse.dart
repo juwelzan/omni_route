@@ -3,7 +3,13 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:meta/meta.dart';
-import 'package:omni_network/advanced.dart';
+
+import '../cache/omni_cache.dart' show CachePolicy;
+import '../core/omni_network.dart';
+import '../core/omni_network_exception.dart';
+import '../core/omni_request.dart';
+import '../resilience/retry_policy.dart';
+import '../transfer/stream_target.dart';
 
 /// One Server-Sent Event.
 @immutable
@@ -26,6 +32,38 @@ final class SseEvent {
   @override
   String toString() =>
       'SseEvent($event, $data${id == null ? '' : ', id: $id'})';
+}
+
+/// Parses a single-shot byte stream (e.g. an AI POST SSE response) into typed
+/// [SseEvent] items using [SseParser].
+Stream<SseEvent> parseSseByteStream(
+  Stream<List<int>> byteStream, {
+  int maxEventBytes = 1024 * 1024,
+}) async* {
+  final controller = StreamController<SseEvent>(sync: true);
+  final parser = SseParser(maxEventBytes: maxEventBytes);
+  final parserSub = parser.events.listen(
+    controller.add,
+    onError: controller.addError,
+  );
+  final byteSub = utf8.decoder
+      .bind(byteStream)
+      .listen(
+        parser.add,
+        onError: controller.addError,
+        onDone: () async {
+          await parser.close();
+          await parserSub.cancel();
+          if (!controller.isClosed) await controller.close();
+        },
+        cancelOnError: false,
+      );
+  controller.onCancel = () async {
+    await byteSub.cancel();
+    await parserSub.cancel();
+    await parser.close();
+  };
+  yield* controller.stream;
 }
 
 /// Incremental `text/event-stream` parser (WHATWG HTML §9.2.6).
@@ -64,7 +102,7 @@ final class SseParser {
     var text = chunk;
     if (_first && text.isNotEmpty) {
       _first = false;
-      if (text.startsWith('﻿')) text = text.substring(1);
+      if (text.startsWith('\uFEFF')) text = text.substring(1);
     }
     var start = 0;
     for (var i = 0; i < text.length; i++) {
@@ -175,31 +213,22 @@ enum SseState {
 /// A reconnecting Server-Sent Events subscription through an
 /// [OmniNetwork] client (so auth, interceptors and logging apply).
 ///
-/// ```dart
-/// final sse = SseConnection(api, '/events');
-/// sse.events.listen((e) => print(e.data));
-/// sse.states.listen(print);
-/// await sse.close();
-/// ```
-///
-/// * Reconnects after the stream ends or a connection error, waiting the
-///   server's `retry:` value (default [retry]) with exponential backoff up
-///   to [maxRetry], and sends `Last-Event-ID` so the server can resume.
-/// * Stops (no reconnect) on `204 No Content` or a non-retryable status
-///   (4xx except 408/429); the error is added to [events] first.
-/// * [maxReconnects] limits consecutive failed reconnects (`null` = no
-///   limit).
+/// Supports both standard `GET` subscriptions and `POST` SSE endpoints (such as
+/// streaming AI completions).
 final class SseConnection {
   /// Opens the subscription immediately.
   SseConnection(
     this.client,
     this.path, {
+    this.method = HttpMethod.get,
+    this.body,
     this.query = const {},
     this.headers = const {},
     this.lastEventId,
     this.retry = const Duration(seconds: 3),
     this.maxRetry = const Duration(seconds: 60),
     this.maxReconnects,
+    this.auth = true,
     Random? random,
   }) : _random = random ?? Random() {
     _events = StreamController.broadcast(onCancel: () {});
@@ -209,14 +238,23 @@ final class SseConnection {
   /// Client used for every (re)connection.
   final OmniNetwork client;
 
-  /// Event-stream path.
+  /// Event-stream path or URL.
   final String path;
+
+  /// HTTP verb (`HttpMethod.get` default, or `HttpMethod.post` with [body]).
+  final HttpMethod method;
+
+  /// Optional request body for POST SSE streams.
+  final Object? body;
 
   /// Query parameters.
   final Map<String, Object?> query;
 
   /// Extra headers.
   final Map<String, String> headers;
+
+  /// Whether client auth should be applied to this connection.
+  final bool auth;
 
   /// Default reconnect delay (until the server sends `retry:`).
   Duration retry;
@@ -259,8 +297,10 @@ final class SseConnection {
       _set(SseState.connecting);
       try {
         final res = await client.openStream(
-          OmniRequest.get(
+          OmniRequest(
+            method,
             path,
+            body: body,
             query: query,
             headers: {
               'accept': 'text/event-stream',
@@ -270,6 +310,7 @@ final class SseConnection {
             },
             retry: RetryPolicy.none,
             cachePolicy: CachePolicy.noCache,
+            skipAuth: !auth,
           ),
         );
         if (_closed) {
@@ -349,13 +390,11 @@ final class SseConnection {
 
   /// Stops the subscription; [events] and [states] complete.
   Future<void> close() async {
-    if (_closed) return;
+    if (_closed && _state == SseState.closed) return;
     _closed = true;
-    _current?.cancel();
     final w = _wait;
     if (w != null && !w.isCompleted) w.complete();
-    await _states.done
-        .catchError((_) {})
-        .timeout(const Duration(seconds: 5), onTimeout: () {});
+    _current?.cancel();
+    await _states.done.timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 }

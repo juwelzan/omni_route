@@ -1303,37 +1303,51 @@ import 'package:omni_network/testing.dart';               // OmniMock (test-এ)
 | আপনি যা করতে চান | যেটা ব্যবহার করবেন |
 |---|---|
 | client তৈরি | `OmniNetwork(baseUrl: ..., enableLogging: true)` |
-| একটা object আনা | `api.get<User>('/users/10', decoder: User.fromJson)` |
+| proxy / SSL pin / HTTP/2 / mTLS / DoH | `OmniNetwork(proxy: ..., pinnedSha256: [...], enableHttp2: true, dnsOverHttps: ...)` |
+| একটা object / GraphQL আনা | `api.get<User>(...)`, `api.graphql<User>(...)` |
 | তালিকা আনা | `api.getList<User>('/users', decoder: User.fromJson)` |
-| data পাঠানো | `api.post / put / patch / delete` |
+| data / form / gzip পাঠানো | `api.post(..., compress: true)`, `api.postForm(...)`, `put / patch / delete` |
 | status code / header-ও লাগবে | `api.getResponse<T>(...)` (আর `postResponse`…) |
 | error সামলানো | `on OmniNetworkException catch (e)` বা `.asResult()` |
-| login token স্বয়ংক্রিয় যোগ ও refresh | `OmniAuth(refresh: ...)` + `api.auth.login(Tokens(...))` |
+| login token / JWT / API Key / Basic / HMAC | `OmniAuth`, `Tokens.fromJwt(...)`, `ApiKeyAuth`, `BasicAuth`, `HmacSignerAuth` |
 | অ্যাপ বন্ধ করে খুললেও login থাকবে | `OmniAuth(storage: SecureTokenStorage())` |
 | ব্যর্থ GET আবার চেষ্টা | `OmniNetwork(retry: const RetryPolicy())` |
-| response cache | `OmniNetwork(cache: OmniCache())` + `cache: CachePolicy.networkFirst` |
+| response cache (RAM / Disk) | `OmniNetwork(cache: OmniCache(store: FileCacheStore(...)))` + `api.clearCache()` |
 | backend-এর `{ "data": ... }` খোলস খোলা | `responseAdapter: const EnvelopeResponseAdapter()` |
-| endpoint একবার লিখে বারবার ব্যবহার | `Endpoint.get(...)` + `api.call(...)` |
-| পাতায় পাতায় তালিকা (infinite scroll) | `api.paginate<T>(..., strategy: PagePagination())` |
-| UI-তে loading / data / error | `api.watch<T>(...)` → `RequestController` |
-| ফাইল upload / download | `api.upload`, `api.downloadBytes`, `api.downloadToFile` |
+| endpoint একবার লিখে বারবার ব্যবহার | `Endpoint.get(...)` (`{id}` / `:id`) + `api.call(...)` |
+| পাতায় পাতায় তালিকা (infinite scroll) | `api.paginate<T>(...)` + `OmniPagedListView<T>` (`omni_network_flutter`) |
+| UI-তে loading / data / error | `api.watch<T>(...)` + `OmniRequestBuilder<T>` (`omni_network_flutter`) |
+| ফাইল upload / download + SHA-256 | `UploadFile.fromFile`, `downloadToFile(..., resume: true, expectedSha256: ...)` |
 | request বাতিল | `OmniCancelToken`, `api.cancelAll()` |
-| প্রতিটা request-এ header যোগ / log | `OmniInterceptor` |
-| offline অবস্থায় request জমিয়ে পরে পাঠানো | `OfflineQueue` (advanced) |
-| backend ছাড়াই test | `OmniMock` (testing) |
-| অ্যাপের ভিতরে সব call দেখা | `OmniInspector` (omni_network_flutter) |
+| প্রতিটা request-এ header যোগ / interceptor | `api.setHeader(...)`, `OmniInterceptor.inline(...)` |
+| offline অবস্থায় request জমিয়ে পরে পাঠানো | `OfflineQueue(..., store: FileQueueStore(...))` (advanced) |
+| metrics ও slow request ট্র্যাক | `api.metrics`, `slowRequestThreshold:` + `onSlowRequest:`, `api.logStream` |
+| backend ছাড়াই test / record & replay | `OmniMock`, `RecordingTransport` (testing) |
+| অ্যাপের ভিতরে সব call দেখা ও HAR export | `OmniInspector` + **"Copy HAR"** / `toHarJson()` (`omni_network_flutter`) |
 | live data | `OmniWebSocket`, `SseConnection` (omni_network_ws) |
 
-### ২১.২ Client তৈরি — একবারই
+### ২১.২ Client তৈরি — একবারই (এক লাইনে প্রো-কনফিগসহ)
 
 ```dart
 // পুরো অ্যাপে একটা client রাখুন (প্রতি request-এ নতুন বানাবেন না)
 final api = OmniNetwork(
   baseUrl: 'https://api.example.com/v1',  // সব path এর সাথে জুড়বে
-  enableLogging: true,                     // terminal-এ প্রতিটা call দেখাবে; release build-এ নিজে থেকেই বন্ধ
-  timeout: const Duration(seconds: 30),    // প্রতিটা request-এর সর্বোচ্চ সময়
-  headers: {'Accept-Language': 'bn'},      // সব request-এ যাবে
+  enableLogging: true,                     // terminal-এ পুরো response ছাপাবে (অ্যাপ চলার সময়ও on/off করা যায়)
+  timeout: const Duration(seconds: 30),    // মোট সময়সীমা; চাইলে connectTimeout/sendTimeout/receiveTimeout আলাদা
+  headers: {'Accept-Language': 'bn'},      // সব request-এ যাবে (পরে api.setHeader/removeHeader দিয়ে বদলানো যায়)
+  decoders: {User: User.fromJson},         // একবার দিলে get<User>()-এ বারবার decoder: লিখতে হয় না
+  // প্রয়োজনে এক লাইনেই প্রো ফিচার:
+  // proxy: '192.168.0.105:8888',
+  // pinnedSha256: ['sha256/...'],
+  // enableHttp2: true,
+  // dnsOverHttps: DnsOverHttpsResolver.cloudflareEndpoint,
+  // maxConcurrentRequests: 8,
+  // slowRequestThreshold: const Duration(seconds: 2),
+  // onSlowRequest: (uri, elapsed) => print('Slow: $uri ($elapsed)'),
 );
+
+// অথবা আগের Dio instance থাকলে এক লাইনেই র‍্যাপ করুন:
+// final api = OmniNetwork.fromDio(existingDio, enableLogging: true);
 
 // অ্যাপ বন্ধের সময়
 await api.close();
@@ -1371,12 +1385,24 @@ final res = await api.getResponse<User>('/users/10', decoder: User.fromJson);
 print('${res.statusCode} ${res.data.name}');
 ```
 
-### ২১.৪ Data পাঠানো
+### ২১.৪ Data পাঠানো (JSON, Gzip, Form ও GraphQL)
 
 ```dart
 // body-তে Map/List দিলে নিজে থেকেই JSON হয়ে যায়
 final created = await api.post<User>('/users',
     body: {'name': 'Ana'}, decoder: User.fromJson);
+
+// বড় payload gzip কম্প্রেস করে পাঠানো (IO) ও URL-encoded form POST:
+await api.post<void>('/events', body: events, compress: true);
+await api.postForm<void>('/token', fields: {'grant_type': 'refresh_token'});
+
+// GraphQL query / mutation সরাসরি:
+final me = await api.graphql<User>(
+  '/graphql',
+  query: r'query Me { viewer { id name } }',
+  dataKey: 'viewer',
+  decoder: User.fromJson,
+);
 
 await api.put<void>('/users/10', body: {'name': 'Ana B.'});    // পুরো বদল
 await api.patch<void>('/users/10', body: {'name': 'Ana C.'});  // আংশিক বদল
@@ -1496,10 +1522,17 @@ auth: OmniAuth(
 
 অন্য কোথাও থেকে token আসলে: `OmniNetwork(baseUrl: url, token: () => myToken)`।
 
-### ২১.৮ Terminal log — একটা switch
+এছাড়া JWT থেকে সরাসরি মেয়াদ পড়তে `Tokens.fromJwt(jwtAccess, refresh: refreshToken)`, এবং অন্যান্য auth-এর জন্য `ApiKeyAuth` (header বা `inQuery: true`), `BasicAuth`, ও `HmacSignerAuth` রয়েছে।
+
+### ২১.৮ Terminal log — পুরো response ও লাইভ কন্ট্রোল
 
 ```dart
-final api = OmniNetwork(baseUrl: url, enableLogging: true); // client তৈরির সময় ঠিক হয়
+final api = OmniNetwork(baseUrl: url, enableLogging: true);
+
+// অ্যাপ চলার সময়েও যেকোনো সময় অন/অফ বা রং বদলানো যায়:
+api.enableLogging = false;   // পুরো log বন্ধ/চালু
+api.logResponse = true;      // false করলে শুধু response body প্রিন্ট বন্ধ থাকে
+api.logColors = null;        // true/false বা null (auto-detect)
 ```
 
 [`logger`](https://pub.dev/packages/logger) package দিয়ে, OmniRoute-এর log-এর মতো একই ধাঁচে —
@@ -1535,16 +1568,16 @@ final api = OmniNetwork(baseUrl: url, enableLogging: true); // client তৈর�
 
 - বাঁয়ের emoji দেখেই বোঝা যায়: 💡 সফল, ⚠️ 4xx (আপনার request-এ ভুল), ⛔ 5xx বা response নেই
   (timeout, internet নেই)
-- **পুরো response** ছাপা হয় — যত বড়ই হোক, কিছু কাটা হয় না; লম্বা লাইন `↪` দিয়ে পরের লাইনে
+- **পুরো response** ছাপা হয় — ৫০০ বা ১০০০+ লাইন হলেও কোনো কিছু কাটা হয় না; ১৬০ অক্ষরের লম্বা লাইন `↪` দিয়ে পরের লাইনে চলে যায়
 - **রং:** সফল call সবুজ, JSON-এর key/string/number আলাদা রঙে; error লাল (Android আর terminal-এ;
   iOS-এর log রং দেখাতে পারে না, সেখানে emoji দিয়ে বোঝা যায়)
 - উপরে তারিখ-সময় (`2026-11-17 15:35:30.519`), কত সময় লাগল: `84 ms`, `1.24 s`, `2 min 05 s`
 - password, token, cookie, API key সবসময় `***` — কখনো log-এ আসে না
 - retry (`↻ retry 2/3`), token refresh (`🔑 token refreshed`), cache hit চিহ্নিত
-- release build-এ নিজে থেকেই বন্ধ; log বন্ধ থাকলে network-এর আচরণ একটুও বদলায় না
+- release build-এ নিজে থেকেই বন্ধ (`logInRelease: true` দিয়ে চালানো যায়)
 - বেশি বিস্তারিত: `logOptions: const LogOptions(headers: true)`
-- নিজের `Logger` (অন্য format, file, crash reporter):
-  `logSink: PrettyLogSink(logger: Logger(...))` (`advanced.dart`)
+- স্ট্রিম ও একসাথে একাধিক গন্তব্য: `api.logStream` দিয়ে যেকোনো জায়গায় log record শুনুন, বা
+  `MultiLogSink([PrettyLogSink(), inspector])` (`advanced.dart`) দিয়ে terminal ও inspector-এ একসাথে পাঠান।
 
 ### ২১.৯ Retry আর Cache
 
@@ -1594,17 +1627,17 @@ final user = await api.get<User>('/me', decoder: User.fromJson); // সরাস
 
 ```dart
 abstract final class Api {
-  static final user = Endpoint.get<User>('/users/{id}', decoder: User.fromJson);
+  static final user = Endpoint.get<User>('/users/:id', decoder: User.fromJson); // {id} বা :id দুটিই চলে
   static final users = Endpoint.getList<User>('/users', decoder: User.fromJson);
   static final createUser = Endpoint.post<User>('/users', decoder: User.fromJson);
 }
 
-final u = await api.call(Api.user, path: {'id': 10});        // {id} বসে যায় (encode সহ)
+final u = await api.call(Api.user, path: {'id': 10});        // {id}/:id বসে যায় (encode সহ)
 final list = await api.call(Api.users, query: {'page': 1});
 final created = await api.call(Api.createUser, body: {'name': 'Ana'});
 ```
 
-### ২১.১২ Pagination — infinite scroll
+### ২১.১২ Pagination ও Flutter `OmniPagedListView<T>`
 
 ```dart
 final pager = api.paginate<User>('/users',
@@ -1613,11 +1646,21 @@ final pager = api.paginate<User>('/users',
   strategy: const PagePagination(pageSize: 20), // ?page=1&limit=20
 );
 
-await pager.next();      // পরের পাতা (একসাথে দুবার ডাকলেও একবারই load)
-pager.items;             // এ পর্যন্ত সব item
-pager.hasMore;           // আরও আছে কি না
-await pager.refresh();   // pull-to-refresh: শুরু থেকে
+pager.changes.listen((_) {}); // যেকোনো পরিবর্তনের broadcast stream
+await pager.next();           // পরের পাতা (একসাথে দুবার ডাকলেও একবারই load)
+pager.items;                  // এ পর্যন্ত সব item
+pager.hasMore;                // আরও আছে কি না
+await pager.refresh();        // pull-to-refresh: শুরু থেকে
 await pager.close();
+```
+
+Flutter-এ `omni_network_flutter` থেকে সরাসরি অটো ইনফিনিট-স্ক্রল ও পুল-টু-রিফ্রেশ লিস্ট:
+
+```dart
+OmniPagedListView<User>(
+  pager: pager,
+  itemBuilder: (context, user, index) => ListTile(title: Text(user.name)),
+);
 ```
 
 | Strategy | Backend যেমন |
@@ -1627,43 +1670,51 @@ await pager.close();
 | `CursorPagination(nextCursorKey: 'next_cursor')` | `?cursor=abc` |
 | `LinkHeaderPagination()` | response-এর `Link` header (GitHub-এর মতো) |
 
-### ২১.১৩ UI-তে Loading / Data / Error
+### ২১.১৩ UI-তে Loading / Data / Error ও `OmniRequestBuilder<T>`
 
 ```dart
 final me = api.watch<User>('/me', decoder: User.fromJson); // নিজে থেকেই load শুরু
 
-StreamBuilder<RequestState<User>>(
-  stream: me.stream,
-  builder: (context, snap) => switch (snap.data) {
-    RequestSuccess(:final data) => Text(data.name),
-    RequestError(:final error) => Text('সমস্যা: $error'),
-    _ => const CircularProgressIndicator(),         // idle / loading
-  },
+// omni_network_flutter-এ এক লাইনের reactive widget:
+OmniRequestBuilder<User>(
+  controller: me,
+  emptyBuilder: (_) => const Text('কোনো তথ্য নেই'),
+  builder: (context, user, isRefreshing) => Text(user.name),
 );
 
 await me.refresh();  // আবার আনা
 await me.close();    // screen বন্ধ হলে
 ```
 
+Plain Dart `me.stream`-ও চাইলে `StreamBuilder`, Bloc বা Riverpod-এ ব্যবহার করা যায়।
 state গুলো: `RequestIdle`, `RequestLoading` (আগের data সহ), `RequestSuccess`, `RequestEmpty`, `RequestError`।
 তালিকার জন্য `api.watchList<T>(...)`।
 
-### ২১.১৪ Upload আর Download — progress সহ
+### ২১.১৪ Upload আর Download — `fromFile`, `If-Range` ও SHA-256
 
 ```dart
-// upload (multipart)
+// upload (multipart) — ফাইল পাথ থেকে সরাসরি স্ট্রিম (RAM বাঁচায়, IO):
+final avatarFile = await UploadFile.fromFile('file', '/path/to/me.png');
 await api.upload<void>('/avatar',
-  files: [UploadFile.fromBytes('file', bytes, filename: 'me.png', contentType: 'image/png')],
+  files: [avatarFile], // বা UploadFile.fromBytes(...)
   fields: {'caption': 'আমার ছবি'},
   onProgress: (sent, total) => print('$sent / $total'),
 );
 
-// download — memory-তে
-final pdf = await api.downloadBytes('/report.pdf',
-    onProgress: (got, total) => print('$got / $total'));
+// download — memory-তে (ঐচ্ছিক SHA-256 যাচাইসহ)
+final pdf = await api.downloadBytes(
+  '/report.pdf',
+  expectedSha256: 'b26d48a5...',
+  onProgress: (got, total) => print('$got / $total'),
+);
 
-// download — সরাসরি ফাইলে (Web ছাড়া); resume: true = আধা নামানো ফাইল থেকে চালিয়ে যাওয়া
-await api.downloadToFile('/big.zip', '/path/to/big.zip', resume: true);
+// download — সরাসরি ফাইলে (Web ছাড়া); ETag/Last-Modified `.part.meta` + If-Range রিজিউম ও SHA-256 চেক
+await api.downloadToFile(
+  '/big.zip',
+  '/path/to/big.zip',
+  resume: true,
+  expectedSha256: 'b26d48a5...',
+);
 ```
 
 ### ২১.১৫ Request বাতিল
@@ -1675,34 +1726,41 @@ token.cancel();     // শুধু এটা বাতিল (retry-ও হব�
 api.cancelAll();    // চলমান সব request বাতিল (যেমন logout-এ)
 ```
 
-### ২১.১৬ Interceptor — প্রতিটা request/response-এ নিজের কাজ
+### ২১.১৬ Interceptor — ক্লাস বা ইনলাইন ফাংশন
 
 ```dart
-class AppVersionHeader extends OmniInterceptor {
-  @override
-  OmniRequest onRequest(OmniRequest request) =>
-      request.withHeader('X-App-Version', '1.4.0');       // প্রতিটা request-এ header
-
-  @override
-  void onError(OmniRequest request, OmniNetworkException error) =>
-      crashReporter.log('${request.method} ${request.path}: ${error.message}');
-}
-
-final api = OmniNetwork(baseUrl: url, interceptors: [AppVersionHeader()]); // ক্রমানুসারে চলে
+final api = OmniNetwork(
+  baseUrl: url,
+  interceptors: [
+    OmniInterceptor.inline(
+      onRequest: (r) => r.withHeader('X-App-Version', '1.4.0'),
+      onError: (r, e) => crashReporter.log('${r.method} ${r.path}: ${e.message}'),
+    ),
+  ],
+);
 ```
 
-### ২১.১৭ Offline Queue আর Circuit Breaker (`advanced.dart`)
+বড় কাজের জন্য চাইলে `OmniInterceptor` সাবক্লাসও করতে পারেন।
+
+### ২১.১৭ Offline Queue, Disk Cache, Metrics ও Circuit Breaker (`advanced.dart`)
 
 ```dart
 import 'package:omni_network/advanced.dart';
 
-// offline-এ request জমিয়ে রাখা, সংযোগ ফিরলে পাঠানো — শুধু নিজে বেছে নেওয়া request
-final queue = OfflineQueue(client: api);
+// ডিস্কে টিকে থাকা cache ও offline queue:
+final cache = OmniCache(store: FileCacheStore(directory: '/path/to/cache'));
+final queue = OfflineQueue(
+  client: api,
+  store: FileQueueStore(directory: '/path/to/queue'), // অ্যাপ রিস্টার্ট হলেও FIFO কিউ হারায় না
+);
 final r = await queue.sendOrQueue(
   const OmniRequest.post('/attendance', body: {'student': 7, 'present': true}),
 );
 if (r is Queued) showMessage('Offline — পরে পাঠানো হবে');
 await queue.flush(); // সংযোগ ফিরলে (জমা request আবার পাঠাও)
+
+// runtime telemetry ও slow-request ট্র্যাকিং:
+print(api.metrics); // totalRequests, successCount, failureCount, cacheHitRate, averageLatency
 
 // একটা server বারবার ব্যর্থ হলে কিছুক্ষণ request পাঠানো বন্ধ রাখা
 final api2 = OmniNetwork(baseUrl: url, circuitBreaker: CircuitBreaker(failureThreshold: 5));
@@ -1713,7 +1771,7 @@ final api2 = OmniNetwork(baseUrl: url, circuitBreaker: CircuitBreaker(failureThr
 
 **cURL:** `api.toCurl(request)` (secret লুকানো) আর `parseCurl('curl ...')` — bug report শেয়ারে কাজে লাগে।
 
-### ২১.১৮ Backend ছাড়াই Test — OmniMock
+### ২১.১৮ Backend ছাড়াই Test — OmniMock ও RecordingTransport
 
 ```dart
 import 'package:omni_network/testing.dart';
@@ -1727,26 +1785,35 @@ final api = OmniNetwork(baseUrl: 'https://test', transport: mock); // আসল 
 
 mock.failNext();                                   // পরের call-এ network error
 final calls = mock.callsTo(HttpMethod.get, '/users/{id}'); // কোন call গেছে যাচাই
+
+// আসল API ট্রাফিক redact করে রেকর্ড ও পরে অফলাইনে রিপ্লে:
+final recorder = RecordingTransport(DioTransport());
+final fixtures = recorder.toJson();
+final replayTransport = RecordingTransport.replayJson(fixtures);
 ```
 
-### ২১.১৯ অ্যাপের ভিতরে Network Inspector (`omni_network_flutter`)
+### ২১.১৯ অ্যাপের ভিতরে Network Inspector ও HAR Export (`omni_network_flutter`)
 
 ```dart
 final inspector = OmniInspector();          // release build-এ নিজে থেকেই বন্ধ
 final api = OmniNetwork(
   baseUrl: url,
   enableLogging: inspector.enabled,
-  logSink: inspector.sink('api'),
+  logSink: MultiLogSink([PrettyLogSink(), inspector.sink('api')]), // একসাথে terminal + inspector
 );
 
 MaterialApp.router(
   routerConfig: router,
-  // ছোট একটা ভাসমান বাটন — চাপলে সব request/response, header, body, "Copy as cURL"
+  // ভাসমান বাটন — চাপলে request তালিকা, header/body, "Copy as cURL" ও টুলবারে "Copy HAR"
   builder: (context, child) => OmniInspectorLauncher(inspector: inspector, child: child!),
 );
+
+// চাইলে কোড থেকেও HAR 1.2 JSON বা Markdown বাগ রিপোর্ট নেওয়া যায়:
+final har = inspector.toHarJson();
+final md = inspector.toMarkdownReport();
 ```
 
-inspector শুধু লুকানো (redacted) data পায় — token কখনো UI বা clipboard-এ যায় না।
+inspector শুধু লুকানো (redacted) data পায় — token কখনো UI, HAR বা clipboard-এ যায় না।
 
 ### ২১.২০ Live data — WebSocket আর SSE (`omni_network_ws`)
 
@@ -1794,11 +1861,13 @@ model (`fromJson`/`toJson`), enum আর typed `Endpoint` তৈরি হয়
 
 | | Android | iOS | macOS | Windows | Linux | Web |
 |---|---|---|---|---|---|---|
-| সব ফিচার | ✅ | ✅ | ✅¹ | ✅ | ✅ | ✅² |
-| `downloadToFile` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (`downloadBytes` ব্যবহার করুন) |
+| Core HTTP, auth, GraphQL, cache, metrics | ✅ | ✅ | ✅¹ | ✅ | ✅ | ✅² |
+| `downloadToFile` / `FileCacheStore` / `FileQueueStore` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ (`downloadBytes` ব্যবহার করুন) |
+| `proxy` / `pinnedSha256` / mTLS / DoH / `compress` | ✅ | ✅ | ✅ | ✅ | ✅ | ❌³ |
 
 1. macOS-এ `com.apple.security.network.client` entitlement লাগে।
 2. Web-এ server-কে CORS অনুমতি দিতে হবে — এটা browser-এর নিয়ম, Dart code দিয়ে এড়ানো যায় না।
+3. Web-এ browser নিজে থেকেই proxy, TLS, DNS ও `Content-Encoding` পরিচালনা করে।
 
 আরও বিস্তারিত (ইংরেজিতে): [packages/omni_network/README.md](packages/omni_network/README.md),
 [packages/omni_network/doc/advanced.md](packages/omni_network/doc/advanced.md)।

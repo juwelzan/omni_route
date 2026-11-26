@@ -44,6 +44,180 @@ import 'pin_verifier.dart';
   return (rule: 'PROXY $hostPart:${uri.port}', uri: uri);
 }
 
+/// Builds an [HttpClient] factory configured with proxy, SHA-256 certificate
+/// pinning, mTLS client certificates, custom DNS / DoH, and timeouts.
+Object? Function()? buildConfiguredHttpClientFactory({
+  String? proxy,
+  List<String> pinnedSha256 = const [],
+  bool allowBadProxyCertificate = true,
+  List<int>? clientCertificateBytes,
+  List<int>? clientPrivateKeyBytes,
+  String? clientCertificatePassword,
+  String? dnsOverHttps,
+  DnsLookup? dnsLookup,
+  int? maxConnectionsPerHost,
+  Duration? idleConnectionTimeout,
+  Object? Function(Object client)? onHttpClientCreate,
+}) {
+  final proxyConfig = proxy == null ? null : parseProxyConfig(proxy);
+  final matcher = pinnedSha256.isEmpty
+      ? null
+      : CertificatePinMatcher(pinnedSha256);
+  final hasMtls =
+      clientCertificateBytes != null || clientPrivateKeyBytes != null;
+  final resolvedDns =
+      dnsLookup ??
+      (dnsOverHttps != null
+          ? DnsOverHttpsResolver(endpoint: Uri.parse(dnsOverHttps)).resolve
+          : null);
+
+  if (proxyConfig == null &&
+      matcher == null &&
+      !hasMtls &&
+      resolvedDns == null &&
+      maxConnectionsPerHost == null &&
+      idleConnectionTimeout == null &&
+      onHttpClientCreate == null) {
+    return null;
+  }
+
+  return () => _createConfiguredHttpClient(
+    proxyConfig: proxyConfig,
+    matcher: matcher,
+    allowBadProxyCertificate: allowBadProxyCertificate,
+    clientCertificateBytes: clientCertificateBytes,
+    clientPrivateKeyBytes: clientPrivateKeyBytes,
+    clientCertificatePassword: clientCertificatePassword,
+    resolvedDns: resolvedDns,
+    maxConnectionsPerHost: maxConnectionsPerHost,
+    idleConnectionTimeout: idleConnectionTimeout,
+    onHttpClientCreate: onHttpClientCreate,
+  );
+}
+
+SecurityContext? _createSecurityContext({
+  required CertificatePinMatcher? matcher,
+  required List<int>? clientCertificateBytes,
+  required List<int>? clientPrivateKeyBytes,
+  required String? clientCertificatePassword,
+}) {
+  final hasMtls =
+      clientCertificateBytes != null || clientPrivateKeyBytes != null;
+  if (matcher == null && !hasMtls) return null;
+  // When pinning is active, disable OS/user trusted roots so every TLS
+  // certificate must pass SHA-256 verification.
+  final ctx = SecurityContext(withTrustedRoots: matcher == null);
+  if (clientCertificateBytes != null) {
+    ctx.useCertificateChainBytes(
+      clientCertificateBytes,
+      password: clientCertificatePassword,
+    );
+  }
+  if (clientPrivateKeyBytes != null) {
+    ctx.usePrivateKeyBytes(
+      clientPrivateKeyBytes,
+      password: clientCertificatePassword,
+    );
+  }
+  return ctx;
+}
+
+HttpClient _createConfiguredHttpClient({
+  required ({String rule, Uri? uri})? proxyConfig,
+  required CertificatePinMatcher? matcher,
+  required bool allowBadProxyCertificate,
+  required List<int>? clientCertificateBytes,
+  required List<int>? clientPrivateKeyBytes,
+  required String? clientCertificatePassword,
+  required DnsLookup? resolvedDns,
+  required int? maxConnectionsPerHost,
+  required Duration? idleConnectionTimeout,
+  required Object? Function(Object client)? onHttpClientCreate,
+}) {
+  final securityContext = _createSecurityContext(
+    matcher: matcher,
+    clientCertificateBytes: clientCertificateBytes,
+    clientPrivateKeyBytes: clientPrivateKeyBytes,
+    clientCertificatePassword: clientCertificatePassword,
+  );
+  final client = securityContext != null
+      ? HttpClient(context: securityContext)
+      : HttpClient();
+
+  client.idleTimeout = idleConnectionTimeout ?? const Duration(seconds: 3);
+  if (maxConnectionsPerHost != null) {
+    client.maxConnectionsPerHost = maxConnectionsPerHost;
+  }
+
+  if (proxyConfig != null) {
+    final rule = proxyConfig.rule;
+    client.findProxy = (_) => rule;
+  }
+
+  bool Function(X509Certificate cert, String host, int port)? badCert;
+  if (matcher != null) {
+    badCert = (cert, _, _) => matcher.matchesDer(
+      cert.der,
+      startValidity: cert.startValidity,
+      endValidity: cert.endValidity,
+    );
+  } else if (proxyConfig != null && allowBadProxyCertificate) {
+    badCert = (_, _, _) => true;
+  }
+  if (badCert != null) {
+    client.badCertificateCallback = badCert;
+  }
+
+  if (resolvedDns != null) {
+    client.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) {
+      if (proxyHost != null) {
+        return Socket.startConnect(proxyHost, proxyPort ?? 80);
+      }
+      final port = url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80);
+      ConnectionTask<Socket>? tcpTask;
+      var cancelled = false;
+      Future<Socket> connect() async {
+        Object connectHost = url.host;
+        if (InternetAddress.tryParse(url.host) == null) {
+          final ips = await resolvedDns(url.host);
+          if (cancelled) {
+            throw const SocketException('Connection attempt cancelled');
+          }
+          if (ips.isNotEmpty) {
+            connectHost = InternetAddress.tryParse(ips.first) ?? ips.first;
+          }
+        }
+        tcpTask = await Socket.startConnect(connectHost, port);
+        if (cancelled) {
+          tcpTask!.cancel();
+          throw const SocketException('Connection attempt cancelled');
+        }
+        final socket = await tcpTask!.socket;
+        if (url.scheme != 'https') return socket;
+        final badCertCallback = badCert;
+        return SecureSocket.secure(
+          socket,
+          host: url.host,
+          context: securityContext,
+          onBadCertificate: badCertCallback == null
+              ? null
+              : (cert) => badCertCallback(cert, url.host, port),
+        );
+      }
+
+      return Future.value(
+        ConnectionTask.fromSocket(connect(), () {
+          cancelled = true;
+          tcpTask?.cancel();
+        }),
+      );
+    };
+  }
+
+  final custom = onHttpClientCreate?.call(client);
+  return custom is HttpClient ? custom : client;
+}
+
 /// Builds a configured [HttpClientAdapter] for `dart:io` platforms.
 HttpClientAdapter? buildConfiguredAdapter({
   String? proxy,
@@ -63,118 +237,24 @@ HttpClientAdapter? buildConfiguredAdapter({
   final matcher = pinnedSha256.isEmpty
       ? null
       : CertificatePinMatcher(pinnedSha256);
-
-  final hasMtls =
-      clientCertificateBytes != null || clientPrivateKeyBytes != null;
   final resolvedDns =
       dnsLookup ??
       (dnsOverHttps != null
           ? DnsOverHttpsResolver(endpoint: Uri.parse(dnsOverHttps)).resolve
           : null);
 
-  SecurityContext? createSecurityContext() {
-    if (matcher == null && !hasMtls) return null;
-    // When pinning is active, disable OS/user trusted roots so every TLS
-    // certificate must pass SHA-256 verification.
-    final ctx = SecurityContext(withTrustedRoots: matcher == null);
-    if (clientCertificateBytes != null) {
-      ctx.useCertificateChainBytes(
-        clientCertificateBytes,
-        password: clientCertificatePassword,
-      );
-    }
-    if (clientPrivateKeyBytes != null) {
-      ctx.usePrivateKeyBytes(
-        clientPrivateKeyBytes,
-        password: clientCertificatePassword,
-      );
-    }
-    return ctx;
-  }
-
-  bool Function(X509Certificate cert, String host, int port)? badCertFn() {
-    if (matcher != null) {
-      return (cert, _, _) => matcher.matchesDer(
-        cert.der,
-        startValidity: cert.startValidity,
-        endValidity: cert.endValidity,
-      );
-    }
-    if (proxyConfig != null && allowBadProxyCertificate) {
-      return (_, _, _) => true;
-    }
-    return null;
-  }
-
-  HttpClient createClient() {
-    final securityContext = createSecurityContext();
-    final client = securityContext != null
-        ? HttpClient(context: securityContext)
-        : HttpClient();
-
-    client.idleTimeout = idleConnectionTimeout ?? const Duration(seconds: 3);
-    if (maxConnectionsPerHost != null) {
-      client.maxConnectionsPerHost = maxConnectionsPerHost;
-    }
-
-    if (proxyConfig != null) {
-      final rule = proxyConfig.rule;
-      client.findProxy = (_) => rule;
-    }
-
-    final badCert = badCertFn();
-    if (badCert != null) {
-      client.badCertificateCallback = badCert;
-    }
-
-    if (resolvedDns != null) {
-      client.connectionFactory = (Uri url, String? proxyHost, int? proxyPort) {
-        if (proxyHost != null) {
-          return Socket.startConnect(proxyHost, proxyPort ?? 80);
-        }
-        final port = url.hasPort ? url.port : (url.scheme == 'https' ? 443 : 80);
-        ConnectionTask<Socket>? tcpTask;
-        var cancelled = false;
-        Future<Socket> connect() async {
-          Object connectHost = url.host;
-          if (InternetAddress.tryParse(url.host) == null) {
-            final ips = await resolvedDns(url.host);
-            if (cancelled) {
-              throw const SocketException('Connection attempt cancelled');
-            }
-            if (ips.isNotEmpty) {
-              connectHost = InternetAddress.tryParse(ips.first) ?? ips.first;
-            }
-          }
-          tcpTask = await Socket.startConnect(connectHost, port);
-          if (cancelled) {
-            tcpTask!.cancel();
-            throw const SocketException('Connection attempt cancelled');
-          }
-          final socket = await tcpTask!.socket;
-          if (url.scheme != 'https') return socket;
-          return SecureSocket.secure(
-            socket,
-            host: url.host,
-            context: securityContext,
-            onBadCertificate: badCert == null
-                ? null
-                : (cert) => badCert(cert, url.host, port),
-          );
-        }
-
-        return Future.value(
-          ConnectionTask.fromSocket(connect(), () {
-            cancelled = true;
-            tcpTask?.cancel();
-          }),
-        );
-      };
-    }
-
-    final custom = onHttpClientCreate?.call(client);
-    return custom is HttpClient ? custom : client;
-  }
+  HttpClient createClient() => _createConfiguredHttpClient(
+    proxyConfig: proxyConfig,
+    matcher: matcher,
+    allowBadProxyCertificate: allowBadProxyCertificate,
+    clientCertificateBytes: clientCertificateBytes,
+    clientPrivateKeyBytes: clientPrivateKeyBytes,
+    clientCertificatePassword: clientCertificatePassword,
+    resolvedDns: resolvedDns,
+    maxConnectionsPerHost: maxConnectionsPerHost,
+    idleConnectionTimeout: idleConnectionTimeout,
+    onHttpClientCreate: onHttpClientCreate,
+  );
 
   final ioAdapter = IOHttpClientAdapter(createHttpClient: createClient);
 
@@ -190,7 +270,12 @@ HttpClientAdapter? buildConfiguredAdapter({
         if (proxyConfig?.uri != null) {
           settings.proxy = proxyConfig!.uri;
         }
-        final ctx = createSecurityContext();
+        final ctx = _createSecurityContext(
+          matcher: matcher,
+          clientCertificateBytes: clientCertificateBytes,
+          clientPrivateKeyBytes: clientPrivateKeyBytes,
+          clientCertificatePassword: clientCertificatePassword,
+        );
         if (ctx != null) {
           settings.context = ctx;
         }

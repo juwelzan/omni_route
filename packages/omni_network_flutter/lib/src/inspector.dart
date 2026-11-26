@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
 
@@ -128,15 +129,96 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
 
   final ListQueue<InspectorEntry> _entries = ListQueue();
   final Map<(String, int), InspectorEntry> _open = {};
+  final ListQueue<WsLogRecord> _wsEntries = ListQueue();
+  final ListQueue<AiCallLogRecord> _aiEntries = ListQueue();
+  final List<StreamSubscription<Object?>> _subs = [];
   int _nextId = 0;
 
   /// Entries, newest first.
   List<InspectorEntry> get entries =>
       List.unmodifiable(_entries.toList().reversed);
 
+  /// Recorded WebSocket events, newest first.
+  List<WsLogRecord> get wsEntries =>
+      List.unmodifiable(_wsEntries.toList().reversed);
+
+  /// Recorded AI generation calls, newest first.
+  List<AiCallLogRecord> get aiEntries =>
+      List.unmodifiable(_aiEntries.toList().reversed);
+
+  /// Sum of tokens consumed across all recorded AI calls.
+  int get totalAiTokens =>
+      _aiEntries.fold(0, (sum, e) => sum + e.usage.totalTokens);
+
+  /// Estimated total USD spent across all recorded AI calls.
+  double get totalAiCostUsd =>
+      _aiEntries.fold(0.0, (sum, e) => sum + e.usage.estimatedCostUsd);
+
   /// A sink tagging records with [label] (one per client, since request ids
   /// are per client).
   LogSink sink(String label) => _LabelledSink(this, label);
+
+  /// Records a single redacted WebSocket log event.
+  void recordWsLog(WsLogRecord record) {
+    if (!enabled) return;
+    _wsEntries.addLast(record);
+    while (_wsEntries.length > maxEntries) {
+      _wsEntries.removeFirst();
+    }
+    notifyListeners();
+  }
+
+  /// Records a single redacted AI call telemetry event.
+  void recordAiCall(AiCallLogRecord record) {
+    if (!enabled) return;
+    _aiEntries.addLast(record);
+    while (_aiEntries.length > maxEntries) {
+      _aiEntries.removeFirst();
+    }
+    notifyListeners();
+  }
+
+  /// Subscribes this inspector to [client]'s realtime WebSocket logs (and
+  /// optionally its [OmniAi.telemetry] stream).
+  ///
+  /// Returned callback detaches the subscriptions; [dispose] also cancels all
+  /// active subscriptions automatically.
+  VoidCallback attachClient(OmniNetwork client, {bool includeAi = true}) {
+    final wsSub = client.realtimeLogs.listen(recordWsLog);
+    _subs.add(wsSub);
+    StreamSubscription<AiCallLogRecord>? aiSub;
+    if (includeAi) {
+      aiSub = client.ai.telemetry.listen(recordAiCall);
+      _subs.add(aiSub);
+    }
+    return () {
+      _subs.remove(wsSub);
+      unawaited(wsSub.cancel());
+      if (aiSub != null) {
+        _subs.remove(aiSub);
+        unawaited(aiSub.cancel());
+      }
+    };
+  }
+
+  /// Subscribes this inspector directly to an [OmniAi] instance's telemetry.
+  VoidCallback attachAi(OmniAi ai) {
+    final sub = ai.telemetry.listen(recordAiCall);
+    _subs.add(sub);
+    return () {
+      _subs.remove(sub);
+      unawaited(sub.cancel());
+    };
+  }
+
+  @override
+  void dispose() {
+    for (final sub in _subs) {
+      unawaited(sub.cancel());
+    }
+    _subs.clear();
+    super.dispose();
+  }
 
   @override
   void log(NetworkLogRecord record) => _add('default', record);
@@ -175,10 +257,12 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
     notifyListeners();
   }
 
-  /// Removes all entries.
+  /// Removes all HTTP, WebSocket, and AI entries.
   void clear() {
     _entries.clear();
     _open.clear();
+    _wsEntries.clear();
+    _aiEntries.clear();
     notifyListeners();
   }
 
@@ -290,6 +374,34 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
         ..writeln('\n```bash')
         ..writeln(e.toCurl())
         ..writeln('```\n');
+    }
+    if (_wsEntries.isNotEmpty) {
+      buf.writeln('## WebSocket Events (${_wsEntries.length})\n');
+      for (final ws in wsEntries) {
+        buf.writeln(
+          '- `${ws.timestamp.toUtc().toIso8601String()}` '
+          '[${ws.direction.toUpperCase()}] `${ws.uri}` — ${ws.summary}',
+        );
+      }
+      buf.writeln();
+    }
+    if (_aiEntries.isNotEmpty) {
+      buf
+        ..writeln('## AI Calls (${_aiEntries.length})\n')
+        ..writeln(
+          '- Total tokens: `$totalAiTokens` · '
+          'Estimated USD: `\$${totalAiCostUsd.toStringAsFixed(4)}`\n',
+        );
+      for (final call in aiEntries) {
+        final err = call.error == null ? '' : ' · error: `${call.error}`';
+        buf.writeln(
+          '- `${call.providerId}:${call.model}` · '
+          '${call.usage.totalTokens} tok · '
+          '${call.latency.inMilliseconds} ms'
+          '${call.usedFallback ? ' · fallback' : ''}$err',
+        );
+      }
+      buf.writeln();
     }
     return buf.toString();
   }

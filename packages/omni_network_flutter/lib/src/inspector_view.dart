@@ -21,9 +21,12 @@ class OmniInspectorView extends StatefulWidget {
   State<OmniInspectorView> createState() => _OmniInspectorViewState();
 }
 
+enum _InspectorTab { http, ws, ai }
+
 class _OmniInspectorViewState extends State<OmniInspectorView> {
   final _filter = TextEditingController();
   InspectorEntry? _selected;
+  _InspectorTab _tab = _InspectorTab.http;
 
   @override
   void dispose() {
@@ -44,7 +47,9 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
       listenable: Listenable.merge([widget.inspector, _filter]),
       builder: (context, _) {
         final sel = _selected;
-        return sel == null ? _list(context) : _detail(context, sel);
+        return sel != null && _tab == _InspectorTab.http
+            ? _detail(context, sel)
+            : _list(context);
       },
     ),
   );
@@ -85,20 +90,17 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
 
   Widget _list(BuildContext context) {
     final q = _filter.text.trim().toLowerCase();
-    final items = [
-      for (final e in widget.inspector.entries)
-        if (q.isEmpty ||
-            '${e.method} ${e.url} ${e.statusCode ?? ''} ${e.label}'
-                .toLowerCase()
-                .contains(q))
-          e,
-    ];
+    final title = switch (_tab) {
+      _InspectorTab.http => 'Network (${widget.inspector.entries.length})',
+      _InspectorTab.ws => 'WebSocket (${widget.inspector.wsEntries.length})',
+      _InspectorTab.ai => 'AI (${widget.inspector.aiEntries.length})',
+    };
     final scheme = Theme.of(context).colorScheme;
     return Column(
       children: [
         _bar(
           context,
-          'Network (${widget.inspector.entries.length})',
+          title,
           actions: [
             IconButton(
               tooltip: 'Copy HAR',
@@ -124,6 +126,39 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           ],
         ),
         Padding(
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: Text('HTTP (${widget.inspector.entries.length})'),
+                  selected: _tab == _InspectorTab.http,
+                  onSelected: (_) => setState(() => _tab = _InspectorTab.http),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Text('WS (${widget.inspector.wsEntries.length})'),
+                  selected: _tab == _InspectorTab.ws,
+                  onSelected: (_) => setState(() {
+                    _selected = null;
+                    _tab = _InspectorTab.ws;
+                  }),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Text('AI (${widget.inspector.aiEntries.length})'),
+                  selected: _tab == _InspectorTab.ai,
+                  onSelected: (_) => setState(() {
+                    _selected = null;
+                    _tab = _InspectorTab.ai;
+                  }),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Padding(
           padding: const EdgeInsets.all(8),
           child: TextField(
             controller: _filter,
@@ -136,46 +171,168 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           ),
         ),
         Expanded(
+          child: switch (_tab) {
+            _InspectorTab.http => _httpList(context, q, scheme),
+            _InspectorTab.ws => _wsList(context, q, scheme),
+            _InspectorTab.ai => _aiList(context, q, scheme),
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _httpList(BuildContext context, String q, ColorScheme scheme) {
+    final items = [
+      for (final e in widget.inspector.entries)
+        if (q.isEmpty ||
+            '${e.method} ${e.url} ${e.statusCode ?? ''} ${e.label}'
+                .toLowerCase()
+                .contains(q))
+          e,
+    ];
+    if (items.isEmpty) return const Center(child: Text('No requests'));
+    return ListView.separated(
+      itemCount: items.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final e = items[i];
+        final uri = Uri.tryParse(e.url);
+        return ListTile(
+          key: ValueKey('entry-${e.id}'),
+          dense: true,
+          leading: Text(
+            e.method,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          title: Text(
+            uri == null
+                ? e.url
+                : '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            [
+              uri?.host ?? '',
+              if (e.duration case final d?) '${d.inMilliseconds} ms',
+              if (e.source case final s? when s.name != 'network') s.name,
+              if (e.label != 'default') e.label,
+            ].where((x) => x.isNotEmpty).join(' · '),
+          ),
+          trailing: Text(
+            e.error != null ? 'ERR' : '${e.statusCode ?? '…'}',
+            style: TextStyle(
+              color: _color(e.status, scheme),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          onTap: () => setState(() => _selected = e),
+        );
+      },
+    );
+  }
+
+  Widget _wsList(BuildContext context, String q, ColorScheme scheme) {
+    final items = [
+      for (final e in widget.inspector.wsEntries)
+        if (q.isEmpty ||
+            '${e.direction} ${e.uri} ${e.summary}'.toLowerCase().contains(q))
+          e,
+    ];
+    if (items.isEmpty) {
+      return const Center(child: Text('No WebSocket events'));
+    }
+    return ListView.separated(
+      itemCount: items.length,
+      separatorBuilder: (_, _) => const Divider(height: 1),
+      itemBuilder: (context, i) {
+        final e = items[i];
+        final isErr = e.direction == 'err';
+        return ListTile(
+          dense: true,
+          leading: Text(
+            e.direction.toUpperCase(),
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: isErr ? scheme.error : scheme.primary,
+            ),
+          ),
+          title: Text(
+            e.summary,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            '${e.uri} · ${e.timestamp.toLocal().toIso8601String()}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _aiList(BuildContext context, String q, ColorScheme scheme) {
+    final items = [
+      for (final e in widget.inspector.aiEntries)
+        if (q.isEmpty ||
+            '${e.providerId} ${e.model} ${e.promptPreview ?? ''} ${e.responsePreview ?? ''} ${e.error ?? ''}'
+                .toLowerCase()
+                .contains(q))
+          e,
+    ];
+    return Column(
+      children: [
+        Container(
+          width: double.infinity,
+          color: scheme.surfaceContainerLowest,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Text(
+            'Calls: ${widget.inspector.aiEntries.length} · '
+            'Tokens: ${widget.inspector.totalAiTokens} · '
+            'Est. Cost: \$${widget.inspector.totalAiCostUsd.toStringAsFixed(4)}',
+            style: Theme.of(context).textTheme.labelMedium,
+          ),
+        ),
+        Expanded(
           child: items.isEmpty
-              ? const Center(child: Text('No requests'))
+              ? const Center(child: Text('No AI calls'))
               : ListView.separated(
                   itemCount: items.length,
                   separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, i) {
                     final e = items[i];
-                    final uri = Uri.tryParse(e.url);
                     return ListTile(
-                      key: ValueKey('entry-${e.id}'),
                       dense: true,
-                      leading: Text(
-                        e.method,
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      leading: Icon(
+                        e.error != null
+                            ? Icons.error_outline
+                            : Icons.auto_awesome,
+                        color: e.error != null ? scheme.error : scheme.primary,
                       ),
-                      title: Text(
-                        uri == null
-                            ? e.url
-                            : '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+                      title: Text('${e.providerId}:${e.model}'),
+                      subtitle: Text(
+                        [
+                          if (e.promptPreview != null) 'Q: ${e.promptPreview}',
+                          if (e.responsePreview != null)
+                            'A: ${e.responsePreview}',
+                          if (e.error != null) 'Error: ${e.error}',
+                          if (e.usedFallback) 'fallback',
+                        ].join(' · '),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      subtitle: Text(
-                        [
-                          uri?.host ?? '',
-                          if (e.duration case final d?)
-                            '${d.inMilliseconds} ms',
-                          if (e.source case final s? when s.name != 'network')
-                            s.name,
-                          if (e.label != 'default') e.label,
-                        ].where((x) => x.isNotEmpty).join(' · '),
+                      trailing: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text('${e.usage.totalTokens} tok'),
+                          Text(
+                            '${e.latency.inMilliseconds} ms',
+                            style: Theme.of(context).textTheme.labelSmall,
+                          ),
+                        ],
                       ),
-                      trailing: Text(
-                        e.error != null ? 'ERR' : '${e.statusCode ?? '…'}',
-                        style: TextStyle(
-                          color: _color(e.status, scheme),
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      onTap: () => setState(() => _selected = e),
                     );
                   },
                 ),
