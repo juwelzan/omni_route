@@ -11,6 +11,7 @@ export 'src/bloc/omni_bloc.dart'
         OmniAnyBloc,
         OmniBloc,
         OmniBlocCreate,
+        OmniBlocEntry,
         OmniBlocRegistry,
         Provide;
 export 'src/bloc/omni_bloc_scope.dart' hide hostedScreenAbove;

@@ -37,7 +37,7 @@ class OmniShell extends OmniRouteBase {
   final List<OmniRouteBase> routes;
 
   /// Blocs scoped to the lifetime of this shell.
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
 
   /// Optional key for the shell's inner navigator.
   final GlobalKey<NavigatorState>? navigatorKey;
@@ -76,7 +76,7 @@ class OmniBranch {
   final String? initialLocation;
 
   /// Blocs scoped to this branch while the stateful shell is mounted.
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
 
   /// Optional navigator key for this branch's stack.
   final GlobalKey<NavigatorState>? navigatorKey;
@@ -125,7 +125,7 @@ class OmniStatefulShell extends OmniRouteBase {
   final List<OmniBranch> branches;
 
   /// Blocs shared across the whole stateful shell.
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
 
   /// Optional outer navigator key.
   final GlobalKey<NavigatorState>? parentNavigatorKey;

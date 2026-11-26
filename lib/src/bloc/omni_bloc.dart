@@ -17,19 +17,47 @@ typedef AnyBloc = Bloc<Object?, Object?>;
 typedef OmniBlocCreate<B extends OmniAnyBloc> =
     B Function(BuildContext context);
 
+/// Base entry accepted by `OmniApp(blocs:)`, `OmniPage(blocs:/provide:)`,
+/// `OmniRouteGroup(provide:)`, and `OmniShell(provide:)`.
+///
+/// Being non-generic lets Dart infer exact Bloc types automatically in list
+/// literals such as `[OmniBloc((_) => MyBloc())]` without repeating `<MyBloc>`.
+abstract class OmniBlocEntry {
+  /// Const constructor for subclasses.
+  const OmniBlocEntry();
+
+  /// The concrete Bloc or Cubit [Type] managed by this entry.
+  Type get type;
+
+  /// Whether creation waits until the Bloc is first read.
+  bool get lazy;
+
+  /// Whether OmniRoute owns and closes this Bloc when leaving its scope.
+  bool get isOwned;
+
+  /// Whether this entry embeds its own inline factory or existing instance.
+  @internal
+  bool get hasInlineSource;
+
+  /// Creates the underlying Bloc instance using [context] and [registry].
+  @internal
+  OmniAnyBloc instantiate(BuildContext context, OmniBlocRegistry registry);
+
+  /// Wraps [child] with an already instantiated [bloc] without closing it.
+  @internal
+  BlocProvider<OmniAnyBloc> valueProvider(OmniAnyBloc bloc, {Widget? child});
+
+  /// Converts this entry into a [BlocProvider] using [registry] if needed.
+  @internal
+  BlocProvider<OmniAnyBloc> toProvider(OmniBlocRegistry registry);
+}
+
 /// Registers how to create [B].
 ///
 /// Pass inside `OmniApp(blocs: [...])` for global/shared Blocs (`global: true`
-/// lives for the whole app), or declare directly inside a screen's `provide` /
-/// an `OmniPage(blocs: [...])` so the BlocProvider is registered automatically
-/// only when the app enters that page:
-///
-/// ```dart
-/// @override
-/// List<Provide> get provide => [
-///   OmniBloc((_) => StudentBloc()),
-/// ];
-/// ```
+/// lives for the whole app), or declare directly on `OmniPage(blocs: [...])` /
+/// screen `provide` (`Provide.bloc((_) => ...)` or `OmniBloc.forPage((_) => ...)`)
+/// so the BlocProvider registers automatically when entering that page.
 @immutable
 class OmniBloc<B extends OmniAnyBloc> extends Provide<B> {
   /// Registers [create] as the factory for [B].
@@ -40,6 +68,13 @@ class OmniBloc<B extends OmniAnyBloc> extends Provide<B> {
   /// immediately upon entering the page or starting the app.
   const OmniBloc.eager(this.create, {this.global = false})
     : super.create(create, lazy: false);
+
+  /// Declares a page-scoped [OmniBloc] inside a `List<Provide>` getter with
+  /// automatic type inference (`OmniBloc.forPage((_) => MyBloc())`).
+  static OmniBloc<OmniAnyBloc> forPage<B extends OmniAnyBloc>(
+    OmniBlocCreate<B> create, {
+    bool lazy = true,
+  }) => OmniBloc<B>(create, lazy: lazy);
 
   /// Creates a new [B]. Called once per owning scope.
   final OmniBlocCreate<B> create;
@@ -60,16 +95,24 @@ class OmniBlocRegistry {
   /// Indexes [blocs] by type.
   ///
   /// Throws [OmniRouteException] if a type is registered twice.
-  factory OmniBlocRegistry(Iterable<OmniBloc> blocs) {
+  factory OmniBlocRegistry(Iterable<OmniBlocEntry> blocs) {
     final map = <Type, OmniBloc>{};
-    for (final b in blocs) {
-      if (map.containsKey(b.type)) {
+    for (final entry in blocs) {
+      if (entry is! OmniBloc) {
         throw OmniRouteException(
-          OmniErrorCode.duplicateBlocRegistration,
-          '${b.type} is registered more than once.',
+          OmniErrorCode.unsupportedConfiguration,
+          'OmniApp(blocs: [...]) only accepts OmniBloc entries (got ${entry.runtimeType}).',
+          hint: 'Use OmniBloc((_) => ${entry.type}(...), global: true).',
         );
       }
-      map[b.type] = b;
+      _checkInferredBlocType(entry.type);
+      if (map.containsKey(entry.type)) {
+        throw OmniRouteException(
+          OmniErrorCode.duplicateBlocRegistration,
+          '${entry.type} is registered more than once.',
+        );
+      }
+      map[entry.type] = entry;
     }
     return OmniBlocRegistry._(map, true);
   }
@@ -94,10 +137,11 @@ class OmniBlocRegistry {
   /// Registers page/screen-level [OmniBloc] entries on first page entry.
   ///
   /// Throws [OmniRouteException] if a screen attempts to re-provide a
-  /// `global: true` Bloc.
+  /// `global: true` Bloc or uses an un-inferred `OmniAnyBloc` type.
   @internal
-  void registerPageBlocs(Iterable<Provide> entries) {
+  void registerPageBlocs(Iterable<OmniBlocEntry> entries) {
     for (final p in entries) {
+      _checkInferredBlocType(p.type);
       if (p.isOwned && isGlobal(p.type)) {
         throw OmniRouteException(
           OmniErrorCode.unsupportedConfiguration,
@@ -124,7 +168,7 @@ class OmniBlocRegistry {
         OmniErrorCode.missingBlocFactory,
         'No factory registered for $B.',
         hint:
-            'Pass `OmniBloc(($B _) => $B(...))` directly in `provide` / '
+            'Pass `Provide.bloc((_) => $B(...))` in screen `provide` / '
             '`OmniPage(blocs: ...)` or register it in `OmniApp(blocs: [...])`.',
       );
     }
@@ -145,14 +189,33 @@ class OmniBlocRegistry {
   ];
 }
 
+void _checkInferredBlocType(Type type) {
+  if (type == OmniAnyBloc || type == BlocBase || type == Bloc) {
+    throw OmniRouteException(
+      OmniErrorCode.unsupportedConfiguration,
+      'Could not infer concrete Bloc type (inferred as $type) inside List<Provide>.',
+      hint:
+          'Use `Provide.bloc((_) => MyBloc())`, `OmniBloc<MyBloc>((_) => MyBloc())`, '
+          'or put `OmniBloc((_) => MyBloc())` inside `OmniPage(blocs: [...])`.',
+    );
+  }
+}
+
 /// Declares a Bloc a screen needs. Owned Blocs are closed when the screen's
 /// route is removed; [Provide.value] Blocs are never closed by OmniRoute.
 ///
-/// You can either use [OmniBloc] directly (`OmniBloc((_) => StudentBloc())`)
-/// or use `Provide` (`Provide<StudentBloc>()`, `Provide.create(...)`,
-/// `Provide.eager(...)`, `Provide.value(...)`).
+/// Inside a screen's `List<Provide> get provide`, write:
+/// ```dart
+/// @override
+/// List<Provide> get provide => [
+///   Provide.bloc((_) => StudentBloc()),       // auto-inferred type, registered on page entry
+///   Provide.blocEager((_) => DashboardBloc()),// eager creation on page entry
+///   const Provide<SharedBloc>(),              // from OmniApp or previously registered factory
+///   Provide.value(existingBloc),              // pre-existing instance, never closed
+/// ];
+/// ```
 @immutable
-class Provide<B extends OmniAnyBloc> {
+class Provide<B extends OmniAnyBloc> extends OmniBlocEntry {
   /// Created from the registered [OmniBloc] factory. Owned by the screen.
   const Provide({this.lazy = true}) : _create = null, _value = null;
 
@@ -171,29 +234,46 @@ class Provide<B extends OmniAnyBloc> {
   /// An existing instance. Owned by whoever created it; never closed here.
   const Provide.value(B value) : _value = value, _create = null, lazy = true;
 
+  /// Concise screen-scoped factory helper that preserves [T] cleanly even
+  /// inside `List<Provide>` (`Provide.bloc((_) => MyBloc())`).
+  static Provide<OmniAnyBloc> bloc<T extends OmniAnyBloc>(
+    OmniBlocCreate<T> create, {
+    bool lazy = true,
+  }) => OmniBloc<T>(create, lazy: lazy);
+
+  /// Eager variant of [Provide.bloc] (`lazy: false`) for immediate page-entry
+  /// instantiation without repeating `<T>`.
+  static Provide<OmniAnyBloc> blocEager<T extends OmniAnyBloc>(
+    OmniBlocCreate<T> create,
+  ) => OmniBloc<T>.eager(create);
+
   final OmniBlocCreate<B>? _create;
   final B? _value;
 
-  /// Whether creation waits until the Bloc is first read.
+  @override
   final bool lazy;
 
-  /// The Bloc type provided.
+  @override
   Type get type => B;
 
-  /// Whether OmniRoute closes this Bloc (false for [Provide.value]).
+  @override
   bool get isOwned => _value == null;
 
-  /// Creates an instance of [B] for group/route scopes using [context].
+  @override
   @internal
-  B instantiate(BuildContext context, OmniBlocRegistry registry) =>
+  bool get hasInlineSource => _value != null || _create != null;
+
+  @override
+  @internal
+  OmniAnyBloc instantiate(BuildContext context, OmniBlocRegistry registry) =>
       _value ?? (_create ?? registry.factoryFor<B>().create)(context);
 
-  /// Exposes an already-created [bloc] without closing it when unmounted.
+  @override
   @internal
   BlocProvider<B> valueProvider(OmniAnyBloc bloc, {Widget? child}) =>
       BlocProvider<B>.value(value: bloc as B, child: child);
 
-  /// Builds the flutter_bloc provider for this entry.
+  @override
   @internal
   BlocProvider<B> toProvider(OmniBlocRegistry registry) {
     final value = _value;

@@ -87,7 +87,7 @@ class OmniApp extends StatefulWidget {
   /// whole app. Page-scoped Blocs should instead be declared directly on their
   /// screen (`provide`) or `OmniPage(blocs: [...])` so their `BlocProvider`s
   /// register when first entering that page.
-  final List<OmniBloc> blocs;
+  final List<OmniBlocEntry> blocs;
 
   /// Location shown on startup when no platform deep link is active.
   final String initialRoute;

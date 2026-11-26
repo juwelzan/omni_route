@@ -115,7 +115,7 @@ class StudentScreen extends OmniStatelessWidget {
 
   // এই screen-এর নিজস্ব Bloc — প্রথম পেজে ঢোকার সময় রেজিস্টার হয়, pop করলে বন্ধ।
   @override
-  List<Provide> get provide => [OmniBloc((_) => StudentBloc())];
+  List<Provide> get provide => [Provide.bloc((_) => StudentBloc())];
 
   @override
   Widget build(BuildContext context) {
@@ -307,7 +307,7 @@ class ProfileScreen extends OmniStatelessWidget {
 
   // ঐচ্ছিক: প্রথম এই পেজে ঢোকার সময় BlocProvider রেজিস্টার হয়।
   @override
-  List<Provide> get provide => [OmniBloc((_) => ProfileBloc())];
+  List<Provide> get provide => [Provide.bloc((_) => ProfileBloc())];
 
   @override
   Widget build(BuildContext context) => const Scaffold(body: Text('Profile'));
@@ -324,7 +324,7 @@ class DashboardScreen extends OmniStatefulWidget {
   String get routePath => '/dashboard';
 
   @override
-  List<Provide> get provide => [OmniBloc((_) => StatsBloc())];
+  List<Provide> get provide => [Provide.bloc((_) => StatsBloc())];
 
   @override
   State<DashboardScreen> createState() => _DashboardState();
@@ -586,8 +586,8 @@ OmniApp(
 // সবচেয়ে সংক্ষিপ্ত উপায় — পেজে ঢুকলেই রেজিস্টার ও তৈরি হয়:
 @override
 List<Provide> get provide => [
-  OmniBloc((_) => StudentBloc()),                                // lazy page Bloc
-  OmniBloc.eager((_) => DashboardBloc()),                        // পেজে ঢুকতেই eager তৈরি
+  Provide.bloc((_) => StudentBloc()),                              // lazy page Bloc
+  Provide.blocEager((_) => DashboardBloc()),                       // পেজে ঢুকতেই eager তৈরি
   Provide<StudentDetailBloc>.create((_) => StudentDetailBloc(id)), // প্যারামিটার সহ
   Provide.value(existingCartBloc),                               // আগে থেকে তৈরি — OmniRoute বন্ধ করবে না
 ];

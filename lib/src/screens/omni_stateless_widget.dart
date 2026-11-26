@@ -62,6 +62,7 @@ class _OmniStatelessElement extends StatelessElement {
     final screen = widget as OmniStatelessWidget;
     validateScreen(screen);
     if (isHosted(this, screen)) {
+      _lifecycle?.hookContext = null;
       final built = super.build();
       return _lifecycle?.wrap(built) ?? built;
     }
@@ -73,6 +74,7 @@ class _OmniStatelessElement extends StatelessElement {
       // StatelessElement while exposing provided Blocs to build & lifecycle.
       wrap: (_) => Builder(
         builder: (innerContext) {
+          _lifecycle?.hookContext = innerContext;
           // ignore: invalid_use_of_protected_member
           final built = screen.build(innerContext);
           return _lifecycle?.wrap(built) ?? built;

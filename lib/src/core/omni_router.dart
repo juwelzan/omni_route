@@ -1999,7 +1999,7 @@ class _GroupScopeBox {
   _GroupScopeBox(this.provide)
     : instances = List<OmniAnyBloc?>.filled(provide.length, null);
 
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
   final List<OmniAnyBloc?> instances;
   int mounts = 0;
   bool closed = false;
@@ -2026,7 +2026,7 @@ class _GroupScopeBox {
 class _GroupScopeManager {
   final Map<_GroupScopeKey, _GroupScopeBox> _boxes = {};
 
-  _GroupScopeBox retain(_GroupScopeKey key, List<Provide> provide) {
+  _GroupScopeBox retain(_GroupScopeKey key, List<OmniBlocEntry> provide) {
     final box = _boxes.putIfAbsent(key, () => _GroupScopeBox(provide));
     box.mounts++;
     return box;
@@ -2077,7 +2077,7 @@ class _GroupScopeHost extends StatefulWidget {
 
   final _GroupScopeManager manager;
   final _GroupScopeKey scopeKey;
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
   final bool Function() hasActiveStackRef;
   final Widget child;
 

@@ -99,13 +99,18 @@ class OmniLifecycleHub with WidgetsBindingObserver {
   /// The hooks object, read fresh on every call.
   final OmniLifecycle? Function() target;
 
+  /// Optional inner context below an auto-hosted [OmniBlocScope].
+  BuildContext? hookContext;
+
   bool? _visible;
   bool _disposed = false;
 
   void _call(void Function(OmniLifecycle hooks, BuildContext context) hook) {
     if (_disposed || !element.mounted) return;
     final hooks = target();
-    if (hooks != null) hook(hooks, element);
+    if (hooks == null) return;
+    final ctx = (hookContext?.mounted ?? false) ? hookContext! : element;
+    hook(hooks, ctx);
   }
 
   /// Wraps the screen's built child in a tiny widget that tracks

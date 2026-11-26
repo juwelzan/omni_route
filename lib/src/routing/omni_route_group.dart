@@ -44,7 +44,7 @@ class OmniRouteGroup extends OmniRouteBase {
   final List<OmniRouteBase> routes;
 
   /// Blocs created for this group and closed when leaving it.
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
 
   /// Computes a scope identity from the active route state (for example
   /// `(s) => s.pathParameters['id']`). Changing identity closes old Blocs

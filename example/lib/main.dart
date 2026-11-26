@@ -106,8 +106,8 @@ class ExampleApp extends StatelessWidget {
     blocs: [
       // Only truly app-wide global Blocs live on OmniApp.
       // Page-scoped Blocs live on their pages/screens and register on entry.
-      OmniBloc<AuthBloc>((_) => AuthBloc(), global: true, lazy: false),
-      OmniBloc<ThemeBloc>((_) => ThemeBloc(), global: true),
+      OmniBloc((_) => AuthBloc(), global: true, lazy: false),
+      OmniBloc((_) => ThemeBloc(), global: true),
     ],
     routes: [
       OmniPage.screen(const LoginScreen()),
@@ -133,11 +133,11 @@ class ExampleApp extends StatelessWidget {
                   OmniRouteGroup(
                     scopeKey: (s) => s.pathParameters['id'],
                     provide: [
-                      OmniBloc<StudentDetailBloc>(
+                      OmniBloc(
                         (c) =>
                             StudentDetailBloc(OmniParams.of(c).pathInt('id')),
                       ),
-                      OmniBloc<AttendanceBloc>((_) => AttendanceBloc()),
+                      OmniBloc((_) => AttendanceBloc()),
                     ],
                     routes: [
                       OmniPage<StudentDetailScreen>(
@@ -265,7 +265,7 @@ class StudentListScreen extends OmniStatelessWidget {
   String get routePath => '/students';
   // Registered automatically when entering /students for the first time.
   @override
-  List<Provide> get provide => [OmniBloc((_) => StudentBloc())];
+  List<Provide> get provide => [Provide.bloc((_) => StudentBloc())];
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: Text(title)),

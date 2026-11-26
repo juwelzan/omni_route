@@ -112,7 +112,7 @@ class _LazyStatelessScreen extends OmniStatelessWidget {
 
   @override
   List<Provide> get provide => [
-    OmniBloc.eager(
+    Provide.blocEager(
       (_) => LazyPageCubit(7, onCreate: onCreate, onClose: onClose),
     ),
   ];
@@ -165,7 +165,7 @@ class _UnhostedLifecycleScreen extends OmniStatelessWidget
 
   @override
   List<Provide> get provide => [
-    OmniBloc((_) => GlobalSessionCubit()),
+    Provide.bloc((_) => GlobalSessionCubit()),
   ];
 
   @override
@@ -191,7 +191,7 @@ class _StatefulUpgradesScreen extends OmniStatefulWidget {
 
   @override
   List<Provide> get provide => [
-    OmniBloc((c) => LazyPageCubit(
+    Provide.bloc((c) => LazyPageCubit(
       OmniParams.of(c).pathInt('id'),
       onCreate: () => log.add('cubit:create'),
       onClose: () => log.add('cubit:close'),
@@ -530,6 +530,28 @@ void main() {
         expect(pageClosed, 1);
       },
     );
+
+    testWidgets(
+      'OmniApp(blocs:) infers concrete global Bloc type without generic arg',
+      (t) async {
+        await t.pumpWidget(
+          OmniApp(
+            blocs: [OmniBloc((_) => GlobalSessionCubit(), global: true)],
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (c) => Text('sess:${c.bloc<GlobalSessionCubit>().state}'),
+                ),
+              ),
+            ],
+            builder: (_, r) => MaterialApp.router(routerConfig: r),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('sess:ok'), findsOneWidget);
+      },
+    );
   });
 }
 
@@ -542,7 +564,7 @@ class _NestedScreenWithBloc extends OmniStatefulWidget {
   @override
   String get routePath => '/nested-hosted';
   @override
-  List<Provide> get provide => [OmniBloc((_) => _FixedIntCubit())];
+  List<Provide> get provide => [Provide.bloc((_) => _FixedIntCubit())];
   @override
   State<_NestedScreenWithBloc> createState() => _NestedScreenWithBlocState();
 }

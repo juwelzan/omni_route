@@ -66,7 +66,7 @@ class OmniBlocScope extends StatelessWidget {
   final Widget? _screen;
 
   /// The Blocs to provide; each type at most once.
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
 
   /// The widget below this scope.
   final Widget child;

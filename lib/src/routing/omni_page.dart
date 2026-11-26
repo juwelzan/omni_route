@@ -495,14 +495,14 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
 
   /// Blocs scoped cleanly to this route page (registered on page entry and
   /// closed on pop). Works with both [OmniScreen] and plain [Widget] screens.
-  final List<Provide> provide;
+  final List<OmniBlocEntry> provide;
 
   /// Additional Blocs scoped to this route page (merged with [provide]).
   /// Lets you pass `[OmniBloc((_) => MyBloc())]` directly at page level.
-  final List<Provide> blocs;
+  final List<OmniBlocEntry> blocs;
 
   /// Combined list of [provide] and [blocs].
-  List<Provide> get effectiveProvide {
+  List<OmniBlocEntry> get effectiveProvide {
     if (blocs.isEmpty) return provide;
     if (provide.isEmpty) return blocs;
     return [...provide, ...blocs];
