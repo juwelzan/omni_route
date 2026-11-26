@@ -12,7 +12,9 @@ environment:
   sdk: ^3.12.0
 
 dependencies:
+  crypto: ^3.0.7
   dio: ^5.11.1
+  dio_http2_adapter: ^2.9.0
   logger: ^2.8.0
   meta: ^1.18.0
 

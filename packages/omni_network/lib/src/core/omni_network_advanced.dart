@@ -19,7 +19,7 @@ extension OmniNetworkAdvanced on OmniNetwork {
   /// Like [send] for a JSON array of objects.
   Future<OmniResponse<List<T>>> sendList<T>(
     OmniRequest request, {
-    required JsonDecoder<T> decoder,
+    JsonDecoder<T>? decoder,
     ResponseAdapter? adapter,
   }) => _sendList<T>(request, decoder: decoder, adapter: adapter);
 

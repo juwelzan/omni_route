@@ -1,0 +1,236 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
+import 'package:dio_http2_adapter/dio_http2_adapter.dart';
+
+import '../core/omni_network_exception.dart';
+import 'pin_verifier.dart';
+
+/// Normalizes a user-supplied [proxy] string into an [HttpClient.findProxy]
+/// rule and optional proxy [Uri] (null only for `'DIRECT'`).
+({String rule, Uri? uri}) parseProxyConfig(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) {
+    throw ArgumentError.value(raw, 'proxy', 'Proxy cannot be empty');
+  }
+  if (trimmed.toUpperCase() == 'DIRECT') {
+    return (rule: 'DIRECT', uri: null);
+  }
+
+  var authority = trimmed;
+  if (authority.length > 6 &&
+      authority.substring(0, 6).toUpperCase() == 'PROXY ') {
+    authority = authority.substring(6).trim();
+  }
+  if (!authority.contains('://')) {
+    authority = 'http://$authority';
+  }
+  final uri = Uri.tryParse(authority);
+  if (uri == null ||
+      uri.host.isEmpty ||
+      !uri.hasPort ||
+      uri.port <= 0 ||
+      uri.port > 65535) {
+    throw ArgumentError.value(
+      raw,
+      'proxy',
+      'Invalid proxy; expected "host:port" (e.g. "192.168.0.105:8888")',
+    );
+  }
+  final hostPart = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+  return (rule: 'PROXY $hostPart:${uri.port}', uri: uri);
+}
+
+/// Builds a configured [HttpClientAdapter] for `dart:io` platforms.
+///
+/// Returns `null` only when no custom configuration was requested and default
+/// `Dio` behavior is sufficient.
+HttpClientAdapter? buildConfiguredAdapter({
+  String? proxy,
+  List<String> pinnedSha256 = const [],
+  bool allowBadProxyCertificate = true,
+  int? maxConnectionsPerHost,
+  Duration? idleConnectionTimeout,
+  bool enableHttp2 = false,
+  Object? Function(Object client)? onHttpClientCreate,
+}) {
+  final proxyConfig = proxy == null ? null : parseProxyConfig(proxy);
+  final matcher = pinnedSha256.isEmpty
+      ? null
+      : CertificatePinMatcher(pinnedSha256);
+
+  HttpClient createClient() {
+    // Disabling trusted roots forces EVERY TLS certificate through
+    // badCertificateCallback so malicious or user-installed CAs cannot bypass
+    // SHA-256 pinning silently.
+    final client = matcher != null
+        ? HttpClient(context: SecurityContext(withTrustedRoots: false))
+        : HttpClient();
+
+    if (idleConnectionTimeout != null) {
+      client.idleTimeout = idleConnectionTimeout;
+    } else {
+      client.idleTimeout = const Duration(seconds: 3);
+    }
+    if (maxConnectionsPerHost != null) {
+      client.maxConnectionsPerHost = maxConnectionsPerHost;
+    }
+
+    if (proxyConfig != null) {
+      final rule = proxyConfig.rule;
+      client.findProxy = (_) => rule;
+      if (allowBadProxyCertificate && matcher == null) {
+        client.badCertificateCallback = (_, _, _) => true;
+      }
+    }
+
+    if (matcher != null) {
+      client.badCertificateCallback = (cert, _, _) => matcher.matchesDer(
+        cert.der,
+        startValidity: cert.startValidity,
+        endValidity: cert.endValidity,
+      );
+    }
+
+    final custom = onHttpClientCreate?.call(client);
+    return custom is HttpClient ? custom : client;
+  }
+
+  final ioAdapter = IOHttpClientAdapter(createHttpClient: createClient);
+
+  if (!enableHttp2) {
+    return ioAdapter;
+  }
+
+  final h2Adapter = Http2Adapter(
+    ConnectionManager(
+      idleTimeout: idleConnectionTimeout ?? const Duration(seconds: 15),
+      supportedProtocols: const ['h2', 'http/1.1'],
+      onClientCreate: (_, settings) {
+        if (proxyConfig?.uri != null) {
+          settings.proxy = proxyConfig!.uri;
+        }
+        if (matcher != null) {
+          settings.context = SecurityContext(withTrustedRoots: false);
+          settings.onBadCertificate = (cert) => matcher.matchesDer(
+            cert.der,
+            startValidity: cert.startValidity,
+            endValidity: cert.endValidity,
+          );
+        } else if (proxyConfig != null && allowBadProxyCertificate) {
+          settings.onBadCertificate = (_) => true;
+        }
+      },
+    ),
+    fallbackAdapter: ioAdapter,
+  );
+  // Plain http:// URLs cannot negotiate h2 via TLS ALPN, so route them through
+  // IOHttpClientAdapter directly instead of assuming h2c on plaintext sockets.
+  return _SchemeRoutingHttpAdapter(h2Adapter, ioAdapter);
+}
+
+final class _SchemeRoutingHttpAdapter implements HttpClientAdapter {
+  _SchemeRoutingHttpAdapter(this._httpsAdapter, this._httpFallback);
+
+  final Http2Adapter _httpsAdapter;
+  final IOHttpClientAdapter _httpFallback;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions options,
+    Stream<Uint8List>? requestStream,
+    Future<void>? cancelFuture,
+  ) {
+    if (options.uri.scheme != 'https') {
+      return _httpFallback.fetch(options, requestStream, cancelFuture);
+    }
+    return _httpsAdapter.fetch(options, requestStream, cancelFuture);
+  }
+
+  @override
+  void close({bool force = false}) {
+    _httpsAdapter.close(force: force);
+    _httpFallback.close(force: force);
+  }
+}
+
+/// Classifies a [DioException] using underlying `dart:io` error types and OS
+/// error codes when available.
+ConnectionReason classifyDioError(DioException error) {
+  if (error.type == DioExceptionType.badCertificate) {
+    return ConnectionReason.sslMismatch;
+  }
+  final cause = error.error;
+  if (cause is HandshakeException || cause is TlsException) {
+    return ConnectionReason.sslMismatch;
+  }
+  if (cause is SocketException) {
+    final code = cause.osError?.errorCode;
+    final msg = '${cause.message} ${cause.osError?.message ?? ''}'
+        .toLowerCase();
+    if (msg.contains('failed host lookup') ||
+        msg.contains('no address associated') ||
+        msg.contains('nodename nor servname') ||
+        msg.contains('name or service not known') ||
+        code == 8 ||
+        code == -2 ||
+        code == -3 ||
+        code == 11001) {
+      return ConnectionReason.dnsFailed;
+    }
+    if (msg.contains('connection refused') ||
+        code == 61 ||
+        code == 111 ||
+        code == 10061) {
+      return ConnectionReason.connectionRefused;
+    }
+    if (msg.contains('network is unreachable') ||
+        msg.contains('no route to host') ||
+        msg.contains('network is down') ||
+        msg.contains('software caused connection abort') ||
+        code == 50 ||
+        code == 51 ||
+        code == 53 ||
+        code == 64 ||
+        code == 65 ||
+        code == 100 ||
+        code == 101 ||
+        code == 102 ||
+        code == 103) {
+      return ConnectionReason.noInternet;
+    }
+    if (msg.contains('connection reset') ||
+        msg.contains('broken pipe') ||
+        code == 32 ||
+        code == 54 ||
+        code == 104 ||
+        code == 10054) {
+      return ConnectionReason.connectionReset;
+    }
+  }
+  if (cause is HttpException) {
+    final msg = cause.message.toLowerCase();
+    if (msg.contains('connection closed') || msg.contains('reset')) {
+      return ConnectionReason.connectionReset;
+    }
+  }
+  final text = '${error.message ?? ''} ${cause ?? ''}'.toLowerCase();
+  if (text.contains('certificate') ||
+      text.contains('handshake') ||
+      text.contains('tls') ||
+      text.contains('ssl')) {
+    return ConnectionReason.sslMismatch;
+  }
+  if (text.contains('connection refused')) {
+    return ConnectionReason.connectionRefused;
+  }
+  if (text.contains('failed host lookup')) {
+    return ConnectionReason.dnsFailed;
+  }
+  if (text.contains('connection reset')) {
+    return ConnectionReason.connectionReset;
+  }
+  return ConnectionReason.unknown;
+}

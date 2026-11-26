@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:meta/meta.dart';
 
 import '../core/omni_network_exception.dart';
+import 'upload_file_stub.dart' if (dart.library.io) 'upload_file_io.dart';
 
 /// Reports transfer progress; [total] is `null` when unknown.
 typedef ProgressCallback = void Function(int transferred, int? total);
@@ -12,6 +13,24 @@ typedef ProgressCallback = void Function(int transferred, int? total);
 /// One file part of a [MultipartBody].
 @immutable
 final class UploadFile {
+  /// Reads a local file at [path] by streaming its bytes cleanly without
+  /// loading the entire file into RAM (IO platforms only).
+  ///
+  /// When omitted, [filename] is extracted from [path] and [contentType] is
+  /// inferred from the extension (falling back to `'application/octet-stream'`).
+  /// Throws [UnsupportedError] on Web.
+  static Future<UploadFile> fromFile(
+    String field,
+    String path, {
+    String? filename,
+    String? contentType,
+  }) => uploadFileFromPath(
+    field,
+    path,
+    filename: filename,
+    contentType: contentType,
+  );
+
   /// A file held in memory.
   UploadFile.fromBytes(
     this.field,

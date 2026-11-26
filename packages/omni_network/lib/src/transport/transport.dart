@@ -5,6 +5,7 @@ import 'package:meta/meta.dart';
 import '../core/cancel_signal.dart';
 import '../core/omni_request.dart';
 import '../core/omni_response.dart';
+import '../transfer/multipart.dart' show ProgressCallback;
 
 /// A fully resolved request handed to a [Transport].
 @immutable
@@ -17,6 +18,10 @@ final class TransportRequest {
     this.body,
     this.bodyStream,
     this.contentLength,
+    this.onSendProgress,
+    this.connectTimeout,
+    this.sendTimeout,
+    this.receiveTimeout,
   }) : assert(body == null || bodyStream == null),
        headers = Map.unmodifiable(headers);
 
@@ -39,6 +44,19 @@ final class TransportRequest {
   /// Byte length of [bodyStream], when known.
   final int? contentLength;
 
+  /// Optional wire-level upload progress callback handled by transports that
+  /// implement [ProgressReportingTransport].
+  final ProgressCallback? onSendProgress;
+
+  /// Stage-specific connection timeout override, if any.
+  final Duration? connectTimeout;
+
+  /// Stage-specific send timeout override, if any.
+  final Duration? sendTimeout;
+
+  /// Stage-specific receive timeout override, if any.
+  final Duration? receiveTimeout;
+
   /// Copy with [extra] headers added (lower-case names).
   TransportRequest withHeaders(Map<String, String> extra) => TransportRequest(
     method: method,
@@ -47,6 +65,10 @@ final class TransportRequest {
     body: body,
     bodyStream: bodyStream,
     contentLength: contentLength,
+    onSendProgress: onSendProgress,
+    connectTimeout: connectTimeout,
+    sendTimeout: sendTimeout,
+    receiveTimeout: receiveTimeout,
   );
 
   /// Copy with [bodyStream] replaced (headers, URL and method kept).
@@ -57,11 +79,38 @@ final class TransportRequest {
         headers: headers,
         bodyStream: open,
         contentLength: contentLength,
+        onSendProgress: onSendProgress,
+        connectTimeout: connectTimeout,
+        sendTimeout: sendTimeout,
+        receiveTimeout: receiveTimeout,
       );
+
+  /// Copy with upload progress / timeout metadata updated.
+  TransportRequest copyWith({
+    ProgressCallback? onSendProgress,
+    Duration? connectTimeout,
+    Duration? sendTimeout,
+    Duration? receiveTimeout,
+  }) => TransportRequest(
+    method: method,
+    uri: uri,
+    headers: headers,
+    body: body,
+    bodyStream: bodyStream,
+    contentLength: contentLength,
+    onSendProgress: onSendProgress ?? this.onSendProgress,
+    connectTimeout: connectTimeout ?? this.connectTimeout,
+    sendTimeout: sendTimeout ?? this.sendTimeout,
+    receiveTimeout: receiveTimeout ?? this.receiveTimeout,
+  );
 
   @override
   String toString() => 'TransportRequest(${method.verb} ${uri.path})';
 }
+
+/// Optional marker for [Transport] implementations that invoke
+/// [TransportRequest.onSendProgress] with wire-level upload progress.
+abstract interface class ProgressReportingTransport implements Transport {}
 
 /// Sends [TransportRequest]s over some I/O mechanism.
 ///

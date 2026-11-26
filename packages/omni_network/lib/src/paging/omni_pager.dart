@@ -31,14 +31,14 @@ final class OmniPager<T> {
     required this._client,
     required OmniRequest request,
     required this.strategy,
-    required this._decoder,
+    this._decoder,
     this.itemsKey,
     this.maxPages,
   }) : _base = request;
 
   final OmniNetwork _client;
   final OmniRequest _base;
-  final JsonDecoder<T> _decoder;
+  final JsonDecoder<T>? _decoder;
 
   /// How pages are requested and the end detected.
   final PaginationStrategy strategy;
@@ -105,10 +105,17 @@ final class OmniPager<T> {
           uri: raw.requestUri,
         );
       }
+      final decoder = _decoder ?? _client.decoderFor<T>();
+      if (decoder == null) {
+        throw DecodeFailure(
+          'No JsonDecoder<$T> provided or registered in OmniNetwork(decoders:)',
+          uri: raw.requestUri,
+        );
+      }
       final page = [
         for (var i = 0; i < source.length; i++)
           runDecoder(
-            () => _decoder(asObject(source[i], raw.requestUri, index: i)),
+            () => decoder(asObject(source[i], raw.requestUri, index: i)),
             raw.requestUri,
           ),
       ];

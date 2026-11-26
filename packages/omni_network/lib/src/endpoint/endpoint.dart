@@ -23,14 +23,15 @@ import '../resilience/retry_policy.dart';
 /// final user = await api.call(UserApi.byId, path: {'id': 10});
 /// ```
 ///
-/// Path parameters are `{name}` segments; values are URL-encoded, and a
-/// missing or unknown parameter is an [ArgumentError].
+/// Path parameters use `{name}` or `:name` segments; values are URL-encoded,
+/// and a missing or unknown parameter is an [ArgumentError].
 @immutable
 final class Endpoint<T> {
   const Endpoint._(
     this.method,
     this.path,
-    this._decode, {
+    this._decode,
+    this._decodeAsync, {
     this.name,
     this.description,
     this.query = const {},
@@ -43,7 +44,7 @@ final class Endpoint<T> {
   /// HTTP method.
   final HttpMethod method;
 
-  /// Path template, e.g. `/users/{id}`.
+  /// Path template, e.g. `/users/{id}` or `/users/:id`.
   final String path;
 
   /// Unique name (for registries, mocks and generated code).
@@ -67,7 +68,19 @@ final class Endpoint<T> {
   /// Free-form labels (e.g. `users`, `admin`).
   final Set<String> tags;
 
-  final T Function(OmniRawResponse raw, ResponseAdapter adapter) _decode;
+  final T Function(
+    OmniRawResponse raw,
+    ResponseAdapter adapter,
+    JsonDecoder<E>? Function<E>()? lookup,
+  )
+  _decode;
+
+  final Future<T> Function(
+    OmniRawResponse raw,
+    ResponseAdapter adapter,
+    JsonDecoder<E>? Function<E>()? lookup,
+  )
+  _decodeAsync;
 
   static Endpoint<T> _single<T>(
     HttpMethod m,
@@ -83,7 +96,10 @@ final class Endpoint<T> {
   ) => Endpoint._(
     m,
     path,
-    (raw, adapter) => decodeBody<T>(raw, decoder, adapter),
+    (raw, adapter, lookup) =>
+        decodeBody<T>(raw, decoder ?? lookup?.call<T>(), adapter),
+    (raw, adapter, lookup) =>
+        decodeBodyAsync<T>(raw, decoder ?? lookup?.call<T>(), adapter),
     name: name,
     description: description,
     query: query,
@@ -118,9 +134,12 @@ final class Endpoint<T> {
   );
 
   /// GET returning a JSON array decoded into `List<T>`.
+  ///
+  /// When [decoder] is omitted, `OmniNetwork.call` falls back to its global
+  /// `decoders` registry for `T`.
   static Endpoint<List<T>> getList<T>(
     String path, {
-    required JsonDecoder<T> decoder,
+    JsonDecoder<T>? decoder,
     String? name,
     String? description,
     Map<String, Object?> query = const {},
@@ -131,7 +150,28 @@ final class Endpoint<T> {
   }) => Endpoint._(
     HttpMethod.get,
     path,
-    (raw, adapter) => decodeList<T>(raw, decoder, adapter),
+    (raw, adapter, lookup) {
+      final resolved = decoder ?? lookup?.call<T>();
+      if (resolved == null) {
+        return decodeList<T>(
+          raw,
+          (_) => throw ArgumentError('No decoder registered for $T'),
+          adapter,
+        );
+      }
+      return decodeList<T>(raw, resolved, adapter);
+    },
+    (raw, adapter, lookup) {
+      final resolved = decoder ?? lookup?.call<T>();
+      if (resolved == null) {
+        return decodeListAsync<T>(
+          raw,
+          (_) => throw ArgumentError('No decoder registered for $T'),
+          adapter,
+        );
+      }
+      return decodeListAsync<T>(raw, resolved, adapter);
+    },
     name: name,
     description: description,
     query: query,
@@ -147,6 +187,7 @@ final class Endpoint<T> {
     JsonDecoder<T>? decoder,
     String? name,
     String? description,
+    Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     RetryPolicy? retry,
     Set<String> tags = const {},
@@ -156,7 +197,7 @@ final class Endpoint<T> {
     decoder,
     name,
     description,
-    const {},
+    query,
     headers,
     null,
     retry,
@@ -169,6 +210,7 @@ final class Endpoint<T> {
     JsonDecoder<T>? decoder,
     String? name,
     String? description,
+    Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     RetryPolicy? retry,
     Set<String> tags = const {},
@@ -178,7 +220,7 @@ final class Endpoint<T> {
     decoder,
     name,
     description,
-    const {},
+    query,
     headers,
     null,
     retry,
@@ -191,6 +233,7 @@ final class Endpoint<T> {
     JsonDecoder<T>? decoder,
     String? name,
     String? description,
+    Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     RetryPolicy? retry,
     Set<String> tags = const {},
@@ -200,7 +243,7 @@ final class Endpoint<T> {
     decoder,
     name,
     description,
-    const {},
+    query,
     headers,
     null,
     retry,
@@ -213,6 +256,7 @@ final class Endpoint<T> {
     JsonDecoder<T>? decoder,
     String? name,
     String? description,
+    Map<String, Object?> query = const {},
     Map<String, String> headers = const {},
     RetryPolicy? retry,
     Set<String> tags = const {},
@@ -222,18 +266,20 @@ final class Endpoint<T> {
     decoder,
     name,
     description,
-    const {},
+    query,
     headers,
     null,
     retry,
     tags,
   );
 
-  static final _param = RegExp(r'\{([A-Za-z_][A-Za-z0-9_]*)\}');
+  static final _param = RegExp(
+    r'\{([A-Za-z_][A-Za-z0-9_]*)\}|(?:^|(?<=/)):([A-Za-z_][A-Za-z0-9_]*)',
+  );
 
-  /// Names of the `{params}` in [path], in order.
+  /// Names of the `{params}` or `:params` in [path], in order.
   List<String> get pathParams => [
-    for (final m in _param.allMatches(path)) m[1]!,
+    for (final m in _param.allMatches(path)) (m[1] ?? m[2])!,
   ];
 
   /// [path] with [params] substituted (URL-encoded).
@@ -247,10 +293,11 @@ final class Endpoint<T> {
       );
     }
     return path.replaceAllMapped(_param, (m) {
-      final v = params[m[1]];
+      final name = (m[1] ?? m[2])!;
+      final v = params[name];
       if (v == null) {
         throw ArgumentError.value(
-          m[1],
+          name,
           'path',
           'missing path parameter for $path',
         );
@@ -267,6 +314,9 @@ final class Endpoint<T> {
     Object? body,
     Duration? timeout,
     OmniCancelToken? cancelToken,
+    RetryPolicy? retry,
+    CachePolicy? cachePolicy,
+    bool skipAuth = false,
   }) => OmniRequest(
     method,
     expand(path),
@@ -275,13 +325,25 @@ final class Endpoint<T> {
     body: body,
     timeout: timeout,
     cancelToken: cancelToken,
-    retry: retry,
-    cachePolicy: cachePolicy,
+    retry: retry ?? this.retry,
+    cachePolicy: cachePolicy ?? this.cachePolicy,
+    skipAuth: skipAuth,
   );
 
   /// Decodes a 2xx [raw] response. Internal.
-  T decode(OmniRawResponse raw, ResponseAdapter adapter) =>
-      _decode(raw, adapter);
+  T decode(
+    OmniRawResponse raw,
+    ResponseAdapter adapter, {
+    JsonDecoder<E>? Function<E>()? lookupDecoder,
+  }) => _decode(raw, adapter, lookupDecoder);
+
+  /// Asynchronously decodes a 2xx [raw] response (off-thread for large JSON).
+  /// Internal.
+  Future<T> decodeAsync(
+    OmniRawResponse raw,
+    ResponseAdapter adapter, {
+    JsonDecoder<E>? Function<E>()? lookupDecoder,
+  }) => _decodeAsync(raw, adapter, lookupDecoder);
 
   @override
   String toString() =>
@@ -335,13 +397,14 @@ final class EndpointRegistry {
   ];
 
   /// The endpoint whose method and template match a concrete request
-  /// [method] and [path] (e.g. `GET /users/10` → `/users/{id}`), or `null`.
+  /// [method] and [path] (e.g. `GET /users/10` → `/users/{id}` or `/users/:id`),
+  /// or `null`.
   Endpoint<Object?>? match(HttpMethod method, String path) {
     final clean = path.split('?').first;
     for (final e in _byKey.values) {
       if (e.method != method) continue;
       final pattern = RegExp(
-        '^${e.path.split(RegExp(r'\{[A-Za-z_][A-Za-z0-9_]*\}')).map(RegExp.escape).join('[^/]+')}\$',
+        '^${e.path.split(Endpoint._param).map(RegExp.escape).join('[^/]+')}\$',
       );
       if (pattern.hasMatch(clean)) return e;
     }

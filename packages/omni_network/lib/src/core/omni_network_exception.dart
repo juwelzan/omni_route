@@ -35,20 +35,73 @@ sealed class OmniNetworkException implements Exception {
   String toString() => '$runtimeType: $message${uri == null ? '' : ' ($uri)'}';
 }
 
+/// Which phase of a request timed out.
+enum TimeoutStage {
+  /// Overall request deadline elapsed.
+  overall,
+
+  /// Transfer stalled with no bytes sent or received.
+  idle,
+
+  /// Establishing the TCP/TLS connection took too long.
+  connect,
+
+  /// Sending the request body took too long.
+  send,
+
+  /// Waiting for or receiving the response took too long.
+  receive,
+}
+
+/// Classified cause of a [ConnectionFailure].
+enum ConnectionReason {
+  /// Unclassified network or socket error.
+  unknown,
+
+  /// Device appears offline or no route to host exists.
+  noInternet,
+
+  /// DNS host lookup failed.
+  dnsFailed,
+
+  /// TLS handshake, certificate, or SSL pin verification failed.
+  sslMismatch,
+
+  /// Remote host refused the connection.
+  connectionRefused,
+
+  /// Connection was reset or closed mid-transfer.
+  connectionReset,
+}
+
 /// The request did not finish within its timeout.
 final class TimeoutFailure extends OmniNetworkException {
   /// Creates a timeout failure.
-  const TimeoutFailure(this.timeout, {super.uri})
-    : super('Request timed out after $timeout');
+  const TimeoutFailure(
+    this.timeout, {
+    super.uri,
+    this.stage = TimeoutStage.overall,
+  }) : super('Request timed out after $timeout');
 
   /// The timeout that elapsed.
   final Duration timeout;
+
+  /// Request phase where the timeout occurred.
+  final TimeoutStage stage;
 }
 
 /// The server could not be reached or the connection broke.
 final class ConnectionFailure extends OmniNetworkException {
   /// Creates a connection failure.
-  const ConnectionFailure(super.message, {super.uri, super.cause});
+  const ConnectionFailure(
+    super.message, {
+    super.uri,
+    super.cause,
+    this.reason = ConnectionReason.unknown,
+  });
+
+  /// Classified cause of this connection failure.
+  final ConnectionReason reason;
 }
 
 /// The request was cancelled.
