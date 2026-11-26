@@ -923,7 +923,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         ),
       ];
     }
-    return [
+    final leafPages = <_StackFrame>[
       for (var i = 0; i < match.route.sameNavigatorAncestors.length; i++)
         _makePageFrame(
           uri: i == match.route.sameNavigatorAncestors.length - 1
@@ -941,6 +941,19 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           ),
         ),
     ];
+    final chain = match.route.shellChain;
+    final branchPos = chain.indexWhere(
+      (ref) =>
+          ref is CompiledBranchRef &&
+          ref.statefulShell.id == branch.parent.id &&
+          ref.branchIndex == branch.branchIndex,
+    );
+    if (branchPos >= 0 && branchPos + 1 < chain.length) {
+      return [
+        _buildShellTree(chain, branchPos + 1, null, (_) => leafPages),
+      ];
+    }
+    return leafPages;
   }
 
   void _pushFrame(_PageFrame frame, CompiledMatch match) {

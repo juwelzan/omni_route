@@ -244,6 +244,74 @@ void main() {
       ),
     );
   });
+
+  testWidgets(
+    'nested OmniShell inside OmniStatefulShell branch renders on seed & switch',
+    (t) async {
+      late OmniNavigationShell navShell;
+      await t.pumpWidget(
+        OmniApp(
+          initialRoute: '/tab-a',
+          routes: [
+            OmniStatefulShell(
+              builder: (_, _, s) {
+                navShell = s;
+                return Scaffold(body: s);
+              },
+              branches: [
+                OmniBranch(
+                  routes: [OmniPage('/tab-a', (_) => const Text('Tab A'))],
+                ),
+                OmniBranch(
+                  routes: [
+                    OmniShell(
+                      builder: (_, state, child) => Column(
+                        children: [
+                          Text('InnerShell:${state.uri.path}'),
+                          Expanded(child: child),
+                        ],
+                      ),
+                      routes: [
+                        OmniPage(
+                          '/tab-b',
+                          (_) => const Text('Tab B Root'),
+                          routes: [
+                            OmniPage(
+                              'sub',
+                              (_) => const Text('Tab B Sub'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+          builder: (_, r) => MaterialApp.router(routerConfig: r),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      // Switch to Branch 1 -> seeded stack MUST wrap `/tab-b` inside InnerShell!
+      navShell.goBranch(1);
+      await t.pumpAndSettle();
+      expect(find.text('InnerShell:/tab-b'), findsOneWidget);
+      expect(find.text('Tab B Root'), findsOneWidget);
+
+      // Push sub-route inside InnerShell, then reset via initialLocation: true.
+      OmniRoute.push('/tab-b/sub');
+      await t.pumpAndSettle();
+      expect(find.text('InnerShell:/tab-b/sub'), findsOneWidget);
+      expect(find.text('Tab B Sub'), findsOneWidget);
+
+      navShell.goBranch(1, initialLocation: true);
+      await t.pumpAndSettle();
+      expect(find.text('InnerShell:/tab-b'), findsOneWidget);
+      expect(find.text('Tab B Root'), findsOneWidget);
+    },
+  );
 }
 
 class _Unregistered extends OmniStatelessWidget {
