@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 int blocsCreated = 0;
@@ -63,7 +62,7 @@ class Tab extends OmniStatelessWidget {
   Widget build(BuildContext context) => Text(label);
 }
 
-late StatefulNavigationShell shell;
+late OmniNavigationShell shell;
 
 Widget app({required bool restorable}) => OmniApp(
   restorationScopeId: restorable ? 'router' : null,
@@ -75,11 +74,11 @@ Widget app({required bool restorable}) => OmniApp(
       restorationScopeId: restorable ? 'shell' : null,
       builder: (_, _, s) => shell = s,
       branches: [
-        StatefulShellBranch(
+        OmniBranch(
           restorationScopeId: restorable ? 'a' : null,
           routes: [OmniPage('/a', (_) => const Tab('tab a'))],
         ),
-        StatefulShellBranch(
+        OmniBranch(
           restorationScopeId: restorable ? 'b' : null,
           routes: [OmniPage('/b', (_) => const Tab('tab b'))],
         ),

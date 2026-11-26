@@ -1,48 +1,178 @@
-import 'package:go_router/go_router.dart';
+import 'package:flutter/widgets.dart';
 
 import '../bloc/omni_bloc.dart';
-import '../bloc/omni_bloc_scope.dart';
+import '../guards/omni_guard.dart';
+import 'omni_route_state.dart';
 
-/// A [ShellRoute] (shared layout around child routes) with optional Blocs
-/// that live as long as the shell is shown.
-class OmniShell extends ShellRoute {
-  /// A shell around [routes]; [provide] Blocs live as long as the shell.
-  OmniShell({
-    required ShellRouteBuilder builder,
-    required super.routes,
-    List<Provide> provide = const [],
-    super.navigatorKey,
-    super.parentNavigatorKey,
-    super.observers,
-  }) : super(
-         builder: (c, s, child) =>
-             OmniBlocScope(provide: provide, child: builder(c, s, child)),
-       );
+/// Builds a shared shell layout around child routes.
+typedef OmniShellBuilder =
+    Widget Function(BuildContext context, OmniRouteState state, Widget child);
+
+/// Builds a persistent tabbed shell layout around an [OmniNavigationShell].
+typedef OmniStatefulShellBuilder =
+    Widget Function(
+      BuildContext context,
+      OmniRouteState state,
+      OmniNavigationShell navigationShell,
+    );
+
+/// A shared layout around child [routes] with optional Blocs that live as
+/// long as the shell stays on the navigation stack.
+class OmniShell extends OmniRouteBase {
+  /// Creates a layout shell wrapping [routes].
+  const OmniShell({
+    required this.builder,
+    required this.routes,
+    this.provide = const [],
+    this.navigatorKey,
+    this.parentNavigatorKey,
+    this.observers = const [],
+    this.guards = const [],
+  });
+
+  /// Builds the chrome (app bar, drawer, rail, etc.) around [child].
+  final OmniShellBuilder builder;
+
+  /// Child routes rendered inside this shell's navigator.
+  final List<OmniRouteBase> routes;
+
+  /// Blocs scoped to the lifetime of this shell.
+  final List<Provide> provide;
+
+  /// Optional key for the shell's inner navigator.
+  final GlobalKey<NavigatorState>? navigatorKey;
+
+  /// Optional outer navigator key when nested inside another shell/root.
+  final GlobalKey<NavigatorState>? parentNavigatorKey;
+
+  /// Navigator observers attached to the shell's inner navigator.
+  final List<NavigatorObserver> observers;
+
+  /// Guards applied to every route inside this shell.
+  final List<OmniGuard> guards;
+
+  @override
+  List<OmniRouteBase> get childRoutes => routes;
 }
 
-/// A [StatefulShellRoute.indexedStack]: each branch keeps its own navigation
-/// stack, widget state and screen Blocs while other tabs are shown.
+/// One independent navigation stack inside an [OmniStatefulShell] (such as a
+/// bottom-navigation tab).
+class OmniBranch {
+  /// Creates a tab branch holding [routes].
+  const OmniBranch({
+    required this.routes,
+    this.initialLocation,
+    this.provide = const [],
+    this.navigatorKey,
+    this.observers = const [],
+    this.restorationScopeId,
+  });
+
+  /// Routes inside this tab branch.
+  final List<OmniRouteBase> routes;
+
+  /// Initial location when first displaying this tab. Defaults to the first
+  /// [OmniPage] inside [routes].
+  final String? initialLocation;
+
+  /// Blocs scoped to this branch while the stateful shell is mounted.
+  final List<Provide> provide;
+
+  /// Optional navigator key for this branch's stack.
+  final GlobalKey<NavigatorState>? navigatorKey;
+
+  /// Observers attached to this branch's navigator.
+  final List<NavigatorObserver> observers;
+
+  /// Restoration scope ID for this branch's navigator.
+  final String? restorationScopeId;
+}
+
+/// Persistent indexed-stack shell: each [OmniBranch] keeps its own
+/// navigation stack, widget state and Blocs while switching tabs.
 ///
 /// ```dart
 /// OmniStatefulShell(
-///   builder: (context, state, shell) => HomeScaffold(shell: shell),
+///   builder: (context, state, shell) => Scaffold(
+///     body: shell,
+///     bottomNavigationBar: NavigationBar(
+///       selectedIndex: shell.currentIndex,
+///       onDestinationSelected: shell.goBranch,
+///       destinations: [...],
+///     ),
+///   ),
 ///   branches: [
-///     StatefulShellBranch(routes: [OmniPage('/home', (_) => const HomeScreen())]),
-///     StatefulShellBranch(routes: [OmniPage('/profile', (_) => const ProfileScreen())]),
+///     OmniBranch(routes: [OmniPage('/home', (_) => const HomeScreen())]),
+///     OmniBranch(routes: [OmniPage('/profile', (_) => const ProfileScreen())]),
 ///   ],
 /// )
 /// ```
-/// Switch tabs with `shell.goBranch(index)` (go_router API).
-class OmniStatefulShell extends StatefulShellRoute {
-  /// Tabs from [branches]; [provide] Blocs live as long as the shell.
-  OmniStatefulShell({
-    required StatefulShellRouteBuilder builder,
-    required super.branches,
-    List<Provide> provide = const [],
-    super.parentNavigatorKey,
-    super.restorationScopeId,
-  }) : super.indexedStack(
-         builder: (c, s, shell) =>
-             OmniBlocScope(provide: provide, child: builder(c, s, shell)),
-       );
+class OmniStatefulShell extends OmniRouteBase {
+  /// Creates a stateful tabbed shell from [branches].
+  const OmniStatefulShell({
+    required this.builder,
+    required this.branches,
+    this.provide = const [],
+    this.parentNavigatorKey,
+    this.restorationScopeId,
+    this.guards = const [],
+  });
+
+  /// Builds the shell UI around [OmniNavigationShell].
+  final OmniStatefulShellBuilder builder;
+
+  /// Independent tab branches managed as an indexed stack.
+  final List<OmniBranch> branches;
+
+  /// Blocs shared across the whole stateful shell.
+  final List<Provide> provide;
+
+  /// Optional outer navigator key.
+  final GlobalKey<NavigatorState>? parentNavigatorKey;
+
+  /// Restoration scope ID for the shell state (active tab and branch stacks).
+  final String? restorationScopeId;
+
+  /// Guards applied to all routes inside [branches].
+  final List<OmniGuard> guards;
+
+  @override
+  List<OmniRouteBase> get childRoutes => [
+    for (final b in branches) ...b.routes,
+  ];
+}
+
+/// Widget and controller passed to [OmniStatefulShell.builder].
+///
+/// Renders the persistent `IndexedStack` of tab navigators and exposes
+/// [currentIndex] and [goBranch] to switch tabs cleanly.
+class OmniNavigationShell extends StatelessWidget {
+  /// Creates a navigation shell widget wrapper.
+  const OmniNavigationShell({
+    super.key,
+    required this.currentIndex,
+    required this.onGoBranch,
+    required this.branchChildren,
+  });
+
+  /// Currently active branch index (`0 .. branchCount - 1`).
+  final int currentIndex;
+
+  /// Callback invoked by [goBranch].
+  final void Function(int index, {bool initialLocation}) onGoBranch;
+
+  /// Pre-built per-branch subtree widgets displayed in an [IndexedStack].
+  final List<Widget> branchChildren;
+
+  /// Number of branches inside this shell.
+  int get branchCount => branchChildren.length;
+
+  /// Switches to tab [index]. When [initialLocation] is `true`, resets that
+  /// branch back to its initial root page in one frame.
+  void goBranch(int index, {bool initialLocation = false}) =>
+      onGoBranch(index, initialLocation: initialLocation);
+
+  @override
+  Widget build(BuildContext context) =>
+      IndexedStack(index: currentIndex, children: branchChildren);
 }

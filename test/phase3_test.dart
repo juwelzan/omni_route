@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 class S extends OmniStatelessWidget {
@@ -25,11 +24,11 @@ class Item extends OmniStatelessWidget {
   Widget build(BuildContext context) => Text('item $id');
 }
 
-late StatefulNavigationShell shell;
+late OmniNavigationShell shell;
 
 Widget app({
   List<OmniBloc> blocs = const [],
-  List<RouteBase> extra = const [],
+  List<OmniRouteBase> extra = const [],
 }) => OmniApp(
   blocs: blocs,
   routes: [
@@ -41,7 +40,7 @@ Widget app({
     OmniStatefulShell(
       builder: (_, _, s) => shell = s,
       branches: [
-        StatefulShellBranch(
+        OmniBranch(
           routes: [
             OmniPage(
               '/t/list',
@@ -56,7 +55,7 @@ Widget app({
             ),
           ],
         ),
-        StatefulShellBranch(
+        OmniBranch(
           routes: [OmniPage('/t/other', (_) => const S('other'))],
         ),
       ],
@@ -310,12 +309,12 @@ void main() {
         OmniPage(
           '/confirm',
           (_) => const Confirm(),
-          pageType: OmniPages.dialog(),
+          transition: OmniPages.dialog(),
         ),
         OmniPage(
           '/sheet',
           (_) => const Sheet(),
-          pageType: OmniPages.bottomSheet(showDragHandle: true),
+          transition: OmniPages.bottomSheet(showDragHandle: true),
         ),
       ],
     );

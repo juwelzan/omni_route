@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 final created = <String, int>{};
@@ -102,7 +101,7 @@ Widget buildApp({OmniErrorBuilder? notFound}) => OmniApp(
         ),
       ],
     ),
-    GoRoute(path: '/raw', builder: (_, _) => const Text('raw')),
+    OmniPage('/raw', (_) => const Text('raw')),
   ],
   builder: (_, router) => MaterialApp.router(routerConfig: router),
 );
@@ -231,7 +230,7 @@ void main() {
       OmniApp(
         routes: [
           OmniPage('/a', (_) => const HomeScreen()),
-          GoRoute(path: '/a', builder: (_, _) => const SizedBox()),
+          OmniPage('/a', (_) => const SizedBox()),
         ],
         builder: (_, r) => MaterialApp.router(routerConfig: r),
       ),

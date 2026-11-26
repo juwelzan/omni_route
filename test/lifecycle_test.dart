@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 final log = <String>[];
@@ -73,7 +72,7 @@ class Plain extends OmniStatelessWidget {
   Widget build(BuildContext context) => Text(label);
 }
 
-late StatefulNavigationShell shell;
+late OmniNavigationShell shell;
 
 Widget app({String initial = '/'}) => OmniApp(
   initialRoute: initial,
@@ -84,8 +83,8 @@ Widget app({String initial = '/'}) => OmniApp(
     OmniStatefulShell(
       builder: (_, _, s) => shell = s,
       branches: [
-        StatefulShellBranch(routes: [OmniPage('/t/feed', (_) => const Feed())]),
-        StatefulShellBranch(
+        OmniBranch(routes: [OmniPage('/t/feed', (_) => const Feed())]),
+        OmniBranch(
           routes: [OmniPage('/t/plain', (_) => const Plain('plain'))],
         ),
       ],
@@ -233,7 +232,7 @@ void main() {
   testWidgets('hidden is reported once when go removes the page', (t) async {
     await t.pumpWidget(
       OmniApp(
-        pageType: OmniPages.none,
+        transition: OmniPages.none,
         routes: [
           OmniPage('/', (_) => const Feed()),
           OmniPage('/other', (_) => const Plain('other')),

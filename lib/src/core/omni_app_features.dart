@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import '../screens/omni_lifecycle.dart';
+import 'omni_router.dart';
 
 /// Runs app-wide [OmniLifecycle] hooks (`OmniApp(lifecycle:)`). The context
 /// passed to hooks is below the global Blocs.
@@ -206,8 +207,11 @@ class _OmniExitGuardState extends State<OmniExitGuard> {
   @override
   Widget build(BuildContext context) {
     // Same widget shape for every page (only canPop changes), so page state
-    // is never reset.
-    final isRoot = ModalRoute.of(context)?.isFirst ?? false;
+    // is never reset. Also checks OmniRouter.canPopOf so shells/sub-navigators
+    // pushed over another root page don't trigger double-back exit early.
+    final isRoot =
+        (ModalRoute.of(context)?.isFirst ?? false) &&
+        !OmniRouter.canPopOf(context);
     return PopScope(
       canPop: !isRoot,
       onPopInvokedWithResult: _onBack,

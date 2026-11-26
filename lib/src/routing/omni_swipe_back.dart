@@ -5,7 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
+
+import '../core/omni_router.dart';
 
 /// How a page can be closed by an edge swipe; see `OmniPages.transition`,
 /// `OmniPages.custom` and `OmniApp(swipeBack:)`.
@@ -170,26 +171,59 @@ class OmniSwipeBackStyle {
   final Duration settleDuration;
 }
 
-/// The [CustomTransitionPage] behind `OmniPages.transition`/`custom`; adds
+/// A custom-transition [Page] backing `OmniPages.transition`/`custom`; adds
 /// an optional swipe-back layer on top of [transitionsBuilder].
-class OmniSwipeBackPage<T> extends CustomTransitionPage<T> {
-  /// Same parameters as [CustomTransitionPage], plus the swipe settings
-  /// (null = the `OmniApp` default).
+class OmniSwipeBackPage<T> extends Page<T> {
+  /// Creates a transition page with optional edge swipe-back behaviour
+  /// (`null` swipe settings inherit the [OmniApp] defaults).
   const OmniSwipeBackPage({
-    required super.child,
-    required super.transitionsBuilder,
-    super.transitionDuration,
-    super.reverseTransitionDuration,
-    super.opaque,
-    super.barrierDismissible,
-    super.barrierColor,
-    super.fullscreenDialog,
+    required this.child,
+    required this.transitionsBuilder,
+    this.transitionDuration = const Duration(milliseconds: 250),
+    this.reverseTransitionDuration = const Duration(milliseconds: 200),
+    this.maintainState = true,
+    this.fullscreenDialog = false,
+    this.opaque = true,
+    this.barrierDismissible = false,
+    this.barrierColor,
+    this.barrierLabel,
     super.key,
     super.name,
+    super.arguments,
     super.restorationId,
     this.swipeBack,
     this.swipeBackStyle,
   });
+
+  /// Screen widget displayed inside this page.
+  final Widget child;
+
+  /// Forward open transition duration.
+  final Duration transitionDuration;
+
+  /// Reverse pop transition duration.
+  final Duration reverseTransitionDuration;
+
+  /// Whether the route preserves state when inactive.
+  final bool maintainState;
+
+  /// Whether this page acts as a full-screen modal dialog.
+  final bool fullscreenDialog;
+
+  /// Whether this route obscures routes underneath it.
+  final bool opaque;
+
+  /// Whether tapping the barrier dismisses this route.
+  final bool barrierDismissible;
+
+  /// Color of the modal barrier when [opaque] is `false`.
+  final Color? barrierColor;
+
+  /// Semantic label for the barrier.
+  final String? barrierLabel;
+
+  /// Builds the transition widget around [child].
+  final RouteTransitionsBuilder transitionsBuilder;
 
   /// Swipe style for this page; null uses the app default.
   final OmniSwipeBack? swipeBack;
@@ -385,12 +419,12 @@ class _OmniSwipeBackRoute<T> extends PageRoute<T> {
 
   AnimationController get swipeController => controller!;
 
-  /// Pops through go_router when it owns this page, so its state, the
+  /// Pops through OmniRouter when it owns this page, so its state, the
   /// OmniRoute stack, logs and lifecycle hooks stay correct.
   void swipePop(BuildContext context) {
-    final router = GoRouter.maybeOf(context);
+    final router = OmniRouter.maybeOf(context);
     if (router != null && router.state.pageKey == _page.key) {
-      router.pop();
+      router.pop<Object?>();
     } else {
       navigator?.pop();
     }
@@ -473,7 +507,7 @@ class _SwipeBackLayerState extends State<_SwipeBackLayer>
 
   // ── Android predictive back ─────────────────────────────────────────
   // The binding hands the gesture to every observer that accepts it, so
-  // only the page on top of everything (go_router's top page, in a visible
+  // only the page on top of everything (OmniRouter's top page, in a visible
   // tab) accepts. A button press (`isButtonEvent`) is left to the normal
   // `handlePopRoute`, which pops as usual.
 
@@ -481,7 +515,7 @@ class _SwipeBackLayerState extends State<_SwipeBackLayer>
     if (!widget.route.swipeEnabled || !TickerMode.valuesOf(context).enabled) {
       return false;
     }
-    final router = GoRouter.maybeOf(context);
+    final router = OmniRouter.maybeOf(context);
     return router == null || router.state.pageKey == widget.route._page.key;
   }
 

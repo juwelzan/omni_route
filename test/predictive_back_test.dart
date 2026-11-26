@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 final log = <String>[];
@@ -42,17 +41,17 @@ class Locked extends OmniStatelessWidget {
   );
 }
 
-late StatefulNavigationShell shell;
+late OmniNavigationShell shell;
 
 Widget app({
   bool predictive = true,
   OmniSwipeBack swipeBack = OmniSwipeBack.none,
-  OmniPageType pageType = OmniPages.material,
+  OmniPageType transition = OmniPages.material,
   void Function(OmniNavigation)? onNavigate,
 }) => OmniApp(
   predictiveBack: predictive,
   swipeBack: swipeBack,
-  pageType: pageType,
+  transition: transition,
   onNavigate: onNavigate,
   routes: [
     OmniPage('/', (_) => const Home()),
@@ -62,7 +61,7 @@ Widget app({
     OmniPage(
       '/off',
       (_) => const S('off'),
-      pageType: OmniPages.transition(
+      transition: OmniPages.transition(
         OmniTransition.fade,
         swipeBack: OmniSwipeBack.none,
       ),
@@ -70,7 +69,7 @@ Widget app({
     OmniStatefulShell(
       builder: (_, _, s) => shell = s,
       branches: [
-        StatefulShellBranch(
+        OmniBranch(
           routes: [
             OmniPage(
               '/t/one',
@@ -79,7 +78,7 @@ Widget app({
             ),
           ],
         ),
-        StatefulShellBranch(
+        OmniBranch(
           routes: [
             OmniPage(
               '/t/two',
@@ -226,7 +225,7 @@ void main() {
   });
 
   testWidgets('predictiveBack off: plain pop, no zoom', (t) async {
-    await openA(t, app(predictive: false, pageType: OmniPages.fade));
+    await openA(t, app(predictive: false, transition: OmniPages.fade));
     await backGesture(t, 'startBackGesture', progress: 0.5);
     expect(swipeTransform(t, 'a'), (1.0, 0.0));
     await backGesture(t, 'commitBackGesture');
@@ -297,7 +296,7 @@ void main() {
   testWidgets('OmniPages.swipeZoom: zoom even with the app default off', (
     t,
   ) async {
-    await openA(t, app(pageType: OmniPages.swipeZoom));
+    await openA(t, app(transition: OmniPages.swipeZoom));
     await backGesture(t, 'startBackGesture', progress: 0.5);
     expect(swipeTransform(t, 'a').$1, closeTo(0.91, 0.001));
     await backGesture(t, 'commitBackGesture');

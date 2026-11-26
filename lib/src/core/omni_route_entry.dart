@@ -1,5 +1,4 @@
 import 'package:flutter/foundation.dart';
-import 'package:go_router/go_router.dart';
 import 'package:meta/meta.dart';
 
 import '../routing/omni_page.dart';
@@ -16,14 +15,14 @@ class OmniRouteEntry {
     this.metadata = const {},
   });
 
-  /// Entry for [route] shown at [location].
-  factory OmniRouteEntry.fromRoute(GoRoute route, String location) =>
+  /// Creates an entry for an [OmniPage] matched at [location].
+  factory OmniRouteEntry.fromPage(OmniPage page, String location) =>
       OmniRouteEntry(
         location: location,
-        name: route.name,
-        path: route.path,
-        screen: route is OmniPage ? route.screenType : null,
-        metadata: route.metadata ?? const {},
+        name: page.name,
+        path: page.path,
+        screen: page.screenType,
+        metadata: page.metadata ?? const {},
       );
 
   /// Where the page is, e.g. `/students/7` (no query).
@@ -35,7 +34,7 @@ class OmniRouteEntry {
   /// The route pattern as declared, e.g. `:id`.
   final String? path;
 
-  /// The screen type shown, for [OmniPage] routes; `null` for raw GoRoutes.
+  /// The screen type shown by the route (`OmniPage<S>`).
   final Type? screen;
 
   /// The route's metadata (`OmniPage(metadata: ...)`).
@@ -57,7 +56,7 @@ class OmniRouteEntry {
       '$location${screen == null ? '' : ' ($screen)'}${name == null ? '' : ' #$name'}';
 }
 
-/// A completed navigation, passed to `OmniApp(onNavigate:)`.
+/// A completed navigation event passed to `OmniApp(onNavigate:)`.
 @immutable
 class OmniNavigation {
   /// Creates a navigation event.
@@ -67,34 +66,21 @@ class OmniNavigation {
     required this.uri,
   });
 
-  /// The top page before, or `null` for the first location.
+  /// The top page before navigation, or `null` for the initial location.
   final OmniRouteEntry? from;
 
   /// The top page now.
   final OmniRouteEntry to;
 
-  /// The full new location, including the query.
+  /// The full new location, including query and fragment.
   final Uri uri;
 
   @override
   String toString() => '${from ?? '(start)'} → $to';
 }
 
-/// Pages from bottom to top, flattening shells and pushed pages.
+/// Internal sentinel entry representing an unmatched or error route.
 @internal
-List<OmniRouteEntry> entriesOf(RouteMatchList list) {
-  final out = <OmniRouteEntry>[];
-  void visit(List<RouteMatchBase> matches) {
-    for (final m in matches) {
-      switch (m) {
-        case ShellRouteMatch():
-          visit(m.matches);
-        case RouteMatch():
-          out.add(OmniRouteEntry.fromRoute(m.route, m.matchedLocation));
-      }
-    }
-  }
-
-  visit(list.matches);
-  return out;
-}
+OmniRouteEntry errorEntryFor(Uri uri) => OmniRouteEntry(
+  location: uri.path.isEmpty ? '/' : uri.path,
+);

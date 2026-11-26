@@ -64,11 +64,11 @@ class EdgeButton extends OmniStatelessWidget {
 
 Widget app({
   OmniSwipeBack swipeBack = OmniSwipeBack.zoom,
-  OmniPageType? pageType,
+  OmniPageType? transition,
   TextDirection dir = TextDirection.ltr,
 }) => OmniApp(
   swipeBack: swipeBack,
-  pageType: pageType ?? OmniPages.fade,
+  transition: transition ?? OmniPages.fade,
   routes: [
     OmniPage('/', (_) => const Home()),
     OmniPage('/a', (_) => const S('a')),
@@ -79,7 +79,7 @@ Widget app({
     OmniPage(
       '/off',
       (_) => const S('off'),
-      pageType: OmniPages.transition(
+      transition: OmniPages.transition(
         OmniTransition.fade,
         swipeBack: OmniSwipeBack.none,
       ),
@@ -195,7 +195,7 @@ void main() {
     await t.pumpWidget(
       app(
         swipeBack: OmniSwipeBack.none,
-        pageType: OmniPages.custom(
+        transition: OmniPages.custom(
           (_, a, _, child) => FadeTransition(opacity: a, child: child),
           swipeBack: OmniSwipeBack.slide,
         ),
@@ -304,7 +304,7 @@ void main() {
     await t.pumpWidget(
       OmniApp(
         swipeBack: OmniSwipeBack.zoomCard,
-        pageType: OmniPages.fade,
+        transition: OmniPages.fade,
         onNavigate: (n) => navs.add('${n.from?.location}->${n.to.location}'),
         routes: [
           OmniPage('/', (_) => const Home()),

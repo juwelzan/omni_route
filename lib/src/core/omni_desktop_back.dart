@@ -2,13 +2,13 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
+
+import 'omni_router.dart';
 
 /// Desktop "back": Alt+← (Windows/Linux), Cmd+[ and Cmd+← (macOS), the mouse
-/// back button, and optionally Escape. Uses the same path as Android's
-/// system back (`routerDelegate.popRoute`), so `PopScope` and nested shell
-/// navigators behave the same. Not active on web (the browser handles back)
-/// or mobile.
+/// back button, and optionally Escape. Delegates to `routerDelegate.popRoute`
+/// so `PopScope` and nested shell navigators behave uniformly. Not active on
+/// web (the browser handles back) or mobile.
 @internal
 class OmniDesktopBack extends StatelessWidget {
   const OmniDesktopBack({
@@ -18,7 +18,7 @@ class OmniDesktopBack extends StatelessWidget {
     required this.child,
   });
 
-  final GoRouter router;
+  final OmniRouter router;
   final bool escape;
   final Widget child;
 

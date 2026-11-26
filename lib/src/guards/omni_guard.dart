@@ -2,14 +2,22 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
 
 import '../core/omni_route.dart';
+import '../routing/omni_route_state.dart';
 
-/// Redirect logic built on GoRouter's native `redirect`.
+/// Redirect callback executed before navigating to a matched route.
 ///
-/// Return a location to redirect, or `null` to allow. Keep it cheap: read
-/// Bloc state (e.g. `context.read<AuthBloc>().state`), never call an API.
+/// Return a destination location (e.g. `'/login'`) to redirect, or `null`
+/// to allow the navigation.
+typedef OmniGuardRedirect =
+    FutureOr<String?> Function(BuildContext context, OmniRouteState state);
+
+/// Redirect guard evaluated by the OmniRoute engine before opening a page.
+///
+/// Return a location to redirect, or `null` to allow. Keep guards fast: read
+/// Bloc state (e.g. `context.read<AuthBloc>().state`) instead of performing
+/// network requests.
 ///
 /// ```dart
 /// class AuthGuard extends OmniGuard {
@@ -17,7 +25,7 @@ import '../core/omni_route.dart';
 ///   Stream<Object?> refresh(BuildContext c) => c.read<AuthBloc>().stream;
 ///
 ///   @override
-///   String? redirect(BuildContext c, GoRouterState s) {
+///   String? redirect(BuildContext c, OmniRouteState s) {
 ///     final ok = c.read<AuthBloc>().state is Authenticated;
 ///     if (!ok && s.matchedLocation != '/login') return '/login';
 ///     if (ok && s.matchedLocation == '/login') return '/';
@@ -29,67 +37,74 @@ abstract class OmniGuard {
   /// Constant constructor for subclasses.
   const OmniGuard();
 
-  /// Guard from a function.
+  /// Creates an inline guard from [redirect] and an optional [refresh] stream.
   const factory OmniGuard.fn(
-    GoRouterRedirect redirect, {
+    OmniGuardRedirect redirect, {
     Stream<Object?>? Function(BuildContext)? refresh,
   }) = _FnGuard;
 
-  /// Location to send the user to, or `null` to let the navigation through.
-  FutureOr<String?> redirect(BuildContext context, GoRouterState state);
+  /// Returns a destination location to redirect to, or `null` to allow.
+  FutureOr<String?> redirect(BuildContext context, OmniRouteState state);
 
-  /// Stream whose events re-run redirects (e.g. an auth Bloc's stream).
-  /// Subscribed once below the global Blocs; cancelled with the app.
+  /// Stream whose emissions re-evaluate redirects (e.g. an auth Bloc stream).
+  /// Subscribed once below global Blocs and cancelled cleanly when disposed.
   Stream<Object?>? refresh(BuildContext context) => null;
 }
 
 class _FnGuard extends OmniGuard {
   const _FnGuard(this._redirect, {this._refresh});
-  final GoRouterRedirect _redirect;
+
+  final OmniGuardRedirect _redirect;
   final Stream<Object?>? Function(BuildContext)? _refresh;
 
   @override
-  FutureOr<String?> redirect(BuildContext c, GoRouterState s) =>
-      _redirect(c, s);
+  FutureOr<String?> redirect(BuildContext context, OmniRouteState state) =>
+      _redirect(context, state);
 
   @override
-  Stream<Object?>? refresh(BuildContext c) => _refresh?.call(c);
+  Stream<Object?>? refresh(BuildContext context) => _refresh?.call(context);
 }
 
-/// Runs [guards] in order; first non-null redirect wins. A redirect to the
-/// current location is ignored (it would loop); longer loops are caught by
-/// GoRouter's `redirectLimit` and shown on the error page.
+/// Evaluates [guards] in order; the first non-null redirect wins.
+///
+/// Stays completely synchronous whenever every guard returns synchronously,
+/// avoiding extra frame delays. Redirects back to the current location are
+/// ignored.
 @internal
-GoRouterRedirect? composeGuards(
+FutureOr<String?> evaluateGuards(
+  BuildContext context,
+  OmniRouteState state,
   List<OmniGuard> guards,
-  GoRouterRedirect? last,
 ) {
-  if (guards.isEmpty) return last;
-  final chain = [...guards.map((g) => g.redirect), ?last];
-  // Stays synchronous until a guard returns a Future, so sync guards add no
-  // extra frame of delay.
-  FutureOr<String?> run(BuildContext context, GoRouterState state, int i) {
-    for (; i < chain.length; i++) {
-      final r = chain[i](context, state);
-      if (r is Future<String?>) {
-        final next = i + 1;
-        return r.then((to) {
-          if (!context.mounted) return null;
-          return _accept(to, state) ?? run(context, state, next);
-        });
-      }
-      final to = _accept(r, state);
-      if (to != null) return to;
-    }
-    return null;
-  }
-
-  return (context, state) => run(context, state, 0);
+  if (guards.isEmpty) return null;
+  return _runGuards(context, state, guards, 0);
 }
 
-String? _accept(String? to, GoRouterState state) {
+FutureOr<String?> _runGuards(
+  BuildContext context,
+  OmniRouteState state,
+  List<OmniGuard> guards,
+  int index,
+) {
+  for (; index < guards.length; index++) {
+    final result = guards[index].redirect(context, state);
+    if (result is Future<String?>) {
+      final next = index + 1;
+      return result.then((to) {
+        if (!context.mounted) return null;
+        return _acceptRedirect(to, state) ??
+            _runGuards(context, state, guards, next);
+      });
+    }
+    final accepted = _acceptRedirect(result, state);
+    if (accepted != null) return accepted;
+  }
+  return null;
+}
+
+String? _acceptRedirect(String? to, OmniRouteState state) {
   if (to == null) return null;
-  if (_same(to, state.uri)) {
+  if (_sameLocation(to, state.uri)) {
     assert(() {
       OmniRoute.logger.w(
         'OmniRoute · guard\n'
@@ -102,13 +117,13 @@ String? _accept(String? to, GoRouterState state) {
   return to;
 }
 
-bool _same(String to, Uri current) {
-  final t = Uri.parse(to);
-  return t.path == current.path &&
-      (t.query.isEmpty || t.query == current.query);
+bool _sameLocation(String to, Uri current) {
+  final target = Uri.parse(to);
+  return target.path == current.path &&
+      (target.query.isEmpty || target.query == current.query);
 }
 
-/// Re-runs redirects when a guard's refresh stream emits.
+/// Listens to guard refresh streams and triggers router re-evaluation.
 @internal
 class GuardRefresh extends StatefulWidget {
   const GuardRefresh({
@@ -151,19 +166,19 @@ class _GuardRefreshState extends State<GuardRefresh> {
   Widget build(BuildContext context) => widget.child;
 }
 
+/// Simple [ChangeNotifier] poked when any guard refresh stream emits.
 @internal
 class GuardNotifier extends ChangeNotifier {
   void ping() => notifyListeners();
 }
 
-/// Removes a trailing slash (`/students/` → `/students`), keeping the query.
-/// Runs before user guards so they always see the canonical path.
+/// Strips trailing slashes (`/students/` → `/students`), keeping queries intact.
 @internal
 class NormalizeUrlGuard extends OmniGuard {
   const NormalizeUrlGuard();
 
   @override
-  String? redirect(BuildContext context, GoRouterState state) {
+  String? redirect(BuildContext context, OmniRouteState state) {
     final uri = state.uri;
     if (uri.path.length <= 1 || !uri.path.endsWith('/')) return null;
     var path = uri.path;

@@ -1,11 +1,10 @@
 import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
-import 'package:meta/meta.dart';
 
 import '../errors/omni_route_exception.dart';
+import 'omni_route_state.dart';
 
 /// Typed access to the current route's path parameters, query parameters
-/// and `extra`. Wraps [GoRouterState]; values are already URL-decoded.
+/// and `extra`. Wraps [OmniRouteState]; values are already URL-decoded.
 @immutable
 class OmniParams {
   /// Wraps [state].
@@ -16,13 +15,20 @@ class OmniParams {
   ///
   /// Reads without subscribing, so it is safe in Bloc `create` callbacks
   /// and `initState`.
-  factory OmniParams.of(BuildContext context) => OmniParams(
-    context.getInheritedWidgetOfExactType<OmniRouteStateScope>()?.state ??
-        GoRouterState.of(context),
-  );
+  factory OmniParams.of(BuildContext context) {
+    final s =
+        context.getInheritedWidgetOfExactType<OmniRouteStateScope>()?.state ??
+        OmniRouteState.maybeOf(context);
+    if (s == null) {
+      throw FlutterError(
+        'OmniParams.of(context) called outside an OmniPage route.',
+      );
+    }
+    return OmniParams(s);
+  }
 
-  /// The underlying go_router state.
-  final GoRouterState state;
+  /// The underlying route state.
+  final OmniRouteState state;
 
   /// The full location, including query.
   Uri get uri => state.uri;
@@ -97,22 +103,4 @@ class OmniParams {
     OmniErrorCode.invalidParameter,
     'Route ${state.uri}: parameter "$name": $why.',
   );
-}
-
-/// Makes the route's [GoRouterState] readable without a dependency.
-/// Inserted by OmniPage and OmniRouteGroup.
-@internal
-class OmniRouteStateScope extends InheritedWidget {
-  /// Provides [state] to [child].
-  const OmniRouteStateScope({
-    super.key,
-    required this.state,
-    required super.child,
-  });
-
-  /// The route state of this page or group.
-  final GoRouterState state;
-
-  @override
-  bool updateShouldNotify(OmniRouteStateScope old) => old.state != state;
 }

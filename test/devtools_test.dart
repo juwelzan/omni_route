@@ -29,7 +29,7 @@ bool isAdmin = false;
 
 /// One guard for all routes, driven by route metadata.
 final roleGuard = OmniGuard.fn((c, s) {
-  final roles = s.metadata['roles'] as List<String>?;
+  final roles = s.metadata?['roles'] as List<String>?;
   if (roles == null || roles.contains('admin') && isAdmin) return null;
   return '/';
 });
@@ -79,7 +79,7 @@ void main() {
     expect(find.text('admin'), findsOneWidget);
     expect(OmniRoute.current.metadata['title'], 'Admin');
     expect(OmniRoute.current.screen, Admin);
-    expect(OmniRoute.state.metadata['roles'], ['admin']);
+    expect(OmniRoute.state.metadata?['roles'], ['admin']);
   });
 
   testWidgets('stack lists pages bottom to top, through shells and pushes', (

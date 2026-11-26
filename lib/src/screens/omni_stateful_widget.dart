@@ -1,9 +1,8 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 
-import 'package:go_router/go_router.dart';
-
 import '../errors/omni_route_exception.dart';
+import '../routing/omni_route_state.dart';
 
 import 'omni_lifecycle.dart';
 import 'omni_screen.dart';
@@ -95,5 +94,5 @@ abstract class OmniState<T extends OmniStatefulWidget> extends State<T> {
   OmniScreenMetadata get metadata => widget.metadata;
 
   /// Route state of the page this screen is on (path, query, extra).
-  GoRouterState get routeState => GoRouterState.of(context);
+  OmniRouteState get routeState => OmniRouteState.of(context);
 }

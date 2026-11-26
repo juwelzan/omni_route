@@ -2,7 +2,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 final created = <int>[];
@@ -182,7 +181,7 @@ void main() {
     await t.pumpAndSettle();
     final root = t.widget<Navigator>(find.byType(Navigator).first);
     expect(root.pages.last, isA<MaterialPage<void>>());
-    expect(GoRouter.of(t.element(find.text('detail 1:0'))), isNotNull);
+    expect(OmniRouter.of(t.element(find.text('detail 1:0'))), isNotNull);
   });
 
   testWidgets('OmniParams.of works in a page Bloc factory and in initState', (

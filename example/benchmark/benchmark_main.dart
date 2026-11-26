@@ -1,13 +1,12 @@
-// Compares OmniRoute with the same app written directly on GoRouter +
-// BlocProvider. Run in profile mode (any device; window may be in background):
+// Measures native OmniRoute engine startup, push/pop latency, instant
+// no-transition navigation, and memory growth across hundreds of cycles.
+// Run in profile mode:
 //   flutter run --profile -d macos -t benchmark/benchmark_main.dart
-// Results are printed as `BENCH {...}` lines, then the app exits.
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 const cycles = int.fromEnvironment('CYCLES', defaultValue: 300);
@@ -39,7 +38,6 @@ Widget homeBody() => Scaffold(
   ),
 );
 
-// ── OmniRoute version ──
 class OHome extends OmniStatelessWidget {
   const OHome({super.key});
   @override
@@ -61,7 +59,8 @@ class OItem extends OmniStatelessWidget {
   Widget build(BuildContext context) => itemBody(id, context);
 }
 
-Widget omniApp() => OmniApp(
+Widget omniApp({OmniPageType transition = OmniPages.material}) => OmniApp(
+  transition: transition,
   blocs: [OmniBloc<ListBloc>((_) => ListBloc())],
   routes: [
     OmniPage('/', (_) => const OHome()),
@@ -70,56 +69,7 @@ Widget omniApp() => OmniApp(
   builder: (_, r) => MaterialApp.router(routerConfig: r),
 );
 
-// ── Raw GoRouter version ──
-class RawApp extends StatefulWidget {
-  const RawApp({super.key});
-  @override
-  State<RawApp> createState() => RawAppState();
-}
-
-class RawAppState extends State<RawApp> {
-  final router = GoRouter(
-    routes: [
-      GoRoute(
-        path: '/',
-        pageBuilder: (_, s) => MaterialPage<void>(
-          key: s.pageKey,
-          child: BlocProvider(
-            create: (_) => ListBloc(),
-            child: Builder(builder: (_) => homeBody()),
-          ),
-        ),
-      ),
-      GoRoute(
-        path: '/item/:id',
-        // Same page type OmniPage uses, so both animate identically.
-        pageBuilder: (_, s) {
-          final id = int.parse(s.pathParameters['id']!);
-          return MaterialPage<void>(
-            key: s.pageKey,
-            child: BlocProvider(
-              create: (_) => ItemBloc(id),
-              child: Builder(builder: (c) => itemBody(id, c)),
-            ),
-          );
-        },
-      ),
-    ],
-  );
-
-  @override
-  void dispose() {
-    router.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) =>
-      MaterialApp.router(routerConfig: router);
-}
-
-/// Runs frames by hand (no vsync needed, so it works with a background
-/// window) and returns the UI-thread time of each frame in microseconds.
+/// Drives frames manually so benchmarks run accurately without vsync.
 class FrameDriver {
   FrameDriver(this.binding);
   final WidgetsBinding binding;
@@ -136,7 +86,7 @@ class FrameDriver {
     return us;
   }
 
-  /// Frames until nothing is scheduled (animations finished). Returns total µs.
+  /// Steps frames until animations settle. Returns total UI thread time in us.
   int settle() {
     var total = 0;
     for (var i = 0; i < 300 && (i == 0 || binding.hasScheduledFrame); i++) {
@@ -158,9 +108,7 @@ int pct(List<int> xs, double p) {
 
 Future<void> main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
-  // Let the engine finish startup before measuring.
   await Future<void>.delayed(const Duration(seconds: 2));
-  final results = <String, Object>{};
 
   void run(
     String key,
@@ -196,7 +144,7 @@ Future<void> main() async {
       d.settle();
     }
     final rssEnd = ProcessInfo.currentRss;
-    results[key] = {
+    final metrics = {
       'startup_to_settled_us': startupUs,
       'push_first_frame_ui_us_p50': pct(pushUs, .5),
       'push_first_frame_ui_us_p90': pct(pushUs, .9),
@@ -210,29 +158,25 @@ Future<void> main() async {
       'rss_growth_kb': (rssEnd - rssStart) ~/ 1024,
     };
     // ignore: avoid_print
-    print('BENCH ${jsonEncode({key: results[key]})}');
+    print('BENCH ${jsonEncode({key: metrics})}');
     d.show(const SizedBox());
     d.settle();
   }
 
-  final rawKey = GlobalKey<RawAppState>();
-  GoRouter rawRouter() => rawKey.currentState!.router;
-  // MODE=both (default) alternates raw/omni; MODE=raw or MODE=omni runs one
-  // kind for ROUNDS rounds, to separate harness drift from OmniRoute cost.
-  const mode = String.fromEnvironment('MODE', defaultValue: 'both');
   const rounds = int.fromEnvironment('ROUNDS', defaultValue: 3);
   for (var round = 1; round <= rounds; round++) {
-    if (mode != 'omni') {
-      run(
-        'raw_$round',
-        RawApp(key: rawKey),
-        (l) => rawRouter().push(l),
-        () => rawRouter().pop(),
-      );
-    }
-    if (mode != 'raw') {
-      run('omni_$round', omniApp(), (l) => OmniRoute.push(l), OmniRoute.pop);
-    }
+    run(
+      'omni_material_$round',
+      omniApp(),
+      (l) => OmniRoute.push(l),
+      OmniRoute.pop,
+    );
+    run(
+      'omni_instant_$round',
+      omniApp(transition: OmniPages.none),
+      (l) => OmniRoute.push(l, animated: false),
+      OmniRoute.pop,
+    );
   }
   // ignore: avoid_print
   print('BENCH done');

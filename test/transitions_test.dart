@@ -1,7 +1,6 @@
 // 0.2.4: page transition builders and built-in animations.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 class S extends OmniStatelessWidget {
@@ -17,9 +16,9 @@ class S extends OmniStatelessWidget {
 Widget app(
   OmniPageType type, {
   TextDirection dir = TextDirection.ltr,
-  List<RouteBase> extra = const [],
+  List<OmniRouteBase> extra = const [],
 }) => OmniApp(
-  pageType: type,
+  transition: type,
   routes: [
     OmniPage('/', (_) => const S('home')),
     OmniPage('/next', (_) => const S('next')),
@@ -60,7 +59,7 @@ void main() {
       await t.pumpAndSettle();
       OmniRoute.push('/next');
       await t.pump();
-      final page = top(t) as CustomTransitionPage<void>;
+      final page = top(t) as OmniSwipeBackPage<void>;
       expect(page.transitionDuration, const Duration(milliseconds: 250));
       expect(page.reverseTransitionDuration, const Duration(milliseconds: 200));
       expect(page.restorationId, isNotNull, reason: 'restoration still works');
@@ -145,7 +144,7 @@ void main() {
       closeTo(0.5, 0.05),
       reason: 'linear at half time',
     );
-    final page = top(t) as CustomTransitionPage<void>;
+    final page = top(t) as OmniSwipeBackPage<void>;
     expect(page.transitionDuration.inMilliseconds, 120);
     expect(page.reverseTransitionDuration.inMilliseconds, 80);
   });
@@ -161,7 +160,7 @@ void main() {
           OmniPage(
             '/dialog',
             (_) => const S('dialog'),
-            pageType: OmniPages.custom(
+            transition: OmniPages.custom(
               (context, a, s, child) {
                 calls++;
                 return RotationTransition(
@@ -194,7 +193,7 @@ void main() {
       app(
         OmniPages.material,
         extra: [
-          OmniPage('/up', (_) => const S('up'), pageType: OmniPages.slideUp),
+          OmniPage('/up', (_) => const S('up'), transition: OmniPages.slideUp),
         ],
       ),
     );
@@ -204,7 +203,7 @@ void main() {
     expect(top(t), isA<MaterialPage<void>>());
     OmniRoute.push('/up');
     await t.pump();
-    expect(top(t), isA<CustomTransitionPage<void>>());
+    expect(top(t), isA<OmniSwipeBackPage<void>>());
   });
 
   testWidgets('screen state survives the transition', (t) async {

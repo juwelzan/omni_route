@@ -29,7 +29,7 @@ class Colored extends OmniStatelessWidget {
 Widget app(OmniSwipeBack mode, {OmniSwipeBackStyle? style}) => OmniApp(
   swipeBack: mode,
   swipeBackStyle: style ?? const OmniSwipeBackStyle(),
-  pageType: OmniPages.fade,
+  transition: OmniPages.fade,
   routes: [
     OmniPage('/', (_) => const Colored('below', Colors.teal)),
     OmniPage('/top', (_) => const Colored('top', Colors.deepOrange)),

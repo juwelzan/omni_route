@@ -4,7 +4,6 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 class S extends OmniStatelessWidget {
@@ -19,7 +18,7 @@ class S extends OmniStatelessWidget {
 enum Sort { newest, oldest }
 
 Widget app({
-  List<RouteBase> extra = const [],
+  List<OmniRouteBase> extra = const [],
   void Function(OmniNavigation)? onNavigate,
 }) => OmniApp(
   onNavigate: onNavigate,
@@ -166,7 +165,7 @@ void main() {
           isA<OmniRouteException>().having(
             (e) => e.hint,
             'hint',
-            contains('List<RouteBase>'),
+            contains('List<OmniRouteBase>'),
           ),
         ),
       );

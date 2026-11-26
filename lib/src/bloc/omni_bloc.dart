@@ -134,6 +134,16 @@ class Provide<B extends OmniAnyBloc> {
   /// Whether OmniRoute closes this Bloc (false for [Provide.value]).
   bool get isOwned => _value == null;
 
+  /// Creates an instance of [B] for group/route scopes using [context].
+  @internal
+  B instantiate(BuildContext context, OmniBlocRegistry registry) =>
+      _value ?? (_create ?? registry.factoryFor<B>().create)(context);
+
+  /// Exposes an already-created [bloc] without closing it when unmounted.
+  @internal
+  BlocProvider<B> valueProvider(OmniAnyBloc bloc, {Widget? child}) =>
+      BlocProvider<B>.value(value: bloc as B, child: child);
+
   /// Builds the flutter_bloc provider for this entry.
   @internal
   BlocProvider<B> toProvider(OmniBlocRegistry registry) {

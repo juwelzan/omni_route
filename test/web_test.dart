@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 class S extends OmniStatelessWidget {
@@ -82,7 +81,7 @@ void main() {
   });
 
   testWidgets('title follows stateful shell tab switches', (t) async {
-    late StatefulNavigationShell nav;
+    late OmniNavigationShell nav;
     await t.pumpWidget(
       OmniApp(
         initialRoute: '/a',
@@ -90,10 +89,10 @@ void main() {
           OmniStatefulShell(
             builder: (_, _, shell) => nav = shell,
             branches: [
-              StatefulShellBranch(
+              OmniBranch(
                 routes: [OmniPage('/a', (_) => const S('Tab A'))],
               ),
-              StatefulShellBranch(
+              OmniBranch(
                 routes: [OmniPage('/b', (_) => const S('Tab B'))],
               ),
             ],

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 final created = <String, int>{};
@@ -74,7 +73,7 @@ class AuthGuard extends OmniGuard {
   @override
   Stream<Object?> refresh(BuildContext c) => c.read<AuthBloc>().stream;
   @override
-  String? redirect(BuildContext c, GoRouterState s) {
+  String? redirect(BuildContext c, OmniRouteState s) {
     final loggedIn = c.read<AuthBloc>().state >= 1;
     final atLogin = s.matchedLocation == '/login';
     if (!loggedIn && !atLogin) {
@@ -158,8 +157,8 @@ Widget buildApp({
         );
       },
       branches: [
-        StatefulShellBranch(routes: [OmniPage('/a', (_) => const TabScreen())]),
-        StatefulShellBranch(routes: [OmniPage('/b', (_) => const S('page b'))]),
+        OmniBranch(routes: [OmniPage('/a', (_) => const TabScreen())]),
+        OmniBranch(routes: [OmniPage('/b', (_) => const S('page b'))]),
       ],
     ),
   ],

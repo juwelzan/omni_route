@@ -1,6 +1,6 @@
 name: omni_route
-description: "Simple screens, routes and Bloc scoping for Flutter, built on go_router and flutter_bloc."
-version: 0.3.1
+description: "Fast, zero-lag routing, transitions, and Bloc scoping for Flutter."
+version: 0.4.0
 repository: https://github.com/juwelzan/omni_route
 homepage: https://github.com/juwelzan/omni_route
 issue_tracker: https://github.com/juwelzan/omni_route/issues
@@ -35,7 +35,6 @@ dependencies:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
-  go_router: ^18.1.4
   meta: ^1.18.0
   flutter_bloc: ^9.1.1
   logger: ^2.8.0

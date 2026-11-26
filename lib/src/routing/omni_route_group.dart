@@ -1,29 +1,27 @@
-import 'package:flutter/widgets.dart';
-import 'package:go_router/go_router.dart';
-
 import '../bloc/omni_bloc.dart';
-import '../bloc/omni_bloc_scope.dart';
+import '../guards/omni_guard.dart';
 import 'omni_page.dart';
-import 'omni_params.dart';
+import 'omni_route_state.dart';
 
 /// Returns the identity of a group's scope for the current location; when
-/// it changes, the group's Blocs are closed and created again.
-typedef OmniScopeKey = Object? Function(GoRouterState state);
+/// it changes, the group's Blocs are closed and recreated.
+typedef OmniScopeKey = Object? Function(OmniRouteState state);
 
-/// Routes that share Blocs: the **route scope**.
+/// Routes that share Blocs without introducing a nested `Navigator`.
 ///
-/// The Blocs in [provide] are created when the user first enters any route
-/// of the group and closed when the user leaves the group (for example with
-/// `go` to a route outside it). Moving between routes inside the group, or
-/// pushing a route from outside the group on top, keeps them.
+/// The Blocs in [provide] are created when entering any route inside [routes]
+/// and remain alive while moving between routes in the group or pushing
+/// outside routes on top of them. Once the last page belonging to this
+/// `(group, scopeKey)` leaves the stack, owned Blocs are closed cleanly.
 ///
 /// ```dart
 /// OmniPage('/students', (_) => const StudentListScreen(), routes: [
 ///   OmniRouteGroup(
-///     scopeKey: (s) => s.pathParameters['id'],   // new Blocs per student
+///     scopeKey: (s) => s.pathParameters['id'],
 ///     provide: [
 ///       Provide<StudentBloc>.create(
-///           (c) => StudentBloc(OmniParams.of(c).pathInt('id'))),
+///         (c) => StudentBloc(OmniParams.of(c).pathInt('id')),
+///       ),
 ///     ],
 ///     routes: [
 ///       OmniPage(':id', (p) => const StudentDetailScreen()),
@@ -32,39 +30,33 @@ typedef OmniScopeKey = Object? Function(GoRouterState state);
 ///   ),
 /// ])
 /// ```
-///
-/// Built on go_router's [ShellRoute] with no layout of its own: the group's
-/// pages live in a nested Navigator, so back navigation inside the group
-/// works as usual. Paths inside follow the same rules as where the group is
-/// placed (absolute at the top level, relative under an `OmniPage`).
-class OmniRouteGroup extends ShellRoute {
+class OmniRouteGroup extends OmniRouteBase {
   /// Creates a group of [routes] sharing the Blocs in [provide].
-  OmniRouteGroup({
-    required super.routes,
-    required List<Provide> provide,
-    OmniScopeKey? scopeKey,
-    OmniPageType? pageType,
-    super.navigatorKey,
-    super.parentNavigatorKey,
-    super.observers,
-    super.restorationScopeId,
-  }) : super(
-         pageBuilder: (context, state, child) {
-           Widget scoped = OmniRouteStateScope(
-             state: state,
-             child: OmniBlocScope(provide: provide, child: child),
-           );
-           if (scopeKey != null) {
-             scoped = KeyedSubtree(
-               key: ValueKey<Object?>(scopeKey(state)),
-               child: scoped,
-             );
-           }
-           return (pageType ?? OmniPageConfig.of(context).pageType)(
-             state.pageKey,
-             null,
-             scoped,
-           );
-         },
-       );
+  const OmniRouteGroup({
+    required this.routes,
+    required this.provide,
+    this.scopeKey,
+    this.guards = const [],
+    this.transition,
+  });
+
+  /// Routes inside this shared Bloc scope.
+  final List<OmniRouteBase> routes;
+
+  /// Blocs created for this group and closed when leaving it.
+  final List<Provide> provide;
+
+  /// Computes a scope identity from the active route state (for example
+  /// `(s) => s.pathParameters['id']`). Changing identity closes old Blocs
+  /// and instantiates new ones.
+  final OmniScopeKey? scopeKey;
+
+  /// Guards applied to every route inside this group.
+  final List<OmniGuard> guards;
+
+  /// Default page transition for routes inside this group.
+  final OmniPageType? transition;
+
+  @override
+  List<OmniRouteBase> get childRoutes => routes;
 }

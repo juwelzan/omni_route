@@ -18,15 +18,15 @@ class S extends OmniStatelessWidget {
   }
 }
 
-Widget app({OmniPageType pageType = OmniPages.material, bool escape = false}) =>
+Widget app({OmniPageType transition = OmniPages.material, bool escape = false}) =>
     OmniApp(
-      pageType: pageType,
+      transition: transition,
       escapeGoesBack: escape,
       routes: [
         OmniPage('/', (_) => const S('home')),
         OmniPage('/a', (_) => const S('page a')),
         OmniPage('/locked', (_) => const S('locked', blockBack: true)),
-        OmniPage('/fade', (_) => const S('fade'), pageType: OmniPages.none),
+        OmniPage('/fade', (_) => const S('fade'), transition: OmniPages.none),
       ],
       builder: (_, r) => MaterialApp.router(routerConfig: r),
     );
@@ -155,7 +155,7 @@ void main() {
 
   group('Page types', () {
     testWidgets('cupertino and none page types', (t) async {
-      await t.pumpWidget(app(pageType: OmniPages.cupertino));
+      await t.pumpWidget(app(transition: OmniPages.cupertino));
       await t.pumpAndSettle();
       OmniRoute.push('/a');
       await t.pumpAndSettle();

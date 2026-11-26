@@ -2,56 +2,62 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
 import '../guards/omni_guard.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_registry.dart';
+import '../routing/omni_route_state.dart';
 import '../routing/omni_swipe_back.dart';
 import '../screens/omni_lifecycle.dart';
 import 'omni_app_features.dart';
 import 'omni_desktop_back.dart';
 import 'omni_log.dart';
-import 'omni_route_entry.dart';
 import 'omni_route.dart';
+import 'omni_route_entry.dart';
+import 'omni_router.dart';
 
-/// Builds your app widget around the router OmniApp created.
-typedef OmniAppBuilder = Widget Function(BuildContext context, GoRouter router);
+/// Builds your app widget (`MaterialApp.router`, `CupertinoApp.router`, etc.)
+/// around the [OmniRouter] created by [OmniApp].
+typedef OmniAppBuilder =
+    Widget Function(BuildContext context, OmniRouter router);
 
-/// Root of an OmniRoute app. Creates the [GoRouter] once, provides global
-/// Blocs above it, and hands the router to [builder]:
+/// Root of an OmniRoute application.
+///
+/// Compiles [routes] once into a fast Segment Trie, provides global Blocs,
+/// subscribes guard refresh streams, configures platform features (swipe back,
+/// predictive back, desktop back, titles, state restoration, startup gating),
+/// and hands the native [OmniRouter] to [builder]:
 ///
 /// ```dart
 /// OmniApp(
 ///   initialRoute: '/dashboard',
+///   transition: OmniPages.fadeSlide,
 ///   blocs: [OmniBloc<AuthBloc>((_) => AuthBloc(), global: true)],
-///   routes: [OmniPage('/dashboard', (_) => const DashboardScreen())],
+///   routes: [OmniPage<DashboardScreen>('/dashboard', (_) => const DashboardScreen())],
 ///   builder: (context, router) => MaterialApp.router(routerConfig: router),
 /// )
 /// ```
-///
-/// Configuration is read once in `initState`; changing it later (including
-/// hot reload) needs a hot restart, the same as a GoRouter kept in state.
 class OmniApp extends StatefulWidget {
-  /// Creates the root of an OmniRoute app.
+  /// Creates the root of an OmniRoute application.
   const OmniApp({
     super.key,
     required this.routes,
     required this.builder,
     this.blocs = const [],
     this.initialRoute = '/',
-    this.notFound,
+    this.transition = OmniPages.material,
     this.guards = const [],
-    this.redirect,
-    this.redirectLimit = 5,
     this.refreshListenable,
+    this.notFound,
     this.navigatorKey,
     this.observers,
-    this.debugLogDiagnostics = false,
     this.setTitles = true,
-    this.pageType = OmniPages.material,
+    this.titleColor,
+    this.swipeBack = OmniSwipeBack.none,
+    this.swipeBackStyle = const OmniSwipeBackStyle(),
+    this.predictiveBack = false,
     this.desktopBack = true,
     this.escapeGoesBack = false,
     this.restorationScopeId,
@@ -68,148 +74,101 @@ class OmniApp extends StatefulWidget {
     this.maxTextScale,
     this.blocObserver,
     this.onError,
-    this.swipeBack = OmniSwipeBack.none,
-    this.swipeBackStyle = const OmniSwipeBackStyle(),
-    this.titleColor,
-    this.predictiveBack = false,
   });
 
-  /// [OmniPage]s and any raw go_router [RouteBase]s.
-  final List<RouteBase> routes;
+  /// Declarative routes (`OmniPage`, `OmniRouteGroup`, `OmniShell`,
+  /// `OmniStatefulShell`).
+  final List<OmniRouteBase> routes;
 
-  /// Builds your app widget (e.g. `MaterialApp.router`) around the router.
+  /// Builds your app widget (`MaterialApp.router`) with the router.
   final OmniAppBuilder builder;
 
-  /// Bloc factories; entries with `global: true` are created app-wide.
+  /// Bloc factories; entries with `global: true` stay alive for the app.
   final List<OmniBloc> blocs;
 
-  /// Location shown first when the platform gives none (e.g. no deep link).
+  /// Location shown on startup when no platform deep link is active.
   final String initialRoute;
 
-  /// Page for unknown URLs and invalid route parameters.
-  final OmniErrorBuilder? notFound;
+  /// Default page transition used for every [OmniPage] unless overridden per
+  /// route, per group, or per navigation call (`animated: false` / `transition:`).
+  final OmniPageType transition;
 
-  /// App-wide guards, run in order before [redirect] on every navigation.
+  /// App-wide guards evaluated in order on every navigation.
   final List<OmniGuard> guards;
 
-  /// Extra GoRouter redirect, run after [guards].
-  final GoRouterRedirect? redirect;
-
-  /// Maximum redirects per navigation before GoRouter reports a loop.
-  final int redirectLimit;
-
-  /// Re-runs redirects when it notifies (in addition to guard streams).
+  /// External listenable whose notifications re-evaluate guards.
   final Listenable? refreshListenable;
 
-  /// Key of the root navigator.
+  /// Builder for unknown URLs, bad parameters, or guard redirect loops.
+  final OmniErrorBuilder? notFound;
+
+  /// Key of the root [Navigator].
   final GlobalKey<NavigatorState>? navigatorKey;
 
-  /// Observers of the root navigator.
+  /// Observers attached to the root [Navigator].
   final List<NavigatorObserver>? observers;
 
-  /// Log GoRouter's route matching (debug builds).
-  final bool debugLogDiagnostics;
-
-  /// Set the browser tab title from each screen's `title` (default
-  /// `screenName`). Turn off if you manage `Title` yourself.
+  /// Update browser tab / OS recent-apps title from the visible page title.
   final bool setTitles;
 
-  /// Page (transition) used for every [OmniPage] unless it sets its own.
-  /// See [OmniPages].
-  final OmniPageType pageType;
-
-  /// Default edge swipe-back for animated page types (`OmniPages.fade`,
-  /// `slide`, ..., `transition(...)`, `custom(...)`) that don't set their
-  /// own. Off by default. `material`/`cupertino` keep the platform gesture.
-  final OmniSwipeBack swipeBack;
-
-  /// Default tuning for [swipeBack].
-  final OmniSwipeBackStyle swipeBackStyle;
-
-  /// Follow Android's system back gesture (predictive back, Android 14+):
-  /// the page zooms out with the finger in the [swipeBack] style (`zoom`
-  /// when [swipeBack] is `none`), pops past the threshold and springs back
-  /// below it. On Android, `material`/`cupertino` pages then use
-  /// [OmniPages.swipeZoom] so they follow the gesture too.
-  ///
-  /// Needs `android:enableOnBackInvokedCallback="true"` on `<application>`
-  /// in `AndroidManifest.xml` (full rebuild); without it Android sends no
-  /// gesture progress and back simply pops. Off by default.
-  final bool predictiveBack;
-
-  /// Colour of the app in the Android recent-apps switcher (and similar),
-  /// set with each page's title. Null uses the theme's
-  /// `colorScheme.primary` (black without a Material theme).
+  /// App-switcher colour set alongside the active page title.
   final Color? titleColor;
 
-  /// On Windows/Linux/macOS, Alt+← / Cmd+[ / mouse back button go back.
+  /// Default edge swipe-back style for animated [OmniPages].
+  final OmniSwipeBack swipeBack;
+
+  /// Default tuning parameters for [swipeBack].
+  final OmniSwipeBackStyle swipeBackStyle;
+
+  /// Track Android predictive back gestures across routes.
+  final bool predictiveBack;
+
+  /// Enable Alt+Left / Cmd+[ / mouse-back keyboard shortcuts on desktop.
   final bool desktopBack;
 
-  /// Also go back on Escape (desktop only). Dialogs still close first,
-  /// because Flutter handles their Escape before this.
+  /// Allow Escape to navigate back on desktop (after closing dialogs).
   final bool escapeGoesBack;
 
-  /// Enables state restoration of the route stack (Android process death,
-  /// iOS state restoration). Also set `restorationScopeId` on your
-  /// `MaterialApp.router`. Restores locations and `Restorable*` widget
-  /// state — not Bloc state (Blocs are recreated; persist what you need).
+  /// State restoration bucket ID for route stack & branch persistence.
   final String? restorationScopeId;
 
-  /// Called after each navigation that changes the location (go, push, pop,
-  /// back, deep link, redirect). Use it for analytics or screen-view
-  /// tracking. Runs after the frame is scheduled; keep it cheap.
+  /// Invoked when the active top route changes.
   final void Function(OmniNavigation navigation)? onNavigate;
 
-  /// Print each navigation (debug builds only).
+  /// Logs navigations in debug builds via [OmniRoute.logger].
   final bool logNavigation;
 
-  // ── App-level conveniences (all optional, off by default) ─────────────
-
-  /// App-wide lifecycle hooks: an object that mixes in [OmniLifecycle]
-  /// (`onAppResumed`, `onAppPaused`, `onMemoryPressure`, ...). Its context
-  /// can read global Blocs. Replaces a hand-written `WidgetsBindingObserver`.
+  /// App-wide foreground/background/memory lifecycle callbacks.
   final OmniLifecycle? lifecycle;
 
-  /// Startup work run once before the first page is shown (load settings,
-  /// restore login, warm caches). The context can read global Blocs.
-  /// Guards then see the loaded state. If it throws, the error is reported
-  /// and the app opens anyway.
+  /// One-time startup async task executed while displaying [splash].
   final Future<void> Function(BuildContext context)? onInit;
 
-  /// Shown while [onInit] runs. Return a complete widget (for example a
-  /// `MaterialApp(home: SplashScreen())`). Default: an empty box.
+  /// Widget shown while [onInit] completes.
   final WidgetBuilder? splash;
 
-  /// Close the keyboard when the user taps outside a text field.
+  /// Automatically unfocus text fields when tapping outside them.
   final bool dismissKeyboardOnTap;
 
-  /// Android: on the first page, back must be pressed twice within this
-  /// time to leave the app. Null (default) = normal back behaviour.
+  /// Require two back presses within this duration to exit on Android root.
   final Duration? doubleBackToExit;
 
-  /// Called on the first back press when [doubleBackToExit] is set — show a
-  /// SnackBar such as "Press back again to exit".
+  /// Triggered on the first back press when [doubleBackToExit] is active.
   final void Function(BuildContext context)? onExitWarning;
 
-  /// Allowed device orientations (e.g. portrait only). Restored to "all"
-  /// when this OmniApp is disposed.
+  /// Allowed device orientations while this app is mounted.
   final List<DeviceOrientation>? orientations;
 
-  /// Lower bound for the system text scale (accessibility font size).
+  /// Minimum system accessibility text scale factor.
   final double? minTextScale;
 
-  /// Upper bound for the system text scale, so large accessibility fonts
-  /// cannot break layouts.
+  /// Maximum system accessibility text scale factor.
   final double? maxTextScale;
 
-  /// Installed as `Bloc.observer` while this OmniApp is mounted (before any
-  /// Bloc is created); the previous observer is restored on dispose.
+  /// App-wide `Bloc.observer` restored automatically when unmounted.
   final BlocObserver? blocObserver;
 
-  /// Receives every uncaught error: Flutter framework errors
-  /// (`FlutterError.onError`) and async/platform errors
-  /// (`PlatformDispatcher.onError`). Previous handlers still run. Use it for
-  /// crash reporting. Restored on dispose.
+  /// Global uncaught Flutter & platform error handler restored on dispose.
   final void Function(Object error, StackTrace stack)? onError;
 
   @override
@@ -218,10 +177,15 @@ class OmniApp extends StatefulWidget {
 
 class _OmniAppState extends State<OmniApp> {
   late final OmniBlocRegistry _blocs;
+  late final GlobalKey<NavigatorState> _navKey;
   List<OmniGuard> _refreshGuards = const [];
-  GoRouter? _router;
+  OmniRouter? _router;
   Object? _configError;
   final GuardNotifier _guardRefresh = GuardNotifier();
+
+  OmniRouteEntry? _last;
+  Uri? _lastUri;
+  LocalKey? _lastPageKey;
 
   @override
   void initState() {
@@ -229,35 +193,42 @@ class _OmniAppState extends State<OmniApp> {
     _installGlobals();
     try {
       _blocs = OmniBlocRegistry(widget.blocs);
-      final registry = OmniRouteRegistry(widget.routes);
-      // Route-level guards re-run on their refresh streams too.
-      // A guard object shared by several routes is subscribed once.
+      _navKey =
+          widget.navigatorKey ?? GlobalKey<NavigatorState>(debugLabel: 'OmniRoot');
+      final registry = OmniRouteRegistry(
+        widget.routes,
+        rootNavigatorKey: _navKey,
+      );
       _refreshGuards = {...widget.guards, ...registry.routeGuards}.toList();
-      final onError = widget.notFound ?? defaultOmniErrorBuilder;
-      final router = _router = GoRouter(
-        routes: widget.routes,
-        initialLocation: widget.initialRoute,
-        errorBuilder: (c, s) => onError(c, s, s.error),
-        redirect: composeGuards([
-          const NormalizeUrlGuard(),
-          ...widget.guards,
-        ], widget.redirect),
-        redirectLimit: widget.redirectLimit,
-        refreshListenable: widget.refreshListenable == null
+
+      final platformDefault = PlatformDispatcher.instance.defaultRouteName;
+      final start = (platformDefault.isNotEmpty && platformDefault != '/')
+          ? platformDefault
+          : widget.initialRoute;
+
+      final router = _router = OmniRouter(
+        routeRegistry: registry,
+        navigatorKey: _navKey,
+        guards: widget.guards,
+        observers: widget.observers ?? const [],
+        onRouteError: widget.notFound ?? defaultOmniErrorBuilder,
+        initialRoute: start,
+        restorationScopeId: widget.restorationScopeId,
+        refresh: widget.refreshListenable == null
             ? _guardRefresh
             : Listenable.merge([_guardRefresh, widget.refreshListenable]),
-        navigatorKey: widget.navigatorKey,
-        observers: widget.observers,
-        debugLogDiagnostics: widget.debugLogDiagnostics,
-        restorationScopeId: widget.restorationScopeId,
+        onReady: () {
+          if (mounted &&
+              (widget.onNavigate != null || widget.logNavigation)) {
+            _navigated();
+          }
+        },
       );
       OmniRoute.attach(router, registry);
       if (widget.onNavigate != null || widget.logNavigation) {
         router.routerDelegate.addListener(_navigated);
       }
     } catch (e, stack) {
-      // Reported (not rethrown) so the element mounts and disposes cleanly;
-      // build() then shows the error.
       _configError = e;
       FlutterError.reportError(
         FlutterErrorDetails(
@@ -270,20 +241,51 @@ class _OmniAppState extends State<OmniApp> {
     }
   }
 
-  OmniRouteEntry? _last;
-  Uri? _lastUri;
-  LocalKey? _lastPageKey;
+  @override
+  void didUpdateWidget(OmniApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final router = _router;
+    if (router == null) return;
+
+    if (!identical(widget.routes, oldWidget.routes) ||
+        !identical(widget.guards, oldWidget.guards) ||
+        !identical(widget.observers, oldWidget.observers) ||
+        !identical(widget.notFound, oldWidget.notFound) ||
+        !identical(widget.refreshListenable, oldWidget.refreshListenable)) {
+      try {
+        final registry = OmniRouteRegistry(
+          widget.routes,
+          rootNavigatorKey: _navKey,
+        );
+        OmniRoute.updateRegistry(router, registry);
+        router.updateConfig(
+          registry: registry,
+          guards: widget.guards,
+          observers: widget.observers ?? const [],
+          errorBuilder: widget.notFound ?? defaultOmniErrorBuilder,
+          refreshListenable: widget.refreshListenable == null
+              ? _guardRefresh
+              : Listenable.merge([_guardRefresh, widget.refreshListenable]),
+        );
+      } catch (e, stack) {
+        _configError = e;
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: e,
+            stack: stack,
+            library: 'omni_route',
+            context: ErrorDescription('while updating OmniApp routes'),
+          ),
+        );
+      }
+    }
+  }
 
   void _navigated() {
     final router = _router!;
     final state = router.state;
-    // Same page and same URI = nothing changed. A new page at the same
-    // location (pushed twice, or popped back to) has a new pageKey.
     if (state.uri == _lastUri && state.pageKey == _lastPageKey) return;
-    final top = state.topRoute;
-    final to = top == null
-        ? OmniRouteEntry(location: state.matchedLocation, name: state.name)
-        : OmniRouteEntry.fromRoute(top, state.matchedLocation);
+    final to = router.currentEntry;
     final event = OmniNavigation(from: _last, to: to, uri: state.uri);
     _last = to;
     _lastUri = state.uri;
@@ -294,7 +296,6 @@ class _OmniAppState extends State<OmniApp> {
     widget.onNavigate?.call(event);
   }
 
-  // Previous global values, restored in dispose (only if still ours).
   FlutterExceptionHandler? _prevFlutterOnError;
   FlutterExceptionHandler? _ourFlutterOnError;
   bool Function(Object, StackTrace)? _prevPlatformOnError;
@@ -313,7 +314,6 @@ class _OmniAppState extends State<OmniApp> {
       _prevPlatformOnError = dispatcher.onError;
       dispatcher.onError = _ourPlatformOnError = (error, stack) {
         onError(error, stack);
-        // false = not handled: the engine's default reporting still runs.
         return _prevPlatformOnError?.call(error, stack) ?? false;
       };
     }
@@ -343,7 +343,7 @@ class _OmniAppState extends State<OmniApp> {
       Bloc.observer = prevObserver;
     }
     if (widget.orientations != null) {
-      SystemChrome.setPreferredOrientations(const []); // all orientations
+      SystemChrome.setPreferredOrientations(const []);
     }
   }
 
@@ -360,15 +360,15 @@ class _OmniAppState extends State<OmniApp> {
     super.dispose();
   }
 
-  /// Optional app-level wrappers; each is added only when its setting is on.
   Widget _wrapApp(Widget app) {
     var child = app;
     if (widget.minTextScale != null || widget.maxTextScale != null) {
+      final inner = child;
       child = Builder(
         builder: (context) => MediaQuery.withClampedTextScaling(
           minScaleFactor: widget.minTextScale ?? 0,
           maxScaleFactor: widget.maxTextScale ?? double.infinity,
-          child: app,
+          child: inner,
         ),
       );
     }
@@ -389,11 +389,11 @@ class _OmniAppState extends State<OmniApp> {
   @override
   Widget build(BuildContext context) {
     final router = _router;
-    if (router == null) {
+    if (router == null || _configError != null) {
       return ErrorWidget(_configError ?? 'OmniApp configuration failed');
     }
     return OmniPageConfig(
-      pageType: widget.pageType,
+      transition: widget.transition,
       titles: widget.setTitles,
       titleColor: widget.titleColor,
       errorBuilder: widget.notFound ?? defaultOmniErrorBuilder,

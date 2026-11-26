@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 int created = 0, closed = 0;
@@ -39,7 +38,7 @@ class P extends OmniStatelessWidget {
   }
 }
 
-late StatefulNavigationShell shell;
+late OmniNavigationShell shell;
 
 Widget app({int extraRoutes = 0}) => OmniApp(
   blocs: [
@@ -52,8 +51,8 @@ Widget app({int extraRoutes = 0}) => OmniApp(
     OmniStatefulShell(
       builder: (_, _, s) => shell = s,
       branches: [
-        StatefulShellBranch(routes: [OmniPage('/t0', (_) => const P('t0'))]),
-        StatefulShellBranch(routes: [OmniPage('/t1', (_) => const P('t1'))]),
+        OmniBranch(routes: [OmniPage('/t0', (_) => const P('t0'))]),
+        OmniBranch(routes: [OmniPage('/t1', (_) => const P('t1'))]),
       ],
     ),
     for (var i = 0; i < extraRoutes; i++) OmniPage('/r$i/:id', (p) => P('r$i')),

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 /// Swipe-back mode, changed live from Settings.
@@ -59,7 +58,7 @@ class AuthGuard extends OmniGuard {
   Stream<Object?> refresh(BuildContext context) =>
       context.read<AuthBloc>().stream;
   @override
-  String? redirect(BuildContext c, GoRouterState s) {
+  String? redirect(BuildContext c, OmniRouteState s) {
     final loggedIn = c.read<AuthBloc>().state;
     final atLogin = s.matchedLocation == '/login';
     if (!loggedIn && !atLogin) {
@@ -99,7 +98,7 @@ class ExampleApp extends StatelessWidget {
     restorationScopeId: 'router', // restore the route stack after restart
     // Fade between pages; swipe from either edge to close. The swipe style
     // is app-wide and can be switched live in Settings.
-    pageType: OmniPages.fade,
+    transition: OmniPages.fade,
     swipeBack: mode,
     // Android 14+: the system back gesture zooms the page out too (needs
     // enableOnBackInvokedCallback in AndroidManifest.xml).
@@ -119,15 +118,15 @@ class ExampleApp extends StatelessWidget {
       OmniPage(
         '/confirm-logout',
         (_) => const ConfirmLogoutScreen(),
-        pageType: OmniPages.dialog(),
+        transition: OmniPages.dialog(),
       ),
       OmniStatefulShell(
         builder: (context, state, shell) => HomeShell(shell: shell),
         branches: [
-          StatefulShellBranch(
+          OmniBranch(
             routes: [OmniPage('/dashboard', (_) => const DashboardScreen())],
           ),
-          StatefulShellBranch(
+          OmniBranch(
             routes: [
               OmniPage(
                 '/students',
@@ -153,7 +152,7 @@ class ExampleApp extends StatelessWidget {
                           OmniPage(
                             'edit',
                             (_) => const StudentEditScreen(),
-                            pageType: OmniPages.slideUp,
+                            transition: OmniPages.slideUp,
                           ),
                         ],
                       ),
@@ -163,7 +162,7 @@ class ExampleApp extends StatelessWidget {
               ),
             ],
           ),
-          StatefulShellBranch(
+          OmniBranch(
             routes: [
               OmniPage(
                 '/settings',
@@ -191,7 +190,7 @@ class ExampleApp extends StatelessWidget {
 
 class HomeShell extends StatelessWidget {
   const HomeShell({super.key, required this.shell});
-  final StatefulNavigationShell shell;
+  final OmniNavigationShell shell;
 
   @override
   Widget build(BuildContext context) => Scaffold(

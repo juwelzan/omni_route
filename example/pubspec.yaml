@@ -36,7 +36,6 @@ dependencies:
   omni_route:
     path: ../
   flutter_bloc: ^9.1.1
-  go_router: ^18.1.4
   cupertino_icons: ^1.0.8
 
 dev_dependencies:

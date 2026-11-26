@@ -37,6 +37,9 @@ enum OmniErrorCode {
   /// `OmniLifecycle` is mixed into an `OmniStatefulWidget` instead of its
   /// `OmniState`, so its hooks would never run.
   lifecycleOnWidget,
+
+  /// Guards exceeded the maximum number of redirects (redirect loop).
+  redirectLoop,
 }
 
 /// The single exception type thrown by OmniRoute for configuration and

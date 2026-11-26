@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 class SessionBloc extends Bloc<bool, bool> {
@@ -55,7 +54,7 @@ Widget app({
   BlocObserver? blocObserver,
   void Function(Object, StackTrace)? onError,
   List<OmniGuard> guards = const [],
-  List<RouteBase> extra = const [],
+  List<OmniRouteBase> extra = const [],
 }) => OmniApp(
   lifecycle: lifecycle,
   onInit: onInit,

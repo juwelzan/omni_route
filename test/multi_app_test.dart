@@ -1,7 +1,6 @@
 // Audit v2 finding D: settings must not leak between OmniApps.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:go_router/go_router.dart';
 import 'package:omni_route/omni_route.dart';
 
 class S extends OmniStatelessWidget {
@@ -19,7 +18,7 @@ final key2 = GlobalKey<NavigatorState>();
 Widget app(String id, GlobalKey<NavigatorState> nav, {required bool second}) =>
     OmniApp(
       navigatorKey: nav,
-      pageType: second ? OmniPages.none : OmniPages.material,
+      transition: second ? OmniPages.none : OmniPages.material,
       notFound: second ? (_, s, _) => Text('custom 404 ${s.uri.path}') : null,
       routes: [
         OmniPage('/', (_) => S('$id home')),
@@ -31,8 +30,8 @@ Widget app(String id, GlobalKey<NavigatorState> nav, {required bool second}) =>
 Page<Object?> topPage(GlobalKey<NavigatorState> k) =>
     (k.currentWidget! as Navigator).pages.last;
 
-GoRouter routerOf(GlobalKey<NavigatorState> k) =>
-    GoRouter.of(k.currentContext!);
+OmniRouter routerOf(GlobalKey<NavigatorState> k) =>
+    OmniRouter.of(k.currentContext!);
 
 void main() {
   testWidgets('two OmniApps keep their own page type, error page and router', (
@@ -57,7 +56,7 @@ void main() {
       isA<MaterialPage<void>>(),
       reason: 'app 1 not overwritten by app 2',
     );
-    expect(topPage(key2), isA<NoTransitionPage<void>>());
+    expect(topPage(key2), isA<OmniNoTransitionPage<void>>());
 
     routerOf(key1).go('/missing');
     routerOf(key2).go('/missing');
