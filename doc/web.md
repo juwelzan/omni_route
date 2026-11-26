@@ -23,7 +23,7 @@ What then works without extra code (verified in a browser with the example app):
 | Trailing slash | `/students/` redirects to `/students` (query kept) |
 | URL encoding | path params are decoded for you; `OmniRoute.to<T>()` encodes |
 | Unknown URL | `OmniApp(notFound: ...)` page |
-| Tab title | each screen's `title` (defaults to `screenName`); off with `OmniApp(setTitles: false)` |
+| Tab title | each screen's `title` (defaults to a title formatted from `routePath`); off with `OmniApp(setTitles: false)` |
 
 **Things that do not survive a refresh:** `extra` objects and in-memory Bloc
 state (e.g. a logged-in flag). Put anything a page needs after reload in the

@@ -45,7 +45,7 @@ class StudentScreen extends OmniStatelessWidget {
   const StudentScreen({super.key, this.label = ''});
   final String label;
   @override
-  String get screenName => 'Students';
+  String get routePath => '/students';
   @override
   List<Provide> get provide => const [
     Provide<StudentBloc>(lazy: false),
@@ -63,7 +63,7 @@ class StudentScreen extends OmniStatelessWidget {
 class StatefulStudent extends OmniStatefulWidget {
   const StatefulStudent({super.key});
   @override
-  String get screenName => 'S';
+  String get routePath => '/stateful-student';
   @override
   List<Provide> get provide => const [Provide<StudentBloc>()];
   @override

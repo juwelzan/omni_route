@@ -9,7 +9,7 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   Widget build(BuildContext context) =>
       Scaffold(body: Center(child: Text(label)));
@@ -18,7 +18,7 @@ class S extends OmniStatelessWidget {
 class Home extends OmniStatelessWidget with OmniLifecycle {
   const Home({super.key});
   @override
-  String get screenName => 'home';
+  String get routePath => '/';
   @override
   void onScreenVisible(BuildContext c) => log.add('home:visible');
   @override
@@ -31,7 +31,7 @@ class Home extends OmniStatelessWidget with OmniLifecycle {
 class Locked extends OmniStatelessWidget {
   const Locked({super.key});
   @override
-  String get screenName => 'locked';
+  String get routePath => '/locked';
   @override
   Widget build(BuildContext context) => const PopScope(
     canPop: false,
@@ -42,7 +42,7 @@ class Locked extends OmniStatelessWidget {
 class EdgeButton extends OmniStatelessWidget {
   const EdgeButton({super.key});
   @override
-  String get screenName => 'edge';
+  String get routePath => '/edge';
   @override
   Widget build(BuildContext context) => Scaffold(
     body: Stack(

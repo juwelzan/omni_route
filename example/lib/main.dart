@@ -104,54 +104,49 @@ class ExampleApp extends StatelessWidget {
     // enableOnBackInvokedCallback in AndroidManifest.xml).
     predictiveBack: true,
     blocs: [
-      // Global Blocs: created once, live for the whole app.
+      // Only truly app-wide global Blocs live on OmniApp.
+      // Page-scoped Blocs live on their pages/screens and register on entry.
       OmniBloc<AuthBloc>((_) => AuthBloc(), global: true, lazy: false),
       OmniBloc<ThemeBloc>((_) => ThemeBloc(), global: true),
-      // Factories for screen-scoped Blocs: created per screen, closed on pop.
-      OmniBloc<StudentBloc>((_) => StudentBloc()),
-      OmniBloc<AttendanceBloc>((_) => AttendanceBloc()),
     ],
     routes: [
-      OmniPage('/login', (_) => const LoginScreen()),
+      OmniPage.screen(const LoginScreen()),
       // A dialog route: `await OmniRoute.push<bool>('/confirm-logout')`
       // returns what the dialog passes to `OmniRoute.pop(...)`.
-      OmniPage(
-        '/confirm-logout',
-        (_) => const ConfirmLogoutScreen(),
+      OmniPage.screen(
+        const ConfirmLogoutScreen(),
         transition: OmniPages.dialog(),
       ),
       OmniStatefulShell(
         builder: (context, state, shell) => HomeShell(shell: shell),
         branches: [
           OmniBranch(
-            routes: [OmniPage('/dashboard', (_) => const DashboardScreen())],
+            routes: [OmniPage.screen(const DashboardScreen())],
           ),
           OmniBranch(
             routes: [
-              OmniPage(
-                '/students',
-                (_) => const StudentListScreen(),
+              OmniPage.screen(
+                const StudentListScreen(),
                 routes: [
                   // Route scope: detail and edit share these Blocs; they are
-                  // closed when the user leaves this student.
+                  // registered on first entry and closed on leave.
                   OmniRouteGroup(
                     scopeKey: (s) => s.pathParameters['id'],
                     provide: [
-                      Provide<StudentDetailBloc>.create(
+                      OmniBloc<StudentDetailBloc>(
                         (c) =>
                             StudentDetailBloc(OmniParams.of(c).pathInt('id')),
                       ),
-                      const Provide<AttendanceBloc>(),
+                      OmniBloc<AttendanceBloc>((_) => AttendanceBloc()),
                     ],
                     routes: [
-                      OmniPage(
+                      OmniPage<StudentDetailScreen>(
                         ':id',
                         (p) => StudentDetailScreen(id: p.pathInt('id')),
                         routes: [
                           // Edit form slides up from the bottom.
-                          OmniPage(
-                            'edit',
-                            (_) => const StudentEditScreen(),
+                          OmniPage.screen(
+                            const StudentEditScreen(),
                             transition: OmniPages.slideUp,
                           ),
                         ],
@@ -164,10 +159,9 @@ class ExampleApp extends StatelessWidget {
           ),
           OmniBranch(
             routes: [
-              OmniPage(
-                '/settings',
-                (_) => const SettingsScreen(),
-                routes: [OmniPage('profile', (_) => const ProfileScreen())],
+              OmniPage.screen(
+                const SettingsScreen(),
+                routes: [OmniPage.screen(const ProfileScreen())],
               ),
             ],
           ),
@@ -212,7 +206,7 @@ class HomeShell extends StatelessWidget {
 class LoginScreen extends OmniStatelessWidget {
   const LoginScreen({super.key});
   @override
-  String get screenName => 'Login';
+  String get routePath => '/login';
   @override
   Widget build(BuildContext context) => Scaffold(
     body: Center(
@@ -227,7 +221,7 @@ class LoginScreen extends OmniStatelessWidget {
 class DashboardScreen extends OmniStatefulWidget {
   const DashboardScreen({super.key});
   @override
-  String get screenName => 'Dashboard';
+  String get routePath => '/dashboard';
   @override
   State<DashboardScreen> createState() => _DashboardState();
 }
@@ -238,13 +232,13 @@ class _DashboardState extends OmniState<DashboardScreen> with OmniLifecycle {
 
   // Lifecycle hooks: no WidgetsBindingObserver boilerplate.
   @override
-  void onAppResumed(BuildContext context) => setState(() => returns++);
+  void onAppResumed(BuildContext context) => safeSetState(() => returns++);
 
   @override
   void onScreenVisible(BuildContext context) => debugPrint('Dashboard visible');
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.screenName)),
+    appBar: AppBar(title: Text(screenTitle)),
     body: Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -256,8 +250,7 @@ class _DashboardState extends OmniState<DashboardScreen> with OmniLifecycle {
             child: const Text('Tap'),
           ),
           TextButton(
-            onPressed: () =>
-                OmniRoute.to<StudentDetailScreen>(path: {'id': '101'}),
+            onPressed: () => to<StudentDetailScreen>(path: {'id': '101'}),
             child: const Text('Open student 101'),
           ),
         ],
@@ -269,19 +262,20 @@ class _DashboardState extends OmniState<DashboardScreen> with OmniLifecycle {
 class StudentListScreen extends OmniStatelessWidget {
   const StudentListScreen({super.key});
   @override
-  String get screenName => 'Students';
+  String get routePath => '/students';
+  // Registered automatically when entering /students for the first time.
   @override
-  List<Provide> get provide => const [Provide<StudentBloc>()];
+  List<Provide> get provide => [OmniBloc((_) => StudentBloc())];
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(screenName)),
+    appBar: AppBar(title: Text(title)),
     body: BlocBuilder<StudentBloc, List<String>>(
       builder: (context, students) => ListView(
         children: [
           for (var i = 0; i < students.length; i++)
             ListTile(
               title: Text(students[i]),
-              onTap: () => OmniRoute.open('/students/${101 + i}'),
+              onTap: () => context.open('/students/${101 + i}'),
             ),
         ],
       ),
@@ -293,7 +287,7 @@ class StudentDetailScreen extends OmniStatelessWidget {
   const StudentDetailScreen({super.key, required this.id});
   final int id;
   @override
-  String get screenName => 'Student';
+  String get routePath => '/students/:id';
   @override
   String get title => 'Student $id';
   @override
@@ -310,7 +304,7 @@ class StudentDetailScreen extends OmniStatelessWidget {
             child: const Text('Mark present'),
           ),
           TextButton(
-            onPressed: () => OmniRoute.open('/students/$id/edit'),
+            onPressed: () => context.open('/students/$id/edit'),
             child: const Text('Edit'),
           ),
         ],
@@ -322,7 +316,9 @@ class StudentDetailScreen extends OmniStatelessWidget {
 class StudentEditScreen extends OmniStatefulWidget {
   const StudentEditScreen({super.key});
   @override
-  String get screenName => 'Edit student';
+  String get routePath => '/students/:id/edit';
+  @override
+  String get title => 'Edit student';
   @override
   State<StudentEditScreen> createState() => _StudentEditState();
 }
@@ -330,7 +326,7 @@ class StudentEditScreen extends OmniStatefulWidget {
 class _StudentEditState extends OmniState<StudentEditScreen> {
   // Same StudentDetailBloc instance as the detail page (route scope).
   late final controller = TextEditingController(
-    text: context.read<StudentDetailBloc>().state,
+    text: readBloc<StudentDetailBloc>().state,
   );
 
   @override
@@ -341,7 +337,7 @@ class _StudentEditState extends OmniState<StudentEditScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(widget.screenName)),
+    appBar: AppBar(title: Text(screenTitle)),
     body: Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -349,14 +345,14 @@ class _StudentEditState extends OmniState<StudentEditScreen> {
           TextField(controller: controller),
           FilledButton(
             onPressed: () {
-              context.read<StudentDetailBloc>().add(controller.text);
-              OmniRoute.pop();
+              readBloc<StudentDetailBloc>().add(controller.text);
+              pop();
             },
             child: const Text('Save'),
           ),
           // Pops edit and detail in one go, back to the list.
           TextButton(
-            onPressed: () => OmniRoute.popUntil('/students'),
+            onPressed: () => context.popUntil('/students'),
             child: const Text('Back to list'),
           ),
         ],
@@ -368,15 +364,15 @@ class _StudentEditState extends OmniState<StudentEditScreen> {
 class SettingsScreen extends OmniStatelessWidget {
   const SettingsScreen({super.key});
   @override
-  String get screenName => 'Settings';
+  String get routePath => '/settings';
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(screenName)),
+    appBar: AppBar(title: Text(title)),
     body: ListView(
       children: [
         ListTile(
           title: const Text('Profile'),
-          onTap: () => OmniRoute.go('/settings/profile'),
+          onTap: () => const ProfileScreen().go(context),
         ),
         ValueListenableBuilder(
           valueListenable: swipeMode,
@@ -403,7 +399,7 @@ class SettingsScreen extends OmniStatelessWidget {
           title: const Text('Log out'),
           onTap: () async {
             final auth = context.read<AuthBloc>();
-            final ok = await OmniRoute.push<bool>('/confirm-logout');
+            final ok = await const ConfirmLogoutScreen().push<bool>(context);
             if (ok ?? false) auth.add(LoggedOut());
           },
         ),
@@ -415,10 +411,10 @@ class SettingsScreen extends OmniStatelessWidget {
 class ProfileScreen extends OmniStatelessWidget {
   const ProfileScreen({super.key});
   @override
-  String get screenName => 'Profile';
+  String get routePath => '/settings/profile';
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text(screenName)),
+    appBar: AppBar(title: Text(title)),
     body: const Center(child: Text('Profile')),
   );
 }
@@ -426,17 +422,19 @@ class ProfileScreen extends OmniStatelessWidget {
 class ConfirmLogoutScreen extends OmniStatelessWidget {
   const ConfirmLogoutScreen({super.key});
   @override
-  String get screenName => 'Confirm log out';
+  String get routePath => '/confirm-logout';
+  @override
+  String get title => 'Confirm log out';
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('Log out?'),
     actions: [
       TextButton(
-        onPressed: () => OmniRoute.pop(false),
+        onPressed: () => context.pop(false),
         child: const Text('Cancel'),
       ),
       FilledButton(
-        onPressed: () => OmniRoute.pop(true),
+        onPressed: () => context.pop(true),
         child: const Text('Yes, log out'),
       ),
     ],

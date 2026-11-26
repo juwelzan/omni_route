@@ -55,6 +55,56 @@ void validateRoutePath(String path, {required bool topLevel}) {
   }
 }
 
+/// Validates a screen's declared `routePath`.
+///
+/// Accepts either top-level/full paths (`/students`, `/students/:id`, `/`) or
+/// relative child paths (`:id`, `edit`). Rejects empty paths, uppercase
+/// segments, spaces, trailing slashes, `?`, `#`, empty segments, or duplicate
+/// parameter names.
+@internal
+void validateScreenRoutePath(String path) {
+  if (path.trim().isEmpty) {
+    throw const OmniRouteException(
+      OmniErrorCode.emptyRoutePath,
+      'Screen routePath is empty.',
+      hint: "Override `String get routePath => '/my-screen';`.",
+    );
+  }
+  validateRoutePath(path, topLevel: path.startsWith('/'));
+}
+
+/// Derives a readable default window/app-bar title from [routePath].
+///
+/// Examples: `'/'` -> `'Home'`, `'/students'` -> `'Students'`,
+/// `'/confirm-logout'` -> `'Confirm Logout'`, `'/students/:id'` -> `'Students'`.
+@internal
+String defaultTitleFromRoutePath(String routePath) {
+  final trimmed = routePath.trim();
+  if (trimmed.isEmpty || trimmed == '/') return 'Home';
+  final rawSegments = (trimmed.startsWith('/') ? trimmed.substring(1) : trimmed)
+      .split('/')
+      .where((s) => s.isNotEmpty)
+      .toList();
+  String? chosen;
+  for (var i = rawSegments.length - 1; i >= 0; i--) {
+    final seg = rawSegments[i];
+    if (!seg.startsWith(':') && !seg.startsWith('*')) {
+      chosen = seg;
+      break;
+    }
+  }
+  chosen ??= rawSegments.isNotEmpty ? rawSegments.last : 'Home';
+  if (chosen.startsWith(':') || chosen.startsWith('*')) {
+    chosen = chosen.substring(1);
+  }
+  final words = chosen
+      .split(RegExp(r'[-_.]+'))
+      .where((w) => w.isNotEmpty)
+      .map((w) => '${w[0].toUpperCase()}${w.substring(1)}');
+  final result = words.join(' ');
+  return result.isEmpty ? 'Home' : result;
+}
+
 /// Throws on the first full path that appears twice in [fullPaths].
 @internal
 void checkDuplicatePaths(Iterable<String> fullPaths) {

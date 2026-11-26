@@ -42,6 +42,9 @@ class OmniRouteState {
   /// Route pattern as declared, e.g. `:id` or `/students/:id`.
   final String? path;
 
+  /// Canonical route path identifying this page (alias for [path]).
+  String? get routePath => path;
+
   /// Optional route name (`OmniPage(..., name: ...)`).
   final String? name;
 
@@ -80,6 +83,20 @@ class OmniRouteState {
   /// Finds the [OmniRouteState] above [context], or `null` if outside a route.
   static OmniRouteState? maybeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<OmniRouteStateScope>()?.state;
+
+  /// Reads the [OmniRouteState] above [context] without subscribing to updates,
+  /// making it safe inside `initState`.
+  static OmniRouteState readOf(BuildContext context) =>
+      readMaybeOf(context) ??
+      (throw FlutterError(
+        'OmniRouteState.readOf(context) called with a context that has no '
+        'OmniPage above it.',
+      ));
+
+  /// Reads the [OmniRouteState] above [context] without subscribing, or `null`
+  /// if outside a route.
+  static OmniRouteState? readMaybeOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<OmniRouteStateScope>()?.state;
 
   /// Returns a copy of this state with updated fields.
   OmniRouteState copyWith({

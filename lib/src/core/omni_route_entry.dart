@@ -9,6 +9,7 @@ class OmniRouteEntry {
   /// Creates an entry.
   const OmniRouteEntry({
     required this.location,
+    this.routePath,
     this.name,
     this.path,
     this.screen,
@@ -16,22 +17,29 @@ class OmniRouteEntry {
   });
 
   /// Creates an entry for an [OmniPage] matched at [location].
-  factory OmniRouteEntry.fromPage(OmniPage page, String location) =>
-      OmniRouteEntry(
-        location: location,
-        name: page.name,
-        path: page.path,
-        screen: page.screenType,
-        metadata: page.metadata ?? const {},
-      );
+  factory OmniRouteEntry.fromPage(
+    OmniPage page,
+    String location, {
+    String? routePath,
+  }) => OmniRouteEntry(
+    location: location,
+    routePath: routePath ?? (page.path.isNotEmpty ? page.path : null),
+    name: page.name,
+    path: page.path,
+    screen: page.screenType,
+    metadata: page.metadata ?? const {},
+  );
 
   /// Where the page is, e.g. `/students/7` (no query).
   final String location;
 
-  /// The route's `name`, if it has one.
+  /// Full canonical route pattern recognizing this page, e.g. `/students/:id`.
+  final String? routePath;
+
+  /// The route's `name` alias, if it has one.
   final String? name;
 
-  /// The route pattern as declared, e.g. `:id`.
+  /// The route pattern segment as declared, e.g. `:id`.
   final String? path;
 
   /// The screen type shown by the route (`OmniPage<S>`).
@@ -44,16 +52,17 @@ class OmniRouteEntry {
   bool operator ==(Object other) =>
       other is OmniRouteEntry &&
       other.location == location &&
+      other.routePath == routePath &&
       other.name == name &&
       other.path == path &&
       other.screen == screen;
 
   @override
-  int get hashCode => Object.hash(location, name, path, screen);
+  int get hashCode => Object.hash(location, routePath, name, path, screen);
 
   @override
   String toString() =>
-      '$location${screen == null ? '' : ' ($screen)'}${name == null ? '' : ' #$name'}';
+      '$location${screen == null ? '' : ' ($screen)'}${routePath == null ? '' : ' [$routePath]'}${name == null ? '' : ' #$name'}';
 }
 
 /// A completed navigation event passed to `OmniApp(onNavigate:)`.

@@ -411,9 +411,8 @@ class _OmniSheetPage extends Page<void> {
 /// an [OmniScreen] with automatic lifecycle/Bloc hosting or a plain [Widget]).
 ///
 /// ```dart
-/// OmniPage<StudentsScreen>(
-///   '/students',
-///   (_) => const StudentsScreen(),
+/// OmniPage.screen(
+///   const StudentsScreen(), // uses StudentsScreen.routePath automatically
 ///   routes: [
 ///     OmniPage<StudentDetailScreen>(
 ///       ':id',
@@ -426,26 +425,62 @@ class _OmniSheetPage extends Page<void> {
 class OmniPage<S extends Widget> extends OmniRouteBase {
   /// Creates a route at [path] displaying the widget built by [screenBuilder].
   const OmniPage(
-    this.path,
-    this.screenBuilder, {
+    String this._path,
+    OmniScreenBuilder<S> this._screenBuilder, {
     this.name,
     this.title,
     this.transition,
     this.guards = const [],
     this.provide = const [],
+    this.blocs = const [],
     this.onExit,
     this.routes = const [],
     this.metadata,
     this.parentNavigatorKey,
-  });
+  }) : _screen = null;
+
+  /// Creates a route directly from a widget [screen], automatically using
+  /// `screen.routePath` when [screen] is an [OmniScreen] (or [path] if
+  /// supplied). Eliminates duplicate path strings and builder boilerplate.
+  const OmniPage.screen(
+    S this._screen, {
+    String? path,
+    this.name,
+    this.title,
+    this.transition,
+    this.guards = const [],
+    this.provide = const [],
+    this.blocs = const [],
+    this.onExit,
+    this.routes = const [],
+    this.metadata,
+    this.parentNavigatorKey,
+  }) : // Named `path` cannot be a private initializing formal alongside computed `get path`.
+       // ignore: prefer_initializing_formals
+       _path = path,
+       _screenBuilder = null;
+
+  final String? _path;
+  final OmniScreenBuilder<S>? _screenBuilder;
+  final S? _screen;
 
   /// Path segment or full path (e.g. `'/'`, `'/students'`, `':id'`).
-  final String path;
+  /// Defaults to `screen.routePath` for [OmniPage.screen] routes.
+  String get path {
+    if (_path != null) return _path;
+    final screen = _screen;
+    if (screen is OmniScreen) return screen.routePath;
+    return '';
+  }
+
+  /// Canonical route path identifying this page (alias for [path]).
+  String get routePath => path;
 
   /// Builds the screen widget from decoded route parameters.
-  final OmniScreenBuilder<S> screenBuilder;
+  OmniScreenBuilder<S> get screenBuilder =>
+      _screenBuilder ?? (_) => _screen as S;
 
-  /// Optional unique route name for `goNamed` / `pushNamed` / `replaceNamed`.
+  /// Optional unique route alias for `goNamed` / `pushNamed` / `replaceNamed`.
   final String? name;
 
   /// Optional page title used for browser tabs and OS task switchers.
@@ -458,9 +493,20 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   /// Route-specific guards checked when navigating to this page.
   final List<OmniGuard> guards;
 
-  /// Blocs scoped cleanly to this route page (works for both [OmniScreen] and
-  /// plain [Widget] screens).
+  /// Blocs scoped cleanly to this route page (registered on page entry and
+  /// closed on pop). Works with both [OmniScreen] and plain [Widget] screens.
   final List<Provide> provide;
+
+  /// Additional Blocs scoped to this route page (merged with [provide]).
+  /// Lets you pass `[OmniBloc((_) => MyBloc())]` directly at page level.
+  final List<Provide> blocs;
+
+  /// Combined list of [provide] and [blocs].
+  List<Provide> get effectiveProvide {
+    if (blocs.isEmpty) return provide;
+    if (provide.isEmpty) return blocs;
+    return [...provide, ...blocs];
+  }
 
   /// Confirmation callback before popping this page via back button or
   /// `maybePop`.
@@ -479,6 +525,11 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   /// Screen type [S] used by `OmniRoute.to<S>()`.
   Type get screenType => S;
 
+  /// Whether this page was constructed via [OmniPage.screen] without an
+  /// explicit non-OmniScreen path error context.
+  @internal
+  bool get usesScreenPath => _path == null && _screen != null;
+
   @override
   List<OmniRouteBase> get childRoutes => routes;
 
@@ -488,6 +539,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   Page<void> buildPage(
     BuildContext context,
     OmniRouteState state, {
+    String? fullRoutePath,
     Widget Function(BuildContext context, OmniRouteState state, Widget child)?
     wrapGroups,
     OmniPageType? groupTransition,
@@ -495,7 +547,13 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     bool? animated,
   }) {
     final config = OmniPageConfig.of(context);
-    final result = _buildContent(context, state, config, wrapGroups);
+    final result = _buildContent(
+      context,
+      state,
+      config,
+      fullRoutePath,
+      wrapGroups,
+    );
 
     var resolvedType = animated == false
         ? OmniPages.none
@@ -510,28 +568,31 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
       resolvedType = OmniPages._androidPredictive;
     }
 
-    return resolvedType(state.pageKey, result.routeName, result.child);
+    return resolvedType(state.pageKey, result.routePath, result.child);
   }
 
-  ({Widget child, String? routeName}) _buildContent(
+  ({Widget child, String? routePath}) _buildContent(
     BuildContext context,
     OmniRouteState state,
     OmniPageConfig config,
+    String? fullRoutePath,
     Widget Function(BuildContext context, OmniRouteState state, Widget child)?
     wrapGroups,
   ) {
     Widget content;
-    String? routeName = name ?? title;
+    final pageBlocs = effectiveProvide;
+    String? resolvedRoutePath =
+        fullRoutePath ?? (path.isNotEmpty ? path : null);
 
     try {
-      // Instantiate screen inside Builder if `provide` has page-level Blocs
-      // so screen constructors or initState reading Blocs work immediately,
-      // while still resolving synchronous `OmniParams` errors cleanly when
-      // possible.
+      // Instantiate screen inside Builder if `provide`/`blocs` has page-level
+      // Blocs so screen constructors or initState reading Blocs work
+      // immediately, while still resolving synchronous `OmniParams` errors
+      // cleanly when possible.
       Widget buildInner(BuildContext innerContext) {
-        final screen = screenBuilder(OmniParams(state));
+        final screen = _screen ?? screenBuilder(OmniParams(state));
         if (screen is OmniScreen) {
-          routeName ??= screen.screenName;
+          resolvedRoutePath ??= screen.routePath;
           final effectiveTitle =
               title ?? (metadata?['title'] as String?) ?? screen.title;
           return hostScreen(
@@ -556,12 +617,13 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
         return screen;
       }
 
-      if (provide.isEmpty) {
+      if (pageBlocs.isEmpty) {
         content = buildInner(context);
       } else {
-        // Pre-validate params when possible so invalidParameter still catches.
+        // Page-level BlocProviders are mounted & registered on first entry to
+        // this page via OmniBlocScope.
         content = OmniBlocScope(
-          provide: provide,
+          provide: pageBlocs,
           child: Builder(
             builder: (innerCtx) {
               try {
@@ -600,7 +662,10 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
       );
     }
 
-    return (child: content, routeName: routeName);
+    return (
+      child: content,
+      routePath: resolvedRoutePath ?? name ?? title,
+    );
   }
 }
 

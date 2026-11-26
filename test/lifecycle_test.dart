@@ -8,7 +8,7 @@ final log = <String>[];
 class Feed extends OmniStatelessWidget with OmniLifecycle {
   const Feed({super.key});
   @override
-  String get screenName => 'feed';
+  String get routePath => '/';
   @override
   Widget build(BuildContext context) => const Text('feed');
 
@@ -41,7 +41,7 @@ class Feed extends OmniStatelessWidget with OmniLifecycle {
 class Player extends OmniStatefulWidget {
   const Player({super.key});
   @override
-  String get screenName => 'player';
+  String get routePath => '/player';
   @override
   State<Player> createState() => _PlayerState();
 }
@@ -67,7 +67,7 @@ class Plain extends OmniStatelessWidget {
   const Plain(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.toLowerCase()}';
   @override
   Widget build(BuildContext context) => Text(label);
 }

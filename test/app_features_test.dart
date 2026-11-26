@@ -17,7 +17,7 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   Widget build(BuildContext context) => Scaffold(body: Text(label));
 }
@@ -310,7 +310,7 @@ void main() {
 class FormScreen extends OmniStatelessWidget {
   const FormScreen({super.key});
   @override
-  String get screenName => 'form';
+  String get routePath => '/form';
   @override
   Widget build(BuildContext context) => const Scaffold(
     body: Align(
@@ -323,7 +323,7 @@ class FormScreen extends OmniStatelessWidget {
 class Boom extends OmniStatelessWidget {
   const Boom({super.key});
   @override
-  String get screenName => 'boom';
+  String get routePath => '/boom';
   @override
   Widget build(BuildContext context) => throw StateError('boom');
 }

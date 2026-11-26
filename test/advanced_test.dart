@@ -38,7 +38,8 @@ class S extends OmniStatelessWidget {
   final String label;
   final List<Provide> blocs;
   @override
-  String get screenName => label;
+  String get routePath =>
+      '/${label.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '')}';
   @override
   List<Provide> get provide => blocs;
   @override
@@ -61,7 +62,7 @@ class _CounterState extends State<Counter> {
 class TabScreen extends OmniStatelessWidget {
   const TabScreen({super.key});
   @override
-  String get screenName => 'Tab';
+  String get routePath => '/a';
   @override
   List<Provide> get provide => const [Provide<TabBloc>(lazy: false)];
   @override

@@ -35,7 +35,7 @@ typedef OmniAppBuilder =
 ///   initialRoute: '/dashboard',
 ///   transition: OmniPages.fadeSlide,
 ///   blocs: [OmniBloc<AuthBloc>((_) => AuthBloc(), global: true)],
-///   routes: [OmniPage<DashboardScreen>('/dashboard', (_) => const DashboardScreen())],
+///   routes: [OmniPage.screen(const DashboardScreen())],
 ///   builder: (context, router) => MaterialApp.router(routerConfig: router),
 /// )
 /// ```
@@ -83,7 +83,10 @@ class OmniApp extends StatefulWidget {
   /// Builds your app widget (`MaterialApp.router`) with the router.
   final OmniAppBuilder builder;
 
-  /// Bloc factories; entries with `global: true` stay alive for the app.
+  /// App-wide Bloc factories; entries with `global: true` stay alive for the
+  /// whole app. Page-scoped Blocs should instead be declared directly on their
+  /// screen (`provide`) or `OmniPage(blocs: [...])` so their `BlocProvider`s
+  /// register when first entering that page.
   final List<OmniBloc> blocs;
 
   /// Location shown on startup when no platform deep link is active.

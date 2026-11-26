@@ -22,7 +22,7 @@ Leaks it found and how they were fixed:
 
 | Leak | Cause | Fix |
 |---|---|---|
-| `StatelessElement` not disposed | empty `screenName` threw inside `mount` | validate in the element's `build` → Flutter shows an ErrorWidget and disposes normally |
+| `StatelessElement` not disposed | empty `routePath` threw inside `mount` | validate in the element's `build` → Flutter shows an ErrorWidget and disposes normally |
 | 4× `StatefulElement` not disposed | `OmniApp` config error thrown from `initState` | report via `FlutterError.reportError`, render `ErrorWidget` |
 
 Normal navigation never leaked.

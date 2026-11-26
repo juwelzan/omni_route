@@ -38,7 +38,7 @@ class Pane extends OmniStatelessWidget {
   const Pane({super.key, this.label = 'pane'});
   final String label;
   @override
-  String get screenName => 'Pane';
+  String get routePath => '/pane';
   @override
   List<Provide> get provide => const [Provide<PaneBloc>()];
   @override
@@ -49,7 +49,7 @@ class Pane extends OmniStatelessWidget {
 class Detail extends OmniStatefulWidget {
   const Detail({super.key});
   @override
-  String get screenName => 'Detail';
+  String get routePath => '/detail';
   @override
   List<Provide> get provide => const [Provide<DetailBloc>()];
   @override
@@ -72,7 +72,7 @@ class _DetailState extends OmniState<Detail> {
 class Page extends OmniStatelessWidget {
   const Page({super.key});
   @override
-  String get screenName => 'Page';
+  String get routePath => '/page';
   @override
   List<Provide> get provide => const [Provide<PageBloc>(lazy: false)];
   @override

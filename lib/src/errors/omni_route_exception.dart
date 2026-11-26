@@ -1,8 +1,5 @@
 /// Category of an [OmniRouteException].
 enum OmniErrorCode {
-  /// `screenName` is empty.
-  emptyScreenName,
-
   /// A route path is empty.
   emptyRoutePath,
 

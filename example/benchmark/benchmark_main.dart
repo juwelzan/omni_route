@@ -41,18 +41,20 @@ Widget homeBody() => Scaffold(
 class OHome extends OmniStatelessWidget {
   const OHome({super.key});
   @override
-  String get screenName => 'Home';
+  String get routePath => 'Home';
   @override
   List<Provide> get provide => const [Provide<ListBloc>()];
   @override
   Widget build(BuildContext context) => homeBody();
+
+ 
 }
 
 class OItem extends OmniStatelessWidget {
   const OItem(this.id, {super.key});
   final int id;
   @override
-  String get screenName => 'Item';
+  String get routePath => 'Item';
   @override
   List<Provide> get provide => [Provide<ItemBloc>.create((_) => ItemBloc(id))];
   @override

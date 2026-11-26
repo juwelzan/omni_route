@@ -53,11 +53,11 @@ String navigationMessage(OmniNavigation n) {
   ].join('\n');
 }
 
-// The screen class, or the route name when the route was declared without
-// a specific screen type (`OmniPage` inferred as `OmniPage<OmniScreen>`).
+// The screen class, or the route name / canonical routePath when the route
+// was declared without a specific screen type (`OmniPage<OmniScreen>`).
 String _screen(OmniRouteEntry? e) {
   if (e == null) return '';
   final screen = e.screen;
   if (screen != null && screen != OmniScreen) return '$screen';
-  return e.name ?? '';
+  return e.name ?? e.routePath ?? '';
 }

@@ -10,7 +10,8 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath =>
+      '/${label.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '-').replaceAll(RegExp(r'^-+|-+$'), '')}';
   @override
   Widget build(BuildContext context) => Text(label);
 }
@@ -215,7 +216,7 @@ class Unique extends OmniStatelessWidget {
   const Unique(this.id, {super.key});
   final String id;
   @override
-  String get screenName => 'unique';
+  String get routePath => '/u/:id';
   @override
   Widget build(BuildContext context) => Text('unique $id');
 }

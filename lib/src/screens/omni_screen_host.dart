@@ -54,9 +54,9 @@ bool isHosted(BuildContext? context, OmniScreen screen) =>
 @internal
 OmniRouteException notHostedError(OmniScreen screen) => OmniRouteException(
   OmniErrorCode.screenNotHosted,
-  '${screen.name} declares Blocs in `provide` but is shown outside a '
+  '${screen.debugName} declares Blocs in `provide` but is shown outside a '
   'route, so they were not created.',
   hint:
-      'Wrap it: OmniScreenHost(screen: ${screen.name}(...)), '
+      'Wrap it: ${screen.debugName}(...).hosted() or OmniScreenHost(screen: ...), '
       'or show it through an OmniPage.',
 );

@@ -1345,6 +1345,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     return compiled.page.buildPage(
       context,
       st,
+      fullRoutePath: compiled.fullPath,
       groupTransition: compiled.groupTransition,
       navTransition: frame.transitionOverride,
       animated: frame.animatedOverride,
@@ -1724,7 +1725,11 @@ class _PageFrame extends _StackFrame {
   final Completer<Object?>? completer;
 
   OmniRouteEntry toEntry() => compiled != null
-      ? OmniRouteEntry.fromPage(compiled!.page, matchedLocation)
+      ? OmniRouteEntry.fromPage(
+          compiled!.page,
+          matchedLocation,
+          routePath: compiled!.fullPath,
+        )
       : errorEntryFor(uri);
 
   OmniRouteState toState() => OmniRouteState(
@@ -2117,6 +2122,7 @@ class _GroupScopeHostState extends State<_GroupScopeHost> {
   Widget build(BuildContext context) {
     if (widget.provide.isEmpty) return widget.child;
     final registry = OmniGlobalBlocScope.registryOf(context);
+    registry.registerPageBlocs(widget.provide);
 
     Widget wrapChain(int index) {
       if (index >= widget.provide.length) return widget.child;

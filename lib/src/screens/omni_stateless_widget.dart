@@ -4,13 +4,21 @@ import 'omni_lifecycle.dart';
 import 'omni_screen.dart';
 import 'omni_screen_host.dart';
 
-/// A [StatelessWidget] screen with OmniRoute metadata.
+/// A [StatelessWidget] screen with canonical [routePath] identity, automatic
+/// lifecycle hooks, and automatic page-scoped Bloc hosting.
 ///
 /// ```dart
 /// class StudentScreen extends OmniStatelessWidget {
 ///   const StudentScreen({super.key});
+///
 ///   @override
-///   String get screenName => 'Students';
+///   String get routePath => '/students';
+///
+///   @override
+///   List<Provide> get provide => [
+///     OmniBloc((_) => StudentBloc()),
+///   ];
+///
 ///   @override
 ///   Widget build(BuildContext context) => const Placeholder();
 /// }
@@ -53,20 +61,23 @@ class _OmniStatelessElement extends StatelessElement {
   Widget build() {
     final screen = widget as OmniStatelessWidget;
     validateScreen(screen);
-    final built = _build(screen);
-    return _lifecycle?.wrap(built) ?? built;
-  }
-
-  Widget _build(OmniStatelessWidget screen) {
-    if (isHosted(this, screen)) return super.build();
-    // Shown outside a route: provide our own Blocs and build the screen
-    // with a context below them.
+    if (isHosted(this, screen)) {
+      final built = super.build();
+      return _lifecycle?.wrap(built) ?? built;
+    }
+    // Shown outside a route: provide our own Blocs above the screen and wrap
+    // lifecycle inside that Bloc scope so lifecycle hooks can also `read<B>()`.
     return hostScreen(
       screen,
-      // This element owns the widget; calling its build is what
-      // StatelessElement itself does, only with an inner context.
-      // ignore: invalid_use_of_protected_member
-      wrap: (_) => Builder(builder: screen.build),
+      // This element owns the widget; calling its build mirrors
+      // StatelessElement while exposing provided Blocs to build & lifecycle.
+      wrap: (_) => Builder(
+        builder: (innerContext) {
+          // ignore: invalid_use_of_protected_member
+          final built = screen.build(innerContext);
+          return _lifecycle?.wrap(built) ?? built;
+        },
+      ),
     );
   }
 }

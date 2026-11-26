@@ -158,6 +158,7 @@ class OmniRouteRegistry {
   }) {
     final allPaths = <String>[];
     final names = <String, CompiledRoute>{};
+    final byRoutePath = <String, CompiledRoute>{};
     var nextShellId = 0;
     var nextGroupId = 0;
 
@@ -175,12 +176,26 @@ class OmniRouteRegistry {
       for (final node in list) {
         switch (node) {
           case OmniPage():
-            validateRoutePath(node.path, topLevel: topLevel);
-            final fullPath = topLevel || node.path.startsWith('/')
-                ? node.path
-                : (parentPath == '/'
-                      ? '/${node.path}'
-                      : '$parentPath/${node.path}');
+            var nodePath = node.path;
+            if (!topLevel &&
+                parentPath != '/' &&
+                nodePath.startsWith('$parentPath/')) {
+              nodePath = nodePath.substring(parentPath.length + 1);
+            }
+            if (node.usesScreenPath && nodePath.trim().isEmpty) {
+              throw OmniRouteException(
+                OmniErrorCode.emptyRoutePath,
+                'OmniPage.screen(${node.screenType}) requires an OmniScreen '
+                'or an explicit `path:` argument.',
+                hint:
+                    'Extend OmniStatelessWidget/OmniStatefulWidget with '
+                    '`routePath` or pass `path: "/my-route"`.',
+              );
+            }
+            validateRoutePath(nodePath, topLevel: topLevel);
+            final fullPath = topLevel || nodePath.startsWith('/')
+                ? nodePath
+                : (parentPath == '/' ? '/$nodePath' : '$parentPath/$nodePath');
             allPaths.add(fullPath);
             onFirstBranchPage?.call(fullPath);
 
@@ -242,6 +257,7 @@ class OmniRouteRegistry {
               (_) => null,
               ifAbsent: () => fullPath,
             );
+            byRoutePath[fullPath] = stored;
             _trie.insert(fullPath, stored);
 
             walk(
@@ -378,6 +394,7 @@ class OmniRouteRegistry {
     checkDuplicatePaths(allPaths);
     paths = List.unmodifiable(allPaths);
     _byName = Map.unmodifiable(names);
+    _byRoutePath = Map.unmodifiable(byRoutePath);
   }
 
   static List<CompiledShellRef> _resolveTargetShells(
@@ -398,12 +415,16 @@ class OmniRouteRegistry {
   final OmniRouteTrie<CompiledRoute> _trie = OmniRouteTrie<CompiledRoute>();
   final Map<Type, String?> _byType = {};
   late final Map<String, CompiledRoute> _byName;
+  late final Map<String, CompiledRoute> _byRoutePath;
 
   /// All registered full route paths in declaration order.
   late final List<String> paths;
 
   /// Guards declared across routes, groups and shells, in tree order.
   final List<OmniGuard> routeGuards = [];
+
+  /// Looks up a compiled route by its canonical [routePath] pattern.
+  CompiledRoute? routeAt(String routePath) => _byRoutePath[routePath];
 
   /// Matches [uri] against the Segment Trie in O(segments) time.
   CompiledMatch? matchUri(Uri uri) {
@@ -428,9 +449,10 @@ class OmniRouteRegistry {
         OmniErrorCode.missingRoute,
         'No OmniPage builds $screen.',
         hint:
-            'Add OmniPage(..., (_) => $screen(...)). If your routes are in a '
-            'List<OmniPage>, Dart infers OmniPage<Widget> and loses the '
-            'screen type: use List<OmniRouteBase> or write OmniPage<$screen>(...).',
+            'Add OmniPage(..., (_) => $screen(...)) or OmniPage.screen(const $screen()). '
+            'If your routes are in a List<OmniPage>, Dart infers '
+            'OmniPage<Widget> and loses the screen type: use List<OmniRouteBase> '
+            'or write OmniPage<$screen>(...).',
       );
     }
     return _byType[screen] ??

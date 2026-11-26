@@ -34,7 +34,7 @@ class DetailBloc extends TagBloc {
 class HomeScreen extends OmniStatelessWidget {
   const HomeScreen({super.key});
   @override
-  String get screenName => 'Home';
+  String get routePath => '/';
   @override
   Widget build(BuildContext context) {
     context.read<AuthBloc>();
@@ -45,7 +45,7 @@ class HomeScreen extends OmniStatelessWidget {
 class ListScreen extends OmniStatelessWidget {
   const ListScreen({super.key});
   @override
-  String get screenName => 'List';
+  String get routePath => '/students';
   @override
   List<Provide> get provide => const [Provide<ListBloc>(lazy: false)];
   @override
@@ -57,7 +57,7 @@ class DetailScreen extends OmniStatefulWidget {
   final int id;
   final String? tab;
   @override
-  String get screenName => 'Detail';
+  String get routePath => '/students/:id';
   @override
   List<Provide> get provide => [
     Provide<DetailBloc>.create((_) => DetailBloc(id), lazy: false),
@@ -248,7 +248,7 @@ void main() {
 
 class _Unregistered extends OmniStatelessWidget {
   @override
-  String get screenName => 'x';
+  String get routePath => '/unregistered';
   @override
   Widget build(BuildContext context) => const SizedBox();
 }

@@ -36,20 +36,21 @@ What OmniRoute adds:
 
 ## 2. Where each Bloc lives
 
-| Scope | Declared with | Created | Closed | Survives |
+| Scope | Declared with | Created / Registered | Closed | Survives |
 |---|---|---|---|---|
-| **Global** | `OmniBloc<B>(..., global: true)` | when `OmniApp` mounts (or on first read if `lazy`) | when `OmniApp` is disposed | everything |
-| **Route group** | `OmniRouteGroup(provide: [...])` | on entering any route of the group | on leaving the group, or when `scopeKey` changes | moving between group routes; pages pushed on top |
+| **Global** | `OmniBloc<B>(..., global: true)` on `OmniApp` | registered at `OmniApp` mount (created on mount if `lazy: false` or first read) | when `OmniApp` is disposed | everything |
+| **Route group** | `OmniRouteGroup(provide: [...])` | registered & mounted on entering any route of the group | on leaving the group, or when `scopeKey` changes | moving between group routes; pages pushed on top |
 | **Shell** | `OmniShell(provide:)` / `OmniStatefulShell(provide:)` | when the shell is first shown | when the shell is no longer shown | switching routes/tabs inside it |
-| **Page** | screen `provide` (shown by `OmniPage`) | when the page is built | when the page is popped or replaced | rebuilds; pages pushed on top; hidden tabs |
-| **Screen** | screen `provide` (shown outside a route) | when the screen mounts | when the screen is removed | rebuilds |
+| **Page** | screen `provide` / `OmniPage(blocs:)` (`OmniBloc(...)` or `Provide`) | registered & mounted on first entering the page | when the page is popped or replaced | rebuilds; pages pushed on top; hidden tabs |
+| **Screen** | screen `provide` (shown outside a route) | registered & mounted when the screen mounts | when the screen is removed | rebuilds |
 | **External** | `Provide.value(bloc)` | by you | **never by OmniRoute** | — |
 
 ### Ownership rules
 
-1. A Bloc created by OmniRoute (`Provide<B>()`, `Provide<B>.create`,
+1. A Bloc created by OmniRoute (`OmniBloc(...)`, `Provide<B>()`, `Provide.create`,
    global/group/shell entries) is closed by flutter_bloc's `BlocProvider`
-   exactly once, when its owner leaves the tree.
+   exactly once, when its owner leaves the tree. Page-scoped `OmniBloc`s are
+   registered lazily into the app registry when their page is first entered.
 2. `Provide.value` uses `BlocProvider.value`: never closed by OmniRoute.
 3. Rebuilds never recreate a Bloc: providers sit in elements that survive
    rebuilds; pages are keyed by go_router's stable `pageKey`.

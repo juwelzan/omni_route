@@ -7,7 +7,7 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   Widget build(BuildContext context) => Text(label);
 }

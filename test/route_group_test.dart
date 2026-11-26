@@ -24,7 +24,9 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.toLowerCase()}';
+  @override
+  List<Provide> get provide => const [];
   @override
   Widget build(BuildContext context) {
     final b = context.watch<StudentBloc>();
@@ -36,7 +38,7 @@ class Plain extends OmniStatelessWidget {
   const Plain(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.toLowerCase()}';
   @override
   Widget build(BuildContext context) => Scaffold(body: Text(label));
 }
@@ -202,7 +204,7 @@ void main() {
 class ParamScreen extends OmniStatefulWidget {
   const ParamScreen({super.key});
   @override
-  String get screenName => 'param';
+  String get routePath => '/param/:id';
   @override
   List<Provide> get provide => [
     Provide<StudentBloc>.create(

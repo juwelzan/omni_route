@@ -87,18 +87,16 @@ class MyApp extends StatelessWidget {
         // অ্যাপ খুললে প্রথমে কোন পেজ দেখাবে।
         initialRoute: '/students',
 
-        // Bloc কীভাবে তৈরি হবে — একবারই এখানে বলে দিন।
+        // Global Bloc: পুরো অ্যাপের জন্য একবারই এখানে; পেজের Bloc পেজ থেকেই রেজিস্টার হয়।
         blocs: [
           // global: true → পুরো অ্যাপের জন্য একটাই instance।
           OmniBloc<AuthBloc>((_) => AuthBloc(), global: true),
-          // global না → যে screen চাইবে, তার জন্য নতুন instance।
-          OmniBloc<StudentBloc>((_) => StudentBloc()),
         ],
 
-        // Route টেবিল: কোন URL-এ কোন screen।
+        // Route টেবিল: OmniPage.screen দিয়ে পেজের নিজস্ব routePath সরাসরি ব্যবহার হয়।
         routes: [
-          OmniPage('/students', (_) => const StudentScreen(), routes: [
-            // '/students/:id' — child path-এ সামনে '/' থাকে না।
+          OmniPage.screen(const StudentScreen(), routes: [
+            // '/students/:id' — child path-এ সামনে '/' অথবা পূর্ণ '/students/:id' দুটোই চলে।
             OmniPage(':id', (p) => StudentDetailScreen(id: p.pathInt('id'))),
           ]),
         ],
@@ -111,13 +109,13 @@ class MyApp extends StatelessWidget {
 class StudentScreen extends OmniStatelessWidget {
   const StudentScreen({super.key});
 
-  // বাধ্যতামূলক: মানুষের পড়ার মতো নাম (log আর browser title-এ ব্যবহার হয়)।
+  // বাধ্যতামূলক: পেজের একক path; সব জায়গায় পেজটি চেনার জন্য ব্যবহার হয়।
   @override
-  String get screenName => 'Students';
+  String get routePath => '/students';
 
-  // এই screen-এর নিজস্ব Bloc। পেজ খুললে তৈরি, pop করলে বন্ধ — নিজে থেকেই।
+  // এই screen-এর নিজস্ব Bloc — প্রথম পেজে ঢোকার সময় রেজিস্টার হয়, pop করলে বন্ধ।
   @override
-  List<Provide> get provide => const [Provide<StudentBloc>()];
+  List<Provide> get provide => [OmniBloc((_) => StudentBloc())];
 
   @override
   Widget build(BuildContext context) {
@@ -145,14 +143,13 @@ class StudentScreen extends OmniStatelessWidget {
 | অ্যাপ সেটআপ (router, Bloc, guard একসাথে) | `OmniApp` |
 | সাধারণ (state ছাড়া) screen | `OmniStatelessWidget` |
 | state সহ screen (`setState`, controller) | `OmniStatefulWidget` + `OmniState` |
-| একটা URL-এ একটা screen বা সাধারণ `Widget` | `OmniPage` (`provide:`, `onExit:`, `title:`, `transition:`) |
-| URL থেকে id, query পড়া | `OmniParams` (`p.pathInt('id')`, `p.query('tab')`, `context.params`) |
-| অন্য পেজে যাওয়া / ফেরা | `OmniRoute.go / push / pop / to<Screen>()` বা `context.go / push / to<S>()` |
+| একটা URL-এ একটা screen বা সাধারণ `Widget` | `OmniPage` / `OmniPage.screen` (`blocs:`, `provide:`, `onExit:`, `title:`, `transition:`) |
+| URL থেকে id, query পড়া | `OmniParams` (`p.pathInt('id')`, `p.query('tab')`, `context.params`, `params`) |
+| অন্য পেজে যাওয়া / ফেরা | `OmniRoute.go / push / goPath / to<S>()` বা `screen.go(ctx)` / `context.push` |
 | অ্যানিমেশন ছাড়া তাৎক্ষণিক যাওয়া | `transition: OmniPages.none` বা `animated: false` |
-| Bloc কীভাবে তৈরি হবে বলে দেওয়া | `OmniBloc<B>(...)` (`OmniApp(blocs:)`-এ) |
-| পুরো অ্যাপের Bloc (auth, theme) | `OmniBloc<B>(..., global: true)` |
-| শুধু এক screen-এর Bloc | screen-এর `provide` বা `OmniPage(..., provide: [...])` |
-| route parameter দিয়ে Bloc বানানো | `Provide<B>.create((c) => B(...))` |
+| পেজ-স্কোপড Bloc (প্রথম পেজে ঢোকার সময় রেজিস্টার হয়) | `OmniBloc((_) => MyBloc())` (screen `provide` বা `OmniPage(blocs:)`-এ) |
+| পুরো অ্যাপের Bloc (auth, theme) | `OmniBloc<B>(..., global: true)` (`OmniApp(blocs:)`-এ) |
+| আগে থেকেই পেজ/শেয়ার্ড ফ্যাক্টরি বা `OmniBloc.eager` | `OmniBloc.eager((c) => B(...))` বা `Provide.create` / `Provide.eager` |
 | আগে থেকে তৈরি Bloc দেওয়া (OmniRoute বন্ধ করবে না) | `Provide.value(bloc)` |
 | কয়েকটা route একই Bloc ভাগ করবে (detail + edit) | `OmniRouteGroup` (nested Navigator ছাড়াই) |
 | সব child route-এর চারপাশে একই layout | `OmniShell` |
@@ -300,17 +297,17 @@ OmniApp(
 class ProfileScreen extends OmniStatelessWidget {
   const ProfileScreen({super.key});
 
-  // বাধ্যতামূলক। খালি হলে error।
+  // বাধ্যতামূলক: এই পেজের canonical routePath (খালি বা অবৈধ হলে error)।
   @override
-  String get screenName => 'Profile';
+  String get routePath => '/profile';
 
-  // ঐচ্ছিক: browser tab / app switcher-এর title। না দিলে screenName।
+  // ঐচ্ছিক: browser tab / app switcher-এর title। না দিলে routePath থেকেই তৈরি হয় ('Profile')।
   @override
   String get title => 'আমার প্রোফাইল';
 
-  // ঐচ্ছিক: এই screen-এর Bloc (৯ম অংশ)।
+  // ঐচ্ছিক: প্রথম এই পেজে ঢোকার সময় BlocProvider রেজিস্টার হয়।
   @override
-  List<Provide> get provide => const [Provide<ProfileBloc>()];
+  List<Provide> get provide => [OmniBloc((_) => ProfileBloc())];
 
   @override
   Widget build(BuildContext context) => const Scaffold(body: Text('Profile'));
@@ -324,47 +321,58 @@ class DashboardScreen extends OmniStatefulWidget {
   const DashboardScreen({super.key});
 
   @override
-  String get screenName => 'Dashboard';
+  String get routePath => '/dashboard';
 
   @override
-  List<Provide> get provide => const [Provide<StatsBloc>()];
+  List<Provide> get provide => [OmniBloc((_) => StatsBloc())];
 
   @override
   State<DashboardScreen> createState() => _DashboardState();
 }
 
-// State-এর জায়গায় OmniState — বাকি সব সাধারণ Flutter State-এর মতো।
+// OmniState: initState-সেফ routeState/params, safeSetState, onReady, onRouteChanged,
+// এবং readBloc/watchBloc/go/push/pop/to শর্টকাট সহ।
 class _DashboardState extends OmniState<DashboardScreen> {
   late final StatsBloc stats;
 
   @override
   void initState() {
     super.initState();
-    // screen-এর Bloc initState-এই পাওয়া যায় — কারণ OmniRoute Bloc গুলো
-    // screen-এর উপরে বসায়।
-    stats = context.read<StatsBloc>();
+    // screen-এর Bloc ও routeState / params initState-এই নিরাপদে পাওয়া যায়।
+    stats = readBloc<StatsBloc>();
+  }
+
+  @override
+  void onReady(BuildContext context) {
+    // প্রথম ফ্রেমের পর একবার (mounted থাকা অবস্থায়) চলে।
+  }
+
+  @override
+  void onRouteChanged(OmniRouteState previous, OmniRouteState current) {
+    // একই পেজে query বা extra বদলালে চলে।
   }
 
   @override
   Widget build(BuildContext context) {
-    // metadata   → screen-এর নাম, title, type
-    // routeState → OmniRouteState (path, query, extra)
-    return Text('${widget.screenName} — ${routeState.uri}');
+    return Text('$routePath ($screenTitle) — ${routeState.uri}');
   }
 }
 ```
 
 | Member | কোথায় | কাজ |
 |---|---|---|
-| `screenName` | দুটোতেই (বাধ্যতামূলক) | screen-এর নাম; log, title-এ ব্যবহার |
-| `title` | দুটোতেই | browser tab-এর title (default `screenName`) |
-| `provide` | দুটোতেই | এই screen-এর Bloc তালিকা |
-| `name` | দুটোতেই | class-এর নাম — **শুধু debug-এর জন্য** (release obfuscation-এ বদলে যায়) |
-| `metadata` | দুটোতেই / `OmniState` | `OmniScreenMetadata` (type, screenName, title) |
-| `routeState` | `OmniState` / `context.routeState` | বর্তমান `OmniRouteState` |
+| `routePath` | দুটোতেই (বাধ্যতামূলক) | পেজের একক path; route, metadata, `RouteSettings.name`, log ও navigation-এ ব্যবহার |
+| `title` | দুটোতেই | browser tab / app-bar title (default `routePath` থেকে ফরম্যাট করা হয়) |
+| `provide` | দুটোতেই | এই screen-এর Bloc তালিকা (`OmniBloc`, `Provide`, ...) — পেজে ঢুকলে রেজিস্টার হয় |
+| `debugName` | দুটোতেই | class-এর নাম — **শুধু debug-এর জন্য** (release obfuscation-এ বদলে যায়) |
+| `metadata` | দুটোতেই / `OmniState` | `OmniScreenMetadata` (`type`, `routePath`, `title`, `debugName`) |
+| `routeState` / `params` | `OmniState` / `context` | `initState`-সেফ `OmniRouteState` ও `OmniParams` (`maybe*` ভার্সন সহ) |
+| `readBloc` / `watchBloc` / `safeSetState` | `OmniState` | কম কোডে Bloc পড়া, শর্তসাপেক্ষ `setState` |
+| `onReady` / `onRouteChanged` | `OmniState` | first-frame ও route-param পরিবর্তন হুক |
+| `go` / `push` / `open` / `hosted` | `OmniScreen` ও `OmniState` | সরাসরি screen থেকেই navigate বা `OmniScreenHost`-এ র‍্যাপ |
 
-> Screen-এর ভিতরে URL লেখা থাকে না। URL থাকে route টেবিলে (`OmniPage`)।
-> এতে `StudentDetailScreen(id: 101)`-এর মতো argument-ওয়ালা screen-ও সহজে route-এ বসে।
+> `OmniPage.screen(const DashboardScreen())` ব্যবহার করলে আলাদা করে path string বা builder লিখতে হয় না — screen-এর `routePath` থেকেই route তৈরি হয়।
+> প্যারামিটারযুক্ত screen (`StudentDetailScreen(id: p.pathInt('id'))`)-এও `OmniPage(':id', (p) => ...)` আগের মতোই চলে।
 
 ---
 
@@ -551,10 +559,10 @@ OmniRoute.router;              // নেটিভ OmniRouter ইঞ্জিন
 
 ## ৯. Bloc — কোথায় কোনটা
 
-### ধাপ ১: Factory একবার register করুন
+### ধাপ ১: Global Bloc আর Page Bloc আলাদা রাখুন
 
-Dart-এ reflection নেই, তাই শুধু type দেখে Bloc বানানো যায় না —
-একবার বলে দিতে হয় কীভাবে বানাবে:
+- **পুরো অ্যাপের Bloc (`global: true`)** শুধু `OmniApp(blocs: [...])`-এ থাকবে।
+- **পেজ/স্ক্রিনের নিজস্ব Bloc** অ্যাপ শুরুতে রেজিস্টার করার দরকার নেই — সরাসরি screen-এর `provide` বা `OmniPage(blocs: [...])`-এ `OmniBloc((_) => MyBloc())` লিখে দিন। **অ্যাপ প্রথমবার ওই পেজে ঢোকার সময়ই** `BlocProvider` রেজিস্টার ও তৈরি হবে এবং পেজ থেকে বের হলে বন্ধ হয়ে যাবে।
 
 ```dart
 OmniApp(
@@ -562,32 +570,25 @@ OmniApp(
     // পুরো অ্যাপের জন্য একটাই (login, theme)
     OmniBloc<AuthBloc>((_) => AuthBloc(), global: true, lazy: false),
     OmniBloc<ThemeBloc>((_) => ThemeBloc(), global: true),
-
-    // screen-গুলোর জন্য factory — dependency context থেকে
-    OmniBloc<StudentBloc>((context) => StudentBloc(context.read<StudentRepository>())),
-    OmniBloc<AttendanceBloc>((_) => AttendanceBloc()),
   ],
   ...
 )
 ```
 
-- `global: true` → অ্যাপ চালু থাকা পর্যন্ত বাঁচে; সব জায়গা থেকে `context.read<AuthBloc>()`।
-- `lazy: false` → প্রথমেই তৈরি হবে (না দিলে প্রথম ব্যবহারের সময়)।
-- `Bloc` আর `Cubit` দুটোই চলে (0.3.0 থেকে): `OmniBloc<CounterCubit>((_) => CounterCubit())`,
+- `global: true` → অ্যাপ চালু থাকা পর্যন্ত বাঁচে; সব জায়গা থেকে `context.read<AuthBloc>()` বা `readBloc<AuthBloc>()`।
+- `OmniBloc.eager(...)` / `lazy: false` → পেজে ঢোকার সাথে সাথেই ইনস্ট্যান্স তৈরি হয় (সাধারণত প্রথম ব্যবহারের সময়)।
+- `Bloc` আর `Cubit` দুটোই চলে: `OmniBloc((_) => CounterCubit())`,
   `Provide<CounterCubit>()`, `Provide.value(cubit)` — সব জায়গায় একই নিয়ম।
 
-### ধাপ ২: Screen-এ শুধু type বলুন
+### ধাপ ২: Screen বা Page-এ Bloc ঘোষণা করুন
 
 ```dart
-// একটা Bloc
-@override
-List<Provide> get provide => const [Provide<StudentBloc>()];
-
-// একাধিক Bloc
+// সবচেয়ে সংক্ষিপ্ত উপায় — পেজে ঢুকলেই রেজিস্টার ও তৈরি হয়:
 @override
 List<Provide> get provide => [
-  const Provide<StudentBloc>(),                                  // registry থেকে
-  Provide<StudentDetailBloc>.create((_) => StudentDetailBloc(id)), // নিজের factory (parameter সহ)
+  OmniBloc((_) => StudentBloc()),                                // lazy page Bloc
+  OmniBloc.eager((_) => DashboardBloc()),                        // পেজে ঢুকতেই eager তৈরি
+  Provide<StudentDetailBloc>.create((_) => StudentDetailBloc(id)), // প্যারামিটার সহ
   Provide.value(existingCartBloc),                               // আগে থেকে তৈরি — OmniRoute বন্ধ করবে না
 ];
 ```
@@ -767,7 +768,7 @@ class FeedScreen extends OmniStatelessWidget with OmniLifecycle {
   const FeedScreen({super.key});
 
   @override
-  String get screenName => 'Feed';
+  String get routePath => '/feed';
 
   // অ্যাপে ফিরে এলে নতুন data আনো
   @override
@@ -832,8 +833,8 @@ Row(children: [
   // Stateless: নিজে থেকেই নিজের Bloc তৈরি করে
   const Expanded(child: StudentListScreen()),
 
-  // Stateful: OmniScreenHost দিয়ে মুড়ে দিন
-  Expanded(child: OmniScreenHost(screen: DashboardScreen())),
+  // Stateful: .hosted() বা OmniScreenHost দিয়ে মুড়ে দিন
+  Expanded(child: const DashboardScreen().hosted()),
 ])
 ```
 
@@ -978,7 +979,9 @@ OmniPage('/pick-class', (_) => const PickClassScreen(),
 class ConfirmScreen extends OmniStatelessWidget {
   const ConfirmScreen({super.key});
   @override
-  String get screenName => 'Confirm';
+  String get routePath => '/confirm';
+  @override
+  String get title => 'Confirm';
   @override
   Widget build(BuildContext context) => AlertDialog(
     title: const Text('মুছে ফেলবেন?'),
@@ -1212,8 +1215,8 @@ Observer লাগলে: `OmniApp(observers:)` (root), `OmniShell(observers:)`,
 |---|---|---|
 | `invalidRoutePath ... lowercase` | path-এ বড় হাতের অক্ষর | ছোট হাতের লিখুন |
 | `duplicateRoute` | একই URL বা একই `name` দুবার | একটার নাম/path বদলান |
-| `emptyScreenName` | `screenName` খালি | নাম দিন |
-| `missingBlocFactory` | Bloc register করা হয়নি | `OmniApp(blocs:)`-এ `OmniBloc<X>(...)` যোগ করুন |
+| `emptyRoutePath` / `invalidRoutePath` | `routePath` খালি বা নিয়ম ভাঙা | বৈধ lowercase path দিন (যেমন `'/home'`) |
+| `missingBlocFactory` | Bloc register করা হয়নি | screen `provide`/`OmniPage(blocs:)`-এ `OmniBloc((_) => X())` দিন বা `OmniApp(blocs:)`-এ যোগ করুন |
 | `duplicateBlocRegistration` | একই Bloc দুবার | একটা সরান |
 | `unsupportedConfiguration: X is global` | global Bloc screen-এ আবার `Provide` | `Provide` সরিয়ে `context.read<X>()` |
 | `screenNotHosted` | route ছাড়া stateful screen | `OmniScreenHost(screen: ...)` |

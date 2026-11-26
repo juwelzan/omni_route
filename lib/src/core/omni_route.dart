@@ -1,13 +1,16 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_web_plugins/url_strategy.dart';
 import 'package:logger/logger.dart';
 
+import '../bloc/omni_bloc.dart';
 import '../errors/omni_route_exception.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_params.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
+import '../routing/omni_trie.dart';
 import 'omni_log.dart';
 import 'omni_route_entry.dart';
 import 'omni_router.dart';
@@ -77,6 +80,20 @@ abstract final class OmniRoute {
 
   /// Full [OmniRouteState] for the page currently on top.
   static OmniRouteState get state => router.state;
+
+  /// Canonical route path pattern for the top page (e.g. `'/students/:id'`).
+  static String? get routePath => router.state.routePath;
+
+  /// Whether [location] matches a compiled route in the active router.
+  static bool hasRoute(String location) =>
+      registryOf(router).matchUri(Uri.parse(location)) != null;
+
+  /// Fills `:param` placeholders in [routePath] and appends [query] values.
+  static String locationFor(
+    String routePath, {
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+  }) => OmniRouteTrie.formatLocation(routePath, params: path, query: query);
 
   /// Top navigation entry in the active stack.
   static OmniRouteEntry get current => router.currentEntry;
@@ -300,6 +317,69 @@ abstract final class OmniRoute {
     animated: animated,
     transition: transition,
   );
+
+  /// Navigate declaratively via [go] using a canonical [routePath] pattern
+  /// (e.g. `'/students/:id'`).
+  static void goPath(
+    String routePath, {
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+    Object? extra,
+    bool animated = true,
+    OmniPageType? transition,
+  }) => go(
+    locationFor(routePath, path: path, query: query),
+    extra: extra,
+    animated: animated,
+    transition: transition,
+  );
+
+  /// Push onto the stack using a canonical [routePath] pattern.
+  static Future<T?> pushPath<T extends Object?>(
+    String routePath, {
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+    Object? extra,
+    bool animated = true,
+    OmniPageType? transition,
+  }) => push<T>(
+    locationFor(routePath, path: path, query: query),
+    extra: extra,
+    animated: animated,
+    transition: transition,
+  );
+
+  /// Smart duplicate-free [open] using a canonical [routePath] pattern.
+  static Future<T?> openPath<T extends Object?>(
+    String routePath, {
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+    Object? extra,
+    int maxDepth = 10,
+    bool animated = true,
+    OmniPageType? transition,
+  }) => open<T>(
+    locationFor(routePath, path: path, query: query),
+    extra: extra,
+    maxDepth: maxDepth,
+    animated: animated,
+    transition: transition,
+  );
+
+  /// Replace the top page using a canonical [routePath] pattern.
+  static void replacePath(
+    String routePath, {
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+    Object? extra,
+    bool animated = true,
+    OmniPageType? transition,
+  }) => replace(
+    locationFor(routePath, path: path, query: query),
+    extra: extra,
+    animated: animated,
+    transition: transition,
+  );
 }
 
 /// Concise navigation and route-parameter helpers directly on [BuildContext].
@@ -320,8 +400,20 @@ extension OmniRouteContext on BuildContext {
   /// Typed route parameters for the current page.
   OmniParams get params => OmniParams.of(this);
 
+  /// Typed route parameters for the current page, or `null` outside a route.
+  OmniParams? get maybeParams => OmniParams.maybeOf(this);
+
   /// Current [OmniRouteState] for the page above this context.
   OmniRouteState get routeState => OmniRouteState.of(this);
+
+  /// Current [OmniRouteState] above this context, or `null` outside a route.
+  OmniRouteState? get maybeRouteState => OmniRouteState.maybeOf(this);
+
+  /// Canonical route path identifying the enclosing page (e.g. `'/students/:id'`).
+  String? get routePath => OmniRouteState.readMaybeOf(this)?.routePath;
+
+  /// Reads Bloc [B] once without subscribing to rebuilds.
+  B bloc<B extends OmniAnyBloc>() => BlocProvider.of<B>(this, listen: false);
 
   /// Replace the stack declaratively with [location].
   void go(
@@ -380,8 +472,42 @@ extension OmniRouteContext on BuildContext {
   /// Pop the top page from this app's active stack.
   void pop<T extends Object?>([T? result]) => _omniRouter.pop<T>(result);
 
+  /// Pop the top page if possible and return `true`; safe on the root page.
+  bool maybePop<T extends Object?>([T? result]) =>
+      _omniRouter.maybePop<T>(result);
+
   /// Whether this app's router can pop.
   bool canPop() => _omniRouter.canPop();
+
+  /// Pop pages until [location] (`Uri.path`) is on top.
+  Future<bool> popUntil(String location) => _omniRouter.popUntil(location);
+
+  /// Pop all pages back to the root of the active stack/tab.
+  Future<void> popToRoot() => _omniRouter.popToRoot();
+
+  /// Smart duplicate-free open onto the route rendering [S] in this app.
+  Future<Object?> openTo<S extends Widget>({
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+    Object? extra,
+    int maxDepth = 10,
+    bool animated = true,
+    OmniPageType? transition,
+  }) {
+    final r = _omniRouter;
+    final loc = OmniRouteRegistry.location(
+      OmniRoute.registryOf(r).pathFor(S),
+      params: path,
+      query: query,
+    );
+    return r.open<Object?>(
+      loc,
+      extra: extra,
+      maxDepth: maxDepth,
+      animated: animated,
+      transition: transition,
+    );
+  }
 
   /// [go] to the route rendering [S] in this app.
   void to<S extends Widget>({

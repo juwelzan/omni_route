@@ -10,7 +10,7 @@ class S extends OmniStatelessWidget {
   final String label;
   final bool blockBack;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   Widget build(BuildContext context) {
     final body = Scaffold(body: Center(child: Text(label)));

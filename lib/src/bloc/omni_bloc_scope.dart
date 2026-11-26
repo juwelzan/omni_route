@@ -84,6 +84,7 @@ class OmniBlocScope extends StatelessWidget {
       }
     }
     final registry = OmniGlobalBlocScope.registryOf(context);
+    registry.registerPageBlocs(provide);
     // A screen wrapped directly (or via forScreen) counts as hosted.
     final screen = _screen ?? child;
     return MultiBlocProvider(

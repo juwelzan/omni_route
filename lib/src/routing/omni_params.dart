@@ -15,16 +15,18 @@ class OmniParams {
   ///
   /// Reads without subscribing, so it is safe in Bloc `create` callbacks
   /// and `initState`.
-  factory OmniParams.of(BuildContext context) {
-    final s =
-        context.getInheritedWidgetOfExactType<OmniRouteStateScope>()?.state ??
-        OmniRouteState.maybeOf(context);
-    if (s == null) {
-      throw FlutterError(
+  factory OmniParams.of(BuildContext context) =>
+      maybeOf(context) ??
+      (throw FlutterError(
         'OmniParams.of(context) called outside an OmniPage route.',
-      );
-    }
-    return OmniParams(s);
+      ));
+
+  /// Parameters of the route [context] is in, or `null` outside an [OmniPage].
+  ///
+  /// Safe in `initState` and Bloc factories.
+  static OmniParams? maybeOf(BuildContext context) {
+    final s = OmniRouteState.readMaybeOf(context);
+    return s == null ? null : OmniParams(s);
   }
 
   /// The underlying route state.

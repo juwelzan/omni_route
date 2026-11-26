@@ -8,9 +8,16 @@ class S extends OmniStatelessWidget {
   final String label;
   final String? customTitle;
   @override
-  String get screenName => label;
+  String get routePath {
+    final slug = label
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '-')
+        .replaceAll(RegExp(r'^-+|-+$'), '');
+    return slug.isEmpty ? '/s' : '/$slug';
+  }
+
   @override
-  String get title => customTitle ?? screenName;
+  String get title => customTitle ?? label;
   @override
   Widget build(BuildContext context) => Text(label);
 }
@@ -134,7 +141,7 @@ void main() {
 class CounterScreen extends OmniStatefulWidget {
   const CounterScreen({super.key});
   @override
-  String get screenName => 'Counter';
+  String get routePath => '/counter';
   @override
   State<CounterScreen> createState() => _CounterState();
 }

@@ -28,7 +28,7 @@ class P extends OmniStatelessWidget {
   const P(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   List<Provide> get provide => const [Provide<PageBloc>(lazy: false)];
   @override
@@ -209,7 +209,7 @@ class _CountedFeed extends OmniStatelessWidget with OmniLifecycle {
   static int builds = 0;
   static int events = 0;
   @override
-  String get screenName => 'counted';
+  String get routePath => '/counted';
   @override
   void onScreenVisible(BuildContext c) => events++;
   @override
@@ -224,7 +224,7 @@ class _CountedFeed extends OmniStatelessWidget with OmniLifecycle {
 class _Other extends OmniStatelessWidget {
   const _Other();
   @override
-  String get screenName => 'other';
+  String get routePath => '/other';
   @override
   Widget build(BuildContext context) => const Text('other');
 }

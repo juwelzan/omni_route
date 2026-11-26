@@ -39,7 +39,7 @@ class _ContextScreen extends OmniStatelessWidget {
   const _ContextScreen();
 
   @override
-  String get screenName => 'ctx';
+  String get routePath => '/ctx';
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -64,7 +64,7 @@ class _TargetScreen extends OmniStatelessWidget {
   final int code;
 
   @override
-  String get screenName => 'target';
+  String get routePath => '/target';
 
   @override
   Widget build(BuildContext context) =>

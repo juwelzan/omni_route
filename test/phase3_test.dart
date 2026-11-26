@@ -9,7 +9,7 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   Widget build(BuildContext context) =>
       Scaffold(body: Center(child: Text(label)));
@@ -19,7 +19,7 @@ class Item extends OmniStatelessWidget {
   const Item({super.key, required this.id});
   final int id;
   @override
-  String get screenName => 'item';
+  String get routePath => '/items/:id';
   @override
   Widget build(BuildContext context) => Text('item $id');
 }
@@ -81,7 +81,7 @@ class Counter extends OmniStatelessWidget {
   const Counter({super.key, this.own = const [Provide<CounterCubit>()]});
   final List<Provide> own;
   @override
-  String get screenName => 'counter';
+  String get routePath => '/counter';
   @override
   List<Provide> get provide => own;
   @override
@@ -95,7 +95,7 @@ class Counter extends OmniStatelessWidget {
 class Wrong extends OmniStatefulWidget with OmniLifecycle {
   const Wrong({super.key});
   @override
-  String get screenName => 'wrong';
+  String get routePath => '/wrong';
   @override
   State<Wrong> createState() => _WrongState();
 }
@@ -109,7 +109,7 @@ class _WrongState extends OmniState<Wrong> {
 class Confirm extends OmniStatelessWidget {
   const Confirm({super.key});
   @override
-  String get screenName => 'confirm';
+  String get routePath => '/confirm';
   @override
   Widget build(BuildContext context) => AlertDialog(
     content: const Text('Sure?'),
@@ -125,7 +125,7 @@ class Confirm extends OmniStatelessWidget {
 class Sheet extends OmniStatelessWidget {
   const Sheet({super.key});
   @override
-  String get screenName => 'sheet';
+  String get routePath => '/sheet';
   @override
   Widget build(BuildContext context) => TextButton(
     onPressed: () => OmniRoute.pop('picked'),
@@ -361,7 +361,7 @@ void main() {
 class Locked extends OmniStatelessWidget {
   const Locked({super.key});
   @override
-  String get screenName => 'locked';
+  String get routePath => '/locked';
   @override
   Widget build(BuildContext context) => const PopScope(
     canPop: false,

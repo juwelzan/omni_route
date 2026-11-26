@@ -8,7 +8,7 @@ class Colored extends OmniStatelessWidget {
   final String label;
   final Color color;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.toLowerCase()}';
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: color,

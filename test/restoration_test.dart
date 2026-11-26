@@ -15,7 +15,7 @@ class DetailBloc extends Bloc<int, int> {
 class Home extends OmniStatelessWidget {
   const Home({super.key});
   @override
-  String get screenName => 'Home';
+  String get routePath => '/';
   @override
   Widget build(BuildContext context) => const Scaffold(body: Text('home'));
 }
@@ -24,7 +24,7 @@ class Detail extends OmniStatefulWidget {
   const Detail({super.key, required this.id});
   final int id;
   @override
-  String get screenName => 'Detail';
+  String get routePath => '/students/:id';
   @override
   List<Provide> get provide => const [Provide<DetailBloc>(lazy: false)];
   @override
@@ -57,7 +57,7 @@ class Tab extends OmniStatelessWidget {
   const Tab(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/${label.replaceAll(' ', '-').toLowerCase()}';
   @override
   Widget build(BuildContext context) => Text(label);
 }

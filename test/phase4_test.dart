@@ -8,7 +8,9 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/$label';
+  @override
+  String get title => label;
   @override
   Widget build(BuildContext context) => Text(label);
 }
@@ -48,7 +50,7 @@ var buttonTaps = 0;
 class Form extends OmniStatelessWidget {
   const Form({super.key});
   @override
-  String get screenName => 'form';
+  String get routePath => '/form';
   @override
   Widget build(BuildContext context) => Scaffold(
     body: ListView(

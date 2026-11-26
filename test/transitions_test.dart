@@ -7,7 +7,7 @@ class S extends OmniStatelessWidget {
   const S(this.label, {super.key});
   final String label;
   @override
-  String get screenName => label;
+  String get routePath => '/$label';
   @override
   Widget build(BuildContext context) =>
       Scaffold(body: Center(child: Text(label)));
@@ -226,7 +226,7 @@ void main() {
 class Counter extends OmniStatefulWidget {
   const Counter({super.key});
   @override
-  String get screenName => 'counter';
+  String get routePath => '/counter';
   @override
   State<Counter> createState() => _CounterState();
 }
