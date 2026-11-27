@@ -18,7 +18,7 @@ What then works without extra code (verified in a browser with the example app):
 | Behaviour | Notes |
 |---|---|
 | Direct access / refresh on any URL | needs the server fallback below |
-| Browser back / forward | GoRouter syncs with browser history |
+| Browser back / forward | `OmniRouter` syncs URLs cleanly (`push` adds history; `replace`, guard `redirect`, `pop`, and `go(..., replaceHistory: true)` use `replaceState` so back cannot return to Login/closed screens) |
 | Query parameters | `p.query('tab')`, kept in the address bar |
 | Trailing slash | `/students/` redirects to `/students` (query kept) |
 | URL encoding | path params are decoded for you; `OmniRoute.to<T>()` encodes |

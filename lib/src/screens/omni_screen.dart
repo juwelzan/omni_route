@@ -96,11 +96,13 @@ mixin OmniScreen on Widget {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => context.go(
     resolvePath(path: path, query: query),
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Navigates via `push` to this screen's [routePath].

@@ -888,6 +888,9 @@ void main() {
 
 পাওয়া যায়: `https://example.com/students/101`, browser back/forward, refresh,
 সরাসরি URL খোলা, tab-এ title, আর `/students/` → `/students` নিজে থেকেই।
+এছাড়া **`OmniRoute.replace(...)`**, **`AuthGuard` রিডাইরেক্ট**, এবং **`go(..., replaceHistory: true)`** /
+**`OmniRoute.neglect(...)`** ওয়েবে `window.history.replaceState` ব্যবহার করে — ফলে Login → Home-এ যাওয়ার পর
+ব্রাউজারের Back বোতামেও আর Login বা চলে যাওয়া স্ক্রিনে ফেরা যায় না।
 
 **⚠️ Server-কে বলতে হবে অজানা path-এ `index.html` দিতে** — নাহলে refresh-এ 404:
 

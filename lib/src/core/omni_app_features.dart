@@ -141,7 +141,7 @@ class _OmniInitGateState extends State<OmniInitGate> {
         );
         if (!mounted || epoch != _runEpoch) return;
         if (dest != null && dest.isNotEmpty) {
-          widget.router?.go(dest, animated: false);
+          widget.router?.go(dest, animated: false, replaceHistory: true);
         }
       }
       if (mounted && epoch == _runEpoch) {

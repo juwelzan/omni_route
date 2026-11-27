@@ -205,11 +205,13 @@ abstract class OmniState<T extends OmniStatefulWidget> extends State<T> {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => context.go(
     location,
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Push [location] onto the active stack; completes with its pop result.
@@ -264,7 +266,25 @@ abstract class OmniState<T extends OmniStatefulWidget> extends State<T> {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => context.to<S>(
+    path: path,
+    query: query,
+    extra: extra,
+    animated: animated,
+    transition: transition,
+    replaceHistory: replaceHistory,
+  );
+
+  /// Replace the current top page with screen type [S].
+  @protected
+  void replaceTo<S extends Widget>({
+    Map<String, Object?> path = const {},
+    Map<String, Object?> query = const {},
+    Object? extra,
+    bool animated = true,
+    OmniPageType? transition,
+  }) => context.replaceTo<S>(
     path: path,
     query: query,
     extra: extra,

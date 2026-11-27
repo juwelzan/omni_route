@@ -47,7 +47,8 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     _delegate = _OmniRouterDelegate(this);
     _parser = const _OmniRouteInformationParser();
     final startUri = _normalizeParse(initialRoute);
-    _infoProvider = PlatformRouteInformationProvider(
+    _infoProvider = _OmniRouteInformationProvider(
+      router: this,
       initialRouteInformation: RouteInformation(uri: startUri),
     );
     _backButtonDispatcher = RootBackButtonDispatcher();
@@ -73,7 +74,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
   late final _OmniRouterDelegate _delegate;
   late final _OmniRouteInformationParser _parser;
-  late final PlatformRouteInformationProvider _infoProvider;
+  late final _OmniRouteInformationProvider _infoProvider;
   late final RootBackButtonDispatcher _backButtonDispatcher;
 
   final _GroupScopeManager _groupManager = _GroupScopeManager();
@@ -89,9 +90,35 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   bool _explicitInitialOverride = false;
   bool _initialReadyNotified = false;
   bool _disposed = false;
+  bool _neglectScopeActive = false;
+  RouteInformationReportingType _pendingReportType =
+      RouteInformationReportingType.neglect;
   int _nextKeyId = 1;
   int _navSeq = 0;
   OmniNavigationKind _lastNavKind = OmniNavigationKind.initial;
+
+  /// Runs [action] without adding a new web browser history entry.
+  void runNeglect(VoidCallback action) {
+    final prev = _neglectScopeActive;
+    _neglectScopeActive = true;
+    try {
+      action();
+    } finally {
+      _neglectScopeActive = prev;
+    }
+  }
+
+  void _markReportType(RouteInformationReportingType type) {
+    _pendingReportType = _neglectScopeActive
+        ? RouteInformationReportingType.neglect
+        : type;
+  }
+
+  RouteInformationReportingType _consumeReportType() {
+    final next = _pendingReportType;
+    _pendingReportType = RouteInformationReportingType.none;
+    return next;
+  }
 
   /// How the most recent route change was triggered.
   OmniNavigationKind get lastNavigationKind => _lastNavKind;
@@ -164,11 +191,16 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       false;
 
   /// Navigates cleanly by replacing the stack declaratively with [location].
+  ///
+  /// Set [replaceHistory] to `true` on the web to overwrite the active browser
+  /// history entry (`window.history.replaceState`) instead of pushing a new one
+  /// (useful for login -> home flows where browser back must stay disabled).
   void go(
     String location, {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) {
     _navigate(
       location,
@@ -176,6 +208,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       extra: extra,
       animated: animated ? null : false,
       transition: transition,
+      replaceHistory: replaceHistory,
     );
   }
 
@@ -198,7 +231,8 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     return completer.future.then((v) => v as T?);
   }
 
-  /// Replaces the top page in the active navigator with [location].
+  /// Replaces the top page in the active navigator with [location] and
+  /// overwrites the active web browser history entry so Back cannot return to it.
   void replace(
     String location, {
     Object? extra,
@@ -211,6 +245,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       extra: extra,
       animated: animated ? null : false,
       transition: transition,
+      replaceHistory: true,
     );
   }
 
@@ -235,6 +270,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       }
       final top = active.last as _PageFrame;
       if (top.uri != target || !identical(top.extra, extra)) {
+        _markReportType(RouteInformationReportingType.neglect);
         _commit();
         replace(
           location,
@@ -243,6 +279,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           transition: transition,
         );
       } else {
+        _markReportType(RouteInformationReportingType.neglect);
         _commit();
       }
       return SynchronousFuture<T?>(null);
@@ -273,6 +310,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     if (idx < active.length - 1) {
       _removeSliceFrom(active, idx + 1);
       _lastNavKind = OmniNavigationKind.pop;
+      _markReportType(RouteInformationReportingType.neglect);
       _commit();
     }
     return SynchronousFuture<bool>(true);
@@ -284,6 +322,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     if (active.length > 1) {
       _removeSliceFrom(active, 1);
       _lastNavKind = OmniNavigationKind.pop;
+      _markReportType(RouteInformationReportingType.neglect);
       _commit();
     }
     return SynchronousFuture<void>(null);
@@ -304,6 +343,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     final removed = stack.removeLast();
     _completeRemovedFrame(removed, result);
     _lastNavKind = OmniNavigationKind.pop;
+    _markReportType(RouteInformationReportingType.neglect);
     _commit();
   }
 
@@ -352,6 +392,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     if (removed != null) {
       _completeRemovedFrame(removed, result);
       _lastNavKind = OmniNavigationKind.pop;
+      _markReportType(RouteInformationReportingType.neglect);
       _commit();
     }
   }
@@ -405,6 +446,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           _lastNavKind = res.redirected
               ? OmniNavigationKind.redirect
               : OmniNavigationKind.initial;
+          _markReportType(RouteInformationReportingType.neglect);
           _applyDeclarativeMatch(
             uri: res.uri,
             match: res.match,
@@ -456,6 +498,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           _lastNavKind = res.redirected
               ? OmniNavigationKind.redirect
               : OmniNavigationKind.refresh;
+          _markReportType(RouteInformationReportingType.neglect);
           _applyDeclarativeMatch(
             uri: res.uri,
             match: res.match,
@@ -474,6 +517,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     Object? extra,
     OmniPageType? transition,
     bool? animated,
+    bool replaceHistory = false,
     Completer<Object?>? completer,
   }) {
     final seq = ++_navSeq;
@@ -481,6 +525,9 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     try {
       parsed = _normalizeParse(rawLocation);
     } on FormatException catch (e) {
+      if (replaceHistory || kind == _NavKind.replace || _neglectScopeActive) {
+        _markReportType(RouteInformationReportingType.neglect);
+      }
       _applyErrorNavigation(
         Uri(path: '/'),
         e,
@@ -509,6 +556,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         extra: extra,
         transition: transition,
         animated: animated,
+        replaceHistory: replaceHistory,
         completer: completer,
       );
       _commit();
@@ -536,6 +584,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           extra: extra,
           transition: transition,
           animated: animated,
+          replaceHistory: replaceHistory,
           completer: completer,
         );
         _commit();
@@ -645,6 +694,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     required Object? extra,
     required OmniPageType? transition,
     required bool? animated,
+    required bool replaceHistory,
     required Completer<Object?>? completer,
   }) {
     _lastNavKind = redirected
@@ -654,6 +704,13 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
             _NavKind.push => OmniNavigationKind.push,
             _NavKind.replace => OmniNavigationKind.replace,
           };
+    if (replaceHistory || kind == _NavKind.replace || _neglectScopeActive) {
+      _markReportType(RouteInformationReportingType.neglect);
+    } else if (kind == _NavKind.push) {
+      _markReportType(RouteInformationReportingType.navigate);
+    } else {
+      _markReportType(RouteInformationReportingType.none);
+    }
     if (error != null || match == null) {
       _applyErrorNavigation(
         uri,
@@ -679,19 +736,28 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
     if (kind == _NavKind.replace) {
       final active = _deepestActiveStack();
-      final frame = _makePageFrame(
-        uri: uri,
-        compiled: match.route,
-        pathParameters: match.pathParameters,
-        extra: extra,
-        transition: transition,
-        animated: animated,
-      );
-      if (active.isEmpty) {
-        active.add(frame);
-      } else {
+      final currentTop = active.isNotEmpty && active.last is _PageFrame
+          ? active.last as _PageFrame
+          : null;
+      if (_canReplaceInPlace(active, currentTop?.compiled, match.route)) {
+        final frame = _makePageFrame(
+          uri: uri,
+          compiled: match.route,
+          pathParameters: match.pathParameters,
+          extra: extra,
+          transition: transition,
+          animated: animated,
+        );
         _completeRemovedFrame(active.last, null);
         active[active.length - 1] = frame;
+      } else {
+        _applyDeclarativeMatch(
+          uri: uri,
+          match: match,
+          extra: extra,
+          transition: transition,
+          animated: animated,
+        );
       }
       return;
     }
@@ -707,6 +773,40 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       completer: completer,
     );
     _pushFrame(frame, match);
+  }
+
+  static bool _canReplaceInPlace(
+    List<_StackFrame> active,
+    CompiledRoute? from,
+    CompiledRoute to,
+  ) {
+    if (active.isEmpty || from == null) return false;
+    if (from.targetNavIdentity != to.targetNavIdentity) return false;
+    if (!_sameShellChain(from.shellChain, to.shellChain)) return false;
+    if (to.sameNavigatorAncestors.length <= 1) return true;
+    final parentPath =
+        to.sameNavigatorAncestors[to.sameNavigatorAncestors.length - 2].fullPath;
+    if (active.length >= 2) {
+      final prev = active[active.length - 2];
+      if (prev is _PageFrame && prev.compiled?.fullPath == parentPath) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _sameShellChain(
+    List<CompiledShellRef> a,
+    List<CompiledShellRef> b,
+  ) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i].shellId != b[i].shellId ||
+          a[i].navigatorKey != b[i].navigatorKey) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _applyErrorNavigation(
@@ -1164,6 +1264,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           completer.complete(null);
         }
       }
+      _markReportType(RouteInformationReportingType.neglect);
       _commit();
     } else {
       _pruneUnusedGroups();
@@ -1855,19 +1956,21 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
 
   @override
   Future<void> setInitialRoutePath(Uri configuration) {
+    final normalized = OmniRouter._normalizeUri(configuration);
     if (!router._explicitInitialOverride &&
-        configuration != router.location &&
-        configuration.path.isNotEmpty &&
+        normalized != router.location &&
+        normalized.path.isNotEmpty &&
         !(router._initialGuardsDone)) {
-      router._seedInitialStack(configuration);
+      router._seedInitialStack(normalized);
     }
     return SynchronousFuture<void>(null);
   }
 
   @override
   Future<void> setNewRoutePath(Uri configuration) {
-    if (configuration != router.location) {
-      router.go(configuration.toString());
+    final normalized = OmniRouter._normalizeUri(configuration);
+    if (normalized != router.location) {
+      router.go(normalized.toString(), replaceHistory: true);
     }
     return SynchronousFuture<void>(null);
   }
@@ -1882,12 +1985,35 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
   }
 }
 
+class _OmniRouteInformationProvider extends PlatformRouteInformationProvider {
+  _OmniRouteInformationProvider({
+    required this.router,
+    required super.initialRouteInformation,
+  });
+
+  final OmniRouter router;
+
+  @override
+  void routerReportsNewRouteInformation(
+    RouteInformation routeInformation, {
+    RouteInformationReportingType type = RouteInformationReportingType.none,
+  }) {
+    final effectiveType = type != RouteInformationReportingType.none
+        ? type
+        : router._consumeReportType();
+    super.routerReportsNewRouteInformation(
+      routeInformation,
+      type: effectiveType,
+    );
+  }
+}
+
 class _OmniRouteInformationParser extends RouteInformationParser<Uri> {
   const _OmniRouteInformationParser();
 
   @override
   Future<Uri> parseRouteInformation(RouteInformation routeInformation) =>
-      SynchronousFuture<Uri>(routeInformation.uri);
+      SynchronousFuture<Uri>(OmniRouter._normalizeUri(routeInformation.uri));
 
   @override
   RouteInformation restoreRouteInformation(Uri configuration) =>

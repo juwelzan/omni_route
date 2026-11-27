@@ -37,6 +37,11 @@ abstract final class OmniRoute {
   /// Call once in `main()` before `runApp`. No-op on other platforms.
   static void usePathUrls() => usePathUrlStrategy();
 
+  /// Runs navigation [action] without adding a new browser history entry on
+  /// web (`window.history.replaceState`), useful for one-way transitions such
+  /// as Login -> Home or Onboarding -> Dashboard.
+  static void neglect(VoidCallback action) => router.runNeglect(action);
+
   /// Logger receiving `OmniApp(logNavigation: true)` and guard warnings.
   static Logger logger = defaultOmniLogger();
 
@@ -112,16 +117,20 @@ abstract final class OmniRoute {
   ///
   /// Set [animated] to `false` for instant zero-transition display, or pass
   /// [transition] to override the animation for this navigation only.
+  /// Set [replaceHistory] to `true` on web to overwrite the active browser
+  /// history entry instead of adding a new entry (e.g. Login -> Home).
   static void go(
     String location, {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => router.go(
     location,
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Push [location] onto the active stack; completes with the pop result.
@@ -228,11 +237,13 @@ abstract final class OmniRoute {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => go(
     locationNamed(name, path: path, query: query),
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Push the route named [name] onto the active stack.
@@ -300,11 +311,13 @@ abstract final class OmniRoute {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => go(
     locationOf<S>(path: path, query: query),
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Push the route building widget/screen [S] onto the active stack.
@@ -330,11 +343,13 @@ abstract final class OmniRoute {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => go(
     locationFor(routePath, path: path, query: query),
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Push onto the stack using a canonical [routePath] pattern.
@@ -424,11 +439,13 @@ extension OmniRouteContext on BuildContext {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) => _omniRouter.go(
     location,
     extra: extra,
     animated: animated,
     transition: transition,
+    replaceHistory: replaceHistory,
   );
 
   /// Push [location] onto this app's active stack.
@@ -519,6 +536,7 @@ extension OmniRouteContext on BuildContext {
     Object? extra,
     bool animated = true,
     OmniPageType? transition,
+    bool replaceHistory = false,
   }) {
     final r = _omniRouter;
     final loc = OmniRouteRegistry.location(
@@ -526,7 +544,13 @@ extension OmniRouteContext on BuildContext {
       params: path,
       query: query,
     );
-    r.go(loc, extra: extra, animated: animated, transition: transition);
+    r.go(
+      loc,
+      extra: extra,
+      animated: animated,
+      transition: transition,
+      replaceHistory: replaceHistory,
+    );
   }
 
   /// [push] the route rendering [S] in this app.
