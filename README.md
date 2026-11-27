@@ -10,10 +10,10 @@
 - `OmniRouteTrie` স্টার্টআপে রুট কম্পাইল করে `O(segments)` সময়ে ম্যাচ করে (কোনো রানটাইম `RegExp` নেই)
 - প্রতিটা Bloc থাকে `flutter_bloc`-এর সাধারণ `BlocProvider`-এ
 
-> আরও গভীরে: [doc/architecture.md](doc/architecture.md) (ভিতরের গঠন, lifecycle, Bloc ownership),
-> [doc/web.md](doc/web.md) (Web hosting), [doc/platforms.md](doc/platforms.md) (Android/iOS/Desktop),
-> [doc/migration.md](doc/migration.md) (পুরনো version থেকে আপগ্রেড)।
-> (এই ডকুমেন্টগুলো ইংরেজিতে।)
+> - **সম্পূর্ণ বাংলা ইউজার গাইড (প্রতিটি প্যারামিটার ও উদাহরণসহ):** [doc/guide.bn.md](doc/guide.bn.md)
+> - আরও গভীরে (ইংরেজি): [doc/architecture.md](doc/architecture.md) (ভিতরের গঠন, lifecycle, Bloc ownership),
+>   [doc/web.md](doc/web.md) (Web hosting), [doc/platforms.md](doc/platforms.md) (Android/iOS/Desktop),
+>   [doc/migration.md](doc/migration.md) (পুরনো version থেকে আপগ্রেড)।
 
 ---
 
@@ -26,7 +26,7 @@
 5. [Screen তৈরি](#৫-screen-তৈরি)
 6. [Route রেজিস্টার — OmniPage](#৬-route-রেজিস্টার--omnipage)
 7. [Route Parameter — OmniParams](#৭-route-parameter--omniparams)
-8. [Navigation — OmniRoute](#৮-navigation--omniroute)
+8. [Navigation — OmniRoute](#৮-navigation--omniroute-ও-buildcontext-এক্সটেনশন)
 9. [Bloc — কোথায় কোনটা](#৯-bloc--কোথায়-কোনটা)
 10. [Shell ও Tab — OmniShell / OmniStatefulShell](#১০-shell-ও-tab)
 11. [Route Group — কয়েকটা Route একই Bloc ভাগ করে](#১১-route-group)
@@ -140,7 +140,7 @@ class StudentScreen extends OmniStatelessWidget {
 
 | আপনি যা করতে চান | যেটা ব্যবহার করবেন |
 |---|---|
-| অ্যাপ সেটআপ (router, Bloc, guard একসাথে) | `OmniApp` |
+| অ্যাপ সেটআপ (router, Bloc, guard একসাথে) | `OmniApp` বা শর্টকাট `OmniApp.material(...)` / `OmniApp.cupertino(...)` |
 | সাধারণ (state ছাড়া) screen | `OmniStatelessWidget` |
 | state সহ screen (`setState`, controller) | `OmniStatefulWidget` + `OmniState` |
 | একটা URL-এ একটা screen বা সাধারণ `Widget` | `OmniPage` / `OmniPage.screen` (`blocs:`, `provide:`, `onExit:`, `title:`, `transition:`) |
@@ -148,7 +148,7 @@ class StudentScreen extends OmniStatelessWidget {
 | অন্য পেজে যাওয়া / ফেরা | `OmniRoute.go / push / goPath / to<S>()` বা `screen.go(ctx)` / `context.push` |
 | অ্যানিমেশন ছাড়া তাৎক্ষণিক যাওয়া | `transition: OmniPages.none` বা `animated: false` |
 | পেজ-স্কোপড Bloc (প্রথম পেজে ঢোকার সময় রেজিস্টার হয়) | `OmniBloc((_) => MyBloc())` (screen `provide` বা `OmniPage(blocs:)`-এ) |
-| পুরো অ্যাপের Bloc (auth, theme) | `OmniBloc<B>(..., global: true)` (`OmniApp(blocs:)`-এ) |
+| গ্লোবাল Repository / Service ও Bloc | `OmniRepo((_) => Repo())` (`repositories:`) + `OmniBloc(..., global: true)` (`blocs:`) |
 | আগে থেকেই পেজ/শেয়ার্ড ফ্যাক্টরি বা `OmniBloc.eager` | `OmniBloc.eager((c) => B(...))` বা `Provide.create` / `Provide.eager` |
 | আগে থেকে তৈরি Bloc দেওয়া (OmniRoute বন্ধ করবে না) | `Provide.value(bloc)` |
 | কয়েকটা route একই Bloc ভাগ করবে (detail + edit) | `OmniRouteGroup` (nested Navigator ছাড়াই) |
@@ -158,22 +158,42 @@ class StudentScreen extends OmniStatelessWidget {
 | Login ছাড়া ঢুকতে না দেওয়া, role check | `OmniGuard` |
 | পেজ ছাড়ার আগে নিশ্চিত করা (unsaved form ইত্যাদি) | `OmniPage(..., onExit: (ctx) => ...)` |
 | App resume/pause, screen দেখা যাচ্ছে কি না | `OmniLifecycle` mixin |
-| পুরো অ্যাপের resume/pause, শুরুতে async load, crash reporting | `OmniApp(lifecycle:, onInit:, onError:)` (৪.১) |
-| keyboard বন্ধ, দুবার back-এ exit, portrait lock, font সীমা | `OmniApp(dismissKeyboardOnTap:, doubleBackToExit:, orientations:, maxTextScale:)` |
+| পুরো অ্যাপের lifecycle, async init + retry, route resolver, crash hook | `OmniApp(lifecycle:, onInit:, initTimeout:, onInitError:, resolveInitialRoute:, onError:)` (৪.১) |
+| keyboard বন্ধ, দুবার back-এ exit, portrait lock, font সীমা, ওভারলে | `OmniApp(dismissKeyboardOnTap:, doubleBackToExit:, orientations:, maxTextScale:, overlayBuilder:)` |
 | Route ছাড়া (layout-এর ভিতরে) stateful screen বসানো | `OmniScreenHost` |
 | Web-এ `#` ছাড়া URL | `OmniRoute.usePathUrls()` |
-| Analytics / screen view tracking | `OmniApp(onNavigate:)` |
+| Analytics / screen view tracking & Route ডায়াগনস্টিকস | `OmniApp(onNavigate:)` (`nav.kind`, `nav.timestamp`), `OmniRoute.paths`, `OmniApp.validateRoutes` |
 | এখন কোন পেজে আছি / পুরো stack / reactive listenable | `OmniRoute.current`, `OmniRoute.stack`, `OmniRoute.currentListenable` |
 
 ---
 
 ## ৪. OmniApp — অ্যাপের মূল
 
-`OmniApp` একবারই নেটিভ `OmniRouter` তৈরি করে (একইসাথে `routes` কম্পাইল করে Segment Trie
-বানায়), global Bloc গুলো সবার উপরে রাখে, আর আপনার `MaterialApp.router`-কে router-টা
-দিয়ে দেয়। আপনার `MaterialApp` পুরোপুরি আপনার নিয়ন্ত্রণে থাকে।
+`OmniApp` একবারই নেটিভ `OmniRouter` তৈরি করে (`routes` কম্পাইল করে Segment Trie
+বানায়), `repositories` ও global `blocs` সবার উপরে রাখে, আর আপনার `MaterialApp.router` /
+`CupertinoApp.router`-কে রেন্ডার করে। চাইলে সরাসরি শর্টকাট **`OmniApp.material(...)`** বা
+**`OmniApp.cupertino(...)`** দিয়েও `builder:` লেখার ঝামেলা ছাড়াই শুরু করতে পারেন:
 
 ```dart
+// ✅ সবচেয়ে কম কোডে: OmniApp.material (MaterialApp.router বিল্ট-ইন)
+OmniApp.material(
+  title: 'My App',
+  theme: ThemeData.light(useMaterial3: true),
+  darkTheme: ThemeData.dark(useMaterial3: true),
+  themeModeBuilder: (c) => c.watch<ThemeBloc>().state ? ThemeMode.dark : ThemeMode.light,
+  repositories: [
+    OmniRepo((_) => AuthRepository(), dispose: (r) => r.dispose()),
+  ],
+  blocs: [
+    OmniBloc((c) => AuthBloc(c.read<AuthRepository>()), global: true),
+    OmniBloc((_) => ThemeBloc(), global: true),
+  ],
+  guards: [const AuthGuard()],
+  routes: [ /* OmniPage, OmniShell, OmniStatefulShell, OmniRouteGroup */ ],
+  appBuilder: (context, child) => OmniInspectorLauncher(inspector: inspector, child: child!),
+)
+
+// অথবা কাস্টম builder দিয়ে পুরো নিয়ন্ত্রণ:
 OmniApp(
   // ── বাধ্যতামূলক ─────────────────────────────────────────
   routes: [ /* OmniPage, OmniShell, OmniStatefulShell, OmniRouteGroup */ ],
@@ -184,8 +204,10 @@ OmniApp(
 
   // ── ঐচ্ছিক ───────────────────────────────────────────────
   initialRoute: '/',            // শুরুর পেজ (deep link না থাকলে)
-  blocs: [ /* OmniBloc<...> */ ], // Bloc factory আর global Bloc
-  guards: [ /* OmniGuard */ ],    // সব route-এ চলবে এমন guard
+  resolveInitialRoute: null,    // async init-এর পর ডাইনামিক শুরুর রুট (/onboarding বনাম /dashboard)
+  repositories: [ /* OmniRepo<...> */ ], // গ্লোবাল সার্ভিস ও রিপোজিটরি DI
+  blocs: [ /* OmniBloc<...> */ ],        // Bloc factory আর global Bloc
+  guards: [ /* OmniGuard */ ],           // সব route-এ চলবে এমন guard
   notFound: (context, state, error) => const NotFoundScreen(), // ভুল URL-এর পেজ
 
   transition: OmniPages.material, // page transition (`adaptive`, `none`, `fade`...) (১৭তম অংশ)
@@ -195,12 +217,12 @@ OmniApp(
   escapeGoesBack: false,        // Desktop-এ Esc চাপলে back
   restorationScopeId: null,     // state restoration চালু করতে একটা id দিন
 
-  onNavigate: (nav) {},         // প্রতিটা navigation-এর পর ডাকা হয় (analytics)
+  onNavigate: (nav) {},         // প্রতিটা navigation-এর পর (nav.kind, nav.from, nav.to, nav.uri, nav.timestamp)
   logNavigation: false,         // true দিলে debug build-এ প্রতিটা navigation print হবে
 
   // অ্যাপ-লেভেল সুবিধা (সব ঐচ্ছিক, default-এ বন্ধ) — বিস্তারিত ৪.১ অংশে:
   lifecycle: null,              // পুরো অ্যাপের resume/pause hook
-  onInit: null, splash: null,   // শুরুতে async কাজ + splash
+  onInit: null, initTimeout: null, splash: null, onInitError: null, // শুরুতে async কাজ + timeout + retry UI
   dismissKeyboardOnTap: false,  // বাইরে tap করলে keyboard বন্ধ
   doubleBackToExit: null,       // Android: দুবার back চাপলে বের হবে
   onExitWarning: null,          // প্রথম back-এ বার্তা দেখানো
@@ -208,14 +230,18 @@ OmniApp(
   minTextScale: null, maxTextScale: null, // font size-এর সীমা
   blocObserver: null,           // Bloc.observer
   onError: null,                // সব uncaught error (crash reporting)
+  overlayBuilder: null,         // গ্লোবাল ওভারলে / ব্যানার / HUD
 
   // ঐচ্ছিক রাউটার কনফিগ:
   refreshListenable: null, navigatorKey: null, observers: null,
 )
 ```
 
-> 💡 `routes`, `guards`, `observers`, `notFound`, `refreshListenable` বদলালে **hot reload**-এই
-> রাউট ট্রি রিম্যাপ হয়। তবে `blocs` বা `initialRoute` বদলালে **hot restart** দিন।
+> 💡 `routes`, `guards`, `blocs`, `observers`, `notFound`, `refreshListenable`, `onNavigate`,
+> `blocObserver`, `orientations` বদলালে **hot reload**-এই রাউট ট্রি ও লিসেনার সেফভাবে আপডেট ও রিকভার হয়
+> (ভুল রুট ঠিক করলে আগের এরর স্ক্রিনও স্বয়ংক্রিয়ভাবে সেরে ওঠে)। শুধু `global: true` Bloc-এর ইনস্ট্যান্স নতুন করে
+> বানাতে বা `initialRoute` বদলাতে **hot restart** দিন।
+> এছাড়া `OmniApp.validateRoutes(routes)` দিয়ে স্টার্টআপ বা টেস্টে সব `routePath` আগেভাগেই যাচাই করা যায়।
 
 **ভুল configuration:** কোনো path ভুল হলে, একই route দুবার থাকলে বা একই Bloc দুবার register করলে
 অ্যাপ শুরুতেই পরিষ্কার error দেখাবে — পরে কোনো এক অজানা মুহূর্তে crash হবে না।
@@ -237,18 +263,25 @@ class AppLifecycle with OmniLifecycle {
       context.read<DraftBloc>().add(DraftSaved());
 }
 
-OmniApp(
+OmniApp.material(
+  title: 'My App',
   // ① অ্যাপ-লেভেল lifecycle hook (১৩তম অংশের সব hook এখানে চলে)
   lifecycle: AppLifecycle(),
 
-  // ② শুরুতে async কাজ (settings load, login restore) — শেষ হলে প্রথম পেজ খোলে।
-  //    guard তখন load করা state দেখে, তাই ভুল করে login পেজে যায় না।
+  // ② শুরুতে async কাজ + timeout + custom retry UI + ডাইনামিক শুরুর রুট
   onInit: (context) async {
     await context.read<SettingsBloc>().load();
     context.read<AuthBloc>().add(SessionRestored());
   },
-  // onInit চলাকালীন যা দেখাবে (পূর্ণ widget দিন)
-  splash: (context) => const MaterialApp(home: SplashScreen()),
+  initTimeout: const Duration(seconds: 10),
+  resolveInitialRoute: (context) async =>
+      context.read<SettingsBloc>().isFirstRun ? '/onboarding' : '/dashboard',
+  splash: (context) => const SplashScreen(),
+  onInitError: (context, error, stack, retry) => Scaffold(
+    body: Center(
+      child: ElevatedButton(onPressed: retry, child: const Text('আবার চেষ্টা করুন')),
+    ),
+  ),
 
   // ③ text field-এর বাইরে tap করলে keyboard বন্ধ
   dismissKeyboardOnTap: true,
@@ -276,13 +309,15 @@ OmniApp(
 
 | Parameter | আগে হাতে যা লিখতে হতো | নোট |
 |---|---|---|
+| `OmniApp.material` / `.cupertino` | প্রতিবার `builder: (_, r) => MaterialApp.router(...)` | `themeModeBuilder`, `appBuilder` ও `overlayBuilder` সহ |
+| `repositories` (`OmniRepo`) | বাইরে আলাদা `MultiRepositoryProvider` র‍্যাপিং | গ্লোবাল ও পেজ Bloc-এর উপরে মাউন্ট হয় (`dispose:` সহ) |
 | `lifecycle` | root widget-এ `WidgetsBindingObserver` + `addObserver`/`removeObserver` | context দিয়ে global Bloc পড়া যায় |
-| `onInit` + `splash` | `FutureBuilder` + splash screen + guard-এর race condition সামলানো | error হলে report করে অ্যাপ খুলে যায় — splash-এ আটকে থাকে না |
-| `dismissKeyboardOnTap` | `GestureDetector(onTap: () => FocusScope.of(context).unfocus())` | text field-এ tap করলে focus থাকে; scroll করলে keyboard বন্ধ হয় না; 0.3.0 থেকে text field-এর নিজস্ব `TapRegion` দিয়ে, কোনো tap-এ বাধা দেয় না |
+| `onInit` + `initTimeout` + `onInitError` + `resolveInitialRoute` | `FutureBuilder` + splash + timeout/retry + প্রথম ফ্রেমের redirect | `onInitError` না দিলে আগের মতো এরর রিপোর্ট হয়ে অ্যাপ খোলে; দিলে কাস্টম রিট্রাই স্ক্রিন দেখায় |
+| `dismissKeyboardOnTap` | `GestureDetector(onTap: () => FocusScope.of(context).unfocus())` | text field-এ tap করলে focus থাকে; scroll করলে keyboard বন্ধ হয় না; text field-এর নিজস্ব `TapRegion` দিয়ে |
 | `doubleBackToExit` | `PopScope` + সময় হিসাব + `SystemNavigator.pop()` | শুধু Android, শুধু প্রথম পেজে; বাকি পেজে back আগের মতো |
-| `orientations` | `main()`-এ `SystemChrome.setPreferredOrientations` | dispose হলে reset |
+| `orientations` | `main()`-এ `SystemChrome.setPreferredOrientations` | রিবিল্ডে সিঙ্ক ও dispose হলে reset |
 | `minTextScale` / `maxTextScale` | `MediaQuery` builder দিয়ে text scale clamp | dialog-সহ পুরো অ্যাপে |
-| `blocObserver` | `main()`-এ `Bloc.observer = ...` | আগের observer dispose-এ ফেরত |
+| `blocObserver` | `main()`-এ `Bloc.observer = ...` | আগের observer রিবিল্ড/dispose-এ ফেরত |
 | `onError` | `FlutterError.onError` + `PlatformDispatcher.onError` দুটো আলাদা | আগের handler-ও চলে; default reporting বন্ধ হয় না |
 
 ---
@@ -1151,17 +1186,20 @@ OmniApp(
 ## ১৮. Debugging ও Analytics
 
 ```dart
-OmniRoute.current;           // উপরের পেজ: location, name, screen type, metadata
+OmniRoute.current;           // উপরের পেজ: location, routePath, name, screen, metadata
 OmniRoute.currentListenable; // ValueListenable<OmniRouteEntry> — রুট পরিবর্তনে সরাসরি আপডেট
 OmniRoute.stack;             // নিচ থেকে উপর পর্যন্ত সব পেজ (shell, push সহ)
 OmniRoute.state;             // নেটিভ OmniRouteState
+OmniRoute.paths;             // রেজিস্ট্রার করা সব routePath-এর তালিকা
+OmniApp.validateRoutes(routes); // স্টার্টআপ বা টেস্টে ডুপ্লিকেট/ভুল path আগেই যাচাই
 ```
 
+```dart
 OmniApp(
-  // প্রতিটা navigation-এর পর একবার (go, push, pop, back, deep link, redirect)
+  // প্রতিটা navigation-এর পর একবার (initial, go, push, replace, pop, refresh, redirect)
   onNavigate: (nav) {
-    // nav.from → আগের পেজ, nav.to → নতুন পেজ, nav.uri → পুরো URL
-    analytics.logScreenView(nav.to.screen.toString(), nav.uri.toString());
+    // nav.kind, nav.from, nav.to, nav.uri, nav.timestamp
+    analytics.logScreenView('${nav.to.routePath} (${nav.kind.name})', nav.uri.toString());
   },
   // debug build-এ console-এ সুন্দর করে সাজানো log (নিচে দেখুন)
   logNavigation: true,
@@ -1228,26 +1266,27 @@ Observer লাগলে: `OmniApp(observers:)` (root), `OmniShell(observers:)`,
 | `lifecycleOnWidget` | `OmniStatefulWidget`-এ `with OmniLifecycle` (hook চলে না) | mixin-টা `OmniState`-এ দিন |
 | Web-এ refresh করলে 404 | server fallback নেই | ১৫তম অংশ |
 | child route parent-এর Bloc পায় না | nested route আলাদা পেজ | `OmniRouteGroup` |
-| Bloc/initialRoute বদল | init-এ সেট হয় | `blocs`/`initialRoute` বদলালে hot restart দিন; রুট বদল hot reload-এই হয় |
+| Bloc/রুট/গার্ড বদল | হট-রিলোড ও আপডেট | `routes`, `guards`, `blocs`, `observers`, `onNavigate` হট-রিলোডে সিঙ্ক হয়; শুধু `global: true` instance বদলাতে বা `initialRoute` বদলাতে hot restart দিন |
 
 ---
 
 ## ২০. সম্পূর্ণ উদাহরণ
 
-[`example/lib/main.dart`](example/lib/main.dart)-এ একটা পূর্ণ অ্যাপ আছে:
+[`example/lib/main.dart`](example/lib/main.dart) ও [`example/bin/demo.dart`](example/bin/demo.dart)-এ একটি সম্পূর্ণ রিয়েল-এপিআই ও রাউটিং অ্যাপ আছে:
 
+- `OmniApp.material` + `themeModeBuilder` + `appBuilder` (`OmniInspectorLauncher`) + `onNavigate` (`nav.kind`)
 - Login + Auth guard (login-এর পর আগের পেজে ফেরে)
-- Bottom tab (`OmniStatefulShell`) — Dashboard, Students, Settings
-- Dashboard: `OmniStatefulWidget` + `OmniLifecycle` (অ্যাপে ফেরা গোনে)
-- Student list → detail → edit, একই Bloc ভাগ করে (`OmniRouteGroup`)
-- Global Bloc: Auth আর Theme (dark mode)
-- Settings → nested Profile
-- Web path URL, navigation logging, state restoration
+- Bottom tab (`OmniStatefulShell`) — Dashboard, Students, API & AI (`OmniShell`), Settings
+- Dashboard: `OmniStatefulWidget` + `OmniLifecycle` + `.hosted()` `OmniStatelessWidget`
+- Student list → detail → edit (`OmniRouteGroup`, `onExit` কনফার্মেশন ও `slideUp`)
+- রিয়েল পাবলিক API তুলনা (`Normal` বনাম `Modified` Endpoint + Decoder + `Result`), `OmniApiHub` (JSONPlaceholder, DummyJSON, Open-Meteo, PokéAPI), লাইভ Postman WebSocket Echo RPC, ও Multi-Model AI
+- `404 Warning` ও `500 Error` সহ আলাদা কালার্ড টার্মিনাল বক্স এবং ইন-অ্যাপ ১-ক্লিক কপি ও Talker-স্টাইল লগ ইনস্পেক্টর
 
 ```bash
 cd example
-flutter run -d chrome   # বা macos, iOS simulator, Android
-flutter test            # পুরো flow-এর test
+flutter run -d macos    # বা chrome, iOS simulator, Android
+dart run bin/demo.dart  # টার্মিনালে রিয়েল পাবলিক API ও আলাদা কালার্ড লগ ডেমো
+flutter test            # পুরো UI + API ফ্লো টেস্ট
 ```
 
 ---
@@ -1527,10 +1566,17 @@ auth: OmniAuth(
 
 এছাড়া JWT থেকে সরাসরি মেয়াদ পড়তে `Tokens.fromJwt(jwtAccess, refresh: refreshToken)`, এবং অন্যান্য auth-এর জন্য `ApiKeyAuth` (header বা `inQuery: true`), `BasicAuth`, ও `HmacSignerAuth` রয়েছে।
 
-### ২১.৮ Terminal log — পুরো response ও লাইভ কন্ট্রোল
+### ২১.৮ Terminal log — আলাদা কালার্ড বক্স, স্ট্যাটাস ম্যাচিং ও লাইভ কন্ট্রোল
 
 ```dart
-final api = OmniNetwork(baseUrl: url, enableLogging: true);
+final api = OmniNetwork(
+  baseUrl: url,
+  enableLogging: true,
+  logOptions: const LogOptions(
+    summary: true,   // স্ট্যাটাস ব্যাজ, স্পিড (⚡ FAST) ও JSON আকৃতি দেখাবে
+    separate: true,  // Request, Status Header ও JSON Body আলাদা কালার্ড বক্সে প্রিন্ট করবে
+  ),
+);
 
 // অ্যাপ চলার সময়েও যেকোনো সময় অন/অফ বা রং বদলানো যায়:
 api.enableLogging = false;   // পুরো log বন্ধ/চালু
@@ -1538,49 +1584,41 @@ api.logResponse = true;      // false করলে শুধু response body �
 api.logColors = null;        // true/false বা null (auto-detect)
 ```
 
-[`logger`](https://pub.dev/packages/logger) package দিয়ে, OmniRoute-এর log-এর মতো একই ধাঁচে —
-প্রতিটা call একটা বাক্সে: উপরে সময়, তারপর method + URL, পাঠানো body, ফলাফল (status · সময় · size) আর
-সুন্দর করে সাজানো JSON:
+`separate: true` ব্যবহার করলে প্রতিটি কল আলাদা কালার-কোডেড বক্সে ছাপা হয় (JSON বডির প্রতি লাইনে অতিরিক্ত ইমোজি ছাড়াই):
 
 ```text
-┌───────────────────────────────────────────────────────────
-│ 2026-11-17 15:35:30.519
-├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-│ 💡 GET  https://api.example.com/v1/users/10
-│ 💡 ✔ 200 OK · 3 ms · 43 B
-│ 💡 {
-│ 💡   "id": 10,
-│ 💡   "name": "Rahim",
-│ 💡   "access_token": "***"
-│ 💡 }
-└───────────────────────────────────────────────────────────
-┌───────────────────────────────────────────────────────────
-│ 2026-11-17 15:35:30.526
-├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-│ ⚠️ POST https://api.example.com/v1/orders
-│ ⚠️ ⇢ body
-│ ⚠️   {
-│ ⚠️     "qty": 0
-│ ⚠️   }
-│ ⚠️ ✖ 422 Unprocessable Entity · 0 ms · 15 B
-│ ⚠️ {
-│ ⚠️   "error": "qty"
-│ ⚠️ }
-└───────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────
+│ 2026-11-27 12:18:55.967
+├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+│ 📡 http-request · GET  https://jsonplaceholder.typicode.com/users/2
+└────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────
+│ 2026-11-27 12:18:56.002 (+35 ms)
+├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+│ 💡 http-response · 200 OK · SUCCESS
+│ GET  https://jsonplaceholder.typicode.com/users/2
+│ ⚡ FAST (35 ms) · 509 B · NETWORK
+│ 📦 Body: JSON Object (8 keys: id, name, username, email, …)
+└────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────
+│ {
+│   "id": 2,
+│   "name": "Ervin Howell",
+│   "access_token": "***"
+│ }
+└────────────────────────────────────────────────────────────
 ```
 
-- বাঁয়ের emoji দেখেই বোঝা যায়: 💡 সফল, ⚠️ 4xx (আপনার request-এ ভুল), ⛔ 5xx বা response নেই
-  (timeout, internet নেই)
-- **পুরো response** ছাপা হয় — ৫০০ বা ১০০০+ লাইন হলেও কোনো কিছু কাটা হয় না; ১৬০ অক্ষরের লম্বা লাইন `↪` দিয়ে পরের লাইনে চলে যায়
-- **রং:** সফল call সবুজ, JSON-এর key/string/number আলাদা রঙে; error লাল (Android আর terminal-এ;
-  iOS-এর log রং দেখাতে পারে না, সেখানে emoji দিয়ে বোঝা যায়)
-- উপরে তারিখ-সময় (`2026-11-17 15:35:30.519`), কত সময় লাগল: `84 ms`, `1.24 s`, `2 min 05 s`
-- password, token, cookie, API key সবসময় `***` — কখনো log-এ আসে না
-- retry (`↻ retry 2/3`), token refresh (`🔑 token refreshed`), cache hit চিহ্নিত
-- release build-এ নিজে থেকেই বন্ধ (`logInRelease: true` দিয়ে চালানো যায়)
-- বেশি বিস্তারিত: `logOptions: const LogOptions(headers: true)`
-- স্ট্রিম ও একসাথে একাধিক গন্তব্য: `api.logStream` দিয়ে যেকোনো জায়গায় log record শুনুন, বা
-  `MultiLogSink([PrettyLogSink(), inspector])` (`advanced.dart`) দিয়ে terminal ও inspector-এ একসাথে পাঠান।
+- **আলাদা ও স্ট্যাটাস-ম্যাচড রঙ**:
+  - `📡 http-request`: ম্যাজেন্টা বর্ডার (`38;5;171`)
+  - **Success (`2xx`)**: সবুজ বর্ডার ও হেডার (`38;5;40`) + সবুজ বর্ডার্ড সিনট্যাক্স-কালার্ড JSON (`key` সায়ান, `string` হলুদ, `number` বেগুনি, `bool/null` গোলাপি)
+  - **Redirect (`3xx`)**: নীল (`38;5;39`)
+  - **Warning (`4xx`, যেমন 404)**: কমলা/অ্যাম্বার (`38;5;214`) বর্ডার ও `⚠️ http-warning` হেডার + কমলা বডি বক্স
+  - **Error (`5xx` বা অফলাইন)**: লাল (`38;5;196`) বর্ডার + লাল ব্যাকগ্রাউন্ডে সাদা বোল্ড ব্যানার (`⛔ http-error`) + লাল এরর বডি বক্স
+- **প্ল্যাটফর্ম অটো-ডিটেকশন**: `colors: null` দিলে Android, macOS Desktop, Linux Desktop, Chrome DevTools ও CLI-তে স্বয়ংক্রিয়ভাবে ANSI কালার চালু থাকে; iOS-এ `os_log` `ESC`-কে `\^[` করে ফেলায় ডিফল্ট প্লেইন থাকে (চাইলে `logColors = true` বা `FORCE_COLOR=1` দিয়ে ফোর্স করা যায়)।
+- **পুরো response** ছাপা হয় — ৫০০–১০০০+ লাইন হলেও কোনো কিছু কাটা হয় না; ১৬০ অক্ষরের লম্বা লাইন `↪` দিয়ে পরের লাইনে চলে যায়।
+- password, token, cookie, API key সবসময় `***` — কখনো log-এ আসে না।
+- release build-এ নিজে থেকেই বন্ধ (`logInRelease: true` দিয়ে চালানো যায়); `api.logStream` ও `MultiLogSink([PrettyLogSink(), inspector.sink('api')])` দিয়ে একই সাথে টার্মিনাল ও ইনস্পেক্টরে পাঠানো যায়।
 
 ### ২১.৯ Retry আর Cache
 
@@ -1795,20 +1833,28 @@ final fixtures = recorder.toJson();
 final replayTransport = RecordingTransport.replayJson(fixtures);
 ```
 
-### ২১.১৯ অ্যাপের ভিতরে Network Inspector ও HAR Export (`omni_network_flutter`)
+### ২১.১৯ অ্যাপের ভিতরে Talker-স্টাইল Network & App Inspector ও ১-ক্লিক কপি (`omni_network_flutter`)
 
 ```dart
 final inspector = OmniInspector();          // release build-এ নিজে থেকেই বন্ধ
 final api = OmniNetwork(
   baseUrl: url,
   enableLogging: inspector.enabled,
-  logSink: MultiLogSink([PrettyLogSink(), inspector.sink('api')]), // একসাথে terminal + inspector
+  logSink: MultiLogSink([PrettyLogSink(), inspector.sink('api')]), // terminal + inspector
 );
+inspector.attachClient(api); // HTTP, WebSocket ও AI কল একসাথে সংগ্রহ করে
 
-MaterialApp.router(
-  routerConfig: router,
-  // ভাসমান বাটন — চাপলে request তালিকা, header/body, "Copy as cURL" ও টুলবারে "Copy HAR"
-  builder: (context, child) => OmniInspectorLauncher(inspector: inspector, child: child!),
+// চাইলে Route ও Bloc লগও একই টাইমলাইনে পাঠানো যায়:
+inspector.logRoute('/dashboard -> /api', subtitle: 'uri: /api');
+inspector.logBloc('bloc-transition', 'ThemeBloc -> dark', kind: InspectorLogKind.blocTransition);
+
+OmniApp.material(
+  routes: routes,
+  appBuilder: (context, child) => OmniInspectorLauncher(
+    inspector: inspector,
+    initialTab: InspectorTab.logs, // HTTP, Route, Bloc, WS, AI সব আলাদা কালার্ড কার্ডে
+    child: child!,
+  ),
 );
 
 // চাইলে কোড থেকেও HAR 1.2 JSON বা Markdown বাগ রিপোর্ট নেওয়া যায়:
@@ -1816,7 +1862,9 @@ final har = inspector.toHarJson();
 final md = inspector.toMarkdownReport();
 ```
 
-inspector শুধু লুকানো (redacted) data পায় — token কখনো UI, HAR বা clipboard-এ যায় না।
+- **Talker-স্টাইল `All Logs` টাইমলাইন**: `http-request`, `http-response`, `http-warning`, `http-error`, `route`, `bloc-create`, `bloc-event`, `bloc-transition`, `ws-in`/`ws-out`, ও `ai-response` আলাদা কালার্ড কার্ড, ট্যাগ কাউন্ট চিপ এবং লাইভ `Search...` সহ।
+- **প্রতি কার্ডে ১-ক্লিক কপি**: প্রতিটি লগ/API কার্ড থেকেই ১ ট্যাপে পুরো API JSON রেসপন্স কপি করা যায়; ডিটেইল ভিউতে সিনট্যাক্স-হাইলাইটেড JSON, **`Copy Full Response`**, **`Copy Full Log`**, **`Copy as cURL`**, **`Copy HAR`** ও AppBar-এ **`Copy all logs`** রয়েছে।
+- inspector শুধু লুকানো (redacted) data পায় — token কখনো UI, HAR বা clipboard-এ যায় না।
 
 ### ২১.২০ Live data — WebSocket আর SSE (`omni_network_ws`)
 

@@ -210,54 +210,45 @@ Keystore.
 
 ## Terminal logs
 
-`enableLogging: true` logs each call as one clear block through the
-[`logger`](https://pub.dev/packages/logger) package (same look as
-OmniRoute's logs). Secrets are always hidden:
+`enableLogging: true` logs every call clearly with secrets automatically redacted.
+Pass `logOptions: const LogOptions(summary: true, separate: true)` to print each
+step as **separate, status-color-matched boxes** with clean syntax-highlighted
+JSON (without repeating level emojis on every JSON line):
 
-```
-┌───────────────────────────────────────────────────────────
-│ 2026-11-17 15:35:30.519
-├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-│ 💡 GET  https://api.example.com/v1/users/10
-│ 💡 ✔ 200 OK · 3 ms · 43 B
-│ 💡 {
-│ 💡   "id": 10,
-│ 💡   "name": "Rahim",
-│ 💡   "access_token": "***"
-│ 💡 }
-└───────────────────────────────────────────────────────────
-┌───────────────────────────────────────────────────────────
-│ 2026-11-17 15:35:30.526
-├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
-│ ⚠️ POST https://api.example.com/v1/orders
-│ ⚠️ ⇢ body
-│ ⚠️   {
-│ ⚠️     "qty": 0
-│ ⚠️   }
-│ ⚠️ ✖ 422 Unprocessable Entity · 0 ms · 15 B
-│ ⚠️ {
-│ ⚠️   "error": "qty"
-│ ⚠️ }
-└───────────────────────────────────────────────────────────
+```text
+┌────────────────────────────────────────────────────────────
+│ 2026-11-27 12:18:55.967
+├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+│ 📡 http-request · GET  https://jsonplaceholder.typicode.com/users/2
+└────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────
+│ 2026-11-27 12:18:56.002 (+35 ms)
+├┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄
+│ 💡 http-response · 200 OK · SUCCESS
+│ GET  https://jsonplaceholder.typicode.com/users/2
+│ ⚡ FAST (35 ms) · 509 B · NETWORK
+│ 📦 Body: JSON Object (8 keys: id, name, username, email, …)
+└────────────────────────────────────────────────────────────
+┌────────────────────────────────────────────────────────────
+│ {
+│   "id": 2,
+│   "name": "Ervin Howell",
+│   "access_token": "***"
+│ }
+└────────────────────────────────────────────────────────────
 ```
 
-- **Levels.** 💡 success, ⚠️ a 4xx error, ⛔ a 5xx error or no response.
-- **Colours.** Successful calls are green with coloured JSON (keys, strings,
-  numbers); errors are red. On by default in Android logs and colour
-  terminals. iOS logs can't show colours, so they stay plain there.
-- **Whole responses.** Every line of every body is printed (500–1000+ lines),
-  never cut off. Lines longer than 160 characters continue on the next line
-  after `↪`, because Android and iOS drop the end of a very long log line.
-- **Toggle on/off anytime.** Control at init or dynamically at runtime via
-  `api.enableLogging = true/false`, `api.logResponse = true/false` (hide/show
-  response bodies), and `api.logColors = true/false/null`.
-- **Stream & multi-sink.** Listen to `api.logStream` directly, or fan out logs
-  to terminal + inspector simultaneously with `MultiLogSink([PrettyLogSink(), inspector])`
-  (from `advanced.dart`).
-- **Notes.** Retries (`↻ retry 2/3`), token refreshes (`🔑 token refreshed`) and
-  cache hits are marked.
-- **Off in release builds.** Logging is turned off automatically in release
-  builds unless `logInRelease: true`.
+- **Status-matched colours & separate boxes**:
+  - `📡 http-request`: magenta frame (`38;5;171`).
+  - **2xx Success**: green frame & header (`💡 http-response · 200 OK · SUCCESS`) + green-framed syntax-highlighted JSON body (`keys` cyan, `strings` amber-yellow, `numbers` violet, `bool/null` pink).
+  - **3xx Redirect**: blue frame (`38;5;39`).
+  - **4xx Warning**: amber/orange frame & header (`⚠️ http-warning · 404 Not Found · CLIENT WARNING`) + amber body box.
+  - **5xx Error / Failure**: red frame (`38;5;196`) + bold white-on-red banner (`⛔ http-error · 500 ...`) + red error body box.
+- **Auto colour detection**: ON by default on Android, macOS Desktop, Linux Desktop, Chrome DevTools, and color TTYs (respecting `NO_COLOR` / `FORCE_COLOR`), and plain on iOS (`os_log` escapes `ESC` as `\^[`) unless overridden with `logColors = true` / `LogOptions(colors: true)`.
+- **Whole responses.** Every line of every body is printed (500–1000+ lines), never cut off. Lines longer than 160 characters wrap cleanly with `↪`.
+- **Toggle on/off anytime.** Control at init or dynamically at runtime via `api.enableLogging = true/false`, `api.logResponse = true/false`, and `api.logColors = true/false/null`.
+- **Stream & multi-sink.** Listen to `api.logStream` directly, or fan out logs to terminal + inspector simultaneously with `MultiLogSink([PrettyLogSink(), inspector.sink('api')])` (from `advanced.dart`).
+- **Off in release builds.** Disabled automatically in release builds unless `logInRelease: true`.
 
 ---
 

@@ -3,7 +3,7 @@
 Flutter tools for [`omni_network`](../omni_network):
 
 - **Secure token storage.** Users stay signed in after the app restarts.
-- **In-app HTTP, WebSocket & AI inspector & HAR export.** Inspect HTTP calls, realtime WebSocket frames, and AI token/USD telemetry (`inspector.attachClient(api)`), then export redacted HAR 1.2 JSON or Markdown reports.
+- **In-app Talker-style Log, HTTP, WebSocket & AI Inspector with 1-click Copy.** Unified color-coded timeline (`http-request`, `http-response`, `http-warning`, `http-error`, `route`, `bloc-create`, `bloc-event`, `bloc-transition`, `ws`, `ai`), syntax-highlighted JSON viewer, per-card 1-click copy, `Copy Full Response`, `Copy as cURL`, `Copy HAR` (1.2), and Markdown reports.
 - **Reactive UI widgets.** Bind `RequestController<T>` and `OmniPager<T>` with `OmniRequestBuilder<T>` and `OmniPagedListView<T>`.
 - **Realtime Human & AI Chat widgets.** Drop-in Material 3 widgets for WebSocket team rooms (`OmniChatView`), streaming Multi-AI conversations with reasoning traces (`OmniAiChatView`), and runtime model/route switching (`OmniModelPicker`).
 
@@ -89,7 +89,7 @@ shows empty/retry footers when needed.
 - **`OmniChatView(room: api.chat.room('lobby'))`** — Realtime WebSocket room UI with optimistic message delivery, delivery status ticks, reply preview banner, typing indicators, emoji reactions, failed-message retry, file/media attachment picker (`onPickAttachment`), older history pagination, and `@ai` assistant replies.
 - **`OmniModelPicker(...)`** — Compact popup selector for switching active `OmniAi` routes or `'provider:model'` identifiers.
 
-## Network inspector & HAR export
+## Talker-style Log & Network Inspector (with 1-Click Copy)
 
 ```dart
 final inspector = OmniInspector();         // disabled in release builds
@@ -99,33 +99,29 @@ final api = OmniNetwork(
   enableLogging: inspector.enabled,
   logSink: inspector.sink('api'),          // one label per client
 );
-final detach = inspector.attachClient(api); // also captures WS frames & AI telemetry
+final detach = inspector.attachClient(api); // captures HTTP, WS frames & AI telemetry
+
+// Optionally push OmniRoute navigation and Bloc logs into the same timeline:
+inspector.logRoute('/dashboard -> /profile', subtitle: 'uri: /profile');
+inspector.logBloc('bloc-transition', 'ThemeBloc -> dark', kind: InspectorLogKind.blocTransition);
 
 MaterialApp(
-  builder: (context, child) =>
-      OmniInspectorLauncher(inspector: inspector, child: child!),
+  builder: (context, child) => OmniInspectorLauncher(
+    inspector: inspector,
+    initialTab: InspectorTab.logs,         // or InspectorTab.http
+    child: child!,
+  ),
   home: const HomePage(),
 );
 ```
 
-`OmniInspectorLauncher` adds a small floating button that opens a
-full-screen panel. The panel has:
+`OmniInspectorLauncher` adds a small floating button that opens a full-screen
+panel (`OmniInspectorView`) featuring:
 
-- the request list, with a filter and status colours;
-- a detail view with request and response headers and bodies;
-- **"Copy as cURL"** per entry and **"Copy HAR"** in the toolbar to export
-  all recorded sessions as HAR 1.2 JSON (`inspector.toHarJson()`) or Markdown
-  (`inspector.toMarkdownReport()`).
-
-You can also show `OmniInspectorView(inspector: inspector)` anywhere.
-
-What the inspector sees and keeps:
-
-- **Only redacted data.** It receives records after the client's
-  `Redactor` has run, so tokens, cookies and passwords never reach the UI,
-  HAR export, or the clipboard.
-- **Bounded.** It keeps at most `maxEntries` entries.
-- **Forwarding.** `forwardTo: PrettyLogSink()` also prints every call in the terminal.
+- **`All Logs` (`InspectorTab.logs`)**: Talker-style separate color-bordered cards (`http-request`, `http-response`, `http-warning`, `http-error`, `route`, `bloc-create`, `bloc-event`, `bloc-transition`, `ws`, `ai`, `info`, `warning`, `error`), tag count filter chips, and `Search...`.
+- **1-Click Copy everywhere**: copy icon right on every card (copies pretty response JSON or the card log), plus **`Copy Full Response`**, **`Copy Full Log`**, **`Copy as cURL`**, **`Copy HAR`** (`inspector.toHarJson()`), and **`Copy all logs`** in the toolbar.
+- **Syntax-highlighted Response & Detail Viewer**: colored status banners (`SUCCESS` green, `WARNING` orange, `ERROR` red) and highlighted JSON tokens (keys, strings, numbers, booleans).
+- **Redacted & bounded**: receives records after `OmniNetwork`'s `Redactor` runs, keeping at most `maxEntries` entries (up to `2 * maxEntries` timeline cards); pass `forwardTo: PrettyLogSink()` to mirror into terminal logs simultaneously.
 
 ## Example
 

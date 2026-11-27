@@ -812,12 +812,14 @@ OmniNetwork(
   baseUrl: url,
   enableLogging: true,
   logOptions: const LogOptions(
+    summary: true,       // স্ট্যাটাস ব্যাজ, স্পিড (⚡ FAST) ও JSON আকৃতি দেখাবে
+    separate: true,      // Request, Status Header ও JSON Body আলাদা কালার্ড বক্সে প্রিন্ট করবে
     headers: true,       // default false
     requestBody: true,   // default true
     responseBody: true,  // default true
     maxLines: null,      // default null = সব লাইন; সংখ্যা দিলে "… N more lines" দিয়ে কাটে
     maxLineLength: 160,  // এর চেয়ে লম্বা লাইন "↪" দিয়ে পরের লাইনে চলে যায়
-    colors: null,        // null = আপনা থেকে (Android/terminal: চালু, iOS: বন্ধ)
+    colors: null,        // null = আপনা থেকে (Android/Desktop/terminal: চালু, iOS: বন্ধ)
   ),
 );
 ```
@@ -1356,8 +1358,11 @@ final api = OmniNetwork(
 );
 
 MaterialApp(
-  builder: (context, child) =>
-      OmniInspectorLauncher(inspector: inspector, child: child!),
+  builder: (context, child) => OmniInspectorLauncher(
+    inspector: inspector,
+    initialTab: InspectorTab.logs, // Talker-স্টাইল All Logs বা InspectorTab.http
+    child: child!,
+  ),
 );
 
 // চাইলে যেকোনো সময় redact করা HAR 1.2 JSON বা Markdown বাগ রিপোর্ট এক্সপোর্ট করুন:
@@ -1365,12 +1370,15 @@ final harJson = inspector.toHarJson();
 final markdownReport = inspector.toMarkdownReport();
 ```
 
-ছোট একটা ভাসমান বোতাম আসে; চাপলে সব call-এর তালিকা, filter, header/body, প্রতিটি কল-এ
-**"Copy as cURL"**, এবং উপরের টুলবারে **"Copy HAR"** বোতাম। শুধু redact করা data পায়, তাই
-token কখনো UI, HAR বা clipboard-এ যায় না। `maxEntries` (default ৩০০) পর্যন্ত রাখে।
+ছোট একটা ভাসমান বোতাম আসে; চাপলে Talker-স্টাইল **`All Logs`** (`InspectorTab.logs`)
+ও **`HTTP`** (`InspectorTab.http`) ট্যাব, ট্যাগ ফিল্টার, সার্চ এবং প্রতিটি কার্ডে
+**১-ক্লিক কপি** বাটন (পুরো JSON রেসপন্স কপির জন্য) খুলে যায়। ডিটেইল ভিউতে
+সিনট্যাক্স-হাইলাইটেড JSON, **"Copy Full Response"**, **"Copy Full Log"**,
+**"Copy as cURL"** এবং টুলবারে **"Copy HAR"** / **"Copy all logs"** রয়েছে। শুধু
+redact করা data পায়, তাই token কখনো UI, HAR বা clipboard-এ যায় না। `maxEntries`
+(default ৩০০) পর্যন্ত রাখে।
 
-> OmniRoute ব্যবহার করলে `OmniApp(builder: (_, r) => MaterialApp.router(routerConfig: r, builder: ...))`-এর
-> `builder`-এ `OmniInspectorLauncher` বসান।
+> OmniRoute ব্যবহার করলে `OmniApp.material(..., appBuilder: (context, child) => OmniInspectorLauncher(...))`-এ সরাসরি বসান।
 
 ### ২২.৩ `OmniRequestBuilder` ও `OmniPagedListView`
 

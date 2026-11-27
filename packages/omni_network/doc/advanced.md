@@ -180,14 +180,17 @@ Terminal blocks use [`logger`](https://pub.dev/packages/logger) by default:
 ```
 
 To fan out logs to both terminal and `OmniInspector` simultaneously, use
-`MultiLogSink([PrettyLogSink(), inspector])` (both from `advanced.dart`).
+`MultiLogSink([PrettyLogSink(), inspector.sink('api')])` (both from `advanced.dart`).
 
 - **Whole bodies.** Nothing is cut (`maxLines: null`): every line (500–1000+ lines)
   is printed. A line longer than `maxLineLength` (160) continues on the next line
   after `↪`. Only binary bodies and unparseable JSON are summarised by size.
-- **Levels & colours.** 💡 info (green, syntax-coloured JSON) for 2xx/3xx; ⚠️
-  warning (red) for 4xx; ⛔ error (red) for 5xx and failures. Automatic on Android
-  & colour terminals, plain on iOS.
+- **Separate boxes & status colours.** Set `separate: true` and `summary: true`
+  on `LogOptions` to print requests (magenta), status headers, and syntax-coloured
+  JSON bodies in separate bordered boxes matched to the outcome (`2xx` green,
+  `3xx` blue, `4xx` amber `⚠️ http-warning`, `5xx`/failures red `⛔ http-error`
+  banner). Automatic colours on Android, macOS/Linux desktop, Chrome DevTools &
+  colour TTYs; plain on iOS unless forced.
 - **Secrets.** Always `***`: auth and cookie headers, token, password and
   API-key fields, query values and URL user info (`redactor: Redactor(extraKeys: {...})`).
 - **Release builds.** Logging is off in release builds unless `logInRelease: true`.
@@ -197,12 +200,14 @@ OmniNetwork(
   baseUrl: url,
   enableLogging: true,
   logOptions: const LogOptions(
+    summary: true,       // status verdict badge, speed (⚡ FAST), JSON shape summary
+    separate: true,      // crisp separate boxes for request, header, and JSON body
     headers: true,       // default false
     requestBody: true,   // default true
     responseBody: true,  // default true
     maxLines: null,      // default null = every line; a number cuts with "… N more lines"
     maxLineLength: 160,  // longer lines wrap onto the next line after "↪"
-    colors: null,        // null = auto (Android and colour terminals: on; iOS: off)
+    colors: null,        // null = auto (Android/desktop/TTY: on; iOS: off)
   ),
 );
 ```
