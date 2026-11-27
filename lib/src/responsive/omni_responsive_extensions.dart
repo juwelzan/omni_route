@@ -29,6 +29,28 @@ extension OmniResponsiveContext on BuildContext {
   /// Cached pre-allocated design tokens for the current device tier.
   OmniResponsiveTokens get tokens => OmniResponsiveScope.tokensOf(this);
 
+  /// Cached default page padding matching the current tier (`tokens.pagePadding`).
+  EdgeInsets get pagePadding => tokens.pagePadding;
+
+  /// Cached horizontal gutter padding matching the current tier.
+  EdgeInsets get horizontalPadding => tokens.horizontalPadding;
+
+  /// Cached card inner padding matching the current tier.
+  EdgeInsets get cardPadding => tokens.cardPadding;
+
+  /// Cached section padding matching the current tier.
+  EdgeInsets get sectionPadding => tokens.sectionPadding;
+
+  /// Maximum readable container width for the current tier (`double.infinity` on phone).
+  double get maxContentWidth => tokens.maxContentWidth;
+
+  /// Default responsive grid column count for the current tier (`tokens.gridColumns`).
+  int get gridColumns => tokens.gridColumns;
+
+  /// True when the on-screen keyboard is open (subscribes ONLY to `viewInsets`
+  /// bottom changes, never rebuilding on resize pixels).
+  bool get isKeyboardOpen => MediaQuery.viewInsetsOf(this).bottom > 0;
+
   /// Viewport logical [Size]. Prefer [deviceType], [windowSize], or [tokens]
   /// when continuous per-pixel rebuilds are unnecessary.
   Size get screenSize => OmniResponsiveScope.sizeOf(this);

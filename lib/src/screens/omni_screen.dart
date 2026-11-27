@@ -1,8 +1,12 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:meta/meta.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../core/omni_route.dart';
+import '../responsive/omni_status_bar.dart';
+import '../responsive/omni_system_navigation_bar.dart';
+import '../responsive/omni_system_ui.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_path.dart';
 import '../routing/omni_trie.dart';
@@ -68,6 +72,26 @@ mixin OmniScreen on Widget {
   /// entry without pre-registering in `OmniApp(blocs: ...)`), `Provide<B>()`,
   /// `Provide.create(...)`, `Provide.eager(...)`, or `Provide.value(...)`.
   List<Provide> get provide => const [];
+
+  /// Optional per-screen fullscreen or system bar mode (`fullscreen`,
+  /// `edgeToEdge`, `statusBarOnly`, etc.); `null` inherits theme/app default.
+  OmniScreenMode? get screenMode => null;
+
+  /// Optional per-screen top system status bar style ([OmniStatusBarStyle]);
+  /// `null` inherits the global theme/app status bar cleanly without per-screen setup.
+  OmniStatusBarStyle? get statusBar => null;
+
+  /// Optional per-screen bottom navigation/gesture bar style
+  /// ([OmniSystemNavigationBarStyle]); `null` inherits global theme/app style cleanly.
+  OmniSystemNavigationBarStyle? get systemNavigationBar => null;
+
+  /// Optional per-screen rotation lock preset (e.g. `OmniOrientation.landscape`);
+  /// automatically restored on pop.
+  OmniOrientation? get orientation => null;
+
+  /// Optional per-screen raw [DeviceOrientation] list (takes precedence over
+  /// [orientation] when non-null).
+  List<DeviceOrientation>? get orientations => null;
 
   /// Runtime class name, for debugging/logging only. Not stable under
   /// obfuscation.

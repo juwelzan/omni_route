@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৫৩টি সেমান্টিক কালার প্যালেট (`context.colors`)।
+/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৫৫টি সেমান্টিক কালার প্যালেট (`context.colors`)।
 ///
 /// Material-এর জটিল নাম (`onPrimaryContainer`, `surfaceContainerHigh`,
 /// `outlineVariant`) মুখস্থ করার বদলে সরাসরি অর্থপূর্ণ নামে সব রঙ ব্যবহার করুন।
@@ -23,6 +23,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
     required this.navBarColor,
     required this.navSelectedColor,
     required this.navUnselectedColor,
+    required this.statusBarColor,
+    required this.systemNavigationBarColor,
     required this.buttonColor,
     required this.buttonTextColor,
     required this.secondaryButtonColor,
@@ -132,6 +134,21 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// **কোথায় ব্যবহার হয়:** নিষ্ক্রিয় ট্যাব আইকন ও সাধারণ মেনু আইটেম টেক্সট।
   /// **কী কাজে লাগে:** সক্রিয় ট্যাবের তুলনায় বাকি ট্যাবগুলোকে শান্ত ও হালকা রাখতে।
   final Color navUnselectedColor;
+
+  /// ডিভাইসের উপরের সিস্টেম স্ট্যাটাস বারের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** Android/iOS-এর সময়, নেটওয়ার্ক ও ব্যাটারি আইকন বার
+  /// (ডিফল্ট `Colors.transparent` যাতে এজ-টু-এডজ মোডে পেজের সাথে মিশে যায়)।
+  /// **কী কাজে লাগে:** প্রতিটি স্ক্রিনের ওপরের সিস্টেম বারকে থিমের সাথে মিলিয়ে রাখতে।
+  final Color statusBarColor;
+
+  /// ডিভাইসের নিচের সিস্টেম নেভিগেশন বার ও সোয়াইপ গেস্টচার বারের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** Android 3-বাটন নেভিগেশন ও গেস্টচার সোয়াইপ পিল এরিয়া
+  /// (ডিফল্ট `Colors.transparent` — নিচে কোনো কালো বক্স বা ব্ল্যাক এরিয়া রাখে না)।
+  /// **কী কাজে লাগে:** সোয়াইপ গেস্টচারের নিচের অংশকে কালো ডট/দাগ ছাড়াই অ্যাপের
+  /// থিমের সাথে একদম মসৃণভাবে মিশিয়ে দিতে।
+  final Color systemNavigationBarColor;
 
   /// প্রধান অ্যাকশন বাটনের ব্যাকগ্রাউন্ড কালার।
   ///
@@ -398,7 +415,243 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// **কী কাজে লাগে:** লাইট মোডে হালকা ও ডার্ক মোডে গভীর এলিভেশন তৈরি করতে।
   final Color shadowColor;
 
-  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৫৩টি কালার
+  /// [Brightness.light] মোডের জন্য সরাসরি কাস্টম [OmniColors] তৈরি করে।
+  ///
+  /// যেকোনো রঙ না দিলে সুন্দর ডিফল্ট লাইট প্যালেট স্বয়ংক্রিয়ভাবে তৈরি হয়।
+  factory OmniColors.light({
+    Color primaryColor = const Color(0xFF2563EB),
+    Color? secondaryColor,
+    Color? surfaceColor,
+    Color? secondaryBackgroundColor,
+    Color? cardColor,
+    Color? appBarColor,
+    Color? appBarTextColor,
+    Color? navBarColor,
+    Color? navSelectedColor,
+    Color? navUnselectedColor,
+    Color? statusBarColor,
+    Color? systemNavigationBarColor,
+    Color? buttonColor,
+    Color? buttonTextColor,
+    Color? secondaryButtonColor,
+    Color? secondaryButtonTextColor,
+    Color? dangerButtonColor,
+    Color? dangerButtonTextColor,
+    Color? linkColor,
+    Color? inputFillColor,
+    Color? borderColor,
+    Color? focusedBorderColor,
+    Color? dividerColor,
+    Color? textColor,
+    Color? secondaryTextColor,
+    Color? hintTextColor,
+    Color? iconColor,
+    Color? chipColor,
+    Color? chipTextColor,
+    Color? badgeColor,
+    Color? badgeTextColor,
+    Color? selectedItemColor,
+    Color? hoverColor,
+    Color? rippleColor,
+    Color? disabledColor,
+    Color? disabledTextColor,
+    Color? disabledBorderColor,
+    Color? switchActiveColor,
+    Color? switchInactiveColor,
+    Color? snackbarColor,
+    Color? snackbarTextColor,
+    Color? tooltipColor,
+    Color? tooltipTextColor,
+    Color? errorColor,
+    Color? errorBackgroundColor,
+    Color? warningColor,
+    Color? warningBackgroundColor,
+    Color? successColor,
+    Color? successBackgroundColor,
+    Color? infoColor,
+    Color? infoBackgroundColor,
+    Color? shimmerBaseColor,
+    Color? shimmerHighlightColor,
+    Color? overlayColor,
+    Color? shadowColor,
+  }) => OmniColors.fromSeed(
+    primaryColor: primaryColor,
+    brightness: Brightness.light,
+    secondaryColor: secondaryColor,
+    surfaceColor: surfaceColor,
+    secondaryBackgroundColor: secondaryBackgroundColor,
+    cardColor: cardColor,
+    appBarColor: appBarColor,
+    appBarTextColor: appBarTextColor,
+    navBarColor: navBarColor,
+    navSelectedColor: navSelectedColor,
+    navUnselectedColor: navUnselectedColor,
+    statusBarColor: statusBarColor,
+    systemNavigationBarColor: systemNavigationBarColor,
+    buttonColor: buttonColor,
+    buttonTextColor: buttonTextColor,
+    secondaryButtonColor: secondaryButtonColor,
+    secondaryButtonTextColor: secondaryButtonTextColor,
+    dangerButtonColor: dangerButtonColor,
+    dangerButtonTextColor: dangerButtonTextColor,
+    linkColor: linkColor,
+    inputFillColor: inputFillColor,
+    borderColor: borderColor,
+    focusedBorderColor: focusedBorderColor,
+    dividerColor: dividerColor,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    hintTextColor: hintTextColor,
+    iconColor: iconColor,
+    chipColor: chipColor,
+    chipTextColor: chipTextColor,
+    badgeColor: badgeColor,
+    badgeTextColor: badgeTextColor,
+    selectedItemColor: selectedItemColor,
+    hoverColor: hoverColor,
+    rippleColor: rippleColor,
+    disabledColor: disabledColor,
+    disabledTextColor: disabledTextColor,
+    disabledBorderColor: disabledBorderColor,
+    switchActiveColor: switchActiveColor,
+    switchInactiveColor: switchInactiveColor,
+    snackbarColor: snackbarColor,
+    snackbarTextColor: snackbarTextColor,
+    tooltipColor: tooltipColor,
+    tooltipTextColor: tooltipTextColor,
+    errorColor: errorColor,
+    errorBackgroundColor: errorBackgroundColor,
+    warningColor: warningColor,
+    warningBackgroundColor: warningBackgroundColor,
+    successColor: successColor,
+    successBackgroundColor: successBackgroundColor,
+    infoColor: infoColor,
+    infoBackgroundColor: infoBackgroundColor,
+    shimmerBaseColor: shimmerBaseColor,
+    shimmerHighlightColor: shimmerHighlightColor,
+    overlayColor: overlayColor,
+    shadowColor: shadowColor,
+  );
+
+  /// [Brightness.dark] মোডের জন্য সরাসরি কাস্টম [OmniColors] তৈরি করে।
+  ///
+  /// যেকোনো রঙ না দিলে চোখের আরামদায়ক ডার্ক প্যালেট স্বয়ংক্রিয়ভাবে তৈরি হয়।
+  factory OmniColors.dark({
+    Color primaryColor = const Color(0xFF60A5FA),
+    Color? secondaryColor,
+    Color? surfaceColor,
+    Color? secondaryBackgroundColor,
+    Color? cardColor,
+    Color? appBarColor,
+    Color? appBarTextColor,
+    Color? navBarColor,
+    Color? navSelectedColor,
+    Color? navUnselectedColor,
+    Color? statusBarColor,
+    Color? systemNavigationBarColor,
+    Color? buttonColor,
+    Color? buttonTextColor,
+    Color? secondaryButtonColor,
+    Color? secondaryButtonTextColor,
+    Color? dangerButtonColor,
+    Color? dangerButtonTextColor,
+    Color? linkColor,
+    Color? inputFillColor,
+    Color? borderColor,
+    Color? focusedBorderColor,
+    Color? dividerColor,
+    Color? textColor,
+    Color? secondaryTextColor,
+    Color? hintTextColor,
+    Color? iconColor,
+    Color? chipColor,
+    Color? chipTextColor,
+    Color? badgeColor,
+    Color? badgeTextColor,
+    Color? selectedItemColor,
+    Color? hoverColor,
+    Color? rippleColor,
+    Color? disabledColor,
+    Color? disabledTextColor,
+    Color? disabledBorderColor,
+    Color? switchActiveColor,
+    Color? switchInactiveColor,
+    Color? snackbarColor,
+    Color? snackbarTextColor,
+    Color? tooltipColor,
+    Color? tooltipTextColor,
+    Color? errorColor,
+    Color? errorBackgroundColor,
+    Color? warningColor,
+    Color? warningBackgroundColor,
+    Color? successColor,
+    Color? successBackgroundColor,
+    Color? infoColor,
+    Color? infoBackgroundColor,
+    Color? shimmerBaseColor,
+    Color? shimmerHighlightColor,
+    Color? overlayColor,
+    Color? shadowColor,
+  }) => OmniColors.fromSeed(
+    primaryColor: primaryColor,
+    brightness: Brightness.dark,
+    secondaryColor: secondaryColor,
+    surfaceColor: surfaceColor,
+    secondaryBackgroundColor: secondaryBackgroundColor,
+    cardColor: cardColor,
+    appBarColor: appBarColor,
+    appBarTextColor: appBarTextColor,
+    navBarColor: navBarColor,
+    navSelectedColor: navSelectedColor,
+    navUnselectedColor: navUnselectedColor,
+    statusBarColor: statusBarColor,
+    systemNavigationBarColor: systemNavigationBarColor,
+    buttonColor: buttonColor,
+    buttonTextColor: buttonTextColor,
+    secondaryButtonColor: secondaryButtonColor,
+    secondaryButtonTextColor: secondaryButtonTextColor,
+    dangerButtonColor: dangerButtonColor,
+    dangerButtonTextColor: dangerButtonTextColor,
+    linkColor: linkColor,
+    inputFillColor: inputFillColor,
+    borderColor: borderColor,
+    focusedBorderColor: focusedBorderColor,
+    dividerColor: dividerColor,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    hintTextColor: hintTextColor,
+    iconColor: iconColor,
+    chipColor: chipColor,
+    chipTextColor: chipTextColor,
+    badgeColor: badgeColor,
+    badgeTextColor: badgeTextColor,
+    selectedItemColor: selectedItemColor,
+    hoverColor: hoverColor,
+    rippleColor: rippleColor,
+    disabledColor: disabledColor,
+    disabledTextColor: disabledTextColor,
+    disabledBorderColor: disabledBorderColor,
+    switchActiveColor: switchActiveColor,
+    switchInactiveColor: switchInactiveColor,
+    snackbarColor: snackbarColor,
+    snackbarTextColor: snackbarTextColor,
+    tooltipColor: tooltipColor,
+    tooltipTextColor: tooltipTextColor,
+    errorColor: errorColor,
+    errorBackgroundColor: errorBackgroundColor,
+    warningColor: warningColor,
+    warningBackgroundColor: warningBackgroundColor,
+    successColor: successColor,
+    successBackgroundColor: successBackgroundColor,
+    infoColor: infoColor,
+    infoBackgroundColor: infoBackgroundColor,
+    shimmerBaseColor: shimmerBaseColor,
+    shimmerHighlightColor: shimmerHighlightColor,
+    overlayColor: overlayColor,
+    shadowColor: shadowColor,
+  );
+
+  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৫৫টি কালার
   /// তৈরি করে; চাইলে যেকোনো রঙ আলাদা করে ওভাররাইডও করা যায়।
   factory OmniColors.fromSeed({
     required Color primaryColor,
@@ -412,6 +665,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? navBarColor,
     Color? navSelectedColor,
     Color? navUnselectedColor,
+    Color? statusBarColor,
+    Color? systemNavigationBarColor,
     Color? buttonColor,
     Color? buttonTextColor,
     Color? secondaryButtonColor,
@@ -507,6 +762,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
       navBarColor: navBarColor ?? resolvedCard,
       navSelectedColor: navSelectedColor ?? resolvedPrimary,
       navUnselectedColor: navUnselectedColor ?? resolvedSecondaryText,
+      statusBarColor: statusBarColor ?? Colors.transparent,
+      systemNavigationBarColor: systemNavigationBarColor ?? Colors.transparent,
       buttonColor: resolvedButton,
       buttonTextColor: resolvedButtonText,
       secondaryButtonColor: resolvedSecondaryBtn,
@@ -601,6 +858,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? navBarColor,
     Color? navSelectedColor,
     Color? navUnselectedColor,
+    Color? statusBarColor,
+    Color? systemNavigationBarColor,
     Color? buttonColor,
     Color? buttonTextColor,
     Color? secondaryButtonColor,
@@ -656,6 +915,9 @@ class OmniColors extends ThemeExtension<OmniColors> {
     navBarColor: navBarColor ?? this.navBarColor,
     navSelectedColor: navSelectedColor ?? this.navSelectedColor,
     navUnselectedColor: navUnselectedColor ?? this.navUnselectedColor,
+    statusBarColor: statusBarColor ?? this.statusBarColor,
+    systemNavigationBarColor:
+        systemNavigationBarColor ?? this.systemNavigationBarColor,
     buttonColor: buttonColor ?? this.buttonColor,
     buttonTextColor: buttonTextColor ?? this.buttonTextColor,
     secondaryButtonColor: secondaryButtonColor ?? this.secondaryButtonColor,
@@ -726,6 +988,12 @@ class OmniColors extends ThemeExtension<OmniColors> {
           Color.lerp(navSelectedColor, other.navSelectedColor, t)!,
       navUnselectedColor:
           Color.lerp(navUnselectedColor, other.navUnselectedColor, t)!,
+      statusBarColor: Color.lerp(statusBarColor, other.statusBarColor, t)!,
+      systemNavigationBarColor: Color.lerp(
+        systemNavigationBarColor,
+        other.systemNavigationBarColor,
+        t,
+      )!,
       buttonColor: Color.lerp(buttonColor, other.buttonColor, t)!,
       buttonTextColor: Color.lerp(buttonTextColor, other.buttonTextColor, t)!,
       secondaryButtonColor:
@@ -808,6 +1076,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
           navBarColor == other.navBarColor &&
           navSelectedColor == other.navSelectedColor &&
           navUnselectedColor == other.navUnselectedColor &&
+          statusBarColor == other.statusBarColor &&
+          systemNavigationBarColor == other.systemNavigationBarColor &&
           buttonColor == other.buttonColor &&
           buttonTextColor == other.buttonTextColor &&
           secondaryButtonColor == other.secondaryButtonColor &&
@@ -864,6 +1134,545 @@ class OmniColors extends ThemeExtension<OmniColors> {
     navBarColor,
     navSelectedColor,
     navUnselectedColor,
+    statusBarColor,
+    systemNavigationBarColor,
+    buttonColor,
+    buttonTextColor,
+    secondaryButtonColor,
+    secondaryButtonTextColor,
+    dangerButtonColor,
+    dangerButtonTextColor,
+    linkColor,
+    inputFillColor,
+    borderColor,
+    focusedBorderColor,
+    dividerColor,
+    textColor,
+    secondaryTextColor,
+    hintTextColor,
+    iconColor,
+    chipColor,
+    chipTextColor,
+    badgeColor,
+    badgeTextColor,
+    selectedItemColor,
+    hoverColor,
+    rippleColor,
+    disabledColor,
+    disabledTextColor,
+    disabledBorderColor,
+    switchActiveColor,
+    switchInactiveColor,
+    snackbarColor,
+    snackbarTextColor,
+    tooltipColor,
+    tooltipTextColor,
+    errorColor,
+    errorBackgroundColor,
+    warningColor,
+    warningBackgroundColor,
+    successColor,
+    successBackgroundColor,
+    infoColor,
+    infoBackgroundColor,
+    shimmerBaseColor,
+    shimmerHighlightColor,
+    overlayColor,
+    shadowColor,
+  ]);
+}
+
+/// যেকোনো `OmniTheme` প্যালেটে **লাইট মোড** ও **ডার্ক মোড**-এর জন্য আলাদা রঙ
+/// যোগ করার `const`-বান্ধব ঐচ্ছিক কালার প্যালেট (`OmniTheme(light: ..., dark: ...)`).
+///
+/// ৫৫টি রঙের সবগুলো দেওয়ার প্রয়োজন নেই — শুধু যে রঙগুলো নির্দিষ্ট মোডে বদলাতে
+/// চান সেগুলো দিলেই বাকি রঙগুলো `seedColor` ও মোড অনুযায়ী স্বয়ংক্রিয়ভাবে তৈরি হবে।
+@immutable
+class OmniColorPalette {
+  /// ঐচ্ছিক লাইট বা ডার্ক মোড কালার ওভাররাইড তৈরি করে।
+  const OmniColorPalette({
+    this.primaryColor,
+    this.secondaryColor,
+    this.surfaceColor,
+    this.secondaryBackgroundColor,
+    this.cardColor,
+    this.appBarColor,
+    this.appBarTextColor,
+    this.navBarColor,
+    this.navSelectedColor,
+    this.navUnselectedColor,
+    this.statusBarColor,
+    this.systemNavigationBarColor,
+    this.buttonColor,
+    this.buttonTextColor,
+    this.secondaryButtonColor,
+    this.secondaryButtonTextColor,
+    this.dangerButtonColor,
+    this.dangerButtonTextColor,
+    this.linkColor,
+    this.inputFillColor,
+    this.borderColor,
+    this.focusedBorderColor,
+    this.dividerColor,
+    this.textColor,
+    this.secondaryTextColor,
+    this.hintTextColor,
+    this.iconColor,
+    this.chipColor,
+    this.chipTextColor,
+    this.badgeColor,
+    this.badgeTextColor,
+    this.selectedItemColor,
+    this.hoverColor,
+    this.rippleColor,
+    this.disabledColor,
+    this.disabledTextColor,
+    this.disabledBorderColor,
+    this.switchActiveColor,
+    this.switchInactiveColor,
+    this.snackbarColor,
+    this.snackbarTextColor,
+    this.tooltipColor,
+    this.tooltipTextColor,
+    this.errorColor,
+    this.errorBackgroundColor,
+    this.warningColor,
+    this.warningBackgroundColor,
+    this.successColor,
+    this.successBackgroundColor,
+    this.infoColor,
+    this.infoBackgroundColor,
+    this.shimmerBaseColor,
+    this.shimmerHighlightColor,
+    this.overlayColor,
+    this.shadowColor,
+  });
+
+  /// ব্র্যান্ডের প্রধান প্রাইমারি কালার (এই মোডের জন্য)।
+  final Color? primaryColor;
+
+  /// সেকেন্ডারি বা সহায়ক অ্যাকসেন্ট কালার।
+  final Color? secondaryColor;
+
+  /// পুরো স্ক্রিন বা `Scaffold`-এর মূল ব্যাকগ্রাউন্ড কালার।
+  final Color? surfaceColor;
+
+  /// সেকশন, কোড ব্লক ও বিকল্প সারির দ্বিতীয় ব্যাকগ্রাউন্ড কালার।
+  final Color? secondaryBackgroundColor;
+
+  /// কার্ড, ডায়ালগ ও বটম শিটের ব্যাকগ্রাউন্ড কালার।
+  final Color? cardColor;
+
+  /// ওপরের `AppBar`-এর ব্যাকগ্রাউন্ড কালার।
+  final Color? appBarColor;
+
+  /// `AppBar`-এর টাইটেল ও আইকনের কালার।
+  final Color? appBarTextColor;
+
+  /// বটম নেভিগেশন বার ও সাইড রেলের ব্যাকগ্রাউন্ড কালার।
+  final Color? navBarColor;
+
+  /// সিলেক্ট করা ট্যাবের আইকন ও লেখার কালার।
+  final Color? navSelectedColor;
+
+  /// আন-সিলেক্টেড ট্যাবের আইকন ও লেখার কালার।
+  final Color? navUnselectedColor;
+
+  /// ওপরের সিস্টেম স্ট্যাটাস বারের কালার।
+  final Color? statusBarColor;
+
+  /// নিচের সিস্টেম নেভিগেশন ও গেস্টচার সোয়াইপ বারের কালার।
+  final Color? systemNavigationBarColor;
+
+  /// প্রধান অ্যাকশন বাটনের ব্যাকগ্রাউন্ড কালার।
+  final Color? buttonColor;
+
+  /// প্রধান বাটনের ভেতরের লেখা ও আইকনের কালার।
+  final Color? buttonTextColor;
+
+  /// সেকেন্ডারি বাটনের ("Cancel", "Back") ব্যাকগ্রাউন্ড কালার।
+  final Color? secondaryButtonColor;
+
+  /// সেকেন্ডারি বাটনের ভেতরের লেখার কালার।
+  final Color? secondaryButtonTextColor;
+
+  /// ডেঞ্জার/ডিলিট বাটনের ব্যাকগ্রাউন্ড কালার।
+  final Color? dangerButtonColor;
+
+  /// ডেঞ্জার বাটনের ভেতরের লেখার কালার।
+  final Color? dangerButtonTextColor;
+
+  /// ক্লিকেবল লিংক টেক্সটের কালার।
+  final Color? linkColor;
+
+  /// `TextField` / ইনপুট ফিল্ডের ভেতরের ব্যাকগ্রাউন্ড কালার।
+  final Color? inputFillColor;
+
+  /// সাধারণ কার্ড/ইনপুটের বর্ডার কালার।
+  final Color? borderColor;
+
+  /// ফোকাস হওয়া ইনপুট ফিল্ডের বর্ডার কালার।
+  final Color? focusedBorderColor;
+
+  /// সেকশন ও তালিকা আইটেমের ডিভাইডার লাইনের কালার।
+  final Color? dividerColor;
+
+  /// মূল হেডিং ও বডি টেক্সটের কালার।
+  final Color? textColor;
+
+  /// সাবটাইটেল ও তুলনামূলক হালকা টেক্সটের কালার।
+  final Color? secondaryTextColor;
+
+  /// ইনপুট ফিল্ডের হিন্ট/প্লেসহোল্ডার লেখার কালার।
+  final Color? hintTextColor;
+
+  /// সাধারণ UI আইকনের ডিফল্ট কালার।
+  final Color? iconColor;
+
+  /// ট্যাগ ও চিপের ব্যাকগ্রাউন্ড কালার।
+  final Color? chipColor;
+
+  /// ট্যাগ ও চিপের ভেতরের লেখার কালার।
+  final Color? chipTextColor;
+
+  /// নোটিফিকেশন ব্যাজের ব্যাকগ্রাউন্ড কালার।
+  final Color? badgeColor;
+
+  /// নোটিফিকেশন ব্যাজের লেখার কালার।
+  final Color? badgeTextColor;
+
+  /// সিলেক্ট করা তালিকা বা মেনু আইটেমের হাইলাইট কালার।
+  final Color? selectedItemColor;
+
+  /// মাউস হোভার বা প্রেস হাইলাইট কালার।
+  final Color? hoverColor;
+
+  /// বাটন ট্যাপ রিপল/স্প্ল্যাশ কালার।
+  final Color? rippleColor;
+
+  /// নিষ্ক্রিয় (`disabled`) বাটন ও ইনপুটের ব্যাকগ্রাউন্ড কালার।
+  final Color? disabledColor;
+
+  /// নিষ্ক্রিয় (`disabled`) বাটন ও ইনপুটের লেখার কালার।
+  final Color? disabledTextColor;
+
+  /// নিষ্ক্রিয় (`disabled`) উপাদানের বর্ডার কালার।
+  final Color? disabledBorderColor;
+
+  /// `Switch`, `Checkbox`, ও `Radio` চালু অবস্থার কালার।
+  final Color? switchActiveColor;
+
+  /// `Switch`, `Checkbox`, ও স্লাইডার বন্ধ অবস্থার কালার।
+  final Color? switchInactiveColor;
+
+  /// `SnackBar` / টোস্টের ব্যাকগ্রাউন্ড কালার।
+  final Color? snackbarColor;
+
+  /// `SnackBar` / টোস্টের ভেতরের লেখার কালার।
+  final Color? snackbarTextColor;
+
+  /// `Tooltip` পপআপ বক্সের ব্যাকগ্রাউন্ড কালার।
+  final Color? tooltipColor;
+
+  /// `Tooltip` পপআপের ভেতরের লেখার কালার।
+  final Color? tooltipTextColor;
+
+  /// এরর ও ভ্যালিডেশন ব্যর্থতার লাল কালার।
+  final Color? errorColor;
+
+  /// এরর অ্যালার্ট বক্সের ব্যাকগ্রাউন্ড কালার।
+  final Color? errorBackgroundColor;
+
+  /// সতর্কতা বা পেন্ডিং অবস্থার ওয়ার্নিং কালার।
+  final Color? warningColor;
+
+  /// ওয়ার্নিং অ্যালার্ট বক্সের ব্যাকগ্রাউন্ড কালার।
+  final Color? warningBackgroundColor;
+
+  /// সফল বা ভেরিফাইড অবস্থার সাকসেস কালার।
+  final Color? successColor;
+
+  /// সাকসেস ব্যানারের ব্যাকগ্রাউন্ড কালার।
+  final Color? successBackgroundColor;
+
+  /// তথ্য বা টিপস ব্যানারের ইনফো কালার।
+  final Color? infoColor;
+
+  /// ইনফো ব্যানারের ব্যাকগ্রাউন্ড কালার।
+  final Color? infoBackgroundColor;
+
+  /// লোডিং স্কেলেটনের মূল শিমার বেস কালার।
+  final Color? shimmerBaseColor;
+
+  /// লোডিং স্কেলেটনের উজ্জ্বল শিমার হাইলাইট কালার।
+  final Color? shimmerHighlightColor;
+
+  /// ডায়ালগ ও শিটের পেছনের ওভারলে স্ক্রিম কালার।
+  final Color? overlayColor;
+
+  /// কার্ড ও ফ্লোটিং বক্সের শ্যাডো কালার।
+  final Color? shadowColor;
+
+  /// প্রদত্ত [brightness] ও [seedColor] মিলিয়ে পূর্ণাঙ্গ ৫৫টি [OmniColors] তৈরি করে।
+  OmniColors toColors({
+    required Brightness brightness,
+    Color seedColor = const Color(0xFF2563EB),
+    Color? secondaryColor,
+  }) => OmniColors.fromSeed(
+    primaryColor: primaryColor ?? seedColor,
+    brightness: brightness,
+    secondaryColor: this.secondaryColor ?? secondaryColor,
+    surfaceColor: surfaceColor,
+    secondaryBackgroundColor: secondaryBackgroundColor,
+    cardColor: cardColor,
+    appBarColor: appBarColor,
+    appBarTextColor: appBarTextColor,
+    navBarColor: navBarColor,
+    navSelectedColor: navSelectedColor,
+    navUnselectedColor: navUnselectedColor,
+    statusBarColor: statusBarColor,
+    systemNavigationBarColor: systemNavigationBarColor,
+    buttonColor: buttonColor,
+    buttonTextColor: buttonTextColor,
+    secondaryButtonColor: secondaryButtonColor,
+    secondaryButtonTextColor: secondaryButtonTextColor,
+    dangerButtonColor: dangerButtonColor,
+    dangerButtonTextColor: dangerButtonTextColor,
+    linkColor: linkColor,
+    inputFillColor: inputFillColor,
+    borderColor: borderColor,
+    focusedBorderColor: focusedBorderColor,
+    dividerColor: dividerColor,
+    textColor: textColor,
+    secondaryTextColor: secondaryTextColor,
+    hintTextColor: hintTextColor,
+    iconColor: iconColor,
+    chipColor: chipColor,
+    chipTextColor: chipTextColor,
+    badgeColor: badgeColor,
+    badgeTextColor: badgeTextColor,
+    selectedItemColor: selectedItemColor,
+    hoverColor: hoverColor,
+    rippleColor: rippleColor,
+    disabledColor: disabledColor,
+    disabledTextColor: disabledTextColor,
+    disabledBorderColor: disabledBorderColor,
+    switchActiveColor: switchActiveColor,
+    switchInactiveColor: switchInactiveColor,
+    snackbarColor: snackbarColor,
+    snackbarTextColor: snackbarTextColor,
+    tooltipColor: tooltipColor,
+    tooltipTextColor: tooltipTextColor,
+    errorColor: errorColor,
+    errorBackgroundColor: errorBackgroundColor,
+    warningColor: warningColor,
+    warningBackgroundColor: warningBackgroundColor,
+    successColor: successColor,
+    successBackgroundColor: successBackgroundColor,
+    infoColor: infoColor,
+    infoBackgroundColor: infoBackgroundColor,
+    shimmerBaseColor: shimmerBaseColor,
+    shimmerHighlightColor: shimmerHighlightColor,
+    overlayColor: overlayColor,
+    shadowColor: shadowColor,
+  );
+
+  /// নির্দিষ্ট রঙ বদলে নতুন [OmniColorPalette] কপি দেয়।
+  OmniColorPalette copyWith({
+    Color? primaryColor,
+    Color? secondaryColor,
+    Color? surfaceColor,
+    Color? secondaryBackgroundColor,
+    Color? cardColor,
+    Color? appBarColor,
+    Color? appBarTextColor,
+    Color? navBarColor,
+    Color? navSelectedColor,
+    Color? navUnselectedColor,
+    Color? statusBarColor,
+    Color? systemNavigationBarColor,
+    Color? buttonColor,
+    Color? buttonTextColor,
+    Color? secondaryButtonColor,
+    Color? secondaryButtonTextColor,
+    Color? dangerButtonColor,
+    Color? dangerButtonTextColor,
+    Color? linkColor,
+    Color? inputFillColor,
+    Color? borderColor,
+    Color? focusedBorderColor,
+    Color? dividerColor,
+    Color? textColor,
+    Color? secondaryTextColor,
+    Color? hintTextColor,
+    Color? iconColor,
+    Color? chipColor,
+    Color? chipTextColor,
+    Color? badgeColor,
+    Color? badgeTextColor,
+    Color? selectedItemColor,
+    Color? hoverColor,
+    Color? rippleColor,
+    Color? disabledColor,
+    Color? disabledTextColor,
+    Color? disabledBorderColor,
+    Color? switchActiveColor,
+    Color? switchInactiveColor,
+    Color? snackbarColor,
+    Color? snackbarTextColor,
+    Color? tooltipColor,
+    Color? tooltipTextColor,
+    Color? errorColor,
+    Color? errorBackgroundColor,
+    Color? warningColor,
+    Color? warningBackgroundColor,
+    Color? successColor,
+    Color? successBackgroundColor,
+    Color? infoColor,
+    Color? infoBackgroundColor,
+    Color? shimmerBaseColor,
+    Color? shimmerHighlightColor,
+    Color? overlayColor,
+    Color? shadowColor,
+  }) => OmniColorPalette(
+    primaryColor: primaryColor ?? this.primaryColor,
+    secondaryColor: secondaryColor ?? this.secondaryColor,
+    surfaceColor: surfaceColor ?? this.surfaceColor,
+    secondaryBackgroundColor:
+        secondaryBackgroundColor ?? this.secondaryBackgroundColor,
+    cardColor: cardColor ?? this.cardColor,
+    appBarColor: appBarColor ?? this.appBarColor,
+    appBarTextColor: appBarTextColor ?? this.appBarTextColor,
+    navBarColor: navBarColor ?? this.navBarColor,
+    navSelectedColor: navSelectedColor ?? this.navSelectedColor,
+    navUnselectedColor: navUnselectedColor ?? this.navUnselectedColor,
+    statusBarColor: statusBarColor ?? this.statusBarColor,
+    systemNavigationBarColor:
+        systemNavigationBarColor ?? this.systemNavigationBarColor,
+    buttonColor: buttonColor ?? this.buttonColor,
+    buttonTextColor: buttonTextColor ?? this.buttonTextColor,
+    secondaryButtonColor: secondaryButtonColor ?? this.secondaryButtonColor,
+    secondaryButtonTextColor:
+        secondaryButtonTextColor ?? this.secondaryButtonTextColor,
+    dangerButtonColor: dangerButtonColor ?? this.dangerButtonColor,
+    dangerButtonTextColor:
+        dangerButtonTextColor ?? this.dangerButtonTextColor,
+    linkColor: linkColor ?? this.linkColor,
+    inputFillColor: inputFillColor ?? this.inputFillColor,
+    borderColor: borderColor ?? this.borderColor,
+    focusedBorderColor: focusedBorderColor ?? this.focusedBorderColor,
+    dividerColor: dividerColor ?? this.dividerColor,
+    textColor: textColor ?? this.textColor,
+    secondaryTextColor: secondaryTextColor ?? this.secondaryTextColor,
+    hintTextColor: hintTextColor ?? this.hintTextColor,
+    iconColor: iconColor ?? this.iconColor,
+    chipColor: chipColor ?? this.chipColor,
+    chipTextColor: chipTextColor ?? this.chipTextColor,
+    badgeColor: badgeColor ?? this.badgeColor,
+    badgeTextColor: badgeTextColor ?? this.badgeTextColor,
+    selectedItemColor: selectedItemColor ?? this.selectedItemColor,
+    hoverColor: hoverColor ?? this.hoverColor,
+    rippleColor: rippleColor ?? this.rippleColor,
+    disabledColor: disabledColor ?? this.disabledColor,
+    disabledTextColor: disabledTextColor ?? this.disabledTextColor,
+    disabledBorderColor: disabledBorderColor ?? this.disabledBorderColor,
+    switchActiveColor: switchActiveColor ?? this.switchActiveColor,
+    switchInactiveColor: switchInactiveColor ?? this.switchInactiveColor,
+    snackbarColor: snackbarColor ?? this.snackbarColor,
+    snackbarTextColor: snackbarTextColor ?? this.snackbarTextColor,
+    tooltipColor: tooltipColor ?? this.tooltipColor,
+    tooltipTextColor: tooltipTextColor ?? this.tooltipTextColor,
+    errorColor: errorColor ?? this.errorColor,
+    errorBackgroundColor: errorBackgroundColor ?? this.errorBackgroundColor,
+    warningColor: warningColor ?? this.warningColor,
+    warningBackgroundColor:
+        warningBackgroundColor ?? this.warningBackgroundColor,
+    successColor: successColor ?? this.successColor,
+    successBackgroundColor:
+        successBackgroundColor ?? this.successBackgroundColor,
+    infoColor: infoColor ?? this.infoColor,
+    infoBackgroundColor: infoBackgroundColor ?? this.infoBackgroundColor,
+    shimmerBaseColor: shimmerBaseColor ?? this.shimmerBaseColor,
+    shimmerHighlightColor:
+        shimmerHighlightColor ?? this.shimmerHighlightColor,
+    overlayColor: overlayColor ?? this.overlayColor,
+    shadowColor: shadowColor ?? this.shadowColor,
+  );
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OmniColorPalette &&
+          primaryColor == other.primaryColor &&
+          secondaryColor == other.secondaryColor &&
+          surfaceColor == other.surfaceColor &&
+          secondaryBackgroundColor == other.secondaryBackgroundColor &&
+          cardColor == other.cardColor &&
+          appBarColor == other.appBarColor &&
+          appBarTextColor == other.appBarTextColor &&
+          navBarColor == other.navBarColor &&
+          navSelectedColor == other.navSelectedColor &&
+          navUnselectedColor == other.navUnselectedColor &&
+          statusBarColor == other.statusBarColor &&
+          systemNavigationBarColor == other.systemNavigationBarColor &&
+          buttonColor == other.buttonColor &&
+          buttonTextColor == other.buttonTextColor &&
+          secondaryButtonColor == other.secondaryButtonColor &&
+          secondaryButtonTextColor == other.secondaryButtonTextColor &&
+          dangerButtonColor == other.dangerButtonColor &&
+          dangerButtonTextColor == other.dangerButtonTextColor &&
+          linkColor == other.linkColor &&
+          inputFillColor == other.inputFillColor &&
+          borderColor == other.borderColor &&
+          focusedBorderColor == other.focusedBorderColor &&
+          dividerColor == other.dividerColor &&
+          textColor == other.textColor &&
+          secondaryTextColor == other.secondaryTextColor &&
+          hintTextColor == other.hintTextColor &&
+          iconColor == other.iconColor &&
+          chipColor == other.chipColor &&
+          chipTextColor == other.chipTextColor &&
+          badgeColor == other.badgeColor &&
+          badgeTextColor == other.badgeTextColor &&
+          selectedItemColor == other.selectedItemColor &&
+          hoverColor == other.hoverColor &&
+          rippleColor == other.rippleColor &&
+          disabledColor == other.disabledColor &&
+          disabledTextColor == other.disabledTextColor &&
+          disabledBorderColor == other.disabledBorderColor &&
+          switchActiveColor == other.switchActiveColor &&
+          switchInactiveColor == other.switchInactiveColor &&
+          snackbarColor == other.snackbarColor &&
+          snackbarTextColor == other.snackbarTextColor &&
+          tooltipColor == other.tooltipColor &&
+          tooltipTextColor == other.tooltipTextColor &&
+          errorColor == other.errorColor &&
+          errorBackgroundColor == other.errorBackgroundColor &&
+          warningColor == other.warningColor &&
+          warningBackgroundColor == other.warningBackgroundColor &&
+          successColor == other.successColor &&
+          successBackgroundColor == other.successBackgroundColor &&
+          infoColor == other.infoColor &&
+          infoBackgroundColor == other.infoBackgroundColor &&
+          shimmerBaseColor == other.shimmerBaseColor &&
+          shimmerHighlightColor == other.shimmerHighlightColor &&
+          overlayColor == other.overlayColor &&
+          shadowColor == other.shadowColor;
+
+  @override
+  int get hashCode => Object.hashAll([
+    primaryColor,
+    secondaryColor,
+    surfaceColor,
+    secondaryBackgroundColor,
+    cardColor,
+    appBarColor,
+    appBarTextColor,
+    navBarColor,
+    navSelectedColor,
+    navUnselectedColor,
+    statusBarColor,
+    systemNavigationBarColor,
     buttonColor,
     buttonTextColor,
     secondaryButtonColor,

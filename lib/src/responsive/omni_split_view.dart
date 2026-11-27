@@ -136,35 +136,43 @@ class _OmniMasterDetailState<T> extends State<OmniMasterDetail<T>> {
       );
     }
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SizedBox(
-          width: widget.masterWidth,
-          child: OmniResponsiveScope.constrained(
-            child: widget.masterBuilder(
-              context,
-              controller,
-              (item) => _handleSelect(context, item, false),
+    return LayoutBuilder(
+      builder: (splitCtx, constraints) {
+        final effectiveMasterWidth = constraints.hasBoundedWidth &&
+                widget.masterWidth > constraints.maxWidth * 0.5
+            ? (constraints.maxWidth * 0.45).clamp(240.0, widget.masterWidth)
+            : widget.masterWidth;
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: effectiveMasterWidth,
+              child: OmniResponsiveScope.constrained(
+                child: widget.masterBuilder(
+                  splitCtx,
+                  controller,
+                  (item) => _handleSelect(splitCtx, item, false),
+                ),
+              ),
             ),
-          ),
-        ),
-        if (widget.showDivider) const VerticalDivider(width: 1, thickness: 1),
-        Expanded(
-          child: OmniResponsiveScope.constrained(
-            child: ValueListenableBuilder<T?>(
-              valueListenable: controller,
-              builder: (detailContext, selected, _) {
-                if (selected == null) {
-                  return widget.emptyDetailBuilder?.call(detailContext) ??
-                      const SizedBox.shrink();
-                }
-                return widget.detailBuilder(detailContext, selected);
-              },
+            if (widget.showDivider) const VerticalDivider(width: 1, thickness: 1),
+            Expanded(
+              child: OmniResponsiveScope.constrained(
+                child: ValueListenableBuilder<T?>(
+                  valueListenable: controller,
+                  builder: (detailContext, selected, _) {
+                    if (selected == null) {
+                      return widget.emptyDetailBuilder?.call(detailContext) ??
+                          const SizedBox.shrink();
+                    }
+                    return widget.detailBuilder(detailContext, selected);
+                  },
+                ),
+              ),
             ),
-          ),
-        ),
-      ],
+          ],
+        );
+      },
     );
   }
 }

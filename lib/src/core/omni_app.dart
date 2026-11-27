@@ -22,6 +22,9 @@ import 'omni_log.dart';
 import 'omni_route.dart';
 import 'omni_route_entry.dart';
 import 'omni_router.dart';
+import '../responsive/omni_status_bar.dart';
+import '../responsive/omni_system_navigation_bar.dart';
+import '../responsive/omni_system_ui.dart';
 import '../responsive/omni_theme.dart';
 
 /// Builds your app widget (`MaterialApp.router`, `CupertinoApp.router`, etc.)
@@ -83,6 +86,10 @@ class OmniApp extends StatefulWidget {
     this.dismissKeyboardOnTap = false,
     this.doubleBackToExit,
     this.onExitWarning,
+    this.screenMode,
+    this.statusBar,
+    this.systemNavigationBar,
+    this.orientation,
     this.orientations,
     this.minTextScale,
     this.maxTextScale,
@@ -129,6 +136,10 @@ class OmniApp extends StatefulWidget {
     this.dismissKeyboardOnTap = false,
     this.doubleBackToExit,
     this.onExitWarning,
+    this.screenMode,
+    this.statusBar,
+    this.systemNavigationBar,
+    this.orientation,
     this.orientations,
     this.minTextScale,
     this.maxTextScale,
@@ -182,6 +193,7 @@ class OmniApp extends StatefulWidget {
              responsive,
              minTextScale,
              maxTextScale,
+             syncMaterialBarTheme: omniTheme == null && themes.isEmpty,
            ),
          );
        }),
@@ -220,6 +232,10 @@ class OmniApp extends StatefulWidget {
     this.dismissKeyboardOnTap = false,
     this.doubleBackToExit,
     this.onExitWarning,
+    this.screenMode,
+    this.statusBar,
+    this.systemNavigationBar,
+    this.orientation,
     this.orientations,
     this.minTextScale,
     this.maxTextScale,
@@ -268,17 +284,52 @@ class OmniApp extends StatefulWidget {
     TransitionBuilder? overlayBuilder,
     OmniResponsiveConfig responsive,
     double? minTextScale,
-    double? maxTextScale,
-  ) {
+    double? maxTextScale, {
+    bool syncMaterialBarTheme = false,
+  }) {
     final hasScale =
         (responsive.enabled && responsive.adaptTextScaling) ||
         minTextScale != null ||
         maxTextScale != null;
-    if (appBuilder == null && overlayBuilder == null && !hasScale) {
+    if (appBuilder == null &&
+        overlayBuilder == null &&
+        !hasScale &&
+        !syncMaterialBarTheme) {
       return null;
     }
     return (context, child) {
       var current = child;
+      if (syncMaterialBarTheme && current != null) {
+        final scope =
+            context.dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
+        if (scope != null &&
+            (scope.effectiveStatusBar != const OmniStatusBarStyle.transparent() ||
+                scope.effectiveSystemNavigationBar !=
+                    const OmniSystemNavigationBarStyle.transparent() ||
+                scope.effectiveScreenMode != OmniScreenMode.edgeToEdge)) {
+          final theme = Theme.of(context);
+          final overlay = composeOmniSystemUiOverlayStyle(
+            brightness: theme.brightness,
+            screenMode: scope.effectiveScreenMode,
+            statusBar: scope.effectiveStatusBar,
+            systemNavigationBar: scope.effectiveSystemNavigationBar,
+            fallbackTopBackground:
+                theme.appBarTheme.backgroundColor ??
+                theme.scaffoldBackgroundColor,
+            fallbackBottomBackground: theme.scaffoldBackgroundColor,
+          );
+          if (theme.appBarTheme.systemOverlayStyle != overlay) {
+            current = Theme(
+              data: theme.copyWith(
+                appBarTheme: theme.appBarTheme.copyWith(
+                  systemOverlayStyle: overlay,
+                ),
+              ),
+              child: current,
+            );
+          }
+        }
+      }
       if (appBuilder != null) current = appBuilder(context, current);
       if (overlayBuilder != null) current = overlayBuilder(context, current);
       if (hasScale && current != null) {
@@ -408,6 +459,25 @@ class OmniApp extends StatefulWidget {
   /// Allowed device orientations while this app is mounted.
   final List<DeviceOrientation>? orientations;
 
+  /// App-wide system bars & fullscreen display mode (`edgeToEdge`,
+  /// `fullscreen`, `fullscreenLean`, `normal`, `statusBarOnly`,
+  /// `navigationBarOnly`). Can be changed at runtime via `context.enterFullscreen()`,
+  /// `context.exitFullscreen()`, or per-page via `OmniPage(screenMode: ...)`.
+  final OmniScreenMode? screenMode;
+
+  /// App-wide custom style for the TOP system status bar ([OmniStatusBarStyle]).
+  /// Applied globally to every screen (with or without `AppBar`).
+  final OmniStatusBarStyle? statusBar;
+
+  /// App-wide custom style for the BOTTOM system navigation / gesture swipe bar
+  /// ([OmniSystemNavigationBarStyle]); removes Android gesture-bar black scrim across every screen.
+  final OmniSystemNavigationBarStyle? systemNavigationBar;
+
+  /// High-level device rotation preset (`auto`, `portrait`, `portraitBoth`,
+  /// `landscape`, `landscapeLeft`, `landscapeRight`, `portraitOnMobile`, `system`).
+  /// Takes effect globally and can be overridden per route via `OmniPage(orientation: ...)`.
+  final OmniOrientation? orientation;
+
   /// Minimum system accessibility text scale factor.
   final double? minTextScale;
 
@@ -455,6 +525,7 @@ class _OmniAppState extends State<OmniApp> {
   Object? _configError;
   final GuardNotifier _guardRefresh = GuardNotifier();
   final OmniFlowSession _flowSession = OmniFlowSession();
+  final OmniSystemUiController _systemUiController = OmniSystemUiController();
   bool _navListenerAttached = false;
 
   OmniRouteEntry? _last;
@@ -757,10 +828,6 @@ class _OmniAppState extends State<OmniApp> {
       _installedBlocObserver = observer;
       Bloc.observer = observer;
     }
-    final orientations = widget.orientations;
-    if (orientations != null) {
-      SystemChrome.setPreferredOrientations(orientations);
-    }
   }
 
   void _syncGlobals(OmniApp oldWidget) {
@@ -785,14 +852,6 @@ class _OmniAppState extends State<OmniApp> {
         Bloc.observer = next;
       }
     }
-
-    if (!listEquals(widget.orientations, oldWidget.orientations)) {
-      if (widget.orientations != null) {
-        SystemChrome.setPreferredOrientations(widget.orientations!);
-      } else if (oldWidget.orientations != null) {
-        SystemChrome.setPreferredOrientations(const []);
-      }
-    }
   }
 
   void _restoreGlobals() {
@@ -803,9 +862,6 @@ class _OmniAppState extends State<OmniApp> {
       Bloc.observer = prevObserver;
     }
     _installedBlocObserver = null;
-    if (widget.orientations != null) {
-      SystemChrome.setPreferredOrientations(const []);
-    }
   }
 
   @override
@@ -821,6 +877,7 @@ class _OmniAppState extends State<OmniApp> {
       router.dispose();
     }
     _guardRefresh.dispose();
+    _systemUiController.dispose();
     super.dispose();
   }
 
@@ -854,13 +911,86 @@ class _OmniAppState extends State<OmniApp> {
         child: child,
       );
     }
-    if (widget.omniTheme != null || widget.themes.isNotEmpty) {
-      child = OmniResponsiveThemeHost(
-        omniTheme: widget.omniTheme,
-        themes: widget.themes,
-        child: child,
-      );
-    }
+    final hasThemeHost = widget.omniTheme != null || widget.themes.isNotEmpty;
+    final innerChild = child;
+    child = ListenableBuilder(
+      listenable: _systemUiController,
+      child: innerChild,
+      builder: (context, builtChild) {
+        final effectiveStatusBar =
+            _systemUiController.statusBar ?? widget.statusBar;
+        final effectiveNavBar =
+            _systemUiController.systemNavigationBar ??
+            widget.systemNavigationBar;
+        final baseMode = _systemUiController.screenMode ?? widget.screenMode;
+        final effectiveScreenMode = baseMode != null
+            ? resolveEffectiveOmniScreenMode(
+                baseMode,
+                statusBar: effectiveStatusBar,
+                systemNavigationBar: effectiveNavBar,
+              )
+            : (effectiveStatusBar != null || effectiveNavBar != null
+                ? resolveEffectiveOmniScreenMode(
+                    OmniScreenMode.edgeToEdge,
+                    statusBar: effectiveStatusBar,
+                    systemNavigationBar: effectiveNavBar,
+                  )
+                : null);
+        final hasRuntimeOrient =
+            _systemUiController.orientations != null ||
+            _systemUiController.orientation != null;
+        final effectiveOrientation = hasRuntimeOrient
+            ? _systemUiController.orientation
+            : widget.orientation;
+        final effectiveOrientations = hasRuntimeOrient
+            ? _systemUiController.orientations
+            : (widget.orientation != null ? null : widget.orientations);
+
+        var current = builtChild!;
+        if (hasThemeHost) {
+          current = OmniResponsiveThemeHost(
+            omniTheme: widget.omniTheme,
+            themes: widget.themes,
+            appScreenMode: effectiveScreenMode,
+            appStatusBar: effectiveStatusBar,
+            appSystemNavigationBar: effectiveNavBar,
+            child: current,
+          );
+        }
+        current = OmniSystemUi(
+          screenMode: hasThemeHost ? null : effectiveScreenMode,
+          statusBar: hasThemeHost ? null : effectiveStatusBar,
+          systemNavigationBar: hasThemeHost ? null : effectiveNavBar,
+          brightness: !hasThemeHost &&
+                  (effectiveStatusBar != null ||
+                      effectiveNavBar != null ||
+                      effectiveScreenMode != null)
+              ? MediaQuery.platformBrightnessOf(context)
+              : null,
+          orientation: effectiveOrientation,
+          orientations: effectiveOrientations,
+          child: current,
+        );
+        return OmniSystemUiScope(
+          controller: _systemUiController,
+          effectiveScreenMode:
+              effectiveScreenMode ??
+              (widget.omniTheme ?? widget.themes.firstOrNull)?.screenMode ??
+              OmniScreenMode.edgeToEdge,
+          effectiveOrientation: effectiveOrientation,
+          effectiveStatusBar:
+              effectiveStatusBar ??
+              (widget.omniTheme ?? widget.themes.firstOrNull)?.statusBar ??
+              const OmniStatusBarStyle.transparent(),
+          effectiveSystemNavigationBar:
+              effectiveNavBar ??
+              (widget.omniTheme ?? widget.themes.firstOrNull)
+                  ?.systemNavigationBar ??
+              const OmniSystemNavigationBarStyle.transparent(),
+          child: current,
+        );
+      },
+    );
     final lifecycle = widget.lifecycle;
     if (lifecycle != null) {
       child = OmniAppLifecycleScope(lifecycle: lifecycle, child: child);

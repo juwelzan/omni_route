@@ -636,6 +636,30 @@ class OmniResponsiveConfig {
   }) : enabled = false,
        adaptTextScaling = false;
 
+  /// Keeps handheld phones strictly in [OmniDeviceType.mobile] even when
+  /// rotated to landscape (checks `shortestSide` instead of `width`).
+  const OmniResponsiveConfig.phoneFriendly({
+    this.smallPhoneMaxWidth = 360,
+    this.mobileMaxWidth = 600,
+    this.tabletMaxWidth = 1024,
+    this.desktopMaxWidth = 1440,
+    this.adaptTextScaling = true,
+    this.tokens = const OmniResponsiveTokenSet(),
+  }) : enabled = true,
+       useShortestSide = true;
+
+  /// Desktop/admin dashboard preset promoting desktop layout earlier (`900dp`)
+  /// with comfortable spacing tokens for data-dense screens.
+  const OmniResponsiveConfig.desktopDense({
+    this.smallPhoneMaxWidth = 360,
+    this.mobileMaxWidth = 600,
+    this.tabletMaxWidth = 900,
+    this.desktopMaxWidth = 1360,
+    this.useShortestSide = false,
+    this.adaptTextScaling = true,
+    this.tokens = const OmniResponsiveTokenSet(),
+  }) : enabled = true;
+
   /// Whether built-in responsive handling & tier text scaling are active.
   final bool enabled;
 

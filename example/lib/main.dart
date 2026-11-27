@@ -212,11 +212,25 @@ class _ExampleAppState extends State<ExampleApp> {
   Widget build(BuildContext context) {
     return OmniApp.material(
       title: 'OmniRoute & OmniNetwork Example',
+      screenMode: OmniScreenMode.edgeToEdge,
+      orientation: OmniOrientation.portraitOnMobile,
       omniTheme: const OmniTheme(
         id: 'ocean',
         name: 'Ocean',
         seedColor: Color(0xFF2563EB),
         secondaryColor: Color(0xFF0EA5E9),
+        statusBar: OmniStatusBarStyle.transparent(),
+        systemNavigationBar: OmniSystemNavigationBarStyle.transparent(),
+        light: OmniColorPalette(
+          surfaceColor: Color(0xFFF8FAFC),
+          cardColor: Colors.white,
+        ),
+        dark: OmniColorPalette(
+          primaryColor: Color(0xFF3B82F6),
+          secondaryColor: Color(0xFF38BDF8),
+          surfaceColor: Color(0xFF0B1120),
+          cardColor: Color(0xFF131C31),
+        ),
         persistMode: true,
       ),
       themes: OmniTheme.presets,
@@ -727,6 +741,7 @@ class SettingsScreen extends OmniStatelessWidget {
       appBar: AppBar(
         title: Text('$title ($routePath)'),
         actions: const [
+          OmniFullscreenButton(),
           OmniThemeButton(),
           OmniThemeModeButton(allowSystemMode: true),
         ],

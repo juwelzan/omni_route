@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
@@ -12,6 +13,9 @@ import '../errors/omni_route_exception.dart';
 import '../guards/omni_guard.dart';
 import '../responsive/omni_responsive_config.dart';
 import '../responsive/omni_responsive_scope.dart';
+import '../responsive/omni_status_bar.dart';
+import '../responsive/omni_system_navigation_bar.dart';
+import '../responsive/omni_system_ui.dart';
 import '../screens/omni_screen.dart';
 import '../screens/omni_screen_host.dart';
 import 'omni_params.dart';
@@ -516,6 +520,11 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.routes = const [],
     this.metadata,
     this.parentNavigatorKey,
+    this.screenMode,
+    this.statusBar,
+    this.systemNavigationBar,
+    this.orientation,
+    this.orientations,
   }) : _screen = null;
 
   /// Creates a route directly from a widget [screen], automatically using
@@ -536,10 +545,31 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.routes = const [],
     this.metadata,
     this.parentNavigatorKey,
+    this.screenMode,
+    this.statusBar,
+    this.systemNavigationBar,
+    this.orientation,
+    this.orientations,
   }) : // Named `path` cannot be a private initializing formal alongside computed `get path`.
        // ignore: prefer_initializing_formals
        _path = path,
        _screenBuilder = null;
+
+  /// এই রাউটের জন্য ঐচ্ছিক [OmniScreenMode] (যেমন ফুল-স্ক্রিন বা এজ-টু-এজ)।
+  /// রাউট পপ করলে আগের স্ক্রিন বা অ্যাপের মোড স্বয়ংক্রিয়ভাবে ফিরে আসবে।
+  final OmniScreenMode? screenMode;
+
+  /// এই রাউটের জন্য আলাদা ওপরের স্ট্যাটাস বার কনফিগারেশন ([OmniStatusBarStyle])।
+  final OmniStatusBarStyle? statusBar;
+
+  /// এই রাউটের জন্য আলাদা নিচের সিস্টেম নেভিগেশন/গেস্টচার বার কনফিগারেশন ([OmniSystemNavigationBarStyle])।
+  final OmniSystemNavigationBarStyle? systemNavigationBar;
+
+  /// এই রাউটের জন্য রোটেশন বা ওরিয়েন্টেশন প্রিসেট ([OmniOrientation])।
+  final OmniOrientation? orientation;
+
+  /// এই রাউটের জন্য কাস্টম [DeviceOrientation] তালিকা (প্রয়োজনে [orientation]-এর বদলে)।
+  final List<DeviceOrientation>? orientations;
 
   final String? _path;
   final OmniScreenBuilder<S>? _screenBuilder;
@@ -691,32 +721,62 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
       // Blocs so screen constructors or initState reading Blocs work
       // immediately, while still resolving synchronous `OmniParams` errors
       // cleanly when possible.
+      Widget wrapSystemUi(Widget child, {OmniScreen? omniScreen}) {
+        final effectiveMode = screenMode ?? omniScreen?.screenMode;
+        final effectiveStatusBar = statusBar ?? omniScreen?.statusBar;
+        final effectiveNavBar =
+            systemNavigationBar ?? omniScreen?.systemNavigationBar;
+        final effectiveOrientation = orientation ?? omniScreen?.orientation;
+        final effectiveOrientations =
+            orientations ?? omniScreen?.orientations;
+        if (effectiveMode == null &&
+            effectiveStatusBar == null &&
+            effectiveNavBar == null &&
+            effectiveOrientation == null &&
+            effectiveOrientations == null) {
+          return child;
+        }
+        return OmniSystemUi(
+          screenMode: effectiveMode,
+          statusBar: effectiveStatusBar,
+          systemNavigationBar: effectiveNavBar,
+          orientation: effectiveOrientation,
+          orientations: effectiveOrientations,
+          child: child,
+        );
+      }
+
       Widget buildInner(BuildContext innerContext) {
         final screen = _screen ?? screenBuilder(OmniParams(state));
         if (screen is OmniScreen) {
           resolvedRoutePath ??= screen.routePath;
           final effectiveTitle =
               title ?? (metadata?['title'] as String?) ?? screen.title;
-          return hostScreen(
-            screen,
-            wrap: config.titles
-                ? (s) => OmniTitle(
-                    title: effectiveTitle,
-                    color: config.titleColor,
-                    child: s,
-                  )
-                : null,
+          return wrapSystemUi(
+            hostScreen(
+              screen,
+              wrap: config.titles
+                  ? (s) => OmniTitle(
+                      title: effectiveTitle,
+                      color: config.titleColor,
+                      child: s,
+                    )
+                  : null,
+            ),
+            omniScreen: screen,
           );
         }
         final effectiveTitle = title ?? (metadata?['title'] as String?);
         if (config.titles && effectiveTitle != null) {
-          return OmniTitle(
-            title: effectiveTitle,
-            color: config.titleColor,
-            child: screen,
+          return wrapSystemUi(
+            OmniTitle(
+              title: effectiveTitle,
+              color: config.titleColor,
+              child: screen,
+            ),
           );
         }
-        return screen;
+        return wrapSystemUi(screen);
       }
 
       if (pageBlocs.isEmpty) {

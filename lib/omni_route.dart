@@ -92,10 +92,13 @@ export 'src/responsive/omni_responsive_scope.dart'
     show OmniResponsiveData, OmniResponsiveScope;
 export 'src/responsive/omni_responsive_widgets.dart'
     show
+        OmniGap,
         OmniResponsiveBuilder,
+        OmniResponsiveColumns,
         OmniResponsiveContainer,
         OmniResponsiveGrid,
         OmniResponsiveLayout,
+        OmniResponsivePadding,
         OmniResponsiveRowColumn,
         OmniResponsiveVisibility,
         OmniResponsiveWidgetBuilder;
@@ -106,7 +109,9 @@ export 'src/responsive/omni_split_view.dart'
         OmniMasterBuilder,
         OmniMasterDetail,
         OmniMasterDetailController;
-export 'src/responsive/omni_colors.dart' show OmniColors, OmniColorsContext;
+export 'src/responsive/omni_colors.dart'
+    show OmniColorPalette, OmniColors, OmniColorsContext;
+export 'src/responsive/omni_status_bar.dart' show OmniStatusBarStyle;
 export 'src/responsive/omni_styles.dart'
     show
         OmniInputVariant,
@@ -115,6 +120,17 @@ export 'src/responsive/omni_styles.dart'
         OmniTextStyles,
         OmniThemeStyle,
         OmniUiTheme;
+export 'src/responsive/omni_system_navigation_bar.dart'
+    show OmniSystemNavigationBarStyle;
+export 'src/responsive/omni_system_ui.dart'
+    show
+        OmniFullscreenButton,
+        OmniOrientation,
+        OmniScreenMode,
+        OmniSystemUi,
+        OmniSystemUiContext,
+        OmniSystemUiController,
+        OmniSystemUiScope;
 export 'src/responsive/omni_theme.dart'
     show
         OmniResponsiveThemeHost,

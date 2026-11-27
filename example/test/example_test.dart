@@ -166,10 +166,14 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         tester.element(find.byType(SettingsScreen)).colors.primaryColor,
-        OmniTheme.emerald.seedColor,
+        OmniTheme.emerald.dark!.primaryColor,
       );
       await tester.tap(find.text('System'));
       await tester.pumpAndSettle();
+      expect(
+        tester.element(find.byType(SettingsScreen)).colors.primaryColor,
+        OmniTheme.emerald.seedColor,
+      );
       final settingsScroll = find
           .descendant(
             of: find.byType(SettingsScreen),

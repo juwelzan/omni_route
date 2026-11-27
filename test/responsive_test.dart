@@ -683,5 +683,155 @@ void main() {
         expect(t.takeException(), isNull);
       },
     );
+
+    testWidgets(
+      'OmniResponsiveTextScaleHost ignores keyboard viewInsets when scale matches, inherits constrained config, caps narrow tablet MasterDetail, and renders OmniGap/Padding/Columns/Visibility presets',
+      (t) async {
+        t.view.devicePixelRatio = 1.0;
+        t.view.physicalSize = const Size(390, 844);
+        addTearDown(t.view.reset);
+
+        var rootContentBuilds = 0;
+        OmniDeviceType? constrainedDevice;
+
+        await t.pumpWidget(
+          OmniApp.material(
+            minTextScale: 0.85,
+            maxTextScale: 1.4,
+            responsive: const OmniResponsiveConfig(
+              mobileMaxWidth: 500,
+              tabletMaxWidth: 900,
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) {
+                    rootContentBuilds++;
+                    return Scaffold(
+                      body: OmniResponsivePadding(
+                        child: ListView(
+                          children: [
+                            Text(
+                              'pad:${context.pagePadding.left}:${context.cardPadding.left}:${context.gridColumns}',
+                            ),
+                            const OmniGap.md(),
+                            Row(
+                              children: const [
+                                Text('left'),
+                                OmniGap.horizontalSm(),
+                                Text('right'),
+                              ],
+                            ),
+                            const OmniResponsiveVisibility.mobileOnly(
+                              child: Text('only-mobile'),
+                            ),
+                            const OmniResponsiveVisibility.tabletUp(
+                              child: Text('only-tablet-up'),
+                            ),
+                            const OmniResponsiveVisibility.desktopUp(
+                              child: Text('only-desktop-up'),
+                            ),
+                            const OmniResponsiveVisibility.hideOnMobile(
+                              child: Text('hidden-on-mobile'),
+                            ),
+                            OmniResponsiveColumns(
+                              mobileColumns: 1,
+                              tabletColumns: 2,
+                              desktopColumns: 3,
+                              children: const [
+                                Text('card-1\nwith longer multiline copy'),
+                                Text('card-2'),
+                                Text('card-3'),
+                              ],
+                            ),
+                            // Container width 520 > parent's custom mobileMaxWidth 500 => tablet!
+                            SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: SizedBox(
+                                width: 520,
+                                height: 60,
+                                child: OmniResponsiveScope.constrained(
+                                  child: Builder(
+                                    builder: (innerCtx) {
+                                      constrainedDevice = innerCtx.deviceType;
+                                      return const SizedBox.shrink();
+                                    },
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.text('pad:16.0:14.0:2'), findsOneWidget);
+        expect(find.text('only-mobile'), findsOneWidget);
+        expect(find.text('only-tablet-up'), findsNothing);
+        expect(find.text('hidden-on-mobile'), findsNothing);
+        expect(constrainedDevice, OmniDeviceType.tablet);
+        final buildsBeforeKeyboard = rootContentBuilds;
+
+        // Opening soft keyboard updates viewInsets.bottom ONLY -> ZERO root rebuilds!
+        t.view.viewInsets = const FakeViewPadding(bottom: 320);
+        await t.pump();
+        expect(rootContentBuilds, buildsBeforeKeyboard);
+
+        t.view.viewInsets = FakeViewPadding.zero;
+        await t.pump();
+        expect(rootContentBuilds, buildsBeforeKeyboard);
+
+        // Expand to tablet (600dp wide with custom mobileMaxWidth 500):
+        t.view.physicalSize = const Size(600, 900);
+        await t.pumpAndSettle();
+        expect(find.text('only-mobile'), findsNothing);
+        expect(find.text('only-tablet-up'), findsOneWidget);
+        expect(find.text('only-desktop-up'), findsNothing);
+        expect(find.text('hidden-on-mobile'), findsOneWidget);
+
+        // Verify OmniResponsiveConfig preset constructors & MasterDetail width cap on tight 600dp tablet:
+        const phoneCfg = OmniResponsiveConfig.phoneFriendly();
+        expect(phoneCfg.deviceFor(const Size(844, 390)), OmniDeviceType.mobile);
+        const denseCfg = OmniResponsiveConfig.desktopDense();
+        expect(denseCfg.deviceFor(const Size(920, 700)), OmniDeviceType.desktop);
+
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(
+          OmniApp.material(
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Scaffold(
+                  body: OmniMasterDetail<String>(
+                    initialSelection: 'a',
+                    masterWidth: 340,
+                    masterBuilder: (_, _, _) => const Text('master-pane'),
+                    detailBuilder: (dCtx, item) =>
+                        Text('detailW=${MediaQuery.sizeOf(dCtx).width}'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+        // On a 600dp viewport, 340 > 50% so masterWidth caps cleanly at 270dp, leaving 329dp for detail!
+        final masterBox = t.getSize(find.ancestor(
+          of: find.text('master-pane'),
+          matching: find.byType(SizedBox),
+        ).first);
+        expect(masterBox.width, closeTo(270, 0.1));
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
   });
 }

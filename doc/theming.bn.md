@@ -2,7 +2,7 @@
 
 > আলাদা `ThemeBloc`, `ChangeNotifier` বা `SharedPreferences` বয়লারপ্লেট ছাড়াই কীভাবে `OmniRoute`-এ পুরো অ্যাপের **রঙ, ডার্ক/লাইট/সিস্টেম মোড, অটো-সেভ, `TextField`, `Button`, `Card` ও যেকোনো কাস্টম উইজেট** আগে থেকেই সেটআপ ও ব্যবহার করবেন — এই ডকে ধাপে ধাপে উদাহরণসহ দেখানো হয়েছে।
 
-> মূল গাইড: [doc/guide.bn.md](guide.bn.md) · প্রজেক্ট ওভারভিউ: [README.md](../README.md)
+> মূল গাইড: [doc/guide.bn.md](guide.bn.md) · রেসপন্সিভ গাইড: [doc/responsive.bn.md](responsive.bn.md) · প্রজেক্ট ওভারভিউ: [README.md](../README.md)
 
 ---
 
@@ -17,6 +17,7 @@
 7. [কাস্টম `OmniThemeController` (অ্যাপের বাইরে বা Bloc থেকে কন্ট্রোল)](#৭-কাস্টম-omnithemecontroller-অ্যাপের-বাইরে-বা-bloc-থেকে-কন্ট্রোল)
 8. [পারফরম্যান্স ও মেমরি নীতি (`0` এক্সট্রা রি-বিল্ড)](#৮-পারফরম্যান্স-ও-মেমরি-নীতি-0-এক্সট্রা-রি-বিল্ড)
 9. [পূর্ণাঙ্গ ব্যবহারিক উদাহরণ (Login + Settings + Palette Sheet + Form)](#৯-পূর্ণাঙ্গ-ব্যবহারিক-উদাহরণ-login--settings--palette-sheet--form)
+10. [সিস্টেম স্ট্যাটাস বার, গেস্টচার বার (কালো এরিয়া রিমুভ), ফুলস্ক্রিন ও ওরিয়েন্টেশন মোড](#১০-সিস্টেম-স্ট্যাটাস-বার-গেস্টচার-বার-কালো-এরিয়া-রিমুভ-ফুলস্ক্রিন-ও-ওরিয়েন্টেশন-মোড)
 
 ---
 
@@ -99,16 +100,45 @@ OmniApp.material(
 | `useMaterial3` | `bool = true` | Material 3 ডিজাইন সিস্টেম চালু রাখে |
 | `customizer` | `OmniThemeCustomizer?` | বিশেষ কোনো অতিরিক্ত উইজেট কাস্টম করার হুক |
 
-### গ. সহজ কালার ওভাররাইড (ঐচ্ছিক — না দিলে `seedColor` থেকেই অটো তৈরি হয়)
+### গ. ডার্ক ও লাইট — উভয় মোডের জন্য কালার প্যালেট অ্যাড করা (`light:` ও `dark:`)
 
-- **সারফেস ও কার্ড:** `surfaceColor`, `darkSurfaceColor`, `secondaryBackgroundColor`, `darkSecondaryBackgroundColor`, `cardColor`, `darkCardColor`, `dividerColor` *(পুরোনো `scaffoldBackgroundColor` ও সমর্থিত)*
-- **অ্যাপবার ও নেভিগেশন:** `appBarColor`, `appBarTextColor`, `navBarColor`, `navSelectedColor`, `navUnselectedColor`
-- **বাটন ও লিংক:** `buttonColor`, `buttonTextColor`, `secondaryButtonColor`, `secondaryButtonTextColor`, `dangerButtonColor`, `dangerButtonTextColor`, `linkColor`
-- **ইনপুট, বর্ডার ও টেক্সট:** `inputFillColor`, `borderColor`, `focusedBorderColor`, `textColor`, `secondaryTextColor`, `hintTextColor`, `iconColor`
-- **চিপ, ব্যাজ ও ডিজেবল/ইন্টার‍্যাকশন:** `chipColor`, `chipTextColor`, `badgeColor`, `badgeTextColor`, `selectedItemColor`, `hoverColor`, `rippleColor`, `disabledColor`, `disabledTextColor`, `disabledBorderColor`
-- **কন্ট্রোল, টোস্ট ও টুলটিপ:** `switchActiveColor`, `switchInactiveColor`, `snackbarColor`, `snackbarTextColor`, `tooltipColor`, `tooltipTextColor`
-- **স্ট্যাটাস, শিমার ও শ্যাডো:** `errorColor`, `warningColor`, `successColor`, `infoColor`, `shimmerBaseColor`, `shimmerHighlightColor`, `overlayColor`, `shadowColor`
-- **সম্পূর্ণ কাস্টম প্যালেট:** চাইলে `lightColors:` এবং `darkColors:`-এ সরাসরি `OmniColors(...)` দিতে পারেন।
+প্রতিটি `OmniTheme` প্যালেটেই আপনি **লাইট মোড** ও **ডার্ক মোড** দুটোর জন্য আলাদা রঙ দিতে পারেন:
+
+1. **সহজ ডুয়াল প্যালেট (`OmniColorPalette`) — সবচেয়ে কম কোড:** ৫৫টি কালারের সব দেওয়ার দরকার নেই; প্রতিটি মোডে শুধু যেগুলো আলাদা চান সেগুলো দিন (`light:` ও `dark:` দুটোই `const`):
+
+```dart
+const myBrandTheme = OmniTheme(
+  id: 'midnight_gold',
+  name: 'Midnight Gold',
+  // লাইট মোডের রঙ:
+  light: OmniColorPalette(
+    primaryColor: Color(0xFFB45309),
+    secondaryColor: Color(0xFFD97706),
+    surfaceColor: Color(0xFFFFFBEB),
+    cardColor: Colors.white,
+    appBarColor: Color(0xFFFEF3C7),
+    buttonColor: Color(0xFFB45309),
+    textColor: Color(0xFF451A03),
+  ),
+  // ডার্ক মোডের রঙ:
+  dark: OmniColorPalette(
+    primaryColor: Color(0xFFFBBF24),
+    secondaryColor: Color(0xFF38BDF8),
+    surfaceColor: Color(0xFF090D16),
+    cardColor: Color(0xFF111827),
+    appBarColor: Color(0xFF1E293B),
+    buttonColor: Color(0xFFF59E0B),
+    buttonTextColor: Color(0xFF111827),
+    textColor: Color(0xFFFEF9C3),
+  ),
+);
+```
+
+2. **সরাসরি শর্টহ্যান্ড ওভাররাইড:** একক থিমে চাইলে `darkSeedColor`, `darkSecondaryColor`, `darkSurfaceColor`, `darkSecondaryBackgroundColor`, `darkCardColor` দিতে পারেন।
+3. **পূর্ণ ৫৫-কালার ফ্যাক্টরি:** চাইলে `lightColors: OmniColors.light(...)` এবং `darkColors: OmniColors.dark(...)` ব্যবহার করা যায় — সেখানেও কোনো প্যারামিটার বাধ্যতামূলক নয়।
+4. **সব ৫৫টি সেমান্টিক রোল:** `surfaceColor`, `secondaryBackgroundColor`, `cardColor`, `dividerColor`, `appBarColor`, `appBarTextColor`, `navBarColor`, `navSelectedColor`, `navUnselectedColor`, `statusBarColor`, `systemNavigationBarColor`, `buttonColor`, `buttonTextColor`, `secondaryButtonColor`, `secondaryButtonTextColor`, `dangerButtonColor`, `dangerButtonTextColor`, `linkColor`, `inputFillColor`, `borderColor`, `focusedBorderColor`, `textColor`, `secondaryTextColor`, `hintTextColor`, `iconColor`, `chipColor`, `chipTextColor`, `badgeColor`, `badgeTextColor`, `selectedItemColor`, `hoverColor`, `rippleColor`, `disabledColor`, `disabledTextColor`, `disabledBorderColor`, `switchActiveColor`, `switchInactiveColor`, `snackbarColor`, `snackbarTextColor`, `tooltipColor`, `tooltipTextColor`, `errorColor`, `errorBackgroundColor`, `warningColor`, `warningBackgroundColor`, `successColor`, `successBackgroundColor`, `infoColor`, `infoBackgroundColor`, `shimmerBaseColor`, `shimmerHighlightColor`, `overlayColor`, `shadowColor`।
+
+*(অন্তর্নির্মিত ৮টি `OmniTheme.presets`-এও আগে থেকেই লাইট ও ডার্ক দুই মোডের জন্য আলাদা উজ্জ্বল রঙ সেট করা আছে এবং Settings-এর `OmniThemePicker` ডার্ক মোডে স্বয়ংক্রিয়ভাবে ডার্ক রঙগুলোই প্রিভিউ করে।)*
 
 ### ঘ. একটি পূর্ণ-কনফিগার করা উদাহরণ
 
@@ -316,7 +346,7 @@ OmniApp.material(
 
 ## ৬. সহজ কালার, টেক্সট স্টাইল ও স্টাইল সিস্টেম (`context.ui`, `context.colors`, `context.textStyles`, `context.styles`)
 
-### ৬.১. ৫৩টি পিওর কালার (`context.colors` — `OmniColors`)
+### ৬.১. ৫৫টি পিওর কালার (`context.colors` — `OmniColors`)
 
 Material-এর `onSurfaceVariant` বা `surfaceContainerHigh` মনে রাখার কোনো দরকার নেই! যেকোনো উইজেটে **`context.colors`** বা **`context.ui.colors`** লিখলেই সব স্পষ্ট নাম পাবেন — আর IDE-তে **যেকোনো নামের ওপর মাউস হোভার করলেই** জানতে পারবেন সেটি ঠিক কোথায় ও কেন ব্যবহার হয়:
 
@@ -325,6 +355,7 @@ Material-এর `onSurfaceVariant` বা `surfaceContainerHigh` মনে র�
 | **ব্র্যান্ড** | `primaryColor` / `secondaryColor` | মূল ব্র্যান্ড হাইলাইট ও দ্বিতীয় অ্যাকসেন্ট কালার |
 | **সারফেস** | `surfaceColor` / `secondaryBackgroundColor` / `cardColor` | `Scaffold` মূল ব্যাকগ্রাউন্ড, সেকশন/কোড ব্যাকগ্রাউন্ড এবং কার্ড/ডায়ালগ |
 | **অ্যাপবার ও ন্যাভ** | `appBarColor` / `appBarTextColor` | উপরের `AppBar` ব্যাকগ্রাউন্ড এবং শিরোনাম/আইকন রঙ |
+| **সিস্টেম ও গেস্টচার বার** | `statusBarColor` / `systemNavigationBarColor` | ওপরের স্ট্যাটাস বার ও নিচের সিস্টেম নেভিগেশন/গেস্টচার সোয়াইপ বার রঙ (ডিফল্ট `Colors.transparent`, কোনো কালো এরিয়া ছাড়া) |
 | **নেভিগেশন** | `navBarColor` / `navSelectedColor` / `navUnselectedColor` | নিচের `NavigationBar`/রেল ব্যাকগ্রাউন্ড, সিলেক্টেড ও আন-সিলেক্টেড ট্যাব |
 | **বাটন** | `buttonColor` / `buttonTextColor` | প্রাইমারি বাটন (`FilledButton`, `ElevatedButton`) ও তার লেখা |
 | **সেকেন্ডারি বাটন** | `secondaryButtonColor` / `secondaryButtonTextColor` | "Cancel", "Skip", "Back" বাটনের ব্যাকগ্রাউন্ড ও লেখা |
@@ -596,4 +627,120 @@ class DemoFormPage extends StatelessWidget {
     );
   }
 }
+```
+
+---
+
+## ১০. সিস্টেম স্ট্যাটাস বার, গেস্টচার বার (কালো এরিয়া রিমুভ), ফুলস্ক্রিন ও ওরিয়েন্টেশন মোড
+
+Android-এ গেস্টচার নেভিগেশন ব্যবহার করলে স্ক্রিনের একদম নিচে ছোট সোয়াইপ পিল/ডটের পেছনে অনেক সময় সিস্টেম একটি কালো বা আধা-স্বচ্ছ বক্স (`contrastEnforced` scrim) আঁকে। এছাড়া সাধারণ Flutter-এ প্রতিটি স্ক্রিনের ভেতরে গিয়ে আলাদা `SystemChrome` / `AppBar.systemOverlayStyle` লিখতে হয়।
+
+`omni_route`-এ **সিস্টেম স্ট্যাটাস বার (`OmniStatusBarStyle`)** ও **সিস্টেম নেভিগেশন/গেস্টচার বার (`OmniSystemNavigationBarStyle`)** সম্পূর্ণ আলাদা দুটি ক্লাস, এবং থিম বা অ্যাপ লেভেল থেকে একবার সেট করলেই **প্রতিটি স্ক্রিনে (অ্যাপবারসহ, অ্যাপবার ছাড়া, ডায়ালগ, বটমশিট, স্প্ল্যাশ ও পুশ করা রাউট) স্বয়ংক্রিয়ভাবে কাজ করে**।
+
+### ক. আলাদা `OmniStatusBarStyle` ও `OmniSystemNavigationBarStyle` ক্লাস (সব স্ক্রিনে অটো কাজ করে)
+
+```dart
+OmniApp.material(
+  screenMode: OmniScreenMode.edgeToEdge,        // ডিফল্ট — গেস্টচার বারের কালো এরিয়া নেই
+  orientation: OmniOrientation.portraitOnMobile, // ফোনে portrait লক, ট্যাবলেটে অটো-রোটেট
+  omniTheme: const OmniTheme(
+    seedColor: Color(0xFF2563EB),
+    // ১. শুধু উপরের স্ট্যাটাস বার (লাইট ও ডার্ক দুই মোডের রঙ সহ):
+    statusBar: OmniStatusBarStyle.solid(
+      color: Color(0xFFF8FAFC),
+      darkColor: Color(0xFF090D16),
+      // iconBrightness: Brightness.dark, // null = রঙ বুঝে অটো কনট্রাস্ট
+    ),
+    // ২. শুধু নিচের সিস্টেম নেভ / গেস্টচার সোয়াইপ বার (আলাদা ক্লাস):
+    systemNavigationBar: OmniSystemNavigationBarStyle.transparent(), // কালো এরিয়া রিমুভ!
+    // অথবা সলিড চাইলে:
+    // systemNavigationBar: OmniSystemNavigationBarStyle.solid(
+    //   color: Color(0xFFFFFFFF),
+    //   darkColor: Color(0xFF0B1120),
+    //   dividerColor: Colors.transparent,
+    //   contrastEnforced: false,
+    // ),
+  ),
+  routes: [...],
+)
+```
+
+- **দুই মোডেই রঙ ও অটো কনট্রাস্ট:** প্রতিটি ক্লাসে আলাদা `color` (Light) ও `darkColor` (Dark) দেওয়া যায়; `iconBrightness` / `darkIconBrightness` না দিলে ব্যাকগ্রাউন্ডের উজ্জ্বলতা অনুযায়ী ঘড়ি/ব্যাটারি আইকন এবং গেস্টচার হ্যান্ডেল আপনা-আপনি রঙ ঠিক করে নেয়।
+- **প্রতি স্ক্রিনে আলাদা কোড লেখার দরকার নেই:** রুট `AnnotatedRegion`, `AppBarTheme.systemOverlayStyle` এবং `SystemChrome` সব একসাথে অটো-সিঙ্ক হয় (এমনকি `omniTheme` ছাড়া সাধারণ `theme:` দিলেও কাজ করে!)।
+
+### খ. ৬টি ডিসপ্লে ও ফুলস্ক্রিন মোড (`OmniScreenMode`)
+
+| মোড | কী হয় | ব্যবহার ক্ষেত্র |
+|---|---|---|
+| `OmniScreenMode.edgeToEdge` | ওপর ও নিচের বার স্বচ্ছ; কনটেন্ট পুরো স্ক্রিনে মসৃণভাবে প্রসারিত (কালো এরিয়া নেই) | ডিফল্ট আধুনিক অ্যাপ |
+| `OmniScreenMode.normal` | উভয় বার দৃশ্যমান ও নির্ধারিত সলিড রঙ নেয় | ক্লাসিক নেভ/স্ট্যাটাস বার চাইলে |
+| `OmniScreenMode.fullscreen` | `immersiveSticky` — স্ট্যাটাস ও গেস্টচার বার পুরো লুকানো, সোয়াইপে সাময়িক এসে লুকায় | ভিডিও প্লেয়ার, গেম, স্প্ল্যাশ |
+| `OmniScreenMode.fullscreenLean` | `leanBack` — বার লুকানো, স্ক্রিনে ট্যাপ করলেই ফিরে আসে | ফটো গ্যালারি, রিডার |
+| `OmniScreenMode.statusBarOnly` | কেবল ওপরের স্ট্যাটাস বার খোলা, নিচের নেভ/গেস্টচার বার লুকানো | গেমিং বা কিয়স্ক লেআউট |
+| `OmniScreenMode.navigationBarOnly` | কেবল নিচের নেভ বার খোলা, ওপরের স্ট্যাটাস বার লুকানো | কাস্টম হেডার-মুক্ত ভিউ |
+
+রানটাইমে যেকোনো বাটন বা উইজেট থেকে আলাদাভাবে বদলাতে:
+
+```dart
+// ১. রেডিমেড AppBar আইকন বাটন:
+AppBar(actions: const [OmniFullscreenButton()])
+
+// ২. অথবা কোড থেকে স্ট্যাটাস বার ও নেভ বার আলাদাভাবে কন্ট্রোল:
+context.setStatusBar(const OmniStatusBarStyle.solid(color: Colors.indigo));
+context.setSystemNavigationBar(const OmniSystemNavigationBarStyle.transparent());
+context.hideStatusBar();
+context.showSystemNavigationBar();
+
+// ৩. ফুলস্ক্রিন টগল:
+context.enterFullscreen();                // immersiveSticky ফুলস্ক্রিন
+context.enterFullscreen(leanBack: true);  // ট্যাপে বার ফেরত আসার ফুলস্ক্রিন
+context.exitFullscreen();                 // আবার edgeToEdge-এ ফেরা
+final isFull = context.isFullscreen;
+```
+
+### গ. ৮টি ওরিয়েন্টেশন / রোটেশন মোড (`OmniOrientation`)
+
+| প্রিসেট | আচরণ |
+|---|---|
+| `OmniOrientation.auto` | ৪ দিকেই (খাঁড়া, উল্টো, বাম, ডান) সেন্সর অনুযায়ী রোটেশন |
+| `OmniOrientation.portrait` | শুধু `portraitUp`-এ লক (ফোন ঘুরালেও রোটেট হয় না) |
+| `OmniOrientation.portraitBoth` | `portraitUp` + `portraitDown` |
+| `OmniOrientation.landscape` | `landscapeLeft` + `landscapeRight` (ভিডিও/গেম) |
+| `OmniOrientation.landscapeLeft` | কেবল বাম-পাশের ল্যান্ডস্কেপ |
+| `OmniOrientation.landscapeRight` | কেবল ডান-পাশের ল্যান্ডস্কেপ |
+| `OmniOrientation.portraitOnMobile` | ফোনে (`mobile`) portrait লক, ট্যাবলেট/ফোল্ডেবলে ৪ দিকেই অটো-রোটেট |
+| `OmniOrientation.system` | OS / ম্যানিফেস্ট ডিফল্ট (`[]`) |
+
+কোড থেকে ও প্রতি-পেজে আলাদা সেটআপ (পেজ বন্ধ/পপ করলে আগের মোড স্বয়ংক্রিয়ভাবে ফিরে আসে):
+
+```dart
+// ক) OmniPage-এ নির্দিষ্ট রাউটের জন্য ফুলস্ক্রিন ও ল্যান্ডস্কেপ:
+OmniPage(
+  '/video/:id',
+  (p) => VideoPlayerScreen(id: p.get('id')),
+  screenMode: OmniScreenMode.fullscreen,
+  orientation: OmniOrientation.landscape, // pop করলে Home-এর portrait মোড ফিরে আসবে!
+)
+
+// খ) OmniStatelessWidget / OmniStatefulWidget ক্লাসের ভেতরেই:
+class StoryReaderScreen extends OmniStatelessWidget {
+  const StoryReaderScreen({super.key});
+
+  @override
+  String get routePath => '/story';
+
+  @override
+  OmniScreenMode get screenMode => OmniScreenMode.fullscreenLean;
+
+  @override
+  OmniOrientation get orientation => OmniOrientation.portrait;
+  ...
+}
+
+// গ) বাটন/ইভেন্ট থেকে ১ লাইনে:
+context.lockPortrait();
+context.allowLandscape();
+context.allowAutoRotate();
+context.setOrientation(OmniOrientation.portraitOnMobile);
+context.resetSystemUi();
 ```

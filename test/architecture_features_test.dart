@@ -2,6 +2,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_route/omni_route.dart';
 
@@ -21,6 +22,34 @@ class _StaticThemeLeaf extends StatelessWidget {
 
 class _OrderBloc extends Cubit<int> {
   _OrderBloc() : super(1);
+}
+
+class _VideoScreen extends OmniStatelessWidget {
+  const _VideoScreen();
+
+  @override
+  String get routePath => '/video';
+
+  @override
+  OmniScreenMode get screenMode => OmniScreenMode.fullscreenLean;
+
+  @override
+  OmniOrientation get orientation => OmniOrientation.landscape;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Column(
+        children: [
+          Text('video:full=${context.isFullscreen}'),
+          ElevatedButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('close-video'),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 void main() {
@@ -1051,6 +1080,791 @@ void main() {
         );
         await t.pumpAndSettle();
         expect(find.text('restored:violet:dark:elevated'), findsOneWidget);
+      },
+    );
+  });
+
+  group('System UI, Gesture Bar Edge-to-Edge, Fullscreen & Orientation Modes', () {
+    test('OmniColors includes statusBarColor & systemNavigationBarColor (55 semantic colors)', () {
+      final light = OmniColors.fromSeed(
+        primaryColor: Colors.blue,
+        brightness: Brightness.light,
+      );
+      expect(light.statusBarColor, Colors.transparent);
+      expect(light.systemNavigationBarColor, Colors.transparent);
+
+      final custom = light.copyWith(
+        statusBarColor: const Color(0xFF112233),
+        systemNavigationBarColor: const Color(0xFF445566),
+      );
+      expect(custom.statusBarColor, const Color(0xFF112233));
+      expect(custom.systemNavigationBarColor, const Color(0xFF445566));
+      expect(custom == light, isFalse);
+
+      final lerped = light.lerp(custom, 0.5);
+      expect(
+        lerped.systemNavigationBarColor,
+        Color.lerp(Colors.transparent, const Color(0xFF445566), 0.5),
+      );
+    });
+
+    testWidgets(
+      'OmniTheme defaults to edgeToEdge with transparent gesture bar & contrastEnforced=false across screens and dark/light modes',
+      (t) async {
+        final modeCalls = <String>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (c) async {
+              if (c.method == 'SystemChrome.setEnabledSystemUIMode') {
+                modeCalls.add('${c.arguments}');
+              }
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              seedColor: Color(0xFF2563EB),
+              mode: ThemeMode.light,
+              persistMode: false,
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    body: Column(
+                      children: [
+                        Text('mode:${context.screenMode.name}'),
+                        ElevatedButton(
+                          onPressed: () => context.setThemeMode(ThemeMode.dark),
+                          child: const Text('go-dark'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.text('mode:edgeToEdge'), findsOneWidget);
+        expect(modeCalls.last, contains('SystemUiMode.edgeToEdge'));
+
+        AnnotatedRegion<SystemUiOverlayStyle> rootRegion() =>
+            t.widget<AnnotatedRegion<SystemUiOverlayStyle>>(
+              find
+                  .byWidgetPredicate(
+                    (w) => w is AnnotatedRegion<SystemUiOverlayStyle>,
+                  )
+                  .first,
+            );
+
+        var overlay = rootRegion().value;
+        expect(overlay.statusBarColor, Colors.transparent);
+        expect(overlay.systemNavigationBarColor, Colors.transparent);
+        expect(overlay.systemNavigationBarContrastEnforced, isFalse);
+        expect(overlay.systemStatusBarContrastEnforced, isFalse);
+        expect(overlay.statusBarIconBrightness, Brightness.dark);
+        expect(overlay.systemNavigationBarIconBrightness, Brightness.dark);
+
+        // Switch theme to Dark mode -> icons automatically become Brightness.light.
+        await t.tap(find.text('go-dark'));
+        await t.pumpAndSettle();
+
+        overlay = rootRegion().value;
+        expect(overlay.statusBarIconBrightness, Brightness.light);
+        expect(overlay.systemNavigationBarIconBrightness, Brightness.light);
+        expect(overlay.systemNavigationBarContrastEnforced, isFalse);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'Separate OmniStatusBarStyle & OmniSystemNavigationBarStyle apply across AppBar, non-AppBar, runtime, Dark/Light, and plain custom-theme screens with zero per-screen code',
+      (t) async {
+        final overlayCalls = <Map<dynamic, dynamic>>[];
+        final modeCalls = <String>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (c) async {
+              if (c.method == 'SystemChrome.setSystemUIOverlayStyle') {
+                overlayCalls.add(
+                  Map<dynamic, dynamic>.from(c.arguments as Map),
+                );
+              } else if (c.method == 'SystemChrome.setEnabledSystemUIMode') {
+                modeCalls.add('mode:${c.arguments}');
+              } else if (c.method == 'SystemChrome.setEnabledSystemUIOverlays') {
+                modeCalls.add('overlays:${c.arguments}');
+              }
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              seedColor: Color(0xFF2563EB),
+              mode: ThemeMode.light,
+              persistMode: false,
+              screenMode: OmniScreenMode.normal,
+              statusBar: OmniStatusBarStyle.solid(
+                color: Color(0xFF0F172A),
+                darkColor: Color(0xFF020617),
+              ),
+              systemNavigationBar: OmniSystemNavigationBarStyle.solid(
+                color: Color(0xFF1E293B),
+                darkColor: Color(0xFF090D16),
+                dividerColor: Color(0xFF334155),
+                darkDividerColor: Color(0xFF1E293B),
+              ),
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    appBar: AppBar(title: const Text('Screen A (AppBar)')),
+                    body: Column(
+                      children: [
+                        Text(
+                          'bars:${context.colors.statusBarColor.toARGB32()}:${context.colors.systemNavigationBarColor.toARGB32()}',
+                        ),
+                        ElevatedButton(
+                          onPressed: () => context.push<void>('/no-appbar'),
+                          child: const Text('open-plain'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () =>
+                              context.push<void>('/custom-appbar-page'),
+                          child: const Text('open-override'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => context.setThemeMode(ThemeMode.dark),
+                          child: const Text('toggle-dark'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => context.setStatusBar(
+                            const OmniStatusBarStyle.solid(
+                              color: Color(0xFF7C3AED),
+                            ),
+                          ),
+                          child: const Text('runtime-status'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => context.setSystemNavigationBar(
+                            const OmniSystemNavigationBarStyle.solid(
+                              color: Color(0xFF059669),
+                            ),
+                          ),
+                          child: const Text('runtime-nav'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              OmniPage(
+                '/no-appbar',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    // Notice: NO SystemChrome / AnnotatedRegion inside this screen!
+                    body: Column(
+                      children: [
+                        Text(
+                          'noappbar:${context.statusBar.resolveColor(Theme.of(context).brightness)?.toARGB32()}:${context.systemNavigationBar.resolveColor(Theme.of(context).brightness)?.toARGB32()}',
+                        ),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('pop-plain'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              OmniPage(
+                '/custom-appbar-page',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    appBar: AppBar(title: const Text('Per-Route AppBar')),
+                    body: ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      child: const Text('pop-override'),
+                    ),
+                  ),
+                ),
+                statusBar: const OmniStatusBarStyle.solid(
+                  color: Color(0xFFBE123C),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        // 1. Light mode global colors automatically applied on Screen A + SystemChrome + AppBarTheme:
+        expect(
+          find.text(
+            'bars:${const Color(0xFF0F172A).toARGB32()}:${const Color(0xFF1E293B).toARGB32()}',
+          ),
+          findsOneWidget,
+        );
+        final firstOverlay = overlayCalls.last;
+        expect(firstOverlay['statusBarColor'], const Color(0xFF0F172A).toARGB32());
+        expect(
+          firstOverlay['systemNavigationBarColor'],
+          const Color(0xFF1E293B).toARGB32(),
+        );
+        expect(
+          firstOverlay['systemNavigationBarDividerColor'],
+          const Color(0xFF334155).toARGB32(),
+        );
+        expect(firstOverlay['systemNavigationBarContrastEnforced'], isFalse);
+
+        final homeCtx = t.element(find.byType(Scaffold));
+        expect(
+          Theme.of(homeCtx).appBarTheme.systemOverlayStyle?.statusBarColor,
+          const Color(0xFF0F172A),
+        );
+
+        // 2. Push plain screen WITHOUT AppBar & WITHOUT any per-screen chrome code -> still receives both!
+        await t.tap(find.text('open-plain'));
+        await t.pumpAndSettle();
+        expect(
+          find.text(
+            'noappbar:${const Color(0xFF0F172A).toARGB32()}:${const Color(0xFF1E293B).toARGB32()}',
+          ),
+          findsOneWidget,
+        );
+        await t.tap(find.text('pop-plain'));
+        await t.pumpAndSettle();
+
+        // 3. Push OmniPage overriding ONLY statusBar on an AppBar screen -> AppBar gets 0xFFBE123C, nav bar stays 0xFF1E293B, and pop restores 0xFF0F172A!
+        await t.tap(find.text('open-override'));
+        await t.pumpAndSettle();
+        final overrideScaffoldCtx = t.element(find.byType(Scaffold).last);
+        expect(
+          Theme.of(overrideScaffoldCtx)
+              .appBarTheme
+              .systemOverlayStyle
+              ?.statusBarColor,
+          const Color(0xFFBE123C),
+        );
+        expect(
+          Theme.of(overrideScaffoldCtx)
+              .appBarTheme
+              .systemOverlayStyle
+              ?.systemNavigationBarColor,
+          const Color(0xFF1E293B),
+        );
+        expect(
+          overlayCalls.last['statusBarColor'],
+          const Color(0xFFBE123C).toARGB32(),
+        );
+
+        await t.tap(find.text('pop-override'));
+        await t.pumpAndSettle();
+        expect(
+          overlayCalls.last['statusBarColor'],
+          const Color(0xFF0F172A).toARGB32(),
+        );
+
+        // 4. Switch to Dark mode -> darkColor from both separate classes applies automatically!
+        await t.tap(find.text('toggle-dark'));
+        await t.pumpAndSettle();
+        expect(
+          overlayCalls.last['statusBarColor'],
+          const Color(0xFF020617).toARGB32(),
+        );
+        expect(
+          overlayCalls.last['systemNavigationBarColor'],
+          const Color(0xFF090D16).toARGB32(),
+        );
+        expect(
+          overlayCalls.last['systemNavigationBarDividerColor'],
+          const Color(0xFF1E293B).toARGB32(),
+        );
+
+        // 5. Runtime updates via separate context.setStatusBar & context.setSystemNavigationBar sync AppBarTheme + SystemChrome!
+        await t.tap(find.text('runtime-status'));
+        await t.pumpAndSettle();
+        expect(
+          overlayCalls.last['statusBarColor'],
+          const Color(0xFF7C3AED).toARGB32(),
+        );
+        await t.tap(find.text('runtime-nav'));
+        await t.pumpAndSettle();
+        expect(
+          overlayCalls.last['systemNavigationBarColor'],
+          const Color(0xFF059669).toARGB32(),
+        );
+
+        // 6. Plain OmniApp.material WITHOUT omniTheme also injects global bar styles into AppBar screens automatically!
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(
+          OmniApp.material(
+            theme: ThemeData.light(),
+            statusBar: const OmniStatusBarStyle.solid(color: Color(0xFFEA580C)),
+            systemNavigationBar: const OmniSystemNavigationBarStyle.solid(
+              color: Color(0xFF0D9488),
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    appBar: AppBar(title: const Text('Plain App')),
+                    body: Text(
+                      'plain-appbar:${Theme.of(context).appBarTheme.systemOverlayStyle?.statusBarColor?.toARGB32()}:${Theme.of(context).appBarTheme.systemOverlayStyle?.systemNavigationBarColor?.toARGB32()}',
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(
+          find.text(
+            'plain-appbar:${const Color(0xFFEA580C).toARGB32()}:${const Color(0xFF0D9488).toARGB32()}',
+          ),
+          findsOneWidget,
+        );
+        expect(
+          overlayCalls.last['statusBarColor'],
+          const Color(0xFFEA580C).toARGB32(),
+        );
+        expect(
+          overlayCalls.last['systemNavigationBarColor'],
+          const Color(0xFF0D9488).toARGB32(),
+        );
+
+        // Avoid unused variable warning on modeCalls.
+        expect(modeCalls, isNotEmpty);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'OmniFullscreenButton, context fullscreen helpers, and statusBarOnly/navigationBarOnly modes trigger SystemChrome',
+      (t) async {
+        final modeCalls = <String>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (c) async {
+              if (c.method == 'SystemChrome.setEnabledSystemUIMode') {
+                modeCalls.add('mode:${c.arguments}');
+              } else if (c.method == 'SystemChrome.setEnabledSystemUIOverlays') {
+                modeCalls.add('overlays:${c.arguments}');
+              }
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              seedColor: Colors.teal,
+              persistMode: false,
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    appBar: AppBar(
+                      actions: const [OmniFullscreenButton()],
+                    ),
+                    body: Column(
+                      children: [
+                        Text('full=${context.isFullscreen}'),
+                        ElevatedButton(
+                          onPressed: () => context.setScreenMode(
+                            OmniScreenMode.statusBarOnly,
+                          ),
+                          child: const Text('status-only'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () => context.setScreenMode(
+                            OmniScreenMode.navigationBarOnly,
+                          ),
+                          child: const Text('nav-only'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.text('full=false'), findsOneWidget);
+        expect(modeCalls.last, 'mode:SystemUiMode.edgeToEdge');
+
+        await t.tap(find.byType(OmniFullscreenButton));
+        await t.pumpAndSettle();
+        expect(find.text('full=true'), findsOneWidget);
+        expect(modeCalls.last, 'mode:SystemUiMode.immersiveSticky');
+
+        await t.tap(find.byType(OmniFullscreenButton));
+        await t.pumpAndSettle();
+        expect(find.text('full=false'), findsOneWidget);
+        expect(modeCalls.last, 'mode:SystemUiMode.edgeToEdge');
+
+        await t.tap(find.text('status-only'));
+        await t.pumpAndSettle();
+        expect(modeCalls.last, 'overlays:[SystemUiOverlay.top]');
+
+        await t.tap(find.text('nav-only'));
+        await t.pumpAndSettle();
+        expect(modeCalls.last, 'overlays:[SystemUiOverlay.bottom]');
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'OmniOrientation.portraitOnMobile adapts from portrait on phone to 4-way auto-rotate on tablet',
+      (t) async {
+        t.view.devicePixelRatio = 1.0;
+        t.view.physicalSize = const Size(390, 844);
+        addTearDown(t.view.reset);
+
+        final orientCalls = <List<dynamic>>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (c) async {
+              if (c.method == 'SystemChrome.setPreferredOrientations') {
+                orientCalls.add(List<dynamic>.from(c.arguments as List));
+              }
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+
+        await t.pumpWidget(
+          OmniApp.material(
+            orientation: OmniOrientation.portraitOnMobile,
+            routes: [
+              OmniPage('/', (_) => const Scaffold(body: Text('adaptive'))),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(orientCalls.last, ['DeviceOrientation.portraitUp']);
+
+        // Expand window to tablet width (>= 600dp) -> automatically unlocks all 4 orientations!
+        t.view.physicalSize = const Size(900, 800);
+        await t.pumpAndSettle();
+
+        expect(orientCalls.last, [
+          'DeviceOrientation.portraitUp',
+          'DeviceOrientation.portraitDown',
+          'DeviceOrientation.landscapeLeft',
+          'DeviceOrientation.landscapeRight',
+        ]);
+
+        // Unmount -> cleanly resets preferred orientations to [].
+        await t.pumpWidget(const SizedBox());
+        expect(orientCalls.last, isEmpty);
+      },
+    );
+
+    testWidgets(
+      'Per-page OmniPage & OmniScreen overrides switch to fullscreen/landscape on push and restore Home on pop',
+      (t) async {
+        final modeCalls = <String>[];
+        final orientCalls = <List<dynamic>>[];
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (c) async {
+              if (c.method == 'SystemChrome.setEnabledSystemUIMode') {
+                modeCalls.add('${c.arguments}');
+              } else if (c.method == 'SystemChrome.setPreferredOrientations') {
+                orientCalls.add(List<dynamic>.from(c.arguments as List));
+              }
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              seedColor: Colors.indigo,
+              persistMode: false,
+            ),
+            orientation: OmniOrientation.portrait,
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    body: Column(
+                      children: [
+                        Text('home:full=${context.isFullscreen}'),
+                        ElevatedButton(
+                          onPressed: () => context.push<void>('/player'),
+                          child: const Text('open-player'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () =>
+                              context.pushTo<_VideoScreen, void>(),
+                          child: const Text('open-video-screen'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              OmniPage(
+                '/player',
+                (_) => Builder(
+                  builder: (context) => Scaffold(
+                    body: Column(
+                      children: [
+                        Text('player:full=${context.isFullscreen}'),
+                        ElevatedButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: const Text('pop-player'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                screenMode: OmniScreenMode.fullscreen,
+                orientation: OmniOrientation.landscape,
+              ),
+              OmniPage.screen(const _VideoScreen()),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.text('home:full=false'), findsOneWidget);
+        expect(modeCalls.last, 'SystemUiMode.edgeToEdge');
+        expect(orientCalls.last, ['DeviceOrientation.portraitUp']);
+
+        // 1. Push OmniPage fullscreen + landscape route:
+        await t.tap(find.text('open-player'));
+        await t.pumpAndSettle();
+
+        expect(find.text('player:full=true'), findsOneWidget);
+        expect(modeCalls.last, 'SystemUiMode.immersiveSticky');
+        expect(orientCalls.last, [
+          'DeviceOrientation.landscapeLeft',
+          'DeviceOrientation.landscapeRight',
+        ]);
+
+        // 2. Pop back to Home -> restores edgeToEdge & portraitUp automatically!
+        await t.tap(find.text('pop-player'));
+        await t.pumpAndSettle();
+
+        expect(find.text('home:full=false'), findsOneWidget);
+        expect(modeCalls.last, 'SystemUiMode.edgeToEdge');
+        expect(orientCalls.last, ['DeviceOrientation.portraitUp']);
+
+        // 3. Push OmniStatelessWidget overriding `screenMode` & `orientation` getters:
+        await t.tap(find.text('open-video-screen'));
+        await t.pumpAndSettle();
+
+        expect(find.text('video:full=true'), findsOneWidget);
+        expect(modeCalls.last, 'SystemUiMode.leanBack');
+        expect(orientCalls.last, [
+          'DeviceOrientation.landscapeLeft',
+          'DeviceOrientation.landscapeRight',
+        ]);
+
+        // 4. Pop back -> restores again!
+        await t.tap(find.text('close-video'));
+        await t.pumpAndSettle();
+        expect(modeCalls.last, 'SystemUiMode.edgeToEdge');
+        expect(orientCalls.last, ['DeviceOrientation.portraitUp']);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  });
+
+  group('Dual Light & Dark Color Palette System', () {
+    test(
+      'OmniColorPalette & OmniColors.light/dark allow adding arbitrary Light and Dark colors without requiring all 55 fields',
+      () {
+        const lightPalette = OmniColorPalette(
+          primaryColor: Color(0xFF1D4ED8),
+          surfaceColor: Color(0xFFFFFBEB),
+          cardColor: Color(0xFFFFFFFF),
+          buttonColor: Color(0xFF2563EB),
+          textColor: Color(0xFF0F172A),
+          errorBackgroundColor: Color(0xFFFEE2E2),
+          statusBarColor: Color(0xFFF8FAFC),
+        );
+        const darkPalette = OmniColorPalette(
+          primaryColor: Color(0xFF60A5FA),
+          secondaryColor: Color(0xFF38BDF8),
+          surfaceColor: Color(0xFF090D16),
+          cardColor: Color(0xFF111827),
+          buttonColor: Color(0xFFF59E0B),
+          buttonTextColor: Color(0xFF111827),
+          textColor: Color(0xFFF9FAFB),
+          errorBackgroundColor: Color(0xFF450A0A),
+          systemNavigationBarColor: Color(0xFF0B1120),
+        );
+
+        expect(lightPalette == lightPalette.copyWith(), isTrue);
+        expect(lightPalette == darkPalette, isFalse);
+
+        final resolvedLight = OmniColors.light(
+          primaryColor: const Color(0xFF059669),
+          cardColor: const Color(0xFFECFDF5),
+        );
+        final resolvedDark = OmniColors.dark(
+          primaryColor: const Color(0xFF34D399),
+          cardColor: const Color(0xFF064E3B),
+        );
+        expect(resolvedLight.primaryColor, const Color(0xFF059669));
+        expect(resolvedLight.cardColor, const Color(0xFFECFDF5));
+        expect(resolvedDark.primaryColor, const Color(0xFF34D399));
+        expect(resolvedDark.cardColor, const Color(0xFF064E3B));
+
+        final theme = const OmniTheme(
+          id: 'dual',
+          name: 'Dual Brand',
+          light: lightPalette,
+          dark: darkPalette,
+        );
+        final lightColors = theme.resolveColors(Brightness.light);
+        final darkColors = theme.resolveColors(Brightness.dark);
+
+        expect(lightColors.primaryColor, const Color(0xFF1D4ED8));
+        expect(lightColors.surfaceColor, const Color(0xFFFFFBEB));
+        expect(lightColors.errorBackgroundColor, const Color(0xFFFEE2E2));
+        expect(lightColors.statusBarColor, const Color(0xFFF8FAFC));
+
+        expect(darkColors.primaryColor, const Color(0xFF60A5FA));
+        expect(darkColors.secondaryColor, const Color(0xFF38BDF8));
+        expect(darkColors.surfaceColor, const Color(0xFF090D16));
+        expect(darkColors.cardColor, const Color(0xFF111827));
+        expect(darkColors.buttonColor, const Color(0xFFF59E0B));
+        expect(darkColors.buttonTextColor, const Color(0xFF111827));
+        expect(darkColors.textColor, const Color(0xFFF9FAFB));
+        expect(darkColors.errorBackgroundColor, const Color(0xFF450A0A));
+        expect(darkColors.systemNavigationBarColor, const Color(0xFF0B1120));
+
+        expect(theme.swatchColorFor(Brightness.light), const Color(0xFF1D4ED8));
+        expect(theme.swatchColorFor(Brightness.dark), const Color(0xFF60A5FA));
+      },
+    );
+
+    testWidgets(
+      'Switching Light <-> Dark mode updates Light & Dark palette colors and Settings picker swatches live',
+      (t) async {
+        const customDual = OmniTheme(
+          id: 'midnight_gold',
+          name: 'Midnight Gold',
+          light: OmniColorPalette(
+            primaryColor: Color(0xFFB45309),
+            secondaryColor: Color(0xFFD97706),
+            surfaceColor: Color(0xFFFFFBEB),
+            cardColor: Color(0xFFFFFFFF),
+            appBarColor: Color(0xFFFEF3C7),
+            textColor: Color(0xFF451A03),
+          ),
+          dark: OmniColorPalette(
+            primaryColor: Color(0xFFFBBF24),
+            secondaryColor: Color(0xFF38BDF8),
+            surfaceColor: Color(0xFF090D16),
+            cardColor: Color(0xFF111827),
+            appBarColor: Color(0xFF1E293B),
+            textColor: Color(0xFFFEF9C3),
+          ),
+          mode: ThemeMode.light,
+          persistMode: false,
+        );
+
+        await t.pumpWidget(
+          OmniApp.material(
+            themes: [customDual, ...OmniTheme.presets],
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (context) {
+                    final c = context.colors;
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Dual Palette')),
+                      body: ListView(
+                        children: [
+                          Text(
+                            'colors:${c.primaryColor.toARGB32()}:${c.surfaceColor.toARGB32()}:${c.appBarColor.toARGB32()}:${c.textColor.toARGB32()}',
+                          ),
+                          const OmniThemePanel(),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(
+          find.text(
+            'colors:${const Color(0xFFB45309).toARGB32()}:${const Color(0xFFFFFBEB).toARGB32()}:${const Color(0xFFFEF3C7).toARGB32()}:${const Color(0xFF451A03).toARGB32()}',
+          ),
+          findsOneWidget,
+        );
+
+        // Toggle Dark mode via OmniThemeModeSwitch inside Settings panel:
+        await t.tap(find.text('Dark'));
+        await t.pumpAndSettle();
+
+        expect(
+          find.text(
+            'colors:${const Color(0xFFFBBF24).toARGB32()}:${const Color(0xFF090D16).toARGB32()}:${const Color(0xFF1E293B).toARGB32()}:${const Color(0xFFFEF9C3).toARGB32()}',
+          ),
+          findsOneWidget,
+        );
+
+        // Also switch to a built-in preset (Ocean) -> distinct high-contrast dark primary!
+        await t.tap(find.text('Ocean'));
+        await t.pumpAndSettle();
+        final ctx = t.element(find.byType(Scaffold));
+        expect(
+          ctx.colors.primaryColor,
+          OmniTheme.ocean.dark!.primaryColor,
+        );
+
+        await t.pumpWidget(const SizedBox());
       },
     );
   });

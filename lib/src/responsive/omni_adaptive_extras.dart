@@ -4,6 +4,7 @@ import '../core/omni_route.dart';
 import '../routing/omni_route_state.dart';
 import 'omni_responsive_config.dart';
 import 'omni_responsive_scope.dart';
+import 'omni_responsive_widgets.dart';
 
 /// Lazy, sliver-virtualized responsive grid for `CustomScrollView`.
 ///
@@ -76,40 +77,19 @@ class OmniResponsiveSliverGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = OmniResponsiveScope.tokensOf(context);
-    final gap = spacing ?? tokens.gridSpacing;
-    final rowGap = runSpacing ?? gap;
-
-    final SliverGridDelegate delegate;
-    if (maxItemWidth case final maxExtent?) {
-      delegate = SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: maxExtent,
-        crossAxisSpacing: gap,
-        mainAxisSpacing: rowGap,
-        childAspectRatio: childAspectRatio,
-        mainAxisExtent: mainAxisExtent,
-      );
-    } else {
-      final cols = switch (OmniResponsiveScope.deviceOf(context)) {
-        OmniDeviceType.mobile => mobileColumns ?? tokens.gridColumns,
-        OmniDeviceType.tablet =>
-          tabletColumns ?? mobileColumns ?? tokens.gridColumns,
-        OmniDeviceType.desktop =>
-          desktopColumns ?? tabletColumns ?? mobileColumns ?? tokens.gridColumns,
-        OmniDeviceType.largeDesktop =>
-          largeDesktopColumns ??
-              desktopColumns ??
-              tabletColumns ??
-              mobileColumns ??
-              tokens.gridColumns,
-      };
-      delegate = SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        crossAxisSpacing: gap,
-        mainAxisSpacing: rowGap,
-        childAspectRatio: childAspectRatio,
-        mainAxisExtent: mainAxisExtent,
-      );
-    }
+    final delegate = resolveOmniGridDelegate(
+      context,
+      tokens: tokens,
+      maxItemWidth: maxItemWidth,
+      mobileColumns: mobileColumns,
+      tabletColumns: tabletColumns,
+      desktopColumns: desktopColumns,
+      largeDesktopColumns: largeDesktopColumns,
+      spacing: spacing,
+      runSpacing: runSpacing,
+      childAspectRatio: childAspectRatio,
+      mainAxisExtent: mainAxisExtent,
+    );
 
     return SliverGrid(
       gridDelegate: delegate,

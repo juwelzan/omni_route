@@ -79,6 +79,66 @@ class OmniResponsiveVisibility extends StatelessWidget {
     this.replacement = const SizedBox.shrink(),
   });
 
+  /// Shows [child] ONLY on mobile phones (`< 600dp`).
+  const OmniResponsiveVisibility.mobileOnly({
+    super.key,
+    required this.child,
+    this.replacement = const SizedBox.shrink(),
+  }) : mobile = true,
+       tablet = false,
+       desktop = false,
+       largeDesktop = false;
+
+  /// Shows [child] ONLY on tablets (`600..1023dp`).
+  const OmniResponsiveVisibility.tabletOnly({
+    super.key,
+    required this.child,
+    this.replacement = const SizedBox.shrink(),
+  }) : mobile = false,
+       tablet = true,
+       desktop = false,
+       largeDesktop = false;
+
+  /// Shows [child] on tablets, desktops, and large monitors (`>= 600dp`).
+  const OmniResponsiveVisibility.tabletUp({
+    super.key,
+    required this.child,
+    this.replacement = const SizedBox.shrink(),
+  }) : mobile = false,
+       tablet = true,
+       desktop = true,
+       largeDesktop = true;
+
+  /// Shows [child] ONLY on desktop and large monitors (`>= 1024dp`).
+  const OmniResponsiveVisibility.desktopUp({
+    super.key,
+    required this.child,
+    this.replacement = const SizedBox.shrink(),
+  }) : mobile = false,
+       tablet = false,
+       desktop = true,
+       largeDesktop = true;
+
+  /// Hides [child] on phones while keeping it visible on tablets & desktops.
+  const OmniResponsiveVisibility.hideOnMobile({
+    super.key,
+    required this.child,
+    this.replacement = const SizedBox.shrink(),
+  }) : mobile = false,
+       tablet = true,
+       desktop = true,
+       largeDesktop = true;
+
+  /// Shows [child] on mobile & tablet, hiding it on desktop & large monitors.
+  const OmniResponsiveVisibility.hideOnDesktop({
+    super.key,
+    required this.child,
+    this.replacement = const SizedBox.shrink(),
+  }) : mobile = true,
+       tablet = true,
+       desktop = false,
+       largeDesktop = false;
+
   /// Subtree shown when visible for the current tier.
   final Widget child;
 
@@ -242,6 +302,244 @@ class OmniResponsiveRowColumn extends StatelessWidget {
   }
 }
 
+/// Resolves the appropriate [SliverGridDelegate] for responsive grids using
+/// either C++ [SliverGridDelegateWithMaxCrossAxisExtent] (when [maxItemWidth]
+/// is supplied) or discrete [OmniDeviceType] column counts.
+SliverGridDelegate resolveOmniGridDelegate(
+  BuildContext context, {
+  required OmniResponsiveTokens tokens,
+  double? maxItemWidth,
+  int? mobileColumns,
+  int? tabletColumns,
+  int? desktopColumns,
+  int? largeDesktopColumns,
+  double? spacing,
+  double? runSpacing,
+  double childAspectRatio = 1.0,
+  double? mainAxisExtent,
+}) {
+  final gap = spacing ?? tokens.gridSpacing;
+  final rowGap = runSpacing ?? gap;
+  if (maxItemWidth case final maxExtent?) {
+    return SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: maxExtent,
+      crossAxisSpacing: gap,
+      mainAxisSpacing: rowGap,
+      childAspectRatio: childAspectRatio,
+      mainAxisExtent: mainAxisExtent,
+    );
+  }
+  final cols = switch (OmniResponsiveScope.deviceOf(context)) {
+    OmniDeviceType.mobile => mobileColumns ?? tokens.gridColumns,
+    OmniDeviceType.tablet =>
+      tabletColumns ?? mobileColumns ?? tokens.gridColumns,
+    OmniDeviceType.desktop =>
+      desktopColumns ?? tabletColumns ?? mobileColumns ?? tokens.gridColumns,
+    OmniDeviceType.largeDesktop =>
+      largeDesktopColumns ??
+          desktopColumns ??
+          tabletColumns ??
+          mobileColumns ??
+          tokens.gridColumns,
+  };
+  return SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: cols,
+    crossAxisSpacing: gap,
+    mainAxisSpacing: rowGap,
+    childAspectRatio: childAspectRatio,
+    mainAxisExtent: mainAxisExtent,
+  );
+}
+
+enum _OmniGapKind { xs, sm, md, lg, xl, hSm, hMd, hLg }
+
+/// Zero-allocation `const` responsive spacer returning pre-cached
+/// `context.tokens.gap*` `SizedBox` instances directly inside `Column`, `Row`,
+/// and `ListView`.
+class OmniGap extends StatelessWidget {
+  /// Extra-small vertical gap (`tokens.gapXs`).
+  const OmniGap.xs({super.key}) : _kind = _OmniGapKind.xs;
+
+  /// Small vertical gap (`tokens.gapSm`).
+  const OmniGap.sm({super.key}) : _kind = _OmniGapKind.sm;
+
+  /// Medium vertical gap (`tokens.gapMd`, most common between cards/fields).
+  const OmniGap.md({super.key}) : _kind = _OmniGapKind.md;
+
+  /// Large vertical gap (`tokens.gapLg`).
+  const OmniGap.lg({super.key}) : _kind = _OmniGapKind.lg;
+
+  /// Extra-large vertical gap (`tokens.gapXl`).
+  const OmniGap.xl({super.key}) : _kind = _OmniGapKind.xl;
+
+  /// Small horizontal gap for `Row` children (`tokens.gapWidthSm`).
+  const OmniGap.horizontalSm({super.key}) : _kind = _OmniGapKind.hSm;
+
+  /// Medium horizontal gap for `Row` children (`tokens.gapWidthMd`).
+  const OmniGap.horizontalMd({super.key}) : _kind = _OmniGapKind.hMd;
+
+  /// Large horizontal gap for `Row` children (`tokens.gapWidthLg`).
+  const OmniGap.horizontalLg({super.key}) : _kind = _OmniGapKind.hLg;
+
+  final _OmniGapKind _kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OmniResponsiveScope.tokensOf(context);
+    return switch (_kind) {
+      _OmniGapKind.xs => t.gapXs,
+      _OmniGapKind.sm => t.gapSm,
+      _OmniGapKind.md => t.gapMd,
+      _OmniGapKind.lg => t.gapLg,
+      _OmniGapKind.xl => t.gapXl,
+      _OmniGapKind.hSm => t.gapWidthSm,
+      _OmniGapKind.hMd => t.gapWidthMd,
+      _OmniGapKind.hLg => t.gapWidthLg,
+    };
+  }
+}
+
+enum _OmniPaddingKind { page, horizontal, card, section }
+
+/// `const`-friendly responsive padding wrapper applying `context.tokens`
+/// padding cleanly without `Builder` or manual `EdgeInsets` calls.
+class OmniResponsivePadding extends StatelessWidget {
+  /// Applies standard page padding (`tokens.pagePadding`).
+  const OmniResponsivePadding({super.key, required this.child})
+    : _kind = _OmniPaddingKind.page;
+
+  /// Applies horizontal gutter padding (`tokens.horizontalPadding`).
+  const OmniResponsivePadding.horizontal({super.key, required this.child})
+    : _kind = _OmniPaddingKind.horizontal;
+
+  /// Applies inner card padding (`tokens.cardPadding`).
+  const OmniResponsivePadding.card({super.key, required this.child})
+    : _kind = _OmniPaddingKind.card;
+
+  /// Applies vertical+horizontal section padding (`tokens.sectionPadding`).
+  const OmniResponsivePadding.section({super.key, required this.child})
+    : _kind = _OmniPaddingKind.section;
+
+  /// Descendant subtree to pad.
+  final Widget child;
+
+  final _OmniPaddingKind _kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = OmniResponsiveScope.tokensOf(context);
+    final padding = switch (_kind) {
+      _OmniPaddingKind.page => t.pagePadding,
+      _OmniPaddingKind.horizontal => t.horizontalPadding,
+      _OmniPaddingKind.card => t.cardPadding,
+      _OmniPaddingKind.section => t.sectionPadding,
+    };
+    return Padding(padding: padding, child: child);
+  }
+}
+
+/// Natural intrinsic-height responsive multi-column layout.
+///
+/// Unlike [GridView] (which enforces fixed aspect ratio rectangles that can clip
+/// or overflow when text wraps), each item keeps its natural intrinsic height
+/// while aligning into equal-width responsive columns (`mobileColumns`,
+/// `tabletColumns`, `desktopColumns`, `largeDesktopColumns`), making it ideal
+/// inside any `Column`, `ListView`, or form with **zero** overflow bugs.
+class OmniResponsiveColumns extends StatelessWidget {
+  /// Creates an overflow-free intrinsic-height responsive grid.
+  const OmniResponsiveColumns({
+    super.key,
+    required this.children,
+    this.mobileColumns = 1,
+    this.tabletColumns = 2,
+    this.desktopColumns = 3,
+    this.largeDesktopColumns = 4,
+    this.spacing,
+    this.runSpacing,
+    this.rowCrossAxisAlignment = CrossAxisAlignment.start,
+  }) : assert(mobileColumns > 0),
+       assert(tabletColumns > 0),
+       assert(desktopColumns > 0),
+       assert(largeDesktopColumns > 0);
+
+  /// Items arranged into equal-width responsive columns.
+  final List<Widget> children;
+
+  /// Column count on phones (defaults to `1`).
+  final int mobileColumns;
+
+  /// Column count on tablets (defaults to `2`).
+  final int tabletColumns;
+
+  /// Column count on desktops (defaults to `3`).
+  final int desktopColumns;
+
+  /// Column count on large monitors (defaults to `4`).
+  final int largeDesktopColumns;
+
+  /// Horizontal gap between columns (defaults to `tokens.gridSpacing`).
+  final double? spacing;
+
+  /// Vertical gap between rows (defaults to [spacing] / `tokens.gridSpacing`).
+  final double? runSpacing;
+
+  /// Vertical alignment of items within the same row.
+  final CrossAxisAlignment rowCrossAxisAlignment;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    final device = OmniResponsiveScope.deviceOf(context);
+    final tokens = OmniResponsiveScope.tokensOf(context);
+    final colGap = spacing ?? tokens.gridSpacing;
+    final rowGap = runSpacing ?? colGap;
+    final cols = switch (device) {
+      OmniDeviceType.mobile => mobileColumns,
+      OmniDeviceType.tablet => tabletColumns,
+      OmniDeviceType.desktop => desktopColumns,
+      OmniDeviceType.largeDesktop => largeDesktopColumns,
+    };
+
+    if (cols == 1) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: rowGap,
+        children: children,
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var i = 0; i < children.length; i += cols) {
+      final rowChildren = <Widget>[];
+      for (var c = 0; c < cols; c++) {
+        final idx = i + c;
+        rowChildren.add(
+          Expanded(
+            child: idx < children.length
+                ? children[idx]
+                : const SizedBox.shrink(),
+          ),
+        );
+      }
+      rows.add(
+        Row(
+          crossAxisAlignment: rowCrossAxisAlignment,
+          spacing: colGap,
+          children: rowChildren,
+        ),
+      );
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: rowGap,
+      children: rows,
+    );
+  }
+}
+
 /// High-performance responsive grid backed directly by Flutter's native
 /// `SliverGridDelegateWithMaxCrossAxisExtent` or breakpoint column counts.
 ///
@@ -353,40 +651,19 @@ class OmniResponsiveGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = OmniResponsiveScope.tokensOf(context);
-    final gap = spacing ?? tokens.gridSpacing;
-    final rowGap = runSpacing ?? gap;
-
-    final SliverGridDelegate delegate;
-    if (maxItemWidth case final maxExtent?) {
-      delegate = SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: maxExtent,
-        crossAxisSpacing: gap,
-        mainAxisSpacing: rowGap,
-        childAspectRatio: childAspectRatio,
-        mainAxisExtent: mainAxisExtent,
-      );
-    } else {
-      final cols = switch (OmniResponsiveScope.deviceOf(context)) {
-        OmniDeviceType.mobile => mobileColumns ?? tokens.gridColumns,
-        OmniDeviceType.tablet =>
-          tabletColumns ?? mobileColumns ?? tokens.gridColumns,
-        OmniDeviceType.desktop =>
-          desktopColumns ?? tabletColumns ?? mobileColumns ?? tokens.gridColumns,
-        OmniDeviceType.largeDesktop =>
-          largeDesktopColumns ??
-              desktopColumns ??
-              tabletColumns ??
-              mobileColumns ??
-              tokens.gridColumns,
-      };
-      delegate = SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: cols,
-        crossAxisSpacing: gap,
-        mainAxisSpacing: rowGap,
-        childAspectRatio: childAspectRatio,
-        mainAxisExtent: mainAxisExtent,
-      );
-    }
+    final delegate = resolveOmniGridDelegate(
+      context,
+      tokens: tokens,
+      maxItemWidth: maxItemWidth,
+      mobileColumns: mobileColumns,
+      tabletColumns: tabletColumns,
+      desktopColumns: desktopColumns,
+      largeDesktopColumns: largeDesktopColumns,
+      spacing: spacing,
+      runSpacing: runSpacing,
+      childAspectRatio: childAspectRatio,
+      mainAxisExtent: mainAxisExtent,
+    );
 
     if (itemBuilder case final builder?) {
       return GridView.builder(

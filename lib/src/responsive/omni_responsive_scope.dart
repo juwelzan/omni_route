@@ -193,13 +193,19 @@ class OmniResponsiveScope extends StatefulWidget {
   /// Creates a local container-query scope measured from parent `BoxConstraints`
   /// via [LayoutBuilder] (ideal for Master-Detail split panes or drawers where
   /// a subtree's width is narrower than the overall window).
+  ///
+  /// When [config] is omitted, inherits the nearest ancestor
+  /// [OmniResponsiveConfig] automatically so custom breakpoints and tokens apply
+  /// inside sub-panes too.
   static Widget constrained({
     Key? key,
     required Widget child,
-    OmniResponsiveConfig config = const OmniResponsiveConfig(),
+    OmniResponsiveConfig? config,
   }) => LayoutBuilder(
     key: key,
     builder: (context, constraints) {
+      final resolvedConfig =
+          config ?? maybeConfigOf(context) ?? const OmniResponsiveConfig();
       late final fallback =
           MediaQuery.maybeSizeOf(context) ?? const Size(390, 844);
       final w = constraints.hasBoundedWidth
@@ -209,11 +215,19 @@ class OmniResponsiveScope extends StatefulWidget {
           ? constraints.maxHeight
           : fallback.height;
       return _OmniResponsiveModel(
-        data: OmniResponsiveData.fromSize(Size(w, h), config: config),
+        data: OmniResponsiveData.fromSize(Size(w, h), config: resolvedConfig),
         child: child,
       );
     },
   );
+
+  /// Reads the nearest ancestor [OmniResponsiveConfig] without subscribing to
+  /// metrics jitter (`null` if no [OmniResponsiveScope] exists).
+  static OmniResponsiveConfig? maybeConfigOf(BuildContext context) =>
+      context
+          .getInheritedWidgetOfExactType<_OmniResponsiveModel>()
+          ?.data
+          .config;
 
   /// Breakpoint & token configuration.
   final OmniResponsiveConfig config;
@@ -397,6 +411,11 @@ class _OmniResponsiveScopeState extends State<OmniResponsiveScope>
   ui.FlutterView? _cachedView;
   bool _hasAncestorMediaQuery = false;
 
+  Size? _lastSize;
+  Orientation? _lastOrientation;
+  OmniResponsiveConfig? _lastConfig;
+  OmniResponsiveData? _lastData;
+
   @override
   void initState() {
     super.initState();
@@ -451,11 +470,16 @@ class _OmniResponsiveScopeState extends State<OmniResponsiveScope>
     final mqOrientation = mqSize != null
         ? MediaQuery.maybeOrientationOf(context)
         : null;
-    final data = OmniResponsiveData.fromSize(
-      size,
-      config: widget.config,
-      orientation: mqOrientation,
-    );
+    final data = (_lastData != null &&
+            _lastSize == size &&
+            _lastOrientation == mqOrientation &&
+            _lastConfig == widget.config)
+        ? _lastData!
+        : (_lastData = OmniResponsiveData.fromSize(
+            _lastSize = size,
+            config: _lastConfig = widget.config,
+            orientation: _lastOrientation = mqOrientation,
+          ));
     return _OmniResponsiveModel(
       data: data,
       minTextScale: widget.minTextScale,
@@ -556,15 +580,16 @@ class OmniResponsiveTextScaleHost extends StatelessWidget {
   /// Descendant subtree (typically inside `MaterialApp`/`CupertinoApp`).
   final Widget child;
 
-  Widget _applyWithMediaQuery(BuildContext context, MediaQueryData mq) {
-    final tierScale = (config.enabled && config.adaptTextScaling)
-        ? OmniResponsiveScope.tokensOf(context).textScale
-        : 1.0;
+  double _resolveTierScale(BuildContext context) =>
+      (config.enabled && config.adaptTextScaling)
+          ? OmniResponsiveScope.tokensOf(context).textScale
+          : 1.0;
 
-    if (tierScale == 1.0 && minTextScale == null && maxTextScale == null) {
-      return child;
-    }
-
+  Widget _applyWithFullMediaQuery(
+    BuildContext context,
+    MediaQueryData mq,
+    double tierScale,
+  ) {
     final nextScaler = OmniResponsiveConfig.composeTextScaler(
       mq.textScaler,
       tierScale,
@@ -581,9 +606,25 @@ class OmniResponsiveTextScaleHost extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final mq = MediaQuery.maybeOf(context);
-    if (mq != null) {
-      return _applyWithMediaQuery(context, mq);
+    final tierScale = _resolveTierScale(context);
+    if (tierScale == 1.0 && minTextScale == null && maxTextScale == null) {
+      return child;
+    }
+
+    // Subscribe ONLY to textScaler first so keyboard viewInsets animations do
+    // NOT rebuild the app root when the composed scaler matches OS textScaler!
+    final currentScaler = MediaQuery.maybeTextScalerOf(context);
+    if (currentScaler != null) {
+      final preview = OmniResponsiveConfig.composeTextScaler(
+        currentScaler,
+        tierScale,
+        minScale: minTextScale,
+        maxScale: maxTextScale,
+      );
+      if (preview == currentScaler) return child;
+
+      final mq = MediaQuery.of(context);
+      return _applyWithFullMediaQuery(context, mq, tierScale);
     }
 
     // Fallback when wrapped outside MaterialApp (e.g. custom OmniApp(builder:)
@@ -593,8 +634,11 @@ class OmniResponsiveTextScaleHost extends StatelessWidget {
     return MediaQuery.fromView(
       view: view,
       child: Builder(
-        builder: (innerCtx) =>
-            _applyWithMediaQuery(innerCtx, MediaQuery.of(innerCtx)),
+        builder: (innerCtx) => _applyWithFullMediaQuery(
+          innerCtx,
+          MediaQuery.of(innerCtx),
+          tierScale,
+        ),
       ),
     );
   }

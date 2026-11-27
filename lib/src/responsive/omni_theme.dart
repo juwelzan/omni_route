@@ -7,7 +7,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'omni_colors.dart';
 import 'omni_responsive_config.dart';
 import 'omni_responsive_scope.dart';
+import 'omni_status_bar.dart';
 import 'omni_styles.dart';
+import 'omni_system_navigation_bar.dart';
+import 'omni_system_ui.dart';
 
 /// বর্তমান সক্রিয় থিম কনফিগার করার জন্য কাস্টম হুক (প্রতি ডিভাইস টিয়ারে একবার
 /// চলে ও ফল মেমোইজড থাকে)।
@@ -270,9 +273,9 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
 /// ```
 @immutable
 class OmniTheme {
-  /// [seedColor], ঐচ্ছিক [style] প্রিসেট ও সেমান্টিক কালার দিয়ে একটি থিম তৈরি করে।
+  /// [seedColor], [light]/[dark] প্যালেট, ঐচ্ছিক [style] প্রিসেট ও সেমান্টিক কালার দিয়ে একটি থিম তৈরি করে।
   const OmniTheme({
-    required this.seedColor,
+    this.seedColor = const Color(0xFF2563EB),
     this.id = 'default',
     this.name = 'Default',
     this.previewColor,
@@ -280,7 +283,11 @@ class OmniTheme {
     this.persistMode = true,
     this.storageKey = 'default',
     this.controller,
+    this.darkSeedColor,
     this.secondaryColor,
+    this.darkSecondaryColor,
+    this.light,
+    this.dark,
     this.style = OmniThemeStyle.modern,
     this.useMaterial3 = true,
     this.fontFamily,
@@ -346,12 +353,15 @@ class OmniTheme {
     this.darkColors,
     this.cardElevation,
     this.appBarCenterTitle,
+    this.screenMode = OmniScreenMode.edgeToEdge,
+    this.statusBar,
+    this.systemNavigationBar,
     this.customizer,
   });
 
   /// কম্প্যাক্ট `8dp` কর্নারওয়ালা প্রোডাক্টিভিটি প্রিসেট।
   const OmniTheme.compact({
-    required this.seedColor,
+    this.seedColor = const Color(0xFF2563EB),
     this.id = 'default',
     this.name = 'Compact',
     this.previewColor,
@@ -359,7 +369,11 @@ class OmniTheme {
     this.persistMode = true,
     this.storageKey = 'default',
     this.controller,
+    this.darkSeedColor,
     this.secondaryColor,
+    this.darkSecondaryColor,
+    this.light,
+    this.dark,
     this.style = OmniThemeStyle.compact,
     this.useMaterial3 = true,
     this.fontFamily,
@@ -425,12 +439,15 @@ class OmniTheme {
     this.darkColors,
     this.cardElevation = 0,
     this.appBarCenterTitle,
+    this.screenMode = OmniScreenMode.edgeToEdge,
+    this.statusBar,
+    this.systemNavigationBar,
     this.customizer,
   });
 
   /// রাউন্ডেড `20dp` কর্নারওয়ালা কনজিউমার অ্যাপ প্রিসেট।
   const OmniTheme.pill({
-    required this.seedColor,
+    this.seedColor = const Color(0xFF2563EB),
     this.id = 'default',
     this.name = 'Pill',
     this.previewColor,
@@ -438,7 +455,11 @@ class OmniTheme {
     this.persistMode = true,
     this.storageKey = 'default',
     this.controller,
+    this.darkSeedColor,
     this.secondaryColor,
+    this.darkSecondaryColor,
+    this.light,
+    this.dark,
     this.style = OmniThemeStyle.soft,
     this.useMaterial3 = true,
     this.fontFamily,
@@ -504,6 +525,9 @@ class OmniTheme {
     this.darkColors,
     this.cardElevation = 0,
     this.appBarCenterTitle,
+    this.screenMode = OmniScreenMode.edgeToEdge,
+    this.statusBar,
+    this.systemNavigationBar,
     this.customizer,
   });
 
@@ -531,8 +555,20 @@ class OmniTheme {
   /// ঐচ্ছিক বাহ্যিক [OmniThemeController]।
   final OmniThemeController? controller;
 
+  /// ডার্ক মোডের প্রধান ব্র্যান্ড প্রাইমারি রঙ (`null` হলে `dark?.primaryColor ?? seedColor`)।
+  final Color? darkSeedColor;
+
   /// সেকেন্ডারি অ্যাকসেন্ট কালার (`OmniColors.secondaryColor`)।
   final Color? secondaryColor;
+
+  /// ডার্ক মোডের সেকেন্ডারি অ্যাকসেন্ট কালার (`null` হলে `dark?.secondaryColor ?? secondaryColor`)।
+  final Color? darkSecondaryColor;
+
+  /// লাইট মোডের জন্য সহজ কালার প্যালেট ওভাররাইড (৫৫টি কালারের মধ্যে শুধু প্রয়োজনীয়গুলো দিন)।
+  final OmniColorPalette? light;
+
+  /// ডার্ক মোডের জন্য সহজ কালার প্যালেট ওভাররাইড (৫৫টি কালারের মধ্যে শুধু প্রয়োজনীয়গুলো দিন)।
+  final OmniColorPalette? dark;
 
   /// ১-লাইনের ডিজাইন স্টাইল প্রিসেট (`modern`, `outlined`, `soft`, `elevated`, `minimal`, `compact`)।
   final OmniThemeStyle style;
@@ -729,11 +765,44 @@ class OmniTheme {
   /// সব `AppBar`-এ টাইটেল সেন্টারে রাখবে কি না।
   final bool? appBarCenterTitle;
 
+  /// অ্যাপের সিস্টেম বার ও ফুলস্ক্রিন ডিসপ্লে মোড (ডিফল্ট [OmniScreenMode.edgeToEdge])।
+  final OmniScreenMode screenMode;
+
+  /// উপরের সিস্টেম স্ট্যাটাস বারের আলাদা স্টাইল ও রঙ ([OmniStatusBarStyle])।
+  ///
+  /// এখান থেকে সেট করলে অ্যাপের **প্রতিটি স্ক্রিনে** (অ্যাপবারসহ বা অ্যাপবার ছাড়া)
+  /// আলাদা কোড ছাড়াই স্বয়ংক্রিয়ভাবে প্রযোজ্য হয়।
+  final OmniStatusBarStyle? statusBar;
+
+  /// নিচের সিস্টেম নেভিগেশন ও গেস্টচার সোয়াইপ বারের আলাদা স্টাইল ও রঙ
+  /// ([OmniSystemNavigationBarStyle])।
+  ///
+  /// গেস্টচার সোয়াইপ পিল/ডটের নিচের কালো এরিয়া দূর করে অ্যাপের প্রতিটি স্ক্রিনে
+  /// থিমের সাথে মসৃণভাবে মিশিয়ে দেয়।
+  final OmniSystemNavigationBarStyle? systemNavigationBar;
+
   /// যেকোনো থিম উপাদান (`Switch`, `Chip`, `BottomSheet`) আরও কাস্টম করার হুক।
   final OmniThemeCustomizer? customizer;
 
   /// পিকারের জন্য রঙের স্যাম্পল রিটার্ন করে।
-  Color get swatchColor => previewColor ?? seedColor;
+  Color get swatchColor =>
+      previewColor ??
+      light?.primaryColor ??
+      lightColors?.primaryColor ??
+      seedColor;
+
+  /// প্রদত্ত [brightness] (লাইট বা ডার্ক) অনুযায়ী প্যালেট সওয়াচ ডটের রঙ রিটার্ন করে।
+  Color swatchColorFor(Brightness brightness) {
+    if (previewColor case final p?) return p;
+    final isDark = brightness == Brightness.dark;
+    return isDark
+        ? (darkColors?.primaryColor ??
+            dark?.primaryColor ??
+            darkSeedColor ??
+            light?.primaryColor ??
+            seedColor)
+        : (lightColors?.primaryColor ?? light?.primaryColor ?? seedColor);
+  }
 
   /// [OmniTheme] ও ঐচ্ছিক রানটাইম [styleOverride] মিলিয়ে কার্যকর ইনপুট ভ্যারিয়েন্ট।
   OmniInputVariant effectiveInputVariant([OmniThemeStyle? styleOverride]) =>
@@ -763,6 +832,26 @@ class OmniTheme {
           ? (styleOverride.borderRadius ?? borderRadius)
           : (borderRadius ?? style.borderRadius);
 
+  /// বর্তমান থিম ও [colors] অনুযায়ী ওপরের সিস্টেম স্ট্যাটাস বারের স্টাইল দেয়।
+  OmniStatusBarStyle resolveStatusBar(OmniColors colors) {
+    final explicit = statusBar;
+    if (explicit != null) return explicit;
+    return OmniStatusBarStyle(
+      color: colors.statusBarColor,
+      darkColor: colors.statusBarColor,
+    );
+  }
+
+  /// বর্তমান থিম ও [colors] অনুযায়ী নিচের সিস্টেম নেভিগেশন/গেস্টচার বারের স্টাইল দেয়।
+  OmniSystemNavigationBarStyle resolveSystemNavigationBar(OmniColors colors) {
+    final explicit = systemNavigationBar;
+    if (explicit != null) return explicit;
+    return OmniSystemNavigationBarStyle(
+      color: colors.systemNavigationBarColor,
+      darkColor: colors.systemNavigationBarColor,
+    );
+  }
+
   // ── রেডিমেড মাল্টি-প্যালেট প্রিসেট (১-ক্লিকে পুরো অ্যাপের কালার প্যালেট বদলানোর জন্য) ──
 
   /// সমুদ্র নীল প্রিসেট প্যালেট (`id: 'ocean'`)।
@@ -771,6 +860,10 @@ class OmniTheme {
     name: 'Ocean',
     seedColor: Color(0xFF2563EB),
     secondaryColor: Color(0xFF0EA5E9),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF3B82F6),
+      secondaryColor: Color(0xFF38BDF8),
+    ),
   );
 
   /// সবুজ প্রকৃতি প্রিসেট প্যালেট (`id: 'emerald'`)।
@@ -779,6 +872,10 @@ class OmniTheme {
     name: 'Emerald',
     seedColor: Color(0xFF059669),
     secondaryColor: Color(0xFF14B8A6),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF10B981),
+      secondaryColor: Color(0xFF2DD4BF),
+    ),
   );
 
   /// রাজকীয় বেগুনি প্রিসেট প্যালেট (`id: 'violet'`)।
@@ -787,6 +884,10 @@ class OmniTheme {
     name: 'Violet',
     seedColor: Color(0xFF7C3AED),
     secondaryColor: Color(0xFFA855F7),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF8B5CF6),
+      secondaryColor: Color(0xFFC084FC),
+    ),
   );
 
   /// সোনালি কমলা প্রিসেট প্যালেট (`id: 'sunset'`)।
@@ -795,6 +896,10 @@ class OmniTheme {
     name: 'Sunset',
     seedColor: Color(0xFFEA580C),
     secondaryColor: Color(0xFFF59E0B),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFF97316),
+      secondaryColor: Color(0xFFFBBF24),
+    ),
   );
 
   /// গোলাপি বেরি প্রিসেট প্যালেট (`id: 'rose'`)।
@@ -803,6 +908,10 @@ class OmniTheme {
     name: 'Rose',
     seedColor: Color(0xFFE11D48),
     secondaryColor: Color(0xFFEC4899),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFF43F5E),
+      secondaryColor: Color(0xFFF472B6),
+    ),
   );
 
   /// নীলচে-সবুজ টিল প্রিসেট প্যালেট (`id: 'teal'`)।
@@ -811,6 +920,10 @@ class OmniTheme {
     name: 'Teal',
     seedColor: Color(0xFF0D9488),
     secondaryColor: Color(0xFF06B6D4),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF14B8A6),
+      secondaryColor: Color(0xFF22D3EE),
+    ),
   );
 
   /// উষ্ণ সোনালি অ্যাম্বার প্রিসেট প্যালেট (`id: 'amber'`)।
@@ -819,6 +932,10 @@ class OmniTheme {
     name: 'Amber',
     seedColor: Color(0xFFD97706),
     secondaryColor: Color(0xFFEA580C),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFF59E0B),
+      secondaryColor: Color(0xFFFB923C),
+    ),
   );
 
   /// কর্পোরেট স্লেট-ইন্ডিগো প্রিসেট প্যালেট (`id: 'slate'`)।
@@ -827,6 +944,11 @@ class OmniTheme {
     name: 'Slate',
     seedColor: Color(0xFF475569),
     secondaryColor: Color(0xFF6366F1),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF94A3B8),
+      secondaryColor: Color(0xFF818CF8),
+      buttonTextColor: Color(0xFF0F172A),
+    ),
   );
 
   /// ৮টি রেডিমেড প্রোডাকশন কালার প্যালেটের বান্ডিল (`OmniApp.material(themes: OmniTheme.presets)`)।
@@ -859,7 +981,11 @@ class OmniTheme {
     bool? persistMode,
     String? storageKey,
     OmniThemeController? controller,
+    Color? darkSeedColor,
     Color? secondaryColor,
+    Color? darkSecondaryColor,
+    OmniColorPalette? light,
+    OmniColorPalette? dark,
     OmniThemeStyle? style,
     bool? useMaterial3,
     String? fontFamily,
@@ -925,6 +1051,9 @@ class OmniTheme {
     OmniColors? darkColors,
     double? cardElevation,
     bool? appBarCenterTitle,
+    OmniScreenMode? screenMode,
+    OmniStatusBarStyle? statusBar,
+    OmniSystemNavigationBarStyle? systemNavigationBar,
     OmniThemeCustomizer? customizer,
   }) => OmniTheme(
     id: id ?? this.id,
@@ -935,7 +1064,11 @@ class OmniTheme {
     persistMode: persistMode ?? this.persistMode,
     storageKey: storageKey ?? this.storageKey,
     controller: controller ?? this.controller,
+    darkSeedColor: darkSeedColor ?? this.darkSeedColor,
     secondaryColor: secondaryColor ?? this.secondaryColor,
+    darkSecondaryColor: darkSecondaryColor ?? this.darkSecondaryColor,
+    light: light ?? this.light,
+    dark: dark ?? this.dark,
     style: style ?? this.style,
     useMaterial3: useMaterial3 ?? this.useMaterial3,
     fontFamily: fontFamily ?? this.fontFamily,
@@ -1008,6 +1141,9 @@ class OmniTheme {
     darkColors: darkColors ?? this.darkColors,
     cardElevation: cardElevation ?? this.cardElevation,
     appBarCenterTitle: appBarCenterTitle ?? this.appBarCenterTitle,
+    screenMode: screenMode ?? this.screenMode,
+    statusBar: statusBar ?? this.statusBar,
+    systemNavigationBar: systemNavigationBar ?? this.systemNavigationBar,
     customizer: customizer ?? this.customizer,
   );
 
@@ -1017,61 +1153,74 @@ class OmniTheme {
     final explicit = isDark ? darkColors : lightColors;
     if (explicit != null) return explicit;
 
+    final p = isDark ? dark : light;
     return OmniColors.fromSeed(
-      primaryColor: seedColor,
+      primaryColor: p?.primaryColor ??
+          (isDark ? (darkSeedColor ?? seedColor) : seedColor),
       brightness: brightness,
-      secondaryColor: secondaryColor,
-      surfaceColor: isDark
-          ? (darkSurfaceColor ?? darkScaffoldBackgroundColor)
-          : (surfaceColor ?? scaffoldBackgroundColor),
-      secondaryBackgroundColor: isDark
-          ? darkSecondaryBackgroundColor
-          : secondaryBackgroundColor,
-      cardColor: isDark ? darkCardColor : cardColor,
-      appBarColor: appBarColor,
-      appBarTextColor: appBarTextColor,
-      navBarColor: navBarColor,
-      navSelectedColor: navSelectedColor,
-      navUnselectedColor: navUnselectedColor,
-      buttonColor: buttonColor,
-      buttonTextColor: buttonTextColor,
-      secondaryButtonColor: secondaryButtonColor,
-      secondaryButtonTextColor: secondaryButtonTextColor,
-      dangerButtonColor: dangerButtonColor,
-      dangerButtonTextColor: dangerButtonTextColor,
-      linkColor: linkColor,
-      inputFillColor: inputFillColor,
-      borderColor: borderColor,
-      focusedBorderColor: focusedBorderColor,
-      dividerColor: dividerColor,
-      textColor: textColor,
-      secondaryTextColor: secondaryTextColor,
-      hintTextColor: hintTextColor,
-      iconColor: iconColor,
-      chipColor: chipColor,
-      chipTextColor: chipTextColor,
-      badgeColor: badgeColor,
-      badgeTextColor: badgeTextColor,
-      selectedItemColor: selectedItemColor,
-      hoverColor: hoverColor,
-      rippleColor: rippleColor,
-      disabledColor: disabledColor,
-      disabledTextColor: disabledTextColor,
-      disabledBorderColor: disabledBorderColor,
-      switchActiveColor: switchActiveColor,
-      switchInactiveColor: switchInactiveColor,
-      snackbarColor: snackbarColor,
-      snackbarTextColor: snackbarTextColor,
-      tooltipColor: tooltipColor,
-      tooltipTextColor: tooltipTextColor,
-      errorColor: errorColor,
-      warningColor: warningColor,
-      successColor: successColor,
-      infoColor: infoColor,
-      shimmerBaseColor: shimmerBaseColor,
-      shimmerHighlightColor: shimmerHighlightColor,
-      overlayColor: overlayColor,
-      shadowColor: shadowColor,
+      secondaryColor: p?.secondaryColor ??
+          (isDark ? (darkSecondaryColor ?? secondaryColor) : secondaryColor),
+      surfaceColor: p?.surfaceColor ??
+          (isDark
+              ? (darkSurfaceColor ?? darkScaffoldBackgroundColor)
+              : (surfaceColor ?? scaffoldBackgroundColor)),
+      secondaryBackgroundColor: p?.secondaryBackgroundColor ??
+          (isDark ? darkSecondaryBackgroundColor : secondaryBackgroundColor),
+      cardColor: p?.cardColor ?? (isDark ? darkCardColor : cardColor),
+      appBarColor: p?.appBarColor ?? appBarColor,
+      appBarTextColor: p?.appBarTextColor ?? appBarTextColor,
+      navBarColor: p?.navBarColor ?? navBarColor,
+      navSelectedColor: p?.navSelectedColor ?? navSelectedColor,
+      navUnselectedColor: p?.navUnselectedColor ?? navUnselectedColor,
+      buttonColor: p?.buttonColor ?? buttonColor,
+      buttonTextColor: p?.buttonTextColor ?? buttonTextColor,
+      secondaryButtonColor: p?.secondaryButtonColor ?? secondaryButtonColor,
+      secondaryButtonTextColor:
+          p?.secondaryButtonTextColor ?? secondaryButtonTextColor,
+      dangerButtonColor: p?.dangerButtonColor ?? dangerButtonColor,
+      dangerButtonTextColor: p?.dangerButtonTextColor ?? dangerButtonTextColor,
+      linkColor: p?.linkColor ?? linkColor,
+      inputFillColor: p?.inputFillColor ?? inputFillColor,
+      borderColor: p?.borderColor ?? borderColor,
+      focusedBorderColor: p?.focusedBorderColor ?? focusedBorderColor,
+      dividerColor: p?.dividerColor ?? dividerColor,
+      textColor: p?.textColor ?? textColor,
+      secondaryTextColor: p?.secondaryTextColor ?? secondaryTextColor,
+      hintTextColor: p?.hintTextColor ?? hintTextColor,
+      iconColor: p?.iconColor ?? iconColor,
+      chipColor: p?.chipColor ?? chipColor,
+      chipTextColor: p?.chipTextColor ?? chipTextColor,
+      badgeColor: p?.badgeColor ?? badgeColor,
+      badgeTextColor: p?.badgeTextColor ?? badgeTextColor,
+      selectedItemColor: p?.selectedItemColor ?? selectedItemColor,
+      hoverColor: p?.hoverColor ?? hoverColor,
+      rippleColor: p?.rippleColor ?? rippleColor,
+      disabledColor: p?.disabledColor ?? disabledColor,
+      disabledTextColor: p?.disabledTextColor ?? disabledTextColor,
+      disabledBorderColor: p?.disabledBorderColor ?? disabledBorderColor,
+      switchActiveColor: p?.switchActiveColor ?? switchActiveColor,
+      switchInactiveColor: p?.switchInactiveColor ?? switchInactiveColor,
+      snackbarColor: p?.snackbarColor ?? snackbarColor,
+      snackbarTextColor: p?.snackbarTextColor ?? snackbarTextColor,
+      tooltipColor: p?.tooltipColor ?? tooltipColor,
+      tooltipTextColor: p?.tooltipTextColor ?? tooltipTextColor,
+      errorColor: p?.errorColor ?? errorColor,
+      errorBackgroundColor: p?.errorBackgroundColor,
+      warningColor: p?.warningColor ?? warningColor,
+      warningBackgroundColor: p?.warningBackgroundColor,
+      successColor: p?.successColor ?? successColor,
+      successBackgroundColor: p?.successBackgroundColor,
+      infoColor: p?.infoColor ?? infoColor,
+      infoBackgroundColor: p?.infoBackgroundColor,
+      shimmerBaseColor: p?.shimmerBaseColor ?? shimmerBaseColor,
+      shimmerHighlightColor:
+          p?.shimmerHighlightColor ?? shimmerHighlightColor,
+      overlayColor: p?.overlayColor ?? overlayColor,
+      shadowColor: p?.shadowColor ?? shadowColor,
+      statusBarColor: p?.statusBarColor ?? statusBar?.resolveColor(brightness),
+      systemNavigationBarColor:
+          p?.systemNavigationBarColor ??
+          systemNavigationBar?.resolveColor(brightness),
     );
   }
 
@@ -1084,6 +1233,9 @@ class OmniTheme {
     required OmniResponsiveTokens tokens,
     required Brightness brightness,
     OmniThemeStyle? styleOverride,
+    OmniScreenMode? screenModeOverride,
+    OmniStatusBarStyle? statusBarOverride,
+    OmniSystemNavigationBarStyle? systemNavigationBarOverride,
   }) {
     final colors = resolveColors(brightness);
     final isDark = brightness == Brightness.dark;
@@ -1139,6 +1291,22 @@ class OmniTheme {
       focusedBorderWidth: effFocusedBorderWidth,
       cardBorderWidth: effCardBorderWidth,
     );
+    final effStatusBar = statusBarOverride ?? resolveStatusBar(colors);
+    final effNavBar =
+        systemNavigationBarOverride ?? resolveSystemNavigationBar(colors);
+    final effScreenMode = resolveEffectiveOmniScreenMode(
+      screenModeOverride ?? screenMode,
+      statusBar: effStatusBar,
+      systemNavigationBar: effNavBar,
+    );
+    final appBarOverlayStyle = composeOmniSystemUiOverlayStyle(
+      brightness: brightness,
+      screenMode: effScreenMode,
+      statusBar: effStatusBar,
+      systemNavigationBar: effNavBar,
+      fallbackTopBackground: colors.appBarColor,
+      fallbackBottomBackground: colors.navBarColor,
+    );
 
     final baseTheme = ThemeData(
       useMaterial3: useMaterial3,
@@ -1164,6 +1332,7 @@ class OmniTheme {
         backgroundColor: colors.appBarColor,
         foregroundColor: colors.appBarTextColor,
         surfaceTintColor: Colors.transparent,
+        systemOverlayStyle: appBarOverlayStyle,
         elevation: 0,
         centerTitle: appBarCenterTitle,
       ),
@@ -1355,7 +1524,11 @@ class OmniTheme {
           persistMode == other.persistMode &&
           storageKey == other.storageKey &&
           identical(controller, other.controller) &&
+          darkSeedColor == other.darkSeedColor &&
           secondaryColor == other.secondaryColor &&
+          darkSecondaryColor == other.darkSecondaryColor &&
+          light == other.light &&
+          dark == other.dark &&
           style == other.style &&
           useMaterial3 == other.useMaterial3 &&
           fontFamily == other.fontFamily &&
@@ -1421,6 +1594,9 @@ class OmniTheme {
           darkColors == other.darkColors &&
           cardElevation == other.cardElevation &&
           appBarCenterTitle == other.appBarCenterTitle &&
+          screenMode == other.screenMode &&
+          statusBar == other.statusBar &&
+          systemNavigationBar == other.systemNavigationBar &&
           customizer == other.customizer;
 
   @override
@@ -1433,7 +1609,11 @@ class OmniTheme {
     persistMode,
     storageKey,
     controller,
+    darkSeedColor,
     secondaryColor,
+    darkSecondaryColor,
+    light,
+    dark,
     style,
     useMaterial3,
     fontFamily,
@@ -1499,6 +1679,9 @@ class OmniTheme {
     darkColors,
     cardElevation,
     appBarCenterTitle,
+    screenMode,
+    statusBar,
+    systemNavigationBar,
     customizer,
   ]);
 }
@@ -1654,6 +1837,9 @@ class OmniResponsiveThemeHost extends StatefulWidget {
     super.key,
     this.omniTheme,
     this.themes = const [],
+    this.appScreenMode,
+    this.appStatusBar,
+    this.appSystemNavigationBar,
     required this.child,
   }) : assert(omniTheme != null || themes.length > 0);
 
@@ -1662,6 +1848,15 @@ class OmniResponsiveThemeHost extends StatefulWidget {
 
   /// অ্যাপে সুইচ করার জন্য উপলব্ধ সব থিম।
   final List<OmniTheme> themes;
+
+  /// `OmniApp` বা রানটাইম কন্ট্রোলার থেকে পাওয়া ডিসপ্লে মোড ওভাররাইড।
+  final OmniScreenMode? appScreenMode;
+
+  /// `OmniApp` বা রানটাইম কন্ট্রোলার থেকে পাওয়া আলাদা স্ট্যাটাস বার স্টাইল।
+  final OmniStatusBarStyle? appStatusBar;
+
+  /// `OmniApp` বা রানটাইম কন্ট্রোলার থেকে পাওয়া আলাদা সিস্টেম নেভ/গেস্টচার বার স্টাইল।
+  final OmniSystemNavigationBarStyle? appSystemNavigationBar;
 
   /// চাইল্ড অ্যাপ উইজেট।
   final Widget child;
@@ -1681,6 +1876,9 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     ({
       OmniTheme source,
       OmniThemeStyle? styleOverride,
+      OmniScreenMode? screenModeOverride,
+      OmniStatusBarStyle? statusBarOverride,
+      OmniSystemNavigationBarStyle? systemNavigationBarOverride,
       ThemeData light,
       ThemeData dark,
     })
@@ -1765,6 +1963,9 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
   ({ThemeData light, ThemeData dark}) _resolveFor(
     OmniTheme theme,
     OmniThemeStyle? styleOverride,
+    OmniScreenMode? screenModeOverride,
+    OmniStatusBarStyle? statusBarOverride,
+    OmniSystemNavigationBarStyle? systemNavigationBarOverride,
     OmniDeviceType device,
     OmniResponsiveTokens tokens,
   ) {
@@ -1777,23 +1978,35 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     final existing = _resolvedCache[cacheKey];
     if (existing != null &&
         existing.source == theme &&
-        existing.styleOverride == styleOverride) {
+        existing.styleOverride == styleOverride &&
+        existing.screenModeOverride == screenModeOverride &&
+        existing.statusBarOverride == statusBarOverride &&
+        existing.systemNavigationBarOverride == systemNavigationBarOverride) {
       return (light: existing.light, dark: existing.dark);
     }
     final built = (
       source: theme,
       styleOverride: styleOverride,
+      screenModeOverride: screenModeOverride,
+      statusBarOverride: statusBarOverride,
+      systemNavigationBarOverride: systemNavigationBarOverride,
       light: theme.resolve(
         device: device,
         tokens: tokens,
         brightness: Brightness.light,
         styleOverride: styleOverride,
+        screenModeOverride: screenModeOverride,
+        statusBarOverride: statusBarOverride,
+        systemNavigationBarOverride: systemNavigationBarOverride,
       ),
       dark: theme.resolve(
         device: device,
         tokens: tokens,
         brightness: Brightness.dark,
         styleOverride: styleOverride,
+        screenModeOverride: screenModeOverride,
+        statusBarOverride: statusBarOverride,
+        systemNavigationBarOverride: systemNavigationBarOverride,
       ),
     );
     _resolvedCache[cacheKey] = built;
@@ -1812,12 +2025,32 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
       builder: (_, selection, child) {
         final activeTheme = _findTheme(selection.themeId);
         final activeStyle = selection.style ?? activeTheme.style;
+        final activeBrightness = switch (selection.mode) {
+          ThemeMode.light => Brightness.light,
+          ThemeMode.dark => Brightness.dark,
+          ThemeMode.system => MediaQuery.platformBrightnessOf(context),
+        };
+        final activeColors = activeTheme.resolveColors(activeBrightness);
+        final effectiveStatusBar =
+            widget.appStatusBar ?? activeTheme.resolveStatusBar(activeColors);
+        final effectiveNavBar =
+            widget.appSystemNavigationBar ??
+            activeTheme.resolveSystemNavigationBar(activeColors);
+        final effectiveScreenMode = resolveEffectiveOmniScreenMode(
+          widget.appScreenMode ?? activeTheme.screenMode,
+          statusBar: effectiveStatusBar,
+          systemNavigationBar: effectiveNavBar,
+        );
         final resolved = _resolveFor(
           activeTheme,
           selection.style,
+          widget.appScreenMode,
+          widget.appStatusBar,
+          widget.appSystemNavigationBar,
           device,
           tokens,
         );
+
         return OmniThemeScope(
           controller: controller,
           selection: selection,
@@ -1826,7 +2059,15 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
           availableThemes: _catalog,
           lightTheme: resolved.light,
           darkTheme: resolved.dark,
-          child: child!,
+          child: OmniSystemUi(
+            statusBar: effectiveStatusBar,
+            systemNavigationBar: effectiveNavBar,
+            screenMode: effectiveScreenMode,
+            brightness: activeBrightness,
+            fallbackTopColor: activeColors.surfaceColor,
+            fallbackBottomColor: activeColors.navBarColor,
+            child: child!,
+          ),
         );
       },
     );
@@ -2129,11 +2370,31 @@ class _PaletteOptionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final primary = theme.swatchColor;
-    final secondary = theme.secondaryColor ?? primary;
+    final brightness = isDark ? Brightness.dark : Brightness.light;
+    final primary = theme.swatchColorFor(brightness);
+    final secondary = isDark
+        ? (theme.darkColors?.secondaryColor ??
+            theme.dark?.secondaryColor ??
+            theme.darkSecondaryColor ??
+            theme.secondaryColor ??
+            primary)
+        : (theme.lightColors?.secondaryColor ??
+            theme.light?.secondaryColor ??
+            theme.secondaryColor ??
+            primary);
     final surfaceSwatch = isDark
-        ? (theme.darkCardColor ?? const Color(0xFF131C31))
-        : (theme.cardColor ?? Colors.white);
+        ? (theme.darkColors?.cardColor ??
+            theme.dark?.cardColor ??
+            theme.darkCardColor ??
+            theme.dark?.surfaceColor ??
+            theme.darkSurfaceColor ??
+            const Color(0xFF131C31))
+        : (theme.lightColors?.cardColor ??
+            theme.light?.cardColor ??
+            theme.cardColor ??
+            theme.light?.surfaceColor ??
+            theme.surfaceColor ??
+            Colors.white);
 
     if (layout == OmniThemePickerLayout.chips) {
       return InkWell(
