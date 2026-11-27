@@ -520,6 +520,493 @@ void main() {
       );
     });
   });
+
+  group('OmniConfig: Splash, Multi-Screen Onboarding, Auth & Public Screens', () {
+    testWidgets(
+      'OmniSplash(screen/manualFinish) -> multi-screen OmniOnboarding(screens + overlayBuilder) step controls, redirectTo & replay',
+      (t) async {
+        var initDone = false;
+        var completedCount = 0;
+        var skipped = false;
+        final stepChanges = <int>[];
+        BuildContext? appCtx;
+
+        await t.pumpWidget(
+          OmniApp.material(
+            config: OmniConfig(
+              splash: OmniSplash(
+                minDuration: const Duration(milliseconds: 120),
+                manualFinish: true,
+                builder: (ctx) => Scaffold(
+                  body: Column(
+                    children: [
+                      const Text('MyCustomSplash'),
+                      TextButton(
+                        onPressed: () => ctx.flow?.finishSplash(),
+                        child: const Text('EnterApp'),
+                      ),
+                    ],
+                  ),
+                ),
+                onInit: (_) async {
+                  initDone = true;
+                },
+              ),
+              onboarding: OmniOnboarding(
+                screens: [
+                  Builder(
+                    builder: (ctx) => Column(
+                      children: [
+                        const Text('Slide-1'),
+                        TextButton(
+                          onPressed: () => ctx.flow?.nextOnboarding(),
+                          child: const Text('NextFrom1'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Builder(
+                    builder: (ctx) => Column(
+                      children: [
+                        const Text('Slide-2'),
+                        TextButton(
+                          onPressed: () => ctx.flow?.previousOnboarding(),
+                          child: const Text('BackFrom2'),
+                        ),
+                        TextButton(
+                          onPressed: () => ctx.flow?.goToOnboardingStep(2),
+                          child: const Text('JumpTo3'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Builder(
+                    builder: (ctx) => Column(
+                      children: [
+                        const Text('Slide-3'),
+                        TextButton(
+                          onPressed: () => ctx.flow?.nextOnboarding(),
+                          child: const Text('DoneOn3'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                overlayBuilder: (ctx, flow, child) => Scaffold(
+                  body: Column(
+                    children: [
+                      Text('Step ${flow.onboardingStep + 1}/${flow.onboardingCount}'),
+                      Expanded(child: child),
+                      TextButton(
+                        onPressed: () => flow.skipOnboarding(),
+                        child: const Text('SkipOB'),
+                      ),
+                    ],
+                  ),
+                ),
+                onStepChanged: stepChanges.add,
+                onSkip: (_) => skipped = true,
+                onDone: (_) => completedCount++,
+                afterDone: (_) => '/home',
+              ),
+            ),
+            routes: [
+              OmniPage('/', (_) => const S('root')),
+              OmniPage(
+                '/home',
+                (_) => Builder(
+                  builder: (ctx) {
+                    appCtx = ctx;
+                    return Scaffold(
+                      body: Column(
+                        children: [
+                          const Text('home-page'),
+                          TextButton(
+                            onPressed: () => ctx.flow?.replayOnboarding(),
+                            child: const Text('ReplayOB'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+
+        // Stays on splash during minDuration & manualFinish hold.
+        await t.pump();
+        expect(initDone, isTrue);
+        expect(find.text('MyCustomSplash'), findsOneWidget);
+
+        await t.pump(const Duration(milliseconds: 150));
+        expect(find.text('MyCustomSplash'), findsOneWidget);
+
+        // Finish splash -> opens multi-screen onboarding on Slide 1.
+        await t.tap(find.text('EnterApp'));
+        await t.pumpAndSettle();
+        expect(find.text('Slide-1'), findsOneWidget);
+        expect(find.text('Step 1/3'), findsOneWidget);
+        expect(appCtx, isNull); // /home not mounted yet
+
+        // Next -> Slide 2, Back -> Slide 1, Next -> Slide 2, Jump -> Slide 3.
+        await t.tap(find.text('NextFrom1'));
+        await t.pumpAndSettle();
+        expect(find.text('Slide-2'), findsOneWidget);
+        expect(find.text('Step 2/3'), findsOneWidget);
+
+        await t.tap(find.text('BackFrom2'));
+        await t.pumpAndSettle();
+        expect(find.text('Slide-1'), findsOneWidget);
+
+        await t.tap(find.text('NextFrom1'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('JumpTo3'));
+        await t.pumpAndSettle();
+        expect(find.text('Slide-3'), findsOneWidget);
+        expect(find.text('Step 3/3'), findsOneWidget);
+
+        // Next on last slide completes onboarding cleanly -> /home.
+        expect(stepChanges, [1, 0, 1, 2]);
+        await t.tap(find.text('DoneOn3'));
+        await t.pumpAndSettle();
+        expect(completedCount, 1);
+        expect(skipped, isFalse);
+        expect(find.text('home-page'), findsOneWidget);
+        expect(OmniRoute.location.path, '/home');
+        expect(appCtx?.flow, isNotNull);
+
+        // Replay onboarding -> starts back on Slide 1 -> Skip skips cleanly.
+        await t.tap(find.text('ReplayOB'));
+        await t.pumpAndSettle();
+        expect(find.text('Slide-1'), findsOneWidget);
+        expect(find.text('Step 1/3'), findsOneWidget);
+
+        await t.tap(find.text('SkipOB'));
+        await t.pumpAndSettle();
+        expect(skipped, isTrue);
+        expect(completedCount, 2);
+        expect(find.text('home-page'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'OmniAuth(loginScreen/signupScreen) + publicScreens/publicPages/publicRoutes, pushPublic, ?from= return & logout',
+      (t) async {
+        final authed = ValueNotifier<bool>(false);
+        addTearDown(authed.dispose);
+
+        await t.pumpWidget(
+          OmniApp.material(
+            config: OmniConfig(
+              auth: OmniAuth(
+                isAuthenticated: (_) => authed.value,
+                refreshListenable: authed,
+                homeRoute: '/home',
+                loginRoute: '/login',
+                loginScreen: Builder(
+                  builder: (ctx) => Scaffold(
+                    body: Column(
+                      children: [
+                        const Text('LoginScreen'),
+                        TextButton(
+                          onPressed: () => ctx.flow?.pushPublic('/terms'),
+                          child: const Text('ReadTerms'),
+                        ),
+                        TextButton(
+                          onPressed: () => ctx.flow?.goToSignup(),
+                          child: const Text('GoSignup'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                signupRoute: '/signup',
+                signupScreen: Builder(
+                  builder: (ctx) => Scaffold(
+                    body: Column(
+                      children: [
+                        const Text('SignupScreen'),
+                        TextButton(
+                          onPressed: () => authed.value = true,
+                          child: const Text('CompleteSignup'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              publicScreens: const {
+                '/about': S('AboutPublicScreen'),
+                '/terms': S('TermsPublicScreen'),
+              },
+              publicPages: [
+                OmniPage('/article/:id', (p) => S('Article-${p.path('id')}')),
+              ],
+              publicRoutes: const ['/docs/*'],
+            ),
+            routes: [
+              OmniPage(
+                '/home',
+                (_) => Builder(
+                  builder: (ctx) => Scaffold(
+                    body: Column(
+                      children: [
+                        const Text('HomeDashboard'),
+                        TextButton(
+                          onPressed: () =>
+                              ctx.flow?.logout((_) => authed.value = false),
+                          child: const Text('LogOut'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              OmniPage('/docs/intro', (_) => const S('DocsIntro')),
+              OmniPage(
+                '/profile/:id',
+                (p) => S('Profile-${p.path('id')}-${p.query('tab')}'),
+              ),
+            ],
+          ),
+        );
+
+        await t.pumpAndSettle();
+        // Auto-started at homeRoute ('/home'), unauthenticated -> clean '/login'.
+        expect(find.text('LoginScreen'), findsOneWidget);
+        expect(OmniRoute.location.toString(), '/login');
+
+        // pushPublic from Login -> opens /terms, and pop returns cleanly to Login.
+        await t.tap(find.text('ReadTerms'));
+        await t.pumpAndSettle();
+        expect(find.text('TermsPublicScreen'), findsOneWidget);
+        expect(OmniRoute.canPop(), isTrue);
+        OmniRoute.pop();
+        await t.pumpAndSettle();
+        expect(find.text('LoginScreen'), findsOneWidget);
+
+        // All publicScreens, publicPages & publicRoutes work before login.
+        OmniRoute.go('/about');
+        await t.pumpAndSettle();
+        expect(find.text('AboutPublicScreen'), findsOneWidget);
+
+        OmniRoute.go('/article/99');
+        await t.pumpAndSettle();
+        expect(find.text('Article-99'), findsOneWidget);
+
+        OmniRoute.go('/docs/intro');
+        await t.pumpAndSettle();
+        expect(find.text('DocsIntro'), findsOneWidget);
+
+        // Protected deep route while logged out redirects to /login?from=...
+        OmniRoute.go('/profile/7?tab=security');
+        await t.pumpAndSettle();
+        expect(find.text('LoginScreen'), findsOneWidget);
+        expect(
+          OmniRoute.location.queryParameters['from'],
+          '/profile/7?tab=security',
+        );
+
+        // Switching to Signup preserves ?from= and authenticating returns to /profile/7?tab=security!
+        await t.tap(find.text('GoSignup'));
+        await t.pumpAndSettle();
+        expect(find.text('SignupScreen'), findsOneWidget);
+
+        await t.tap(find.text('CompleteSignup'));
+        await t.pumpAndSettle();
+        expect(find.text('Profile-7-security'), findsOneWidget);
+
+        // Cannot go back to /login or /signup while authenticated.
+        expect(OmniRoute.canPop(), isFalse);
+        OmniRoute.go('/login');
+        await t.pumpAndSettle();
+        expect(find.text('HomeDashboard'), findsOneWidget);
+        expect(OmniRoute.location.path, '/home');
+
+        OmniRoute.go('/signup');
+        await t.pumpAndSettle();
+        expect(find.text('HomeDashboard'), findsOneWidget);
+
+        // Logout clears session & redirects cleanly to /login with no pop stack back to /home.
+        await t.tap(find.text('LogOut'));
+        await t.pumpAndSettle();
+        expect(find.text('LoginScreen'), findsOneWidget);
+        expect(OmniRoute.location.toString(), '/login');
+        expect(OmniRoute.canPop(), isFalse);
+      },
+    );
+
+    testWidgets(
+      'Cupertino supports OmniConfig with multi-route onboarding, authRefresh stream, afterLogout & onError retry',
+      (t) async {
+        final authStream = StreamController<bool>.broadcast();
+        addTearDown(authStream.close);
+        var loggedIn = false;
+        var attempts = 0;
+
+        await t.pumpWidget(
+          OmniApp.cupertino(
+            title: 'Cupertino Flow',
+            config: OmniConfig(
+              splash: OmniSplash(
+                screen: const CupertinoPageScaffold(
+                  child: Center(child: Text('CuSplash')),
+                ),
+                onInit: (_) async {
+                  attempts++;
+                  if (attempts == 1) throw StateError('boot failed');
+                },
+                onError: (_, err, _, retry) => CupertinoPageScaffold(
+                  child: Center(
+                    child: CupertinoButton(
+                      onPressed: retry,
+                      child: Text('RetryInit: $err'),
+                    ),
+                  ),
+                ),
+              ),
+              onboarding: OmniOnboarding(
+                routes: const ['/ob-1', '/ob-2'],
+                shouldShow: (_) => true,
+              ),
+              auth: OmniAuth(
+                isAuthenticated: (_) => loggedIn,
+                refreshStream: (_) => authStream.stream,
+                loginRoute: '/login',
+                homeRoute: '/app',
+                afterLogout: (_) => '/goodbye',
+              ),
+              publicScreens: const {
+                '/goodbye': CupertinoPageScaffold(child: Text('GoodbyePublic')),
+              },
+            ),
+            routes: [
+              OmniPage(
+                '/ob-1',
+                (_) => Builder(
+                  builder: (ctx) => CupertinoPageScaffold(
+                    child: CupertinoButton(
+                      onPressed: () => ctx.flow?.nextOnboarding(),
+                      child: const Text('ObStep1Next'),
+                    ),
+                  ),
+                ),
+              ),
+              OmniPage(
+                '/ob-2',
+                (_) => Builder(
+                  builder: (ctx) => CupertinoPageScaffold(
+                    child: CupertinoButton(
+                      onPressed: () => ctx.flow?.nextOnboarding(),
+                      child: const Text('ObStep2Finish'),
+                    ),
+                  ),
+                ),
+              ),
+              OmniPage(
+                '/login',
+                (_) => CupertinoPageScaffold(
+                  child: CupertinoButton(
+                    onPressed: () {
+                      loggedIn = true;
+                      authStream.add(true);
+                    },
+                    child: const Text('CuLogin'),
+                  ),
+                ),
+              ),
+              OmniPage(
+                '/app',
+                (_) => Builder(
+                  builder: (ctx) => CupertinoPageScaffold(
+                    child: CupertinoButton(
+                      onPressed: () => ctx.flow?.logout((_) {
+                        loggedIn = false;
+                      }),
+                      child: const Text('CuLogout'),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+
+        await t.pumpAndSettle();
+        expect(find.byType(CupertinoApp), findsNothing);
+        expect(
+          find.textContaining('RetryInit: Bad state: boot failed'),
+          findsOneWidget,
+        );
+
+        // Retry init -> transitions to /ob-1 inside CupertinoApp!
+        await t.tap(find.textContaining('RetryInit:'));
+        await t.pumpAndSettle();
+        expect(find.byType(CupertinoApp), findsOneWidget);
+        expect(find.text('ObStep1Next'), findsOneWidget);
+        expect(OmniRoute.location.path, '/ob-1');
+
+        // nextOnboarding moves /ob-1 -> /ob-2, then completes -> /login!
+        await t.tap(find.text('ObStep1Next'));
+        await t.pumpAndSettle();
+        expect(find.text('ObStep2Finish'), findsOneWidget);
+        expect(OmniRoute.location.path, '/ob-2');
+
+        await t.tap(find.text('ObStep2Finish'));
+        await t.pumpAndSettle();
+        expect(find.text('CuLogin'), findsOneWidget);
+        expect(OmniRoute.location.path, '/login');
+
+        // Stream authRefresh triggers redirect from /login -> /app.
+        await t.tap(find.text('CuLogin'));
+        await t.pumpAndSettle();
+        expect(find.text('CuLogout'), findsOneWidget);
+        expect(OmniRoute.location.path, '/app');
+
+        // Logout uses afterLogout ('/goodbye'), registered via publicScreens.
+        await t.tap(find.text('CuLogout'));
+        await t.pumpAndSettle();
+        expect(find.text('GoodbyePublic'), findsOneWidget);
+        expect(OmniRoute.location.path, '/goodbye');
+      },
+    );
+
+    testWidgets(
+      'custom OmniApp(config:, builder:) supports alwaysShow & direct completeOnboarding(redirectTo:)',
+      (t) async {
+        await t.pumpWidget(
+          OmniApp(
+            config: OmniConfig(
+              onboarding: OmniOnboarding(
+                alwaysShow: true,
+                shouldShow: (_) => false,
+                builder: (_, flow) => Scaffold(
+                  body: TextButton(
+                    onPressed: () =>
+                        flow.completeOnboarding(redirectTo: '/guest'),
+                    child: const Text('CustomBuilderOB'),
+                  ),
+                ),
+              ),
+              publicScreens: const {
+                '/guest': S('GuestLand'),
+              },
+            ),
+            routes: [OmniPage('/', (_) => const S('BuilderHome'))],
+            builder: (_, router) => MaterialApp.router(routerConfig: router),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('CustomBuilderOB'), findsOneWidget);
+
+        await t.tap(find.text('CustomBuilderOB'));
+        await t.pumpAndSettle();
+        expect(find.text('GuestLand'), findsOneWidget);
+      },
+    );
+  });
 }
 
 class _GreetingService {

@@ -140,7 +140,7 @@ class StudentScreen extends OmniStatelessWidget {
 
 | আপনি যা করতে চান | যেটা ব্যবহার করবেন |
 |---|---|
-| অ্যাপ সেটআপ (router, Bloc, guard একসাথে) | `OmniApp` বা শর্টকাট `OmniApp.material(...)` / `OmniApp.cupertino(...)` |
+| অ্যাপ সেটআপ (router, Bloc, guard একসাথে) | `OmniApp`, `OmniApp.material(...)` ও `OmniApp.cupertino(...)` (সরাসরি `config:` সহ) |
 | সাধারণ (state ছাড়া) screen | `OmniStatelessWidget` |
 | state সহ screen (`setState`, controller) | `OmniStatefulWidget` + `OmniState` |
 | একটা URL-এ একটা screen বা সাধারণ `Widget` | `OmniPage` / `OmniPage.screen` (`blocs:`, `provide:`, `onExit:`, `title:`, `transition:`) |
@@ -155,10 +155,10 @@ class StudentScreen extends OmniStatelessWidget {
 | সব child route-এর চারপাশে একই layout | `OmniShell` |
 | Bottom navigation / tab, প্রতিটা tab নিজের stack রাখবে | `OmniStatefulShell` + `OmniBranch` |
 | পেজ খোলার animation (fade, slide, scale…) বা নিজের transition | `OmniPages.adaptive`, `OmniPages.fadeSlide`, `OmniPages.transition(...)`, `OmniPages.custom(...)` |
-| Login ছাড়া ঢুকতে না দেওয়া, role check | `OmniGuard` |
+| Login ছাড়া ঢুকতে না দেওয়া, role check | `OmniGuard` বা `OmniConfig(auth: OmniAuth(...), publicScreens: ...)` |
 | পেজ ছাড়ার আগে নিশ্চিত করা (unsaved form ইত্যাদি) | `OmniPage(..., onExit: (ctx) => ...)` |
 | App resume/pause, screen দেখা যাচ্ছে কি না | `OmniLifecycle` mixin |
-| পুরো অ্যাপের lifecycle, async init + retry, route resolver, crash hook | `OmniApp(lifecycle:, onInit:, initTimeout:, onInitError:, resolveInitialRoute:, onError:)` (৪.১) |
+| কাস্টম Splash, Onboarding, Login/Signup ও Public রুট ফ্লো | `OmniApp(..., config: OmniConfig(...))` ও `context.flow` (৪.১) |
 | keyboard বন্ধ, দুবার back-এ exit, portrait lock, font সীমা, ওভারলে | `OmniApp(dismissKeyboardOnTap:, doubleBackToExit:, orientations:, maxTextScale:, overlayBuilder:)` |
 | Route ছাড়া (layout-এর ভিতরে) stateful screen বসানো | `OmniScreenHost` |
 | Web-এ `#` ছাড়া URL | `OmniRoute.usePathUrls()` |
@@ -268,19 +268,35 @@ OmniApp.material(
   // ① অ্যাপ-লেভেল lifecycle hook (১৩তম অংশের সব hook এখানে চলে)
   lifecycle: AppLifecycle(),
 
-  // ② শুরুতে async কাজ + timeout + custom retry UI + ডাইনামিক শুরুর রুট
-  onInit: (context) async {
-    await context.read<SettingsBloc>().load();
-    context.read<AuthBloc>().add(SessionRestored());
-  },
-  initTimeout: const Duration(seconds: 10),
-  resolveInitialRoute: (context) async =>
-      context.read<SettingsBloc>().isFirstRun ? '/onboarding' : '/dashboard',
-  splash: (context) => const SplashScreen(),
-  onInitError: (context, error, stack, retry) => Scaffold(
-    body: Center(
-      child: ElevatedButton(onPressed: retry, child: const Text('আবার চেষ্টা করুন')),
+  // ② Splash + একাধিক কাস্টম Onboarding + Auth (Login/Signup/Home) + Public ভিজিট স্ক্রিন
+  config: OmniConfig(
+    splash: OmniSplash(
+      screen: const MySplashScreen(),
+      minDuration: const Duration(milliseconds: 500),
+      onInit: (context) => context.read<SettingsBloc>().load(),
+      timeout: const Duration(seconds: 10),
+      onError: (context, error, stack, retry) => Scaffold(
+        body: Center(
+          child: ElevatedButton(onPressed: retry, child: const Text('আবার চেষ্টা করুন')),
+        ),
+      ),
     ),
+    onboarding: OmniOnboarding(
+      screens: const [Step1Screen(), Step2Screen(), Step3Screen()],
+      shouldShow: (context) => context.read<SettingsBloc>().isFirstRun,
+    ),
+    auth: OmniAuth(
+      isAuthenticated: (context) => context.read<AuthBloc>().state is Authenticated,
+      refreshStream: (context) => context.read<AuthBloc>().stream,
+      homeRoute: '/home',
+      loginScreen: const LoginScreen(),
+      signupScreen: const SignupScreen(),
+    ),
+    publicScreens: const {
+      '/about': AboutScreen(),
+      '/terms': TermsScreen(),
+    },
+    publicRoutes: const ['/docs/*'],
   ),
 
   // ③ text field-এর বাইরে tap করলে keyboard বন্ধ
@@ -309,10 +325,11 @@ OmniApp.material(
 
 | Parameter | আগে হাতে যা লিখতে হতো | নোট |
 |---|---|---|
-| `OmniApp.material` / `.cupertino` | প্রতিবার `builder: (_, r) => MaterialApp.router(...)` | `themeModeBuilder`, `appBuilder` ও `overlayBuilder` সহ |
+| `OmniApp.material` / `.cupertino` / `OmniApp` | প্রতিবার `builder: (_, r) => MaterialApp.router(...)` | সবগুলোতে সরাসরি `config: OmniConfig(...)` বসানো যায় |
+| `config` (`OmniConfig`) + `context.flow` | আলাদা `FutureBuilder`, `PageView`, Auth গার্ড ও প্রি-লগইন পাবলিক রুট চেক | `OmniSplash`, একাধিক স্ক্রিনের `OmniOnboarding` (`screens:`), `OmniAuth` ও `publicScreens`/`publicPages`/`publicRoutes` |
 | `repositories` (`OmniRepo`) | বাইরে আলাদা `MultiRepositoryProvider` র‍্যাপিং | গ্লোবাল ও পেজ Bloc-এর উপরে মাউন্ট হয় (`dispose:` সহ) |
 | `lifecycle` | root widget-এ `WidgetsBindingObserver` + `addObserver`/`removeObserver` | context দিয়ে global Bloc পড়া যায় |
-| `onInit` + `initTimeout` + `onInitError` + `resolveInitialRoute` | `FutureBuilder` + splash + timeout/retry + প্রথম ফ্রেমের redirect | `onInitError` না দিলে আগের মতো এরর রিপোর্ট হয়ে অ্যাপ খোলে; দিলে কাস্টম রিট্রাই স্ক্রিন দেখায় |
+| `onInit` + `initTimeout` + `onInitError` + `resolveInitialRoute` | `FutureBuilder` + splash + timeout/retry + প্রথম ফ্রেমের redirect | `config:` বা সরাসরি `OmniApp` দুইভাবেই কাজ করে |
 | `dismissKeyboardOnTap` | `GestureDetector(onTap: () => FocusScope.of(context).unfocus())` | text field-এ tap করলে focus থাকে; scroll করলে keyboard বন্ধ হয় না; text field-এর নিজস্ব `TapRegion` দিয়ে |
 | `doubleBackToExit` | `PopScope` + সময় হিসাব + `SystemNavigator.pop()` | শুধু Android, শুধু প্রথম পেজে; বাকি পেজে back আগের মতো |
 | `orientations` | `main()`-এ `SystemChrome.setPreferredOrientations` | রিবিল্ডে সিঙ্ক ও dispose হলে reset |

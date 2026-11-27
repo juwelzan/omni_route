@@ -11,6 +11,7 @@ import '../routing/omni_params.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_trie.dart';
+import 'omni_app_config.dart';
 import 'omni_log.dart';
 import 'omni_route_entry.dart';
 import 'omni_router.dart';
@@ -432,6 +433,10 @@ extension OmniRouteContext on BuildContext {
 
   /// Reads Bloc [B] once without subscribing to rebuilds.
   B bloc<B extends OmniAnyBloc>() => BlocProvider.of<B>(this, listen: false);
+
+  /// Flow controller for Splash, Onboarding, Login, Signup, Home & Logout
+  /// transitions (`null` when no [OmniConfig] / startup hooks are attached).
+  OmniFlowController? get flow => OmniFlowScope.maybeOf(this);
 
   /// Replace the stack declaratively with [location].
   void go(

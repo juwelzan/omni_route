@@ -18,6 +18,8 @@ export 'src/bloc/omni_bloc.dart'
         Provide;
 export 'src/bloc/omni_bloc_scope.dart' hide hostedScreenAbove;
 export 'src/core/omni_app.dart';
+export 'src/core/omni_app_config.dart';
+export 'src/core/omni_onboarding_store.dart' show OmniLocalStore;
 export 'src/core/omni_app_features.dart'
     show OmniInitErrorBuilder, OmniInitialRouteResolver;
 export 'src/core/omni_route.dart';

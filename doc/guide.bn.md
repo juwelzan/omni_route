@@ -17,8 +17,9 @@
 5. [এক পেজ থেকে অন্য পেজে যাওয়া — Navigation ও Back নিয়ন্ত্রণ](#৫-এক-পেজ-থেকে-অন্য-পেজে-যাওয়া--navigation-ও-back-নিয়ন্ত্রণ)
 6. [URL থেকে ID ও তথ্য পড়া — OmniParams ও OmniRouteState](#৬-url-থেকে-id-ও-তথ্য-পড়া--omniparams-ও-omniroutestate)
 7. [OmniApp — অ্যাপের সব প্যারামিটার ও প্রতিটির ব্যবহার](#৭-omniapp--অ্যাপের-সব-প্যারামিটার-ও-প্রতিটির-ব্যবহার)
+   - [৭.ক. সহজ এন্ট্রি-ফ্লো কনফিগ: OmniConfig (Splash, Onboarding, Auth ও Public রুট)](#ক-সহজ-এন্ট্রি-ফ্লো-কনফিগ-omniconfig-splash-onboarding-auth-ও-public-রুট)
    - [৭.১ রুট, সার্ভিস, গার্ড ও বেসিক সেটআপ](#৭১-রুট-সার্ভিস-গার্ড-ও-বেসিক-সেটআপ)
-   - [৭.২ স্টার্টআপ স্প্ল্যাশ, এরর রিট্রাই, এনালিটিক্স ও এরর ধরা](#৭২-স্টার্টআপ-স্প্ল্যাশ-এরর-রিট্রাই-এনালিটিক্স-ও-এরর-ধরা)
+   - [৭.২ স্টার্টআপ স্প্ল্যাশ, অনবোর্ডিং, অথ/পাবলিক কনফিগ ও এনালিটিক্স](#৭২-স্টার্টআপ-স্প্ল্যাশ-অনবোর্ডিং-অথপাবলিক-কনফিগ-ও-এনালিটিক্স)
    - [৭.৩ মোবাইল, ডেস্কটপ ও ওয়েব নিয়ন্ত্রণ](#৭৩-মোবাইল-ডেস্কটপ-ও-ওয়েব-নিয়ন্ত্রণ)
    - [৭.৪ OmniApp.material ও OmniApp.cupertino-এর অতিরিক্ত প্যারামিটার](#৭৪-omniappmaterial-ও-omniappcupertino-এর-অতিরিক্ত-প্যারামিটার)
 8. [ডেটা ও Bloc ব্যবস্থাপনা — OmniRepo, OmniBloc, Provide ও OmniRouteGroup](#৮-ডেটা-ও-bloc-ব্যবস্থাপনা--omnirepo-omnibloc-provide-ও-omniroutegroup)
@@ -390,7 +391,93 @@ URL-এর `/users/7?age=25&rate=4.5&active=true&sort=newest&tag=a&tag=b` থে
 
 ## ৭. `OmniApp` — অ্যাপের সব প্যারামিটার ও প্রতিটির ব্যবহার
 
-আপনি অ্যাপ বানাতে সাধারণত **`OmniApp.material(...)`** (Android/Web/Material ডিজাইন), **`OmniApp.cupertino(...)`** (iOS ডিজাইন) অথবা কাস্টম **`OmniApp(..., builder:)`** ব্যবহার করবেন। প্রতিটি প্যারামিটার কাজ অনুযায়ী ৪ ভাগে সাজানো হলো:
+আপনি অ্যাপ বানাতে **`OmniApp.material(...)`** (Android/Web/Material ডিজাইন), **`OmniApp.cupertino(...)`** (iOS ডিজাইন), অথবা কাস্টম **`OmniApp(..., builder:)`** ব্যবহার করবেন — এবং প্রতিটির সাথেই সরাসরি **`config: OmniConfig(...)`** বসাতে পারবেন।
+
+### ক. সহজ এন্ট্রি-ফ্লো কনফিগ: `OmniConfig` (Splash, Onboarding, Auth ও Public রুট)
+
+**`OmniConfig`**-এর ভেতর সবকিছু ৪টি পরিষ্কার অংশে সাজানো, যাতে ডেভেলপার একদম নিজস্ব স্ক্রিন বসিয়ে পুরো এন্ট্রি-ফ্লো সহজে কন্ট্রোল করতে পারেন:
+
+1. **`splash: OmniSplash(...)`** — সরাসরি `screen: const MySplash()` অথবা `builder: (ctx) => ...`, সাথে `onInit`, `minDuration`, `timeout`, `manualFinish` (`context.flow?.finishSplash()`), `onError`।
+2. **`onboarding: OmniOnboarding(...)`** — যতগুলো খুশি নিজের তৈরি অনবোর্ডিং স্ক্রিন দিন:
+   - **একাধিক স্ক্রিন উইজেট:** `screens: const [Step1(), Step2(), Step3()]` (নিজেই সোয়াইপ ও `nextOnboarding()` / `previousOnboarding()` / `goToOnboardingStep()` কাজ করবে — সাথে চাইলে সব স্ক্রিনের উপর শেয়ার্ড `overlayBuilder` দিন!)
+   - **বিল্ডার তালিকা / একক বিল্ডার:** `screenBuilders: [...]` অথবা `builder: (ctx, flow) => ...`
+   - **রুট তালিকা:** `route: '/onboarding'` বা `routes: ['/ob-1', '/ob-2']` (লগইন ছাড়াই স্বয়ংক্রিয়ভাবে চলবে)
+   - **কন্ট্রোল ও কলব্যাক:** `shouldShow`, `alwaysShow`, `swipeable`, `onStepChanged`, `onDone`, `onSkip`, `afterDone`।
+3. **`auth: OmniAuth(...)`** — সরাসরি `loginScreen: const LoginScreen()` (বা `loginBuilder`), `signupScreen: const SignupScreen()` (বা `signupBuilder`), `homeRoute`, `isAuthenticated`, `refreshStream` / `refreshListenable`, `afterLogin`, `afterLogout`, `onUnauthenticated`, `blockAuthWhenLoggedIn` (লগইনের পর Web Back/URL দিয়ে Login/Signup-এ ফেরা আটকায়), `preserveRedirectQuery` (`?from=`)।
+4. **লগইন ছাড়া ভিজিটযোগ্য পাবলিক স্ক্রিন:**
+   - **`publicScreens: {'/about': const AboutScreen(), '/terms': const TermsScreen()}`** — একদম সরাসরি রুট ও স্ক্রিন ম্যাপে দিয়ে দিন (আলাদা `routes:`-এ লেখা বা গার্ড কনফিগ করার দরকার নেই)।
+   - **`publicPages`** — প্যারামিটারসহ (`/article/:id`) বা `provide:` যুক্ত পাবলিক `OmniPage`।
+   - **`publicRoutes`** — মূল `routes:`-এ থাকা পাবলিক প্যাটার্ন (`'/docs/*'`).
+5. **যেকোনো স্ক্রিন থেকে রানটাইম কন্ট্রোল (`context.flow`):** `finishSplash()`, `nextOnboarding({redirectTo})`, `previousOnboarding()`, `goToOnboardingStep(i)`, `completeOnboarding({redirectTo})`, `skipOnboarding({redirectTo})`, `replayOnboarding()`, `restartStartup()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic('/about')`, `pushPublic('/terms')`, `logout(...)`, `refresh()`।
+
+**উদাহরণ (নিজস্ব Splash, ৩টি Onboarding স্ক্রিন, Login/Signup ও Public ভিজিট স্ক্রিন একসাথে):**
+```dart
+OmniApp.material(
+  title: 'আমার অ্যাপ',
+  config: OmniConfig(
+    // ১. কাস্টম Splash
+    splash: OmniSplash(
+      screen: const MySplashScreen(),
+      minDuration: const Duration(milliseconds: 600),
+      onInit: (c) => c.read<SessionRepo>().restore(),
+    ),
+
+    // ২. যতগুলো খুশি নিজের তৈরি Onboarding স্ক্রিন
+    onboarding: OmniOnboarding(
+      screens: const [
+        WelcomeStepScreen(),
+        FeatureStepScreen(),
+        ReadyStepScreen(),
+      ],
+      // ঐচ্ছিক শেয়ার্ড ডট/স্কিপ বার:
+      overlayBuilder: (context, flow, child) => Scaffold(
+        body: Column(
+          children: [
+            Expanded(child: child),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton(onPressed: flow.skipOnboarding, child: const Text('Skip')),
+                Text('${flow.onboardingStep + 1} / ${flow.onboardingCount}'),
+                ElevatedButton(
+                  onPressed: flow.nextOnboarding, // শেষ স্ক্রিনে অটো complete!
+                  child: Text(flow.isLastOnboardingStep ? 'Start' : 'Next'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+      shouldShow: (c) => !c.read<SessionRepo>().seenOnboarding,
+      onDone: (c) => c.read<SessionRepo>().markOnboardingSeen(),
+    ),
+
+    // ৩. Login, Signup ও Home কন্ট্রোল
+    auth: OmniAuth(
+      isAuthenticated: (c) => c.read<AuthBloc>().state.isLoggedIn,
+      refreshStream: (c) => c.read<AuthBloc>().stream,
+      homeRoute: '/home',
+      loginScreen: const MyLoginScreen(),
+      signupScreen: const MySignupScreen(),
+      afterLogout: (_) => '/login',
+    ),
+
+    // ৪. লগইন ছাড়াই ভিজিট করা যাবে এমন পাবলিক স্ক্রিন
+    publicScreens: const {
+      '/about': AboutScreen(),
+      '/terms': TermsScreen(),
+      '/privacy': PrivacyScreen(),
+    },
+    publicPages: [
+      OmniPage('/article/:id', (p) => ArticleScreen(id: p.path('id'))),
+    ],
+  ),
+  routes: [
+    OmniPage('/home', (_) => const HomeScreen()),
+  ],
+)
+```
+> Cupertino (`OmniApp.cupertino`) বা কাস্টম `OmniApp(..., builder:)`-এও একইভাবে সরাসরি `config: OmniConfig(...)` বসানো যায়।
 
 ---
 
@@ -516,14 +603,16 @@ URL-এর `/users/7?age=25&rate=4.5&active=true&sort=newest&tag=a&tag=b` থে
 
 ---
 
-### ৭.২ স্টার্টআপ স্প্ল্যাশ, এরর রিট্রাই, এনালিটিক্স ও এরর ধরা
+### ৭.২ স্টার্টআপ স্প্ল্যাশ, অনবোর্ডিং, অথ/পাবলিক কনফিগ ও এনালিটিক্স
 
 | প্যারামিটার | কী কাজে লাগে ও কীভাবে কাজ করে | ব্যবহার উদাহরণ |
 |---|---|---|
-| `onInit` (`Future<void> Function(BuildContext)?`) | রুট দেখানোর আগে একবার async কাজ (যেমন সেভ করা টোকেন/কনফিগ পড়া) চালায়। | `onInit: (c) => c.read<AppInit>().load()` |
+| `config` (`OmniConfig?`) | `OmniApp`, `OmniApp.material` ও `OmniApp.cupertino`-এ সরাসরি `OmniSplash`, `OmniOnboarding` (`screens:`), `OmniAuth` (`loginScreen`/`signupScreen`/`homeRoute`), এবং `publicScreens`/`publicPages`/`publicRoutes` সেটআপ করে। | `config: OmniConfig(...)` |
+| `context.flow` (`OmniFlowController?`) | যেকোনো স্ক্রিন থেকে `finishSplash()`, `nextOnboarding()`, `previousOnboarding()`, `goToOnboardingStep()`, `completeOnboarding()`, `skipOnboarding()`, `replayOnboarding()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic()`, `pushPublic()`, `logout()`, `refresh()` চালায়। | `onPressed: () => context.flow?.logout()` |
+| `onInit` (`Future<void> Function(BuildContext)?`) | রুট দেখানোর আগে একবার async কাজ (যেমন সেভ করা টোকেন/কনফিগ পড়া) চালায় (`OmniSplash(onInit:)` বা সরাসরি `OmniApp`)। | `onInit: (c) => c.read<AppInit>().load()` |
 | `initTimeout` (`Duration?`) | `onInit` অতিরিক্ত দেরি করলে নির্দিষ্ট সময় পর টাইমআউট এরর দেয়, স্প্ল্যাশ আটকে থাকে না। | `initTimeout: const Duration(seconds: 8)` |
-| `splash` (`WidgetBuilder?`) | `onInit` বা `resolveInitialRoute` চলাকালীন স্ক্রিনে লোগো/লোডিং দেখায়। | `splash: (_) => const SplashScreen()` |
-| `onInitError` (`Widget Function(ctx, err, stack, retry)?`) | `onInit` ব্যর্থ বা টাইমআউট হলে এরর UI ও `retry()` বাটন দেখায়। | `onInitError: (c, e, s, retry) => RetryPage(retry)` |
+| `splash` (`WidgetBuilder?`) | সম্পূর্ণ নিজের ডিজাইন করা কাস্টম স্প্ল্যাশ উইজেট দিতে। | `splash: (_) => const MySplashScreen()` |
+| `onInitError` (`Widget Function(ctx, err, stack, retry)?`) | `onInit` বা অনবোর্ডিং ব্যর্থ/টাইমআউট হলে এরর UI ও `retry()` বাটন দেখায়। | `onInitError: (c, e, s, retry) => RetryPage(retry)` |
 | `lifecycle` (`OmniLifecycle?`) | পুরো অ্যাপ ব্যাকগ্রাউন্ডে যাওয়া বা ফোরগ্রাউন্ডে ফেরার ইভেন্ট শোনে। | `lifecycle: AppLifecycleHandler()` |
 | `onNavigate` (`void Function(OmniNavigation)?`) | প্রতিটি রুট পরিবর্তনে এনালিটিক্স বা ইনস্পেক্টর লগে ইভেন্ট পাঠায় (`kind`, `from`, `to`, `uri`, `timestamp`)। | `onNavigate: (n) => analytics.track(n.to.location)` |
 | `logNavigation` (`bool = false`) | ডিবাগে কনসোলে সুন্দর বক্স আকারে `from → to` লগ ছাপে (রিলিজে বন্ধ)। | `logNavigation: true` |

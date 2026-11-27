@@ -12,6 +12,7 @@ import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_swipe_back.dart';
 import '../screens/omni_lifecycle.dart';
+import 'omni_app_config.dart';
 import 'omni_app_features.dart';
 import 'omni_desktop_back.dart';
 import 'omni_log.dart';
@@ -70,6 +71,7 @@ class OmniApp extends StatefulWidget {
     this.onNavigate,
     this.logNavigation = false,
     this.lifecycle,
+    this.config,
     this.onInit,
     this.initTimeout,
     this.splash,
@@ -111,6 +113,7 @@ class OmniApp extends StatefulWidget {
     this.onNavigate,
     this.logNavigation = false,
     this.lifecycle,
+    this.config,
     this.onInit,
     this.initTimeout,
     this.splash,
@@ -187,6 +190,7 @@ class OmniApp extends StatefulWidget {
     this.onNavigate,
     this.logNavigation = false,
     this.lifecycle,
+    this.config,
     this.onInit,
     this.initTimeout,
     this.splash,
@@ -325,6 +329,10 @@ class OmniApp extends StatefulWidget {
   /// App-wide foreground/background/memory lifecycle callbacks.
   final OmniLifecycle? lifecycle;
 
+  /// Centralized flow configuration for Splash, `onInit`, Onboarding, Auth
+  /// (`loginScreen`/`signupScreen`/`homeRoute`), and pre-login public routes.
+  final OmniConfig? config;
+
   /// One-time startup async task executed while displaying [splash].
   final Future<void> Function(BuildContext context)? onInit;
 
@@ -379,43 +387,84 @@ class _OmniAppState extends State<OmniApp> {
   OmniRouter? _router;
   Object? _configError;
   final GuardNotifier _guardRefresh = GuardNotifier();
+  final OmniFlowSession _flowSession = OmniFlowSession();
   bool _navListenerAttached = false;
 
   OmniRouteEntry? _last;
   Uri? _lastUri;
   LocalKey? _lastPageKey;
 
-  void _initRouter() {
-    _blocs ??= OmniBlocRegistry(widget.blocs);
+  ({
+    OmniConfig? config,
+    OmniRouteRegistry registry,
+    List<OmniGuard> guards,
+    Listenable refresh,
+  })
+  _compileConfig() {
+    final config = _effectiveConfig();
     final registry = OmniRouteRegistry(
-      widget.routes,
+      buildOmniConfigRoutes(widget.routes, config),
       rootNavigatorKey: _navKey,
     );
-    _refreshGuards = {...widget.guards, ...registry.routeGuards}.toList();
+    final guards = [
+      if (config != null && config.hasAuthGuard)
+        OmniConfigGuard(config: config, session: _flowSession),
+      ...widget.guards,
+    ];
+    _refreshGuards = {...guards, ...registry.routeGuards}.toList();
 
+    final external = widget.refreshListenable;
+    final auth = config?.auth?.refreshListenable;
+    final Listenable refresh = (external == null && auth == null)
+        ? _guardRefresh
+        : Listenable.merge([
+            _guardRefresh,
+            ?external,
+            if (auth != null && !identical(auth, external)) auth,
+          ]);
+
+    return (
+      config: config,
+      registry: registry,
+      guards: guards,
+      refresh: refresh,
+    );
+  }
+
+  String _resolveInitialRoute(OmniConfig? config, OmniRouteRegistry registry) {
     final platformDefault = PlatformDispatcher.instance.defaultRouteName;
-    final start = (platformDefault.isNotEmpty && platformDefault != '/')
-        ? platformDefault
-        : widget.initialRoute;
+    if (platformDefault.isNotEmpty && platformDefault != '/') {
+      return platformDefault;
+    }
+    final homeRoute = config?.auth?.homeRoute ?? '/';
+    if (widget.initialRoute == '/' &&
+        homeRoute != '/' &&
+        registry.routeAt('/') == null) {
+      return normalizeOmniConfigPath(homeRoute);
+    }
+    return widget.initialRoute;
+  }
+
+  void _initRouter() {
+    _blocs ??= OmniBlocRegistry(widget.blocs);
+    final compiled = _compileConfig();
 
     final router = _router = OmniRouter(
-      routeRegistry: registry,
+      routeRegistry: compiled.registry,
       navigatorKey: _navKey,
-      guards: widget.guards,
+      guards: compiled.guards,
       observers: widget.observers ?? const [],
       onRouteError: widget.notFound ?? defaultOmniErrorBuilder,
-      initialRoute: start,
+      initialRoute: _resolveInitialRoute(compiled.config, compiled.registry),
       restorationScopeId: widget.restorationScopeId,
-      refresh: widget.refreshListenable == null
-          ? _guardRefresh
-          : Listenable.merge([_guardRefresh, widget.refreshListenable]),
+      refresh: compiled.refresh,
       onReady: () {
         if (mounted && (widget.onNavigate != null || widget.logNavigation)) {
           _navigated();
         }
       },
     );
-    OmniRoute.attach(router, registry);
+    OmniRoute.attach(router, compiled.registry);
     _syncNavListener();
   }
 
@@ -487,7 +536,8 @@ class _OmniAppState extends State<OmniApp> {
         !identical(widget.guards, oldWidget.guards) ||
         !identical(widget.observers, oldWidget.observers) ||
         !identical(widget.notFound, oldWidget.notFound) ||
-        !identical(widget.refreshListenable, oldWidget.refreshListenable);
+        !identical(widget.refreshListenable, oldWidget.refreshListenable) ||
+        !identical(widget.config, oldWidget.config);
 
     if (blocsChanged || routesOrRouterChanged || _configError != null) {
       try {
@@ -495,20 +545,14 @@ class _OmniAppState extends State<OmniApp> {
           (_blocs ??= OmniBlocRegistry(const [])).mergeEntries(widget.blocs);
         }
         if (routesOrRouterChanged || _configError != null) {
-          final registry = OmniRouteRegistry(
-            widget.routes,
-            rootNavigatorKey: _navKey,
-          );
-          _refreshGuards = {...widget.guards, ...registry.routeGuards}.toList();
-          OmniRoute.updateRegistry(router, registry);
+          final compiled = _compileConfig();
+          OmniRoute.updateRegistry(router, compiled.registry);
           router.updateConfig(
-            registry: registry,
-            guards: widget.guards,
+            registry: compiled.registry,
+            guards: compiled.guards,
             observers: widget.observers ?? const [],
             errorBuilder: widget.notFound ?? defaultOmniErrorBuilder,
-            refreshListenable: widget.refreshListenable == null
-                ? _guardRefresh
-                : Listenable.merge([_guardRefresh, widget.refreshListenable]),
+            refreshListenable: compiled.refresh,
           );
         }
         _configError = null;
@@ -681,13 +725,11 @@ class _OmniAppState extends State<OmniApp> {
     if (widget.dismissKeyboardOnTap) {
       child = OmniKeyboardDismiss(child: child);
     }
-    if (widget.onInit != null || widget.resolveInitialRoute != null) {
+    final config = _effectiveConfig();
+    if (config != null) {
       child = OmniInitGate(
-        onInit: widget.onInit,
-        initTimeout: widget.initTimeout,
-        splash: widget.splash,
-        onInitError: widget.onInitError,
-        resolveInitialRoute: widget.resolveInitialRoute,
+        config: config,
+        session: _flowSession,
         router: router,
         child: child,
       );
@@ -697,6 +739,30 @@ class _OmniAppState extends State<OmniApp> {
       child = OmniAppLifecycleScope(lifecycle: lifecycle, child: child);
     }
     return child;
+  }
+
+  OmniConfig? _effectiveConfig() {
+    final base = widget.config;
+    final hasSplashDirect =
+        widget.onInit != null ||
+        widget.initTimeout != null ||
+        widget.splash != null ||
+        widget.onInitError != null;
+    if (base == null && !hasSplashDirect && widget.resolveInitialRoute == null) {
+      return null;
+    }
+    final nextSplash = hasSplashDirect
+        ? (base?.splash ?? const OmniSplash()).copyWith(
+            builder: widget.splash,
+            onInit: widget.onInit,
+            timeout: widget.initTimeout,
+            onError: widget.onInitError,
+          )
+        : base?.splash;
+    return (base ?? const OmniConfig()).copyWith(
+      splash: nextSplash,
+      resolveInitialRoute: widget.resolveInitialRoute,
+    );
   }
 
   @override
