@@ -152,3 +152,25 @@ export 'src/responsive/omni_theme.dart'
         showOmniThemeSheet;
 export 'src/responsive/omni_theme_transition.dart'
     show OmniThemeAnimation, OmniThemeAnimationMode, OmniThemeTransition;
+export 'src/responsive/omni_fields.dart'
+    show
+        OmniCountryDialCode,
+        OmniEmailField,
+        OmniFieldIdentity,
+        OmniFieldLabelMode,
+        OmniFieldStyle,
+        OmniFieldTheme,
+        OmniFieldThemeScope,
+        OmniMultilineField,
+        OmniNameField,
+        OmniNumberField,
+        OmniOtpBoxStyle,
+        OmniOtpAnimationType,
+        OmniOtpField,
+        OmniPasswordField,
+        OmniPhoneField,
+        OmniPinTheme,
+        OmniSearchField,
+        OmniTextField,
+        OmniUrlField,
+        OmniValidators;

@@ -15,6 +15,9 @@ Fast, lightweight Flutter showcase demonstrating `OmniRoute` (`OmniApp.material`
 2. **Animated Dark/Light Mode, Color Palettes & System Bars**
    - `OmniTheme` with `OmniTheme.presets` (16 dual-mode color palettes), smooth zero-stutter screen transitions (`OmniThemeTransition`), 16 selectable animation modes (`OmniThemeAnimationPicker`), 12 design styles (`OmniThemeStylePicker`), edge-to-edge `OmniStatusBarStyle` / `OmniSystemNavigationBarStyle`, and `OmniOrientation.portraitOnMobile`.
 
+3. **Predefined Form Fields & Shared `OmniFieldTheme`**
+   - One shared `OmniFieldTheme` with per-identity `identityStyles` on `OmniTheme` powering `OmniEmailField.gmail`, `OmniPasswordField` (show/hide + strength + confirm), `OmniNameField`, `OmniPhoneField` (country picker + BD/E.164 verify), `OmniOtpField` (6-box paste + verify), `OmniNumberField` (integer/currency), `OmniSearchField`, `OmniMultilineField`, `OmniUrlField`, and `OmniTextField` across `/login`, `/students`, `/students/:id/edit`, and `/settings/profile`.
+
 ## Running
 
 ```bash

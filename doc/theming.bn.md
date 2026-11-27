@@ -19,6 +19,7 @@
 9. [পূর্ণাঙ্গ ব্যবহারিক উদাহরণ (Login + Settings + Palette Sheet + Form)](#৯-পূর্ণাঙ্গ-ব্যবহারিক-উদাহরণ-login--settings--palette-sheet--form)
 10. [সিস্টেম স্ট্যাটাস বার, গেস্টচার বার (কালো এরিয়া রিমুভ), ফুলস্ক্রিন ও ওরিয়েন্টেশন মোড](#১০-সিস্টেম-স্ট্যাটাস-বার-গেস্টচার-বার-কালো-এরিয়া-রিমুভ-ফুলস্ক্রিন-ও-ওরিয়েন্টেশন-মোড)
 11. [ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`)](#১১-ডার্কলাইট-মোড-ও-কালার-প্যালেট-বদলানোর-স্ক্রিন-অ্যানিমেশন-omnithemeanimation)
+12. [প্রি-ডিফাইনড টেক্সট ফিল্ড ও এক-থিম সিস্টেম (`OmniFieldTheme`, `OmniEmailField`, `OmniPasswordField`, `OmniOtpField`, `OmniPhoneField`, `OmniNumberField`)](#১২-প্রি-ডিফাইনড-টেক্সট-ফিল্ড-ও-এক-থিম-সিস্টেম-omnifieldtheme-omniemailfield-omnipasswordfield-omniotpfield-omniphonefield-omninumberfield)
 
 ---
 
@@ -815,3 +816,82 @@ context.setThemeAnimationMode(OmniThemeAnimationMode.diamondReveal);
 ```
 
 > **নিরাপদ পারফরম্যান্স ও অ্যাক্সেসিবিলিটি:** স্টার্টআপ `hydrate()` বা `System (Dark)` → `Dark` (দৃশ্যত অপরিবর্তিত) অবস্থায় অযথা ফ্ল্যাশ করে না; OS-এ *Reduced Motion / Disable Animations* চালু থাকলে স্বয়ংক্রিয়ভাবে অ্যানিমেশন বন্ধ থাকে এবং প্রতিবার অ্যানিমেশন শেষে GPU ইমেজ টেক্সচার অটো ডিসপোজ হয়।
+
+---
+
+## ১২. প্রি-ডিফাইনড টেক্সট ফিল্ড ও এক-থিম সিস্টেম (`OmniFieldTheme`, `OmniEmailField`, `OmniPasswordField`, `OmniOtpField`, `OmniPhoneField`, `OmniNumberField`)
+
+আলাদা করে বারবার ভ্যালিডেশন, আইকন, কিবোর্ড, শো/হাইড টগল, কান্ট্রি কোড বা OTP বক্স না লিখে সরাসরি **প্রি-ডিফাইনড উইজেট** ব্যবহার করুন। পুরো অ্যাপে **একটিমাত্র `OmniFieldTheme`** তৈরি করলেই সব ফিল্ড সেই থিম (এবং লাইট/ডার্ক + কালার প্যালেট) শেয়ার করে — অথচ প্রতিটি ফিল্ডের **আলাদা আইডেন্টিটি (`OmniFieldIdentity`) ও আলাদা কাজ** বজায় থাকে!
+
+### ক. ১০টি প্রি-ডিফাইনড ফিল্ড উইজেট ও তাদের নিজস্ব কাজ
+
+| উইজেট | আইডেন্টিটি | রেডি ফিচার ও ভ্যালিডেশন |
+|---|---|---|
+| `OmniEmailField` / `.gmail` | `email` | ইমেইল ও Gmail-only (`@gmail.com`) ভেরিফিকেশন, `@gmail.com` কুইক-ফিল, সবুজ ভ্যালিড চেক ব্যাজ ও ক্লিয়ার বাটন |
+| `OmniPasswordField` / `.newPassword` / `.confirm` | `password` | শো/হাইড আই বাটন, ৪-ধাপের লাইভ স্ট্রেংথ মিটার (`Weak` → `Strong`), ক্যারেক্টার নিয়ম ও কনফার্ম পাসওয়ার্ড ম্যাচিং |
+| `OmniNameField` / `.firstName` / `.lastName` / `.username` | `name` | পূর্ণ নাম, ফার্স্ট/লাস্ট নেম ও স্পেস-মুক্ত `@username`, ডিজিট ব্লক ও ন্যূনতম দৈর্ঘ্য যাচাই |
+| `OmniPhoneField` | `phone` | কান্ট্রি ডায়াল কোড পিকার (`+880` সহ), বাংলাদেশ (`013`–`019`) ও আন্তর্জাতিক নাম্বার ভ্যালিডেশন, E.164 (`+88017...`), ইনলাইন Verify/Verified ব্যাজ |
+| `OmniOtpField` | `otp` | ৪/৬/৮ বক্স OTP/PIN ইনপুট (`outlined`, `filled`, `underlined`), স্মার্ট পেস্ট (`"OTP 482910"`), ব্যাকস্পেস জাম্প ও রিসেন্ড টাইমার |
+| `OmniNumberField` / `.integer` / `.decimal` / `.currency` | `number` | পূর্ণসংখ্যা, দশমিক (`decimalRange`), টাকা (`৳`), `min`/`max` সীমা ও `+`/`-` স্টেপার বাটন |
+| `OmniSearchField` | `search` | পিল-শেপ সার্চ বক্স, অটো-ক্লিয়ার, ফিল্টার বাটন ও `debounceDuration` |
+| `OmniMultilineField` | `multiline` | বায়ো, ঠিকানা ও নোটসের জন্য এক্সপ্যান্ডিং মাল্টিলাইন ও `maxLength` কাউন্টার |
+| `OmniUrlField` | `url` | ওয়েবসাইট লিংক (`https://...`) ভ্যালিডেশন |
+| `OmniTextField` | `text` | সব কমন থিম ও ক্লিয়ার বাটনসহ ইউনিভার্সাল বেস ফিল্ড |
+
+### খ. এক থিমে সব ফিল্ড, তবু আলাদা আইডেন্টিটি (`OmniFieldTheme` + `identityStyles`)
+
+```dart
+OmniApp.material(
+  omniTheme: const OmniTheme(
+    seedColor: Color(0xFF2563EB),
+    // ১টি শেয়ার্ড ফিল্ড থিম — নিচের সব ফিল্ড এটি অটো পাবে (Dark/Light সহ)!
+    fieldTheme: OmniFieldTheme(
+      variant: OmniInputVariant.outlined,
+      labelMode: OmniFieldLabelMode.above, // ইনপুটের ওপরে টাইটেল লেবেল
+      borderRadius: 14,
+      showClearButton: true,
+      // কিন্তু প্রতিটি ফিল্ডের আইডেন্টিটি ও অ্যাকসেন্ট রঙ আলাদা রাখা যায়:
+      identityStyles: {
+        OmniFieldIdentity.email: OmniFieldStyle(accentColor: Color(0xFF0284C7)),
+        OmniFieldIdentity.password: OmniFieldStyle(accentColor: Color(0xFF7C3AED)),
+        OmniFieldIdentity.phone: OmniFieldStyle(accentColor: Color(0xFF059669)),
+        OmniFieldIdentity.otp: OmniFieldStyle(accentColor: Color(0xFFD97706)),
+      },
+    ),
+  ),
+  routes: [...],
+)
+```
+
+*(চাইলে নির্দিষ্ট ফর্ম বা স্ক্রিনে `OmniFieldThemeScope(theme: OmniFieldTheme(...), child: Form(...))` দিয়েও শেয়ার্ড থিম ব্যবহার করতে পারবেন; আবার প্রতিটি ফিল্ডে `fieldStyle:` বা `decoration:` দিয়ে একক কাস্টমাইজেশনও করা যায়। ভ্যালিডেশন ফাংশনগুলো সরাসরি `OmniValidators.email(...)`, `.gmail(...)`, `.password(...)`, `.phone(...)`, `.otp(...)`, `.number(...)`, `.name(...)` হিসেবেও ব্যবহারযোগ্য।)*
+
+```dart
+Form(
+  child: Column(
+    children: [
+      const OmniNameField(),
+      const SizedBox(height: 12),
+      const OmniEmailField.gmail(),
+      const SizedBox(height: 12),
+      OmniPhoneField(
+        countryCode: '+880',
+        onFullNumberChanged: (e164) => debugPrint(e164), // +88017...
+        onVerifyPressed: () {},
+      ),
+      const SizedBox(height: 12),
+      OmniPasswordField.newPassword(controller: passCtrl),
+      const SizedBox(height: 12),
+      OmniPasswordField.confirm(matchController: passCtrl),
+      const SizedBox(height: 12),
+      const OmniNumberField.currency(label: 'অ্যামাউন্ট', min: 10),
+      const SizedBox(height: 16),
+      OmniOtpField(
+        length: 6,
+        resendDuration: const Duration(seconds: 30),
+        onResend: () {},
+        onCompleted: (code) => debugPrint('OTP: $code'),
+      ),
+    ],
+  ),
+)
+```

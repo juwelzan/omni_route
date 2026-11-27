@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'omni_colors.dart';
+import 'omni_fields.dart';
 import 'omni_responsive_config.dart';
 import 'omni_responsive_scope.dart';
 import 'omni_status_bar.dart';
@@ -440,6 +441,7 @@ class OmniTheme {
     this.statusBar,
     this.systemNavigationBar,
     this.animation = const OmniThemeAnimation(),
+    this.fieldTheme,
     this.customizer,
   });
 
@@ -527,6 +529,7 @@ class OmniTheme {
     this.statusBar,
     this.systemNavigationBar,
     this.animation = const OmniThemeAnimation(),
+    this.fieldTheme,
     this.customizer,
   });
 
@@ -614,6 +617,7 @@ class OmniTheme {
     this.statusBar,
     this.systemNavigationBar,
     this.animation = const OmniThemeAnimation(),
+    this.fieldTheme,
     this.customizer,
   });
 
@@ -869,6 +873,10 @@ class OmniTheme {
 
   /// ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর সময় পুরো স্ক্রিনের ট্রানজিশন অ্যানিমেশন।
   final OmniThemeAnimation animation;
+
+  /// সব প্রি-ডিফাইনড ইনপুট ফিল্ডের (`OmniEmailField`, `OmniPasswordField`, `OmniOtpField`
+  /// ইত্যাদি) জন্য একটি শেয়ার্ড থিম (না দিলে [OmniTheme] ও `context.ui` থেকে অটো)।
+  final OmniFieldTheme? fieldTheme;
 
   /// যেকোনো থিম উপাদান (`Switch`, `Chip`, `BottomSheet`) আরও কাস্টম করার হুক।
   final OmniThemeCustomizer? customizer;
@@ -1298,6 +1306,7 @@ class OmniTheme {
     OmniStatusBarStyle? statusBar,
     OmniSystemNavigationBarStyle? systemNavigationBar,
     OmniThemeAnimation? animation,
+    OmniFieldTheme? fieldTheme,
     OmniThemeCustomizer? customizer,
   }) => OmniTheme(
     id: id ?? this.id,
@@ -1389,6 +1398,7 @@ class OmniTheme {
     statusBar: statusBar ?? this.statusBar,
     systemNavigationBar: systemNavigationBar ?? this.systemNavigationBar,
     animation: animation ?? this.animation,
+    fieldTheme: fieldTheme ?? this.fieldTheme,
     customizer: customizer ?? this.customizer,
   );
 
@@ -1737,7 +1747,12 @@ class OmniTheme {
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(style: styles.outlineButton),
       textButtonTheme: TextButtonThemeData(style: styles.linkButton),
-      extensions: <ThemeExtension<dynamic>>[colors, textStyles, styles],
+      extensions: <ThemeExtension<dynamic>>[
+        colors,
+        textStyles,
+        styles,
+        ?fieldTheme,
+      ],
     );
 
     final baseText = baseTheme.textTheme;
@@ -1848,6 +1863,7 @@ class OmniTheme {
           statusBar == other.statusBar &&
           systemNavigationBar == other.systemNavigationBar &&
           animation == other.animation &&
+          fieldTheme == other.fieldTheme &&
           customizer == other.customizer;
 
   @override
@@ -1934,6 +1950,7 @@ class OmniTheme {
     statusBar,
     systemNavigationBar,
     animation,
+    fieldTheme,
     customizer,
   ]);
 }

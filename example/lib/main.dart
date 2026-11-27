@@ -127,6 +127,32 @@ class ExampleApp extends StatelessWidget {
           surfaceColor: Color(0xFF0B1120),
           cardColor: Color(0xFF131C31),
         ),
+        // ১টি কমন OmniFieldTheme পুরো অ্যাপের সব ফিল্ডে প্রযোজ্য,
+        // কিন্তু identityStyles দিয়ে প্রতিটি ফিল্ডের আলাদা আইডেন্টিটি থাকে:
+        fieldTheme: OmniFieldTheme(
+          variant: OmniInputVariant.outlined,
+          labelMode: OmniFieldLabelMode.above,
+          borderRadius: 14,
+          showClearButton: true,
+          identityStyles: {
+            OmniFieldIdentity.email: OmniFieldStyle(
+              accentColor: Color(0xFF0284C7),
+              darkAccentColor: Color(0xFF38BDF8),
+            ),
+            OmniFieldIdentity.password: OmniFieldStyle(
+              accentColor: Color(0xFF7C3AED),
+              darkAccentColor: Color(0xFFA78BFA),
+            ),
+            OmniFieldIdentity.phone: OmniFieldStyle(
+              accentColor: Color(0xFF059669),
+              darkAccentColor: Color(0xFF34D399),
+            ),
+            OmniFieldIdentity.otp: OmniFieldStyle(
+              accentColor: Color(0xFFD97706),
+              darkAccentColor: Color(0xFFFBBF24),
+            ),
+          },
+        ),
         persistMode: true,
       ),
       themes: OmniTheme.presets,
@@ -138,7 +164,7 @@ class ExampleApp extends StatelessWidget {
         OmniBloc((_) => ClassicStudentBloc()),
       ],
       routes: [
-        OmniPage.screen(const LoginScreen()),
+        OmniPage('/login', (_) => const LoginScreen()),
         OmniPage.screen(
           const ConfirmLogoutScreen(),
           transition: OmniPages.dialog(),
@@ -207,26 +233,72 @@ class ExampleApp extends StatelessWidget {
 // Auth + Persistent Shell
 // =============================================================================
 
-class LoginScreen extends OmniStatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
-  String get routePath => '/login';
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final _formKey = GlobalKey<FormState>();
+
+  void _submitLogin() {
+    if (_formKey.currentState?.validate() != true) return;
+    context.read<AuthBloc>().logIn();
+    OmniRoute.refresh();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final tk = context.tokens;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Sign in'),
         actions: const [OmniThemeModeButton()],
       ),
       body: Center(
-        child: FilledButton(
-          onPressed: () {
-            context.read<AuthBloc>().logIn();
-            OmniRoute.refresh();
-          },
-          child: const Text('Log in'),
+        child: SingleChildScrollView(
+          padding: tk.pagePadding,
+          child: OmniResponsiveContainer(
+            maxWidth: 440,
+            child: Card(
+              child: Padding(
+                padding: tk.cardPadding,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Welcome back', style: context.textStyles.heading),
+                      tk.gapXs,
+                      Text(
+                        'Shared OmniFieldTheme + Gmail & Password validation',
+                        style: context.textStyles.bodyMuted,
+                      ),
+                      tk.gapMd,
+                      const OmniEmailField.gmail(
+                        label: 'Gmail Address',
+                        initialValue: 'student@gmail.com',
+                      ),
+                      tk.gapSm,
+                      const OmniPasswordField(
+                        label: 'Password',
+                        initialValue: 'Pass@1234',
+                        showStrengthIndicator: true,
+                      ),
+                      tk.gapMd,
+                      FilledButton(
+                        onPressed: _submitLogin,
+                        child: const Text('Log in'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
@@ -388,7 +460,7 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
 // Students Tab (Page-Entry Provide.bloc Registration + OmniRouteGroup)
 // =============================================================================
 
-class StudentListScreen extends OmniStatelessWidget {
+class StudentListScreen extends OmniStatefulWidget {
   const StudentListScreen({super.key});
 
   @override
@@ -400,19 +472,43 @@ class StudentListScreen extends OmniStatelessWidget {
   ];
 
   @override
+  State<StudentListScreen> createState() => _StudentListScreenState();
+}
+
+class _StudentListScreenState extends OmniState<StudentListScreen> {
+  String _query = '';
+
+  @override
   Widget build(BuildContext context) {
     final ids = context.watch<StudentBloc>().state;
+    final filtered = _query.trim().isEmpty
+        ? ids
+        : ids.where((id) => '$id'.contains(_query.trim())).toList();
+
     return Scaffold(
-      appBar: AppBar(title: Text('$title ($routePath)')),
-      body: ListView(
+      appBar: AppBar(title: Text('$screenTitle ($routePath)')),
+      body: Column(
         children: [
-          for (final id in ids)
-            ListTile(
-              title: Text('Student #$id'),
-              subtitle: const Text('Tap for scoped detail group'),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/students/$id'),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+            child: OmniSearchField(
+              hint: 'Search student ID (e.g. 101)...',
+              onChanged: (q) => safeSetState(() => _query = q),
             ),
+          ),
+          Expanded(
+            child: ListView(
+              children: [
+                for (final id in filtered)
+                  ListTile(
+                    title: Text('Student #$id'),
+                    subtitle: const Text('Tap for scoped detail group'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => context.push('/students/$id'),
+                  ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -526,8 +622,11 @@ class _StudentEditScreenState extends OmniState<StudentEditScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            TextField(
+            OmniNameField(
+              label: 'Student Name',
+              hint: 'Enter student name',
               controller: _controller,
+              allowDigits: true,
               onChanged: (value) => readBloc<StudentDetailBloc>().markDirty(
                 value != readBloc<StudentDetailBloc>().state.name,
               ),
@@ -646,18 +745,132 @@ class SettingsScreen extends OmniStatelessWidget {
   }
 }
 
-class ProfileScreen extends OmniStatelessWidget {
+class ProfileScreen extends OmniStatefulWidget {
   const ProfileScreen({super.key});
 
   @override
   String get routePath => '/settings/profile';
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends OmniState<ProfileScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _newPassController = TextEditingController();
+  bool _phoneVerified = false;
+  bool _otpVerified = false;
+  String _fullPhone = '';
+
+  @override
+  void dispose() {
+    _newPassController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final tk = context.tokens;
     return Scaffold(
-      appBar: AppBar(title: Text('$title ($routePath)')),
-      body: Center(
-        child: Text('Full nested routePath: $routePath'),
+      appBar: AppBar(title: Text('$screenTitle ($routePath)')),
+      body: SingleChildScrollView(
+        padding: tk.pagePadding,
+        child: OmniResponsiveContainer(
+          maxWidth: 620,
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Full nested routePath: $routePath',
+                  style: context.textStyles.caption,
+                ),
+                tk.gapMd,
+                const OmniNameField.firstName(initialValue: 'Rahim'),
+                tk.gapSm,
+                const OmniNameField.username(initialValue: 'rahim_dev'),
+                tk.gapSm,
+                const OmniEmailField(
+                  label: 'Recovery Email',
+                  initialValue: 'rahim@example.com',
+                ),
+                tk.gapSm,
+                OmniPhoneField(
+                  countryCode: '+880',
+                  initialValue: '01712345678',
+                  isVerified: _phoneVerified,
+                  onFullNumberChanged: (v) => _fullPhone = v,
+                  onVerifyPressed: () =>
+                      safeSetState(() => _phoneVerified = true),
+                ),
+                tk.gapSm,
+                OmniOtpField(
+                  length: 6,
+                  isVerified: _otpVerified,
+                  helperText: 'Enter 6-digit OTP or paste from SMS',
+                  onCompleted: (_) => safeSetState(() => _otpVerified = true),
+                  onResend: () {},
+                ),
+                tk.gapSm,
+                OmniPasswordField.newPassword(
+                  controller: _newPassController,
+                  label: 'New Password',
+                ),
+                tk.gapSm,
+                OmniPasswordField.confirm(
+                  matchController: _newPassController,
+                ),
+                tk.gapSm,
+                const OmniNumberField.integer(
+                  label: 'Batch Year',
+                  initialValue: '2026',
+                  min: 2000,
+                  max: 2050,
+                ),
+                tk.gapSm,
+                const OmniNumberField.currency(
+                  label: 'Scholarship Budget',
+                  initialValue: '5000',
+                  min: 0,
+                ),
+                tk.gapSm,
+                const OmniUrlField(
+                  label: 'Portfolio URL',
+                  initialValue: 'https://omniroute.dev',
+                ),
+                tk.gapSm,
+                const OmniMultilineField(
+                  label: 'Bio & Address',
+                  initialValue: 'Flutter & Dart developer',
+                  maxLength: 160,
+                ),
+                tk.gapSm,
+                const OmniTextField(
+                  label: 'Referral Tag',
+                  hint: 'Optional promo/referral code',
+                ),
+                tk.gapMd,
+                FilledButton.icon(
+                  icon: const Icon(Icons.check_rounded),
+                  onPressed: () {
+                    final valid = _formKey.currentState?.validate() ?? false;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          valid
+                              ? 'Profile valid! ${_fullPhone.isNotEmpty ? _fullPhone : ''}'
+                              : 'Please complete highlighted fields',
+                        ),
+                      ),
+                    );
+                  },
+                  label: const Text('Validate & Save Profile'),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

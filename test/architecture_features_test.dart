@@ -1102,9 +1102,11 @@ void main() {
             routes: [
               OmniPage(
                 '/',
-                (_) => Builder(
-                  builder: (c) => Text(
-                    'restored:${c.activeThemeId}:${c.themeMode.name}:${c.activeThemeStyle.name}',
+                (_) => Scaffold(
+                  body: Builder(
+                    builder: (c) => Text(
+                      'restored:${c.activeThemeId}:${c.themeMode.name}:${c.activeThemeStyle.name}',
+                    ),
                   ),
                 ),
               ),

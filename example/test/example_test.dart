@@ -11,8 +11,10 @@ void main() {
       await tester.pumpWidget(const ExampleApp());
       await tester.pumpAndSettle();
 
-      // 1. AuthGuard redirects unauthenticated startup -> /login.
+      // 1. AuthGuard redirects unauthenticated startup -> /login (with OmniEmailField.gmail & OmniPasswordField).
       expect(OmniRoute.routePath, '/login');
+      expect(find.byType(OmniEmailField), findsOneWidget);
+      expect(find.byType(OmniPasswordField), findsOneWidget);
       await tester.tap(find.text('Log in'));
       await tester.pumpAndSettle();
 
@@ -53,9 +55,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Rahim Updated'), findsOneWidget);
 
-      // Re-tap active Students tab -> resets Branch 1 to /students (lazy StudentBloc).
+      // Re-tap active Students tab -> resets Branch 1 to /students (with OmniSearchField).
       await tester.tap(find.text('Students'));
       await tester.pumpAndSettle();
+      expect(find.byType(OmniSearchField), findsOneWidget);
       expect(find.text('Student #101'), findsOneWidget);
 
       // Settings -> Animation picker, Dark/Light mode & 1-click Color Palette -> Nested `/settings/profile`.
@@ -119,6 +122,24 @@ void main() {
         find.text('Full nested routePath: /settings/profile'),
         findsOneWidget,
       );
+      expect(find.byType(OmniPhoneField), findsOneWidget);
+      expect(find.byType(OmniOtpField), findsOneWidget);
+      expect(find.byType(OmniNumberField), findsNWidgets(2));
+      expect(find.byType(OmniUrlField), findsOneWidget);
+      expect(find.byType(OmniMultilineField), findsOneWidget);
+      expect(find.byType(OmniTextField), findsNWidgets(3));
+
+      // Verify OTP paste completion inside nested ProfileScreen:
+      final otpBox = find
+          .descendant(
+            of: find.byType(OmniOtpField),
+            matching: find.byType(TextField),
+          )
+          .first;
+      await tester.ensureVisible(otpBox);
+      await tester.enterText(otpBox, '123456');
+      await tester.pumpAndSettle();
+      expect(find.text('OTP Verified'), findsOneWidget);
     },
   );
 }
