@@ -355,7 +355,7 @@ void main() {
     });
 
     test(
-      'separate: true emits distinct colored request, response & grey-framed JSON boxes',
+      'separate: true emits distinct colored request, response & status-matched JSON boxes',
       () async {
         final blocks = <String>[];
         final sepMock = OmniMock(basePath: '/v1')
@@ -363,6 +363,10 @@ void main() {
           ..get(
             '/missing',
             (_) => MockResponse.json({'error': 'missing'}, status: 404),
+          )
+          ..get(
+            '/crash',
+            (_) => MockResponse.json({'error': 'down'}, status: 503),
           );
         final api = OmniNetwork(
           baseUrl: 'https://api.test/v1',
@@ -381,31 +385,38 @@ void main() {
 
         await api.get<void>('/users/1');
         await api.get<void>('/missing').asResult();
+        await api.get<void>('/crash').asResult();
 
         // Expect 3 blocks per JSON call: request + response header + JSON body.
-        expect(blocks, hasLength(6));
+        expect(blocks, hasLength(9));
 
         // 1. Separate magenta http-request box.
         expect(blocks[0], contains('\x1B[38;5;171m'));
         expect(plain(blocks[0]), contains('📡 http-request · GET'));
         expect(plain(blocks[0]), contains('https://api.test/v1/users/1'));
 
-        // 2. Separate green 200 OK header box.
+        // 2. Separate green 200 OK header box & green-matched JSON body box.
         expect(blocks[1], contains('\x1B[38;5;40m'));
-        expect(plain(blocks[1]), contains('💡 http-response · 200 OK'));
+        expect(plain(blocks[1]), contains('💡 http-response · 200 OK · SUCCESS'));
         expect(plain(blocks[1]), contains('📦 Body: JSON Object'));
-
-        // 3. Separate grey-framed pretty JSON body box without per-line emojis.
-        expect(blocks[2], contains('\x1B[38;5;244m┌'));
+        expect(blocks[2], contains('\x1B[38;5;40m┌'));
         expect(plain(blocks[2]), contains('"id": 1'));
         expect(plain(blocks[2]), contains('"name": "Ana"'));
         expect(plain(blocks[2]), isNot(contains('💡')));
 
-        // 4. Separate amber 404 warning box + separate 404 JSON body box.
+        // 3. Separate amber 404 warning box + amber-matched 404 JSON body box.
         expect(blocks[3], contains('\x1B[38;5;171m'));
         expect(blocks[4], contains('\x1B[38;5;214m'));
         expect(plain(blocks[4]), contains('⚠️ http-warning · 404 Not Found'));
+        expect(blocks[5], contains('\x1B[38;5;214m┌'));
         expect(plain(blocks[5]), contains('"error": "missing"'));
+
+        // 4. Separate red 503 error box (with white-on-red banner) + red JSON body box.
+        expect(blocks[6], contains('\x1B[38;5;171m'));
+        expect(blocks[7], contains('\x1B[1;38;5;15;48;5;196m'));
+        expect(plain(blocks[7]), contains('⛔ http-error · 503 Service Unavailable'));
+        expect(blocks[8], contains('\x1B[38;5;196m┌'));
+        expect(plain(blocks[8]), contains('"error": "down"'));
       },
     );
   });

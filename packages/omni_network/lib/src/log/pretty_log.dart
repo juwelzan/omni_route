@@ -226,7 +226,7 @@ final class PrettyLogSink implements LogSink {
     final out = <String>[paintBorder('┌$rule')];
     if (headerTimestamp != null) {
       out
-        ..add('${paintBorder('│')} ${_paintRow([(headerTimestamp, _dim)], borderColor)}')
+        ..add('${paintBorder('│')} ${_paintRow([(headerTimestamp, null)], borderColor)}')
         ..add(paintBorder('├$divider'));
     }
     for (final row in rows) {
@@ -294,15 +294,16 @@ final class PrettyLogSink implements LogSink {
                   ? '⚡ ${record.source!.name.toUpperCase()}'
                   : 'NETWORK';
           final badge = status >= 500
-              ? '⛔ http-error · $status${reason == null ? '' : ' $reason'}'
+              ? ' ⛔ http-error · $status${reason == null ? '' : ' $reason'} · SERVER ERROR '
               : status >= 400
-              ? '⚠️ http-warning · $status${reason == null ? '' : ' $reason'}'
+              ? '⚠️ http-warning · $status${reason == null ? '' : ' $reason'} · CLIENT WARNING'
               : status >= 300
-              ? '↪ http-redirect · $status${reason == null ? '' : ' $reason'}'
-              : '💡 http-response · $status${reason == null ? '' : ' $reason'}';
+              ? '↪ http-redirect · $status${reason == null ? '' : ' $reason'} · REDIRECT'
+              : '💡 http-response · $status${reason == null ? '' : ' $reason'} · SUCCESS';
+          final badgeStyle = status >= 500 ? _errorBanner : '$_bold;$color';
 
           final headerRows = <List<_Span>?>[
-            [(badge, '$_bold;$color')],
+            [(badge, badgeStyle)],
             [
               (
                 [
@@ -319,7 +320,7 @@ final class PrettyLogSink implements LogSink {
                   if (record.bytes case final n? when n > 0) _size(n),
                   sourceTag,
                 ].join(' · '),
-                _dim,
+                null,
               ),
             ],
           ];
@@ -329,7 +330,11 @@ final class PrettyLogSink implements LogSink {
                     ? '🙈 Body hidden (logResponse: false · ${_size(resBytes)})'
                     : null)
               : _payloadSummary(record.body);
-          if (shape != null) headerRows.add([(shape, _note)]);
+          if (shape != null) {
+            headerRows.add([
+              (shape, status >= 400 ? color : _note),
+            ]);
+          }
           if (options.headers && record.headers.isNotEmpty) {
             headerRows
               ..add(null)
@@ -343,16 +348,16 @@ final class PrettyLogSink implements LogSink {
           if (resBody != null && resBody.trim().isNotEmpty) {
             _emitLines(
               _renderBox(
-                _dim,
-                _body(resBody, highlight: true),
+                color,
+                _body(resBody, highlight: true, fallbackColor: color),
               ),
             );
           }
         } else {
           final rows = <List<_Span>?>[
-            [('⛔ http-error · FAILED · $took', '$_bold;$_red')],
+            [(' ⛔ http-error · FAILED · $took ', _errorBanner)],
             [('$method  $url', null)],
-            [('Error: ${record.error ?? 'Connection failed'}', _red)],
+            [('Error: ${record.error ?? 'Connection failed'}', null)],
           ];
           _emitLines(_renderBox(_red, rows, headerTimestamp: '$now (+$took)'));
         }
@@ -377,6 +382,7 @@ final class PrettyLogSink implements LogSink {
   static const _dim = '38;5;244'; // labels, header values
   static const _note = '38;5;45'; // retry / token notes
   static const _bold = '1';
+  static const _errorBanner = '1;38;5;15;48;5;196'; // bold white on red background
 
   static String _methodColor(String method) => switch (method.trim()) {
     'GET' => '$_bold;$_blue',
@@ -642,7 +648,11 @@ final class PrettyLogSink implements LogSink {
 
   // The whole body: JSON pretty-printed (and syntax-coloured when
   // [highlight]), other text line by line.
-  List<List<_Span>> _body(String text, {required bool highlight}) {
+  List<List<_Span>> _body(
+    String text, {
+    required bool highlight,
+    String? fallbackColor,
+  }) {
     var body = text;
     String? tail;
     if (_truncatedTail.firstMatch(body) case final m?) {
@@ -675,7 +685,7 @@ final class PrettyLogSink implements LogSink {
             ? [(l, null)]
             : json
             ? jsonSpans(l)
-            : [(l, _text)],
+            : [(l, fallbackColor ?? _text)],
       if (tail != null) [(tail, _dim)],
     ];
   }

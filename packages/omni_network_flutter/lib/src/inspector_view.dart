@@ -637,8 +637,133 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
     );
   }
 
+  static List<TextSpan> _syntaxSpans(String input, Color fallbackColor) {
+    final spans = <TextSpan>[];
+    final lines = input.split('\n');
+    final isJsonLike = () {
+      final t = input.trimLeft();
+      return t.startsWith('{') || t.startsWith('[');
+    }();
+
+    for (var li = 0; li < lines.length; li++) {
+      final line = lines[li];
+      if (!isJsonLike) {
+        spans.add(
+          TextSpan(
+            text: li + 1 < lines.length ? '$line\n' : line,
+            style: TextStyle(color: fallbackColor),
+          ),
+        );
+        continue;
+      }
+
+      var i = 0;
+      while (i < line.length) {
+        final c = line[i];
+        if (c == '"') {
+          var j = i + 1;
+          var escaped = false;
+          while (j < line.length) {
+            final d = line[j];
+            j++;
+            if (escaped) {
+              escaped = false;
+            } else if (d == r'\') {
+              escaped = true;
+            } else if (d == '"') {
+              break;
+            }
+          }
+          var k = j;
+          while (k < line.length && line[k] == ' ') {
+            k++;
+          }
+          final isKey = k < line.length && line[k] == ':';
+          spans.add(
+            TextSpan(
+              text: line.substring(i, j),
+              style: TextStyle(
+                color: isKey ? const Color(0xFF67E8F9) : const Color(0xFFFDE68A),
+                fontWeight: isKey ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          );
+          i = j;
+        } else if ('{}[],:'.contains(c)) {
+          spans.add(
+            TextSpan(
+              text: c,
+              style: const TextStyle(color: Color(0xFFCBD5E1)),
+            ),
+          );
+          i++;
+        } else if (c == '-' || (c.codeUnitAt(0) >= 0x30 && c.codeUnitAt(0) <= 0x39)) {
+          var j = i + 1;
+          while (j < line.length && '0123456789eE+-.'.contains(line[j])) {
+            j++;
+          }
+          spans.add(
+            TextSpan(
+              text: line.substring(i, j),
+              style: const TextStyle(color: Color(0xFFC4B5FD)),
+            ),
+          );
+          i = j;
+        } else if (line.startsWith('true', i) ||
+            line.startsWith('null', i) ||
+            line.startsWith('false', i)) {
+          final n = line.startsWith('false', i) ? 5 : 4;
+          spans.add(
+            TextSpan(
+              text: line.substring(i, i + n),
+              style: const TextStyle(
+                color: Color(0xFFF472B6),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
+          i += n;
+        } else {
+          spans.add(
+            TextSpan(
+              text: c,
+              style: TextStyle(color: fallbackColor),
+            ),
+          );
+          i++;
+        }
+      }
+      if (li + 1 < lines.length) {
+        spans.add(const TextSpan(text: '\n'));
+      }
+    }
+    return spans;
+  }
+
+  Widget _syntaxBox(String text, Color accent) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xFF0F172A),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: accent.withValues(alpha: 0.72), width: 1.1),
+    ),
+    child: SelectableText.rich(
+      TextSpan(
+        style: const TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          height: 1.4,
+          color: Color(0xFFE2E8F0),
+        ),
+        children: _syntaxSpans(text, accent),
+      ),
+    ),
+  );
+
   Widget _logDetail(BuildContext context, InspectorLogEntry log) {
     final accent = _logColor(log.kind, Theme.of(context).brightness);
+    final codeAccent = _logColor(log.kind, Brightness.dark);
     return Column(
       children: [
         _bar(
@@ -665,19 +790,34 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           child: ListView(
             padding: const EdgeInsets.all(14),
             children: [
-              Text(
-                log.title,
-                style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                  color: accent,
-                  fontWeight: FontWeight.bold,
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: accent.withValues(alpha: 0.7)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      log.title,
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                        color: accent,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (log.subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(log.subtitle, style: TextStyle(color: accent)),
+                    ],
+                  ],
                 ),
               ),
-              if (log.subtitle.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(log.subtitle),
-              ],
               const SizedBox(height: 12),
-              Row(
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
                   FilledButton.icon(
                     onPressed: () =>
@@ -685,8 +825,7 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                     icon: const Icon(Icons.copy, size: 16),
                     label: const Text('Copy Full Log'),
                   ),
-                  if (log.copyBody != null && log.copyBody!.isNotEmpty) ...[
-                    const SizedBox(width: 8),
+                  if (log.copyBody != null && log.copyBody!.isNotEmpty)
                     OutlinedButton.icon(
                       onPressed: () => _copy(
                         context,
@@ -696,25 +835,18 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                       icon: const Icon(Icons.data_object, size: 16),
                       label: const Text('Copy JSON'),
                     ),
-                  ],
                 ],
               ),
+              if (log.copyBody != null && log.copyBody!.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                Text('Payload', style: Theme.of(context).textTheme.titleSmall),
+                const SizedBox(height: 6),
+                _syntaxBox(log.copyBody!, codeAccent),
+              ],
               const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF0F172A),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: SelectableText(
-                  log.copyText,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontSize: 12,
-                    color: Color(0xFFE2E8F0),
-                  ),
-                ),
-              ),
+              Text('Full Record', style: Theme.of(context).textTheme.titleSmall),
+              const SizedBox(height: 6),
+              _syntaxBox(log.copyText, codeAccent),
             ],
           ),
         ),
@@ -725,30 +857,81 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
   Widget _detail(BuildContext context, InspectorEntry e) {
     final prettyRes = e.formattedResponseBody();
     final prettyReq = e.formattedRequestBody();
+    final scheme = Theme.of(context).colorScheme;
+    final statusAccent = _color(e.status, scheme);
+    final codeAccent = switch (e.status) {
+      InspectorStatus.pending => const Color(0xFFE879F9),
+      InspectorStatus.success => const Color(0xFF4ADE80),
+      InspectorStatus.clientError => const Color(0xFFFB923C),
+      InspectorStatus.serverError || InspectorStatus.failed =>
+        const Color(0xFFF87171),
+    };
+    final reqAccent = const Color(0xFFE879F9);
 
-    Widget section(String title, Map<String, String> headers, String? body) =>
-        Padding(
-          padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title, style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 4),
-              for (final h in headers.entries)
-                SelectableText(
-                  '${h.key}: ${h.value}',
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-              if (body != null && body.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                SelectableText(
-                  body,
-                  style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                ),
-              ],
-            ],
+    Widget section(
+      String title,
+      Map<String, String> headers,
+      String? body,
+      Color accent,
+    ) => Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: Theme.of(
+              context,
+            ).textTheme.titleSmall?.copyWith(color: accent),
           ),
-        );
+          const SizedBox(height: 6),
+          if (headers.isNotEmpty)
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 8),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: const Color(0xFF0F172A),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: accent.withValues(alpha: 0.45)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  for (final h in headers.entries)
+                    SelectableText.rich(
+                      TextSpan(
+                        style: const TextStyle(
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: '${h.key}: ',
+                            style: const TextStyle(color: Color(0xFF67E8F9)),
+                          ),
+                          TextSpan(
+                            text: h.value,
+                            style: const TextStyle(color: Color(0xFFCBD5E1)),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          if (body != null && body.isNotEmpty) _syntaxBox(body, accent),
+        ],
+      ),
+    );
+
+    final statusLabel = switch (e.status) {
+      InspectorStatus.pending => 'PENDING',
+      InspectorStatus.success => 'SUCCESS ${e.statusCode ?? ''}'.trim(),
+      InspectorStatus.clientError => 'WARNING ${e.statusCode ?? ''}'.trim(),
+      InspectorStatus.serverError => 'ERROR ${e.statusCode ?? ''}'.trim(),
+      InspectorStatus.failed => 'FAILED',
+    };
 
     return Column(
       children: [
@@ -783,16 +966,49 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                child: SelectableText(e.url),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-                child: Text(
-                  [
-                    if (e.duration case final d?) '${d.inMilliseconds} ms',
-                    if (e.source case final s?) s.name,
-                    ?e.error,
-                  ].join(' · '),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: statusAccent.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: statusAccent.withValues(alpha: 0.72),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${e.method} · $statusLabel',
+                        style: TextStyle(
+                          color: statusAccent,
+                          fontWeight: FontWeight.w800,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      SelectableText(
+                        e.url,
+                        style: TextStyle(
+                          color: statusAccent,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
+                      ),
+                      if (e.duration != null || e.source != null || e.error != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          [
+                            if (e.duration case final d?)
+                              '${d.inMilliseconds} ms',
+                            if (e.source case final s?) s.name,
+                            ?e.error,
+                          ].join(' · '),
+                          style: TextStyle(color: statusAccent, fontSize: 12),
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               Padding(
@@ -826,11 +1042,15 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                 'Request',
                 e.requestHeaders,
                 prettyReq.isNotEmpty ? prettyReq : e.requestBody,
+                reqAccent,
               ),
               section(
                 'Response',
                 e.responseHeaders,
-                prettyRes.isNotEmpty ? prettyRes : e.responseBody,
+                prettyRes.isNotEmpty
+                    ? prettyRes
+                    : (e.responseBody ?? e.error),
+                codeAccent,
               ),
               const SizedBox(height: 24),
             ],

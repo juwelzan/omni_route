@@ -61,16 +61,23 @@ void main() {
       expect(OmniRoute.routePath, '/api');
       expect(find.text('OmniShell: /api'), findsOneWidget);
 
-      // onReady ran Normal & Modified API immediately in the top cards.
-      expect(find.textContaining('[NORMAL API RESULT'), findsOneWidget);
-      expect(find.textContaining('[MODIFIED API RESULT'), findsOneWidget);
-
       final apiScroll = find
           .descendant(
             of: find.byType(ApiCompareScreen),
             matching: find.byType(Scrollable),
           )
           .first;
+
+      // onReady ran Normal & Modified API immediately in the top cards.
+      expect(find.textContaining('[NORMAL API RESULT'), findsOneWidget);
+      await tester.scrollUntilVisible(
+        find.textContaining('[MODIFIED API RESULT'),
+        150,
+        scrollable: apiScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(find.textContaining('[MODIFIED API RESULT'), findsOneWidget);
+
       Future<void> tapInApiLab(Finder target) async {
         await tester.scrollUntilVisible(target, 150, scrollable: apiScroll);
         await tester.pumpAndSettle();
@@ -78,11 +85,17 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Run POST /posts (201 Created), verify 1-click Copy Full JSON, then Print 100 Posts JSON.
+      // Run POST /posts (201 Created), verify 1-click Copy Full JSON, Warning & Error triggers, then Print 100 Posts JSON.
       await tapInApiLab(find.text('POST /posts (201)'));
       expect(find.textContaining('[POST 201 CREATED]'), findsOneWidget);
       await tapInApiLab(find.text('Copy Full JSON'));
       expect(find.textContaining('Copied Modified API JSON'), findsOneWidget);
+
+      await tapInApiLab(find.text('404 Warning'));
+      expect(find.textContaining('[404 WARNING'), findsOneWidget);
+
+      await tapInApiLab(find.text('500 Error'));
+      expect(find.textContaining('[500 SERVER ERROR'), findsOneWidget);
 
       await tapInApiLab(find.text('Print 100 Posts JSON'));
       expect(find.textContaining('totalPosts=100'), findsOneWidget);
@@ -189,10 +202,31 @@ void main() {
       expect(created.id, 101);
       expect(posts.length, 100);
       expect(largePayloadLines, greaterThan(500));
-      expect(coordinator.lastModifiedTerminalBlock, contains('🟢 ✔ 200 OK'));
+      expect(
+        coordinator.lastModifiedTerminalBlock,
+        contains('💡 http-response · 200 OK'),
+      );
       expect(
         coordinator.lastModifiedTerminalBlock,
         contains('📦 Body: JSON Object'),
+      );
+      expect(coordinator.lastModifiedTerminalBlock, contains('\x1B[38;5;40m'));
+
+      await coordinator.callWarningDemo();
+      expect(
+        coordinator.lastModifiedTerminalBlock,
+        contains('⚠️ http-warning · 404 Not Found'),
+      );
+      expect(coordinator.lastModifiedTerminalBlock, contains('\x1B[38;5;214m'));
+
+      await coordinator.callErrorDemo();
+      expect(
+        coordinator.lastModifiedTerminalBlock,
+        contains('⛔ http-error · 500'),
+      );
+      expect(
+        coordinator.lastModifiedTerminalBlock,
+        contains('\x1B[1;38;5;15;48;5;196m'),
       );
       expect(multi, contains('dummyjson.com'));
       expect(multi, contains('open-meteo.com'));

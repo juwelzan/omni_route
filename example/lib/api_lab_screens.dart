@@ -27,9 +27,11 @@ class ApiLabState {
     this.normalResponse =
         'Tap "Call Normal API" -> https://jsonplaceholder.typicode.com/users/1',
     this.normalJson = '',
+    this.normalStatus,
     this.modifiedResponse =
         'Tap "Call Modified API" -> https://jsonplaceholder.typicode.com/users/1',
     this.modifiedJson = '',
+    this.modifiedStatus,
     this.modifiedTerminalBox = '',
     this.hubOutput =
         'Tap "Call 3 Public Websites" -> DummyJSON + Open-Meteo + PokeAPI',
@@ -47,8 +49,10 @@ class ApiLabState {
   final String activeEnv;
   final String normalResponse;
   final String normalJson;
+  final int? normalStatus;
   final String modifiedResponse;
   final String modifiedJson;
+  final int? modifiedStatus;
   final String modifiedTerminalBox;
   final String hubOutput;
   final String multiApiJson;
@@ -64,8 +68,10 @@ class ApiLabState {
     String? activeEnv,
     String? normalResponse,
     String? normalJson,
+    int? normalStatus,
     String? modifiedResponse,
     String? modifiedJson,
+    int? modifiedStatus,
     String? modifiedTerminalBox,
     String? hubOutput,
     String? multiApiJson,
@@ -80,8 +86,10 @@ class ApiLabState {
     activeEnv: activeEnv ?? this.activeEnv,
     normalResponse: normalResponse ?? this.normalResponse,
     normalJson: normalJson ?? this.normalJson,
+    normalStatus: normalStatus ?? this.normalStatus,
     modifiedResponse: modifiedResponse ?? this.modifiedResponse,
     modifiedJson: modifiedJson ?? this.modifiedJson,
+    modifiedStatus: modifiedStatus ?? this.modifiedStatus,
     modifiedTerminalBox: modifiedTerminalBox ?? this.modifiedTerminalBox,
     hubOutput: hubOutput ?? this.hubOutput,
     multiApiJson: multiApiJson ?? this.multiApiJson,
@@ -128,11 +136,18 @@ class ApiLabCubit extends Cubit<ApiLabState> {
           busy: false,
           normalResponse: demo.lastNormalOutput,
           normalJson: demo.lastNormalJson,
+          normalStatus: demo.lastNormalStatus ?? 200,
         ),
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(busy: false, normalResponse: 'Error: $e'));
+      emit(
+        state.copyWith(
+          busy: false,
+          normalStatus: 500,
+          normalResponse: 'Error: $e',
+        ),
+      );
     }
   }
 
@@ -152,14 +167,61 @@ class ApiLabCubit extends Cubit<ApiLabState> {
           busy: false,
           modifiedResponse: demo.lastModifiedOutput,
           modifiedJson: demo.lastModifiedJson,
+          modifiedStatus: demo.lastModifiedStatus ?? 200,
           modifiedTerminalBox: terminalBox,
           totalCapturedLogs: demo.modifiedOutputLog.length,
         ),
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(busy: false, modifiedResponse: 'Error: $e'));
+      emit(
+        state.copyWith(
+          busy: false,
+          modifiedStatus: 500,
+          modifiedResponse: 'Error: $e',
+        ),
+      );
     }
+  }
+
+  /// Triggers a real 404 Client Warning to preview Amber/Orange warning colors.
+  Future<void> runWarningDemo() async {
+    if (isClosed) return;
+    emit(state.copyWith(busy: true));
+    await demo.callWarningDemo();
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        busy: false,
+        modifiedResponse: demo.lastModifiedOutput,
+        modifiedJson: demo.lastModifiedJson,
+        modifiedStatus: 404,
+        modifiedTerminalBox: demo.modifiedClient.enableLogging
+            ? demo.lastModifiedTerminalBlock
+            : '(enableLogging is false — silent)',
+        totalCapturedLogs: demo.modifiedOutputLog.length,
+      ),
+    );
+  }
+
+  /// Triggers a 500 Server Error to preview bright Red error colors.
+  Future<void> runErrorDemo() async {
+    if (isClosed) return;
+    emit(state.copyWith(busy: true));
+    await demo.callErrorDemo();
+    if (isClosed) return;
+    emit(
+      state.copyWith(
+        busy: false,
+        modifiedResponse: demo.lastModifiedOutput,
+        modifiedJson: demo.lastModifiedJson,
+        modifiedStatus: 500,
+        modifiedTerminalBox: demo.modifiedClient.enableLogging
+            ? demo.lastModifiedTerminalBlock
+            : '(enableLogging is false — silent)',
+        totalCapturedLogs: demo.modifiedOutputLog.length,
+      ),
+    );
   }
 
   /// Real `POST https://jsonplaceholder.typicode.com/posts` (HTTP 201).
@@ -174,6 +236,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
           busy: false,
           modifiedResponse: '[POST 201 CREATED]\n$created',
           modifiedJson: demo.lastModifiedJson,
+          modifiedStatus: 201,
           modifiedTerminalBox: demo.modifiedClient.enableLogging
               ? demo.lastModifiedTerminalBlock
               : '(enableLogging is false — silent)',
@@ -182,7 +245,13 @@ class ApiLabCubit extends Cubit<ApiLabState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(busy: false, modifiedResponse: 'Error: $e'));
+      emit(
+        state.copyWith(
+          busy: false,
+          modifiedStatus: 500,
+          modifiedResponse: 'Error: $e',
+        ),
+      );
     }
   }
 
@@ -202,6 +271,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
               '[FULL PUBLIC PAYLOAD TEST]\n'
               'totalPosts=${posts.length} | Printed $lines lines in log (no truncation)',
           modifiedJson: demo.lastModifiedJson,
+          modifiedStatus: 200,
           modifiedTerminalBox: demo.modifiedClient.enableLogging
               ? demo.lastModifiedTerminalBlock
               : '(enableLogging is false — silent)',
@@ -478,10 +548,59 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
     );
   }
 
+  static Color _statusAccent(int? status, Brightness b) {
+    final dark = b == Brightness.dark;
+    if (status == null) {
+      return dark ? const Color(0xFF60A5FA) : Colors.blueGrey.shade700;
+    }
+    if (status >= 500) {
+      return dark ? const Color(0xFFF87171) : Colors.red.shade700;
+    }
+    if (status >= 400) {
+      return dark ? const Color(0xFFFB923C) : Colors.orange.shade800;
+    }
+    if (status >= 300) {
+      return dark ? const Color(0xFF38BDF8) : Colors.blue.shade700;
+    }
+    return dark ? const Color(0xFF4ADE80) : Colors.green.shade700;
+  }
+
+  static Color _darkStatusAccent(int? status) {
+    if (status == null) return const Color(0xFF38BDF8);
+    if (status >= 500) return const Color(0xFFF87171);
+    if (status >= 400) return const Color(0xFFFB923C);
+    if (status >= 300) return const Color(0xFF38BDF8);
+    return const Color(0xFF4ADE80);
+  }
+
+  Widget _coloredBannerText(String text, Color accent) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(10),
+    decoration: BoxDecoration(
+      color: accent.withValues(alpha: 0.10),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: accent.withValues(alpha: 0.68)),
+    ),
+    child: SelectionArea(
+      child: Text(
+        text,
+        style: TextStyle(
+          fontFamily: 'monospace',
+          fontSize: 12,
+          color: accent,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+  );
+
   @override
   Widget build(BuildContext context) {
     final cubit = readBloc<ApiLabCubit>();
     final lab = watchBloc<ApiLabCubit>().state;
+    final brightness = Theme.of(context).brightness;
+    final normalAccent = _statusAccent(lab.normalStatus, brightness);
+    final modifiedAccent = _statusAccent(lab.modifiedStatus, brightness);
 
     return Scaffold(
       appBar: AppBar(
@@ -560,10 +679,14 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  SelectableText(
-                    lab.normalResponse,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
+                  _coloredBannerText(lab.normalResponse, normalAccent),
+                  if (lab.normalJson.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _ColoredJsonBox(
+                      jsonText: lab.normalJson,
+                      accent: _darkStatusAccent(lab.normalStatus),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -597,6 +720,20 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                       OutlinedButton(
                         onPressed: lab.busy ? null : cubit.runLargePayloadApi,
                         child: const Text('Print 100 Posts JSON'),
+                      ),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.orange.shade700,
+                        ),
+                        onPressed: lab.busy ? null : cubit.runWarningDemo,
+                        child: const Text('404 Warning'),
+                      ),
+                      OutlinedButton(
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red.shade600,
+                        ),
+                        onPressed: lab.busy ? null : cubit.runErrorDemo,
+                        child: const Text('500 Error'),
                       ),
                       OutlinedButton.icon(
                         onPressed: () => _copy(
@@ -648,10 +785,14 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  SelectableText(
-                    lab.modifiedResponse,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
-                  ),
+                  _coloredBannerText(lab.modifiedResponse, modifiedAccent),
+                  if (lab.modifiedJson.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _ColoredJsonBox(
+                      jsonText: lab.modifiedJson,
+                      accent: _darkStatusAccent(lab.modifiedStatus),
+                    ),
+                  ],
                   if (lab.modifiedTerminalBox.isNotEmpty) ...[
                     const Divider(),
                     Row(
@@ -726,10 +867,19 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  SelectableText(
+                  _coloredBannerText(
                     lab.hubOutput,
-                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                    lab.hubOutput.startsWith('Hub error')
+                        ? _statusAccent(500, brightness)
+                        : _statusAccent(200, brightness),
                   ),
+                  if (lab.multiApiJson.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    _ColoredJsonBox(
+                      jsonText: lab.multiApiJson,
+                      accent: const Color(0xFF38BDF8),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -764,7 +914,12 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     ],
                   ),
                   const SizedBox(height: 6),
-                  SelectableText(lab.wsOutput),
+                  _coloredBannerText(
+                    lab.wsOutput,
+                    lab.wsOutput.startsWith('WS error')
+                        ? _statusAccent(500, brightness)
+                        : _statusAccent(300, brightness),
+                  ),
                 ],
               ),
             ),
@@ -1108,9 +1263,13 @@ class _ColoredAnsiTerminalBox extends StatelessWidget {
   static final RegExp _ansiPattern = RegExp(r'\x1B\[([0-9;]*)m');
 
   static const Map<int, Color> _palette = {
+    15: Color(0xFFFFFFFF), // bright white
     40: Color(0xFF4ADE80), // green (2xx)
+    78: Color(0xFF86EFAC), // soft emerald
+    43: Color(0xFF2DD4BF), // teal
     196: Color(0xFFF87171), // red (5xx / failure)
     214: Color(0xFFFB923C), // amber (4xx warning)
+    208: Color(0xFFFB923C), // orange (warning)
     39: Color(0xFF38BDF8), // blue (3xx / GET)
     171: Color(0xFFE879F9), // magenta (http-request)
     81: Color(0xFF67E8F9), // cyan (JSON keys)
@@ -1126,6 +1285,7 @@ class _ColoredAnsiTerminalBox extends StatelessWidget {
   List<TextSpan> _parseAnsi(String input) {
     final spans = <TextSpan>[];
     var currentColor = const Color(0xFFE2E8F0);
+    Color? currentBg;
     var bold = false;
     var index = 0;
 
@@ -1136,6 +1296,7 @@ class _ColoredAnsiTerminalBox extends StatelessWidget {
             text: input.substring(index, match.start),
             style: TextStyle(
               color: currentColor,
+              backgroundColor: currentBg,
               fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
             ),
           ),
@@ -1144,15 +1305,32 @@ class _ColoredAnsiTerminalBox extends StatelessWidget {
       final code = match.group(1) ?? '';
       if (code.isEmpty || code == '0') {
         currentColor = const Color(0xFFE2E8F0);
+        currentBg = null;
         bold = false;
       } else {
         final parts = code.split(';');
-        if (parts.contains('1')) bold = true;
-        final fgIdx = parts.indexOf('38');
-        if (fgIdx >= 0 && fgIdx + 2 < parts.length && parts[fgIdx + 1] == '5') {
-          final colorNum = int.tryParse(parts[fgIdx + 2]);
-          if (colorNum != null && _palette.containsKey(colorNum)) {
-            currentColor = _palette[colorNum]!;
+        for (var i = 0; i < parts.length; i++) {
+          final p = parts[i];
+          if (p == '1') {
+            bold = true;
+          } else if (p == '38' &&
+              i + 2 < parts.length &&
+              parts[i + 1] == '5') {
+            final colorNum = int.tryParse(parts[i + 2]);
+            if (colorNum != null && _palette.containsKey(colorNum)) {
+              currentColor = _palette[colorNum]!;
+            }
+            i += 2;
+          } else if (p == '48' &&
+              i + 2 < parts.length &&
+              parts[i + 1] == '5') {
+            final bgNum = int.tryParse(parts[i + 2]);
+            if (bgNum == 196) {
+              currentBg = const Color(0xFFDC2626);
+            } else if (bgNum == 214 || bgNum == 208) {
+              currentBg = const Color(0xFFD97706);
+            }
+            i += 2;
           }
         }
       }
@@ -1165,6 +1343,7 @@ class _ColoredAnsiTerminalBox extends StatelessWidget {
           text: input.substring(index),
           style: TextStyle(
             color: currentColor,
+            backgroundColor: currentBg,
             fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
           ),
         ),
@@ -1185,16 +1364,145 @@ class _ColoredAnsiTerminalBox extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        child: SelectableText.rich(
-          TextSpan(
-            style: const TextStyle(
-              fontFamily: 'monospace',
-              fontSize: 11.5,
-              height: 1.35,
+        child: SelectionArea(
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11.5,
+                height: 1.35,
+              ),
+              children: _parseAnsi(ansiText),
             ),
-            children: _parseAnsi(ansiText),
+            maxLines: 20,
+            overflow: TextOverflow.ellipsis,
           ),
-          maxLines: 18,
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders syntax-highlighted JSON inside dark rounded boxes matching the
+/// outcome status accent (`green` success, `orange` warning, `red` error).
+class _ColoredJsonBox extends StatelessWidget {
+  const _ColoredJsonBox({required this.jsonText, required this.accent});
+
+  final String jsonText;
+  final Color accent;
+
+  List<TextSpan> _highlight(String input) {
+    final spans = <TextSpan>[];
+    final lines = input.split('\n');
+    for (var li = 0; li < lines.length; li++) {
+      final line = lines[li];
+      var i = 0;
+      while (i < line.length) {
+        final c = line[i];
+        if (c == '"') {
+          var j = i + 1;
+          var escaped = false;
+          while (j < line.length) {
+            final d = line[j];
+            j++;
+            if (escaped) {
+              escaped = false;
+            } else if (d == r'\') {
+              escaped = true;
+            } else if (d == '"') {
+              break;
+            }
+          }
+          var k = j;
+          while (k < line.length && line[k] == ' ') {
+            k++;
+          }
+          final isKey = k < line.length && line[k] == ':';
+          spans.add(
+            TextSpan(
+              text: line.substring(i, j),
+              style: TextStyle(
+                color: isKey
+                    ? const Color(0xFF67E8F9)
+                    : const Color(0xFFFDE68A),
+                fontWeight: isKey ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+          );
+          i = j;
+        } else if ('{}[],:'.contains(c)) {
+          spans.add(
+            TextSpan(
+              text: c,
+              style: const TextStyle(color: Color(0xFFCBD5E1)),
+            ),
+          );
+          i++;
+        } else if (c == '-' ||
+            (c.codeUnitAt(0) >= 0x30 && c.codeUnitAt(0) <= 0x39)) {
+          var j = i + 1;
+          while (j < line.length && '0123456789eE+-.'.contains(line[j])) {
+            j++;
+          }
+          spans.add(
+            TextSpan(
+              text: line.substring(i, j),
+              style: const TextStyle(color: Color(0xFFC4B5FD)),
+            ),
+          );
+          i = j;
+        } else if (line.startsWith('true', i) ||
+            line.startsWith('null', i) ||
+            line.startsWith('false', i)) {
+          final n = line.startsWith('false', i) ? 5 : 4;
+          spans.add(
+            TextSpan(
+              text: line.substring(i, i + n),
+              style: const TextStyle(
+                color: Color(0xFFF472B6),
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          );
+          i += n;
+        } else {
+          spans.add(TextSpan(text: c, style: TextStyle(color: accent)));
+          i++;
+        }
+      }
+      if (li + 1 < lines.length) {
+        spans.add(const TextSpan(text: '\n'));
+      }
+    }
+    return spans;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: accent.withValues(alpha: 0.72), width: 1.15),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SelectionArea(
+          child: Text.rich(
+            TextSpan(
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 11.5,
+                height: 1.35,
+                color: Color(0xFFE2E8F0),
+              ),
+              children: _highlight(jsonText),
+            ),
+            maxLines: 14,
+            overflow: TextOverflow.ellipsis,
+          ),
         ),
       ),
     );

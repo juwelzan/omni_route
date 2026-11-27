@@ -244,8 +244,21 @@ OmniMock createOfflinePublicMirrorMock() {
   return OmniMock()
     ..get('/users/{id}', (req) {
       final id = int.tryParse(req.pathParams['id'] ?? '1') ?? 1;
+      if (id == 999) {
+        return MockResponse.json(
+          {'error': 'User not found', 'id': 999, 'status': 404},
+          status: 404,
+        );
+      }
       return MockResponse.json(users[id] ?? users[1]!);
     })
+    ..get(
+      '/http/500',
+      (_) => MockResponse.json(
+        {'status': 500, 'error': 'Simulated Upstream Server Error'},
+        status: 500,
+      ),
+    )
     ..get('/posts', (_) => MockResponse.json(samplePosts))
     ..post('/posts', (req) {
       final body = Map<String, Object?>.from(req.json! as Map);
@@ -618,30 +631,44 @@ class ApiComparisonCoordinator {
   Stream<({String label, NetworkLogRecord record})> get networkLogs =>
       _allLogRecords.stream;
 
+  void _collectPreviewBlock(String formatted, {required bool withBody}) {
+    if (modifiedClient.logResponse != withBody) return;
+    if (formatted.contains('📡 http-request')) {
+      lastModifiedTerminalBlock = formatted;
+    } else {
+      lastModifiedTerminalBlock = lastModifiedTerminalBlock.isEmpty
+          ? formatted
+          : '$lastModifiedTerminalBlock\n$formatted';
+    }
+    modifiedOutputLog.add(formatted);
+  }
+
   late final PrettyLogSink _uiPreviewWithBodySink = PrettyLogSink(
-    options: const LogOptions(summary: true, responseBody: true, colors: true),
-    printer: (formatted) {
-      if (modifiedClient.logResponse) {
-        lastModifiedTerminalBlock = formatted;
-        modifiedOutputLog.add(formatted);
-      }
-    },
+    options: const LogOptions(
+      summary: true,
+      separate: true,
+      responseBody: true,
+      colors: true,
+    ),
+    printer: (formatted) => _collectPreviewBlock(formatted, withBody: true),
   );
 
   late final PrettyLogSink _uiPreviewCompactSink = PrettyLogSink(
-    options: const LogOptions(summary: true, responseBody: false, colors: true),
-    printer: (formatted) {
-      if (!modifiedClient.logResponse) {
-        lastModifiedTerminalBlock = formatted;
-        modifiedOutputLog.add(formatted);
-      }
-    },
+    options: const LogOptions(
+      summary: true,
+      separate: true,
+      responseBody: false,
+      colors: true,
+    ),
+    printer: (formatted) => _collectPreviewBlock(formatted, withBody: false),
   );
 
   String lastNormalOutput = '';
   String lastNormalJson = '';
+  int? lastNormalStatus;
   String lastModifiedOutput = '';
   String lastModifiedJson = '';
+  int? lastModifiedStatus;
   String lastModifiedTerminalBlock = '';
   String lastMultiApiOutput = '';
   String lastMultiApiJson = '';
@@ -660,9 +687,13 @@ class ApiComparisonCoordinator {
       final formatted = _formatBodyForCopy(body);
       if (label == 'normal') {
         lastNormalJson = formatted;
-      } else if (label == 'modified') {
+        lastNormalStatus = record.statusCode;
+      } else {
         lastModifiedJson = formatted;
+        lastModifiedStatus = record.statusCode;
       }
+    } else if (record.kind == NetworkLogKind.error && label != 'normal') {
+      lastModifiedStatus = 500;
     }
   }
 
@@ -747,6 +778,43 @@ class ApiComparisonCoordinator {
             'logColors=${modifiedClient.logColors}',
       Err(:final error) => '[MODIFIED API ERROR] $error',
     };
+    return res;
+  }
+
+  /// Triggers a real 404 Client Warning response so Amber/Orange warning colors
+  /// appear cleanly in both terminal logs and the UI preview.
+  Future<Result<Map<String, dynamic>>> callWarningDemo() async {
+    final res = await modifiedClient
+        .get<Map<String, dynamic>>('/users/999', cache: CachePolicy.noCache)
+        .asResult();
+    final errText = switch (res) {
+      Ok(:final value) => '$value',
+      Err(:final error) => '$error',
+    };
+    lastModifiedStatus = 404;
+    lastModifiedOutput =
+        '[404 WARNING -> jsonplaceholder.typicode.com/users/999]\n'
+        'Status: 404 Not Found · Warning color matched cleanly\n'
+        '$errText';
+    return res;
+  }
+
+  /// Triggers a 500 Server Error response via DummyJSON `/http/500` so bright
+  /// Red error banner + error body colors appear in terminal & UI.
+  Future<Result<Map<String, dynamic>>> callErrorDemo() async {
+    final res = await hub
+        .service('dummyjson')
+        .get<Map<String, dynamic>>('/http/500', cache: CachePolicy.noCache)
+        .asResult();
+    final errText = switch (res) {
+      Ok(:final value) => '$value',
+      Err(:final error) => '$error',
+    };
+    lastModifiedStatus = 500;
+    lastModifiedOutput =
+        '[500 SERVER ERROR -> dummyjson.com/http/500]\n'
+        'Status: 500 Server Error · Error color matched cleanly\n'
+        '$errText';
     return res;
   }
 

@@ -1,2 +1,3 @@
-/// No reliable colour detection here (e.g. browsers). Internal.
-bool terminalSupportsColors() => false;
+/// Modern browser DevTools consoles (Chrome/Edge/Firefox) render ANSI SGR
+/// colour escapes cleanly. Internal.
+bool terminalSupportsColors() => true;

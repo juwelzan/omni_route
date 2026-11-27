@@ -91,7 +91,7 @@ class _ExampleBlocObserver extends BlocObserver {
     if (printTerminal && kDebugMode) {
       _printSeparateBox(
         colorCode: '38;5;196',
-        header: '⛔ bloc-error · $name',
+        header: '\x1B[1;38;5;15;48;5;196m ⛔ bloc-error · $name \x1B[0m',
         detail: '$error',
       );
     }
