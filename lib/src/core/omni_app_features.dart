@@ -11,6 +11,7 @@ import '../routing/omni_route_state.dart';
 import '../routing/omni_trie.dart';
 import '../screens/omni_lifecycle.dart';
 import 'omni_app_config.dart';
+import 'omni_onboarding_store.dart';
 import 'omni_router.dart';
 
 /// Runs app-wide [OmniLifecycle] hooks (`OmniApp(lifecycle:)`). The context
@@ -83,6 +84,9 @@ class OmniFlowSession {
 
   /// Active route-based onboarding step index.
   int onboardingRouteStep = 0;
+
+  /// Last storage key marked persisted in this session (avoids redundant writes).
+  String? persistedMarkedKey;
 }
 
 /// Normalizes a route path pattern (`trim`, leading `/`, no trailing `/`).
@@ -149,9 +153,10 @@ List<OmniRouteBase> buildOmniConfigRoutes(
 ) {
   if (config == null) return routes;
   final auth = config.auth;
-  final hasLogin = auth != null &&
-      (auth.loginBuilder != null || auth.loginScreen != null);
-  final hasSignup = auth != null &&
+  final hasLogin =
+      auth != null && (auth.loginBuilder != null || auth.loginScreen != null);
+  final hasSignup =
+      auth != null &&
       auth.signupRoute != null &&
       (auth.signupBuilder != null || auth.signupScreen != null);
   final hasExtras =
@@ -206,7 +211,8 @@ List<OmniRouteBase> buildOmniConfigRoutes(
 }
 
 /// Guard implementing [OmniConfig] rules for route-based onboarding, [OmniAuth]
-/// login/signup/home protection, and pre-login public screens/routes.
+/// login/signup/home protection, automatic onboarding persistence triggers, and
+/// pre-login public screens/routes.
 @internal
 class OmniConfigGuard extends OmniGuard {
   /// Builds the guard from [config] and shared [session].
@@ -239,6 +245,16 @@ class OmniConfigGuard extends OmniGuard {
     return trie;
   }
 
+  void _markOnboardingPersisted(OmniOnboarding ob) {
+    if (!ob.usesPersistence) return;
+    if (session.persistedMarkedKey == ob.storageKey) return;
+    session.persistedMarkedKey = ob.storageKey;
+    session.onboardingCompleted = true;
+    unawaited(
+      OmniOnboardingStore.markDone(ob.storageKey, customStore: ob.storage),
+    );
+  }
+
   @override
   Stream<Object?>? refresh(BuildContext context) =>
       config.auth?.refreshStream?.call(context);
@@ -246,9 +262,11 @@ class OmniConfigGuard extends OmniGuard {
   @override
   FutureOr<String?> redirect(BuildContext context, OmniRouteState state) {
     final loc = normalizeOmniConfigPath(state.matchedLocation);
+    final ob = config.onboarding;
+    final obEnabled = ob != null && ob.hasContent;
     final obRoutes = [
-      for (final r in config.onboarding?.effectiveRoutes ?? const <String>[])
-        normalizeOmniConfigPath(r),
+      if (obEnabled)
+        for (final r in ob.effectiveRoutes) normalizeOmniConfigPath(r),
     ];
 
     if (obRoutes.isNotEmpty) {
@@ -267,19 +285,38 @@ class OmniConfigGuard extends OmniGuard {
     }
 
     final auth = config.auth;
-    final authCheck = auth?.isAuthenticated;
-    if (auth == null || authCheck == null) return null;
+    if (auth == null) return null;
 
-    final authed = authCheck(context);
     final loginLoc = normalizeOmniConfigPath(auth.loginRoute);
     final signupRaw = auth.signupRoute;
     final signupLoc = signupRaw == null
         ? null
         : normalizeOmniConfigPath(signupRaw);
-    final homeLoc = normalizeOmniConfigPath(auth.homeRoute);
-
     final isAuthRoute = loc == loginLoc || (signupLoc != null && loc == signupLoc);
+
+    // Entering Login/Signup marks onboarding done in local storage under
+    // onceUntilLoginScreen mode—even if the user leaves before signing in.
+    if (isAuthRoute &&
+        ob != null &&
+        ob.usesPersistence &&
+        ob.effectiveMode == OmniOnboardingMode.onceUntilLoginScreen) {
+      _markOnboardingPersisted(ob);
+    }
+
+    final authCheck = auth.isAuthenticated;
+    if (authCheck == null) return null;
+
+    final authed = authCheck(context);
+    final homeLoc = normalizeOmniConfigPath(auth.homeRoute);
     final isPublic = _publicTrie.matchUri(state.uri) != null;
+
+    if (authed &&
+        ob != null &&
+        ob.usesPersistence &&
+        (ob.effectiveMode == OmniOnboardingMode.untilLoggedIn ||
+            ob.effectiveMode == OmniOnboardingMode.onceUntilLoginScreen)) {
+      _markOnboardingPersisted(ob);
+    }
 
     if (!authed) {
       if (isAuthRoute || isPublic) return null;
@@ -381,8 +418,9 @@ class OmniConfigGuard extends OmniGuard {
 
 enum _StartupPhase { splash, onboarding, app, error }
 
-/// Runs [OmniConfig] startup, Splash, multi-screen or single Onboarding, and
-/// runtime [OmniFlowController] actions via [OmniFlowScope] (`context.flow`).
+/// Runs [OmniConfig] startup, Splash, multi-screen or single Onboarding,
+/// automatic local DB persistence, and runtime [OmniFlowController] actions
+/// via [OmniFlowScope] (`context.flow`).
 @internal
 class OmniInitGate extends StatefulWidget {
   /// Creates the startup & flow gate wrapping [child].
@@ -436,7 +474,7 @@ class _OmniInitGateState extends State<OmniInitGate>
 
   int get _widgetOnboardingCount {
     final ob = widget.config.onboarding;
-    if (ob == null) return 0;
+    if (ob == null || !ob.hasWidgetMode) return 0;
     if (ob.screens.isNotEmpty) return ob.screens.length;
     if (ob.screenBuilders.isNotEmpty) return ob.screenBuilders.length;
     if (ob.builder != null) return 1;
@@ -455,8 +493,12 @@ class _OmniInitGateState extends State<OmniInitGate>
     }
 
     final ob = cfg.onboarding;
-    if (!_hasAsyncSplashStage && ob != null && ob.hasContent) {
-      final decision = ob.alwaysShow
+    if (!_hasAsyncSplashStage &&
+        ob != null &&
+        ob.hasContent &&
+        !ob.usesPersistence) {
+      final mode = ob.effectiveMode;
+      final decision = mode == OmniOnboardingMode.always
           ? true
           : ob.shouldShow == null
           ? !widget.session.onboardingCompleted
@@ -480,7 +522,6 @@ class _OmniInitGateState extends State<OmniInitGate>
           return;
         }
       }
-      // Async shouldShowOnboarding without splash: resolve cleanly before showing app.
       _phase = _StartupPhase.splash;
       _run(pendingDecision: decision is Future<bool> ? decision : null);
       return;
@@ -499,6 +540,18 @@ class _OmniInitGateState extends State<OmniInitGate>
     }
     if (!oldWidget.config.hasStartupGate && widget.config.hasStartupGate) {
       restartStartup();
+    } else if (oldWidget.config.hasStartupGate &&
+        !widget.config.hasStartupGate &&
+        _phase != _StartupPhase.app) {
+      _runEpoch++;
+      _cancelTimers();
+      _retirePageController();
+      widget.session.onboardingPending = false;
+      setState(() {
+        _error = null;
+        _stack = null;
+        _phase = _StartupPhase.app;
+      });
     }
   }
 
@@ -521,7 +574,7 @@ class _OmniInitGateState extends State<OmniInitGate>
   void _syncRouteStep() {
     if (!mounted) return;
     final ob = widget.config.onboarding;
-    if (ob == null || ob.hasWidgetMode) return;
+    if (ob == null || !ob.hasContent || ob.hasWidgetMode) return;
     final routes = _normalizedObRoutes;
     if (routes.isEmpty) return;
     final loc = normalizeOmniConfigPath(
@@ -627,10 +680,45 @@ class _OmniInitGateState extends State<OmniInitGate>
     return completer.future;
   }
 
+  Future<void> _markPersisted(OmniOnboarding ob) async {
+    if (!ob.usesPersistence) return;
+    if (widget.session.persistedMarkedKey == ob.storageKey) return;
+    widget.session.persistedMarkedKey = ob.storageKey;
+    widget.session.onboardingCompleted = true;
+    await OmniOnboardingStore.markDone(
+      ob.storageKey,
+      customStore: ob.storage,
+    );
+  }
+
   Future<bool> _shouldEnterOnboarding({Future<bool>? pendingDecision}) async {
     final ob = widget.config.onboarding;
     if (ob == null || !ob.hasContent) return false;
-    if (ob.alwaysShow) return true;
+    final mode = ob.effectiveMode;
+    if (mode == OmniOnboardingMode.disabled) return false;
+    if (mode == OmniOnboardingMode.always) return true;
+
+    if (ob.persist) {
+      final persistedDone = await OmniOnboardingStore.isDone(
+        ob.storageKey,
+        customStore: ob.storage,
+      );
+      if (!mounted) return false;
+      if (persistedDone) {
+        widget.session.persistedMarkedKey = ob.storageKey;
+        widget.session.onboardingCompleted = true;
+        return false;
+      }
+      if (mode == OmniOnboardingMode.untilLoggedIn) {
+        final authFn = widget.config.auth?.isAuthenticated;
+        if (authFn != null && authFn(context)) {
+          await _markPersisted(ob);
+          if (!mounted) return false;
+          return false;
+        }
+      }
+    }
+
     if (pendingDecision != null) return pendingDecision;
     if (ob.shouldShow != null) {
       return Future<bool>.sync(() => ob.shouldShow!(context));
@@ -777,6 +865,22 @@ class _OmniInitGateState extends State<OmniInitGate>
       widget.session.onboardingPending = false;
       _retirePageController();
 
+      if (ob != null && ob.usesPersistence) {
+        final mode = ob.effectiveMode;
+        final hasAuthCheck = widget.config.auth?.isAuthenticated != null;
+        final authedNow = hasAuthCheck && widget.config.auth!.isAuthenticated!(context);
+        final shouldPersistNow = switch (mode) {
+          OmniOnboardingMode.onceUntilLoginScreen ||
+          OmniOnboardingMode.onceAfterComplete => true,
+          OmniOnboardingMode.untilLoggedIn => !hasAuthCheck || authedNow,
+          OmniOnboardingMode.always || OmniOnboardingMode.disabled => false,
+        };
+        if (shouldPersistNow) {
+          await _markPersisted(ob);
+          if (!mounted || epoch != _runEpoch) return;
+        }
+      }
+
       var dest = redirectTo;
       if ((dest == null || dest.isEmpty) && ob?.afterDone != null) {
         dest = await Future<String?>.sync(() => ob!.afterDone!(context));
@@ -842,7 +946,7 @@ class _OmniInitGateState extends State<OmniInitGate>
     if (!mounted || count <= 0) return;
     final target = index.clamp(0, count - 1);
     final ob = widget.config.onboarding;
-    if (ob == null) return;
+    if (ob == null || !ob.hasContent) return;
 
     if (ob.hasWidgetMode) {
       if (_stepNotifier.value == target) return;
@@ -911,17 +1015,45 @@ class _OmniInitGateState extends State<OmniInitGate>
   }
 
   @override
+  Future<void> resetOnboarding({bool replay = false}) async {
+    final ob = widget.config.onboarding;
+    widget.session.onboardingCompleted = false;
+    widget.session.onboardingPending = false;
+    widget.session.onboardingRouteStep = 0;
+    widget.session.persistedMarkedKey = null;
+    _stepNotifier.value = 0;
+    if (ob != null) {
+      await OmniOnboardingStore.clearDone(
+        ob.storageKey,
+        customStore: ob.storage,
+      );
+      if (!mounted) return;
+      if (replay) {
+        replayOnboarding();
+      }
+    }
+  }
+
+  @override
   void restartStartup() {
     if (!mounted) return;
     widget.session.onboardingCompleted = false;
     widget.session.onboardingPending = false;
     widget.session.onboardingRouteStep = 0;
+    widget.session.persistedMarkedKey = null;
     _stepNotifier.value = 0;
     _run();
   }
 
   @override
   void goToLogin({String? from}) {
+    final ob = widget.config.onboarding;
+    if (ob != null &&
+        ob.usesPersistence &&
+        ob.effectiveMode == OmniOnboardingMode.onceUntilLoginScreen) {
+      unawaited(_markPersisted(ob));
+    }
+    widget.session.onboardingCompleted = true;
     widget.session.onboardingPending = false;
     final loginLoc = normalizeOmniConfigPath(
       widget.config.auth?.loginRoute ?? '/login',
@@ -937,6 +1069,13 @@ class _OmniInitGateState extends State<OmniInitGate>
   void goToSignup() {
     final router = widget.router;
     if (router == null) return;
+    final ob = widget.config.onboarding;
+    if (ob != null &&
+        ob.usesPersistence &&
+        ob.effectiveMode == OmniOnboardingMode.onceUntilLoginScreen) {
+      unawaited(_markPersisted(ob));
+    }
+    widget.session.onboardingCompleted = true;
     widget.session.onboardingPending = false;
     final auth = widget.config.auth;
     final rawSignup = auth?.signupRoute ?? auth?.loginRoute ?? '/signup';
@@ -951,6 +1090,15 @@ class _OmniInitGateState extends State<OmniInitGate>
 
   @override
   void goToHome() {
+    final ob = widget.config.onboarding;
+    final authed = widget.config.auth?.isAuthenticated?.call(context) ?? false;
+    if (authed &&
+        ob != null &&
+        ob.usesPersistence &&
+        (ob.effectiveMode == OmniOnboardingMode.untilLoggedIn ||
+            ob.effectiveMode == OmniOnboardingMode.onceUntilLoginScreen)) {
+      unawaited(_markPersisted(ob));
+    }
     widget.session.onboardingPending = false;
     widget.router?.go(
       normalizeOmniConfigPath(widget.config.auth?.homeRoute ?? '/'),
@@ -1000,7 +1148,18 @@ class _OmniInitGateState extends State<OmniInitGate>
   }
 
   @override
-  void refresh() => widget.router?.refresh();
+  void refresh() {
+    final ob = widget.config.onboarding;
+    final authed = widget.config.auth?.isAuthenticated?.call(context) ?? false;
+    if (authed &&
+        ob != null &&
+        ob.usesPersistence &&
+        (ob.effectiveMode == OmniOnboardingMode.untilLoggedIn ||
+            ob.effectiveMode == OmniOnboardingMode.onceUntilLoginScreen)) {
+      unawaited(_markPersisted(ob));
+    }
+    widget.router?.refresh();
+  }
 
   Widget _wrapStageView(BuildContext context, Widget built) {
     final hasApp = context.findAncestorWidgetOfExactType<WidgetsApp>() != null;

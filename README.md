@@ -283,7 +283,10 @@ OmniApp.material(
     ),
     onboarding: OmniOnboarding(
       screens: const [Step1Screen(), Step2Screen(), Step3Screen()],
-      shouldShow: (context) => context.read<SettingsBloc>().isFirstRun,
+      // onceUntilLoginScreen (ডিফল্ট): Login স্ক্রিনে ঢুকলেই অটো লোকাল DB-তে সেভ (কোনো ম্যানুয়াল DB কোড লাগবে না)
+      // untilLoggedIn: সফল লগইন না করা পর্যন্ত প্রতিটি লঞ্চে দেখাবে
+      // enabled: false দিয়ে চাইলে বন্ধ রাখা যায়
+      mode: OmniOnboardingMode.onceUntilLoginScreen,
     ),
     auth: OmniAuth(
       isAuthenticated: (context) => context.read<AuthBloc>().state is Authenticated,

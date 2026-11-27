@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_route/omni_route.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionBloc extends Bloc<bool, bool> {
   SessionBloc() : super(false) {
@@ -522,6 +523,10 @@ void main() {
   });
 
   group('OmniConfig: Splash, Multi-Screen Onboarding, Auth & Public Screens', () {
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+    });
+
     testWidgets(
       'OmniSplash(screen/manualFinish) -> multi-screen OmniOnboarding(screens + overlayBuilder) step controls, redirectTo & replay',
       (t) async {
@@ -1006,7 +1011,267 @@ void main() {
         expect(find.text('GuestLand'), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'auto local DB persistence: onceUntilLoginScreen saves on Login screen entry, survives background kill & resetOnboarding restores',
+      (t) async {
+        SharedPreferences.setMockInitialValues({});
+        final authed = ValueNotifier<bool>(false);
+        addTearDown(authed.dispose);
+
+        Widget buildApp() => OmniApp.material(
+          key: UniqueKey(),
+          config: OmniConfig(
+            onboarding: OmniOnboarding(
+              mode: OmniOnboardingMode.onceUntilLoginScreen,
+              screens: [
+                Builder(
+                  builder: (ctx) => Scaffold(
+                    body: Column(
+                      children: [
+                        const Text('Install-Slide-1'),
+                        TextButton(
+                          onPressed: () => ctx.flow?.nextOnboarding(),
+                          child: const Text('ObNext'),
+                        ),
+                        TextButton(
+                          onPressed: () => ctx.flow?.goToLogin(),
+                          child: const Text('JumpToLogin'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const S('Install-Slide-2'),
+              ],
+            ),
+            auth: OmniAuth(
+              isAuthenticated: (_) => authed.value,
+              refreshListenable: authed,
+              homeRoute: '/home',
+              loginScreen: Builder(
+                builder: (ctx) => Scaffold(
+                  body: Column(
+                    children: [
+                      const Text('AutoLoginScreen'),
+                      TextButton(
+                        onPressed: () => ctx.flow?.resetOnboarding(replay: true),
+                        child: const Text('ResetOB'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          routes: [OmniPage('/home', (_) => const S('HomeAfterAuto'))],
+        );
+
+        // 1. Fresh install -> shows Onboarding Slide 1.
+        await t.pumpWidget(buildApp());
+        await t.pumpAndSettle();
+        expect(find.text('Install-Slide-1'), findsOneWidget);
+
+        // 2. Kill app BEFORE entering Login screen -> reopen MUST still show Onboarding.
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildApp());
+        await t.pumpAndSettle();
+        expect(find.text('Install-Slide-1'), findsOneWidget);
+
+        // 3. Enter Login screen (without actually logging in!) -> auto-persisted to local DB.
+        await t.tap(find.text('JumpToLogin'));
+        await t.pumpAndSettle();
+        expect(find.text('AutoLoginScreen'), findsOneWidget);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('omni_route.onboarding.default.done'), isTrue);
+
+        // 4. Clear app from background & reopen -> Onboarding MUST NOT show; opens Login directly.
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildApp());
+        await t.pumpAndSettle();
+        expect(find.text('Install-Slide-1'), findsNothing);
+        expect(find.text('AutoLoginScreen'), findsOneWidget);
+
+        // 5. resetOnboarding clears local DB flag and replays immediately when replay: true.
+        await t.tap(find.text('ResetOB'));
+        await t.pumpAndSettle();
+        expect(find.text('Install-Slide-1'), findsOneWidget);
+        expect(prefs.getBool('omni_route.onboarding.default.done'), isNull);
+      },
+    );
+
+    testWidgets(
+      'auto local DB persistence: untilLoggedIn keeps showing across restarts until user actually logs in',
+      (t) async {
+        SharedPreferences.setMockInitialValues({});
+        final authed = ValueNotifier<bool>(false);
+        addTearDown(authed.dispose);
+
+        Widget buildApp() => OmniApp.material(
+          key: UniqueKey(),
+          config: OmniConfig(
+            onboarding: OmniOnboarding(
+              mode: OmniOnboardingMode.untilLoggedIn,
+              screens: [
+                Builder(
+                  builder: (ctx) => Scaffold(
+                    body: Column(
+                      children: [
+                        const Text('UntilLogin-Slide'),
+                        TextButton(
+                          onPressed: () => ctx.flow?.completeOnboarding(),
+                          child: const Text('FinishSlide'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            auth: OmniAuth(
+              isAuthenticated: (_) => authed.value,
+              refreshListenable: authed,
+              homeRoute: '/home',
+              loginScreen: Builder(
+                builder: (_) => Scaffold(
+                  body: Column(
+                    children: [
+                      const Text('LoginGate'),
+                      TextButton(
+                        onPressed: () => authed.value = true,
+                        child: const Text('PerformLogin'),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          routes: [OmniPage('/home', (_) => const S('LoggedInHome'))],
+        );
+
+        // 1. First open -> Onboarding -> finish to Login screen (NOT logged in yet).
+        await t.pumpWidget(buildApp());
+        await t.pumpAndSettle();
+        expect(find.text('UntilLogin-Slide'), findsOneWidget);
+
+        await t.tap(find.text('FinishSlide'));
+        await t.pumpAndSettle();
+        expect(find.text('LoginGate'), findsOneWidget);
+
+        // 2. Kill app before logging in -> reopen MUST show Onboarding AGAIN!
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildApp());
+        await t.pumpAndSettle();
+        expect(find.text('UntilLogin-Slide'), findsOneWidget);
+
+        // 3. Finish Onboarding -> now perform actual Login -> auto-saved to local DB!
+        await t.tap(find.text('FinishSlide'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('PerformLogin'));
+        await t.pumpAndSettle();
+        expect(find.text('LoggedInHome'), findsOneWidget);
+
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getBool('omni_route.onboarding.default.done'), isTrue);
+
+        // 4. Kill app & reopen later (even if session expired / logged out) -> Onboarding skips!
+        authed.value = false;
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildApp());
+        await t.pumpAndSettle();
+        expect(find.text('UntilLogin-Slide'), findsNothing);
+        expect(find.text('LoginGate'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'developer controls: enabled: false disables onboarding cleanly, persist: false ignores storage, & custom OmniLocalStore works',
+      (t) async {
+        // 1. enabled: false suppresses Onboarding completely even with screens defined.
+        await t.pumpWidget(
+          OmniApp.material(
+            key: UniqueKey(),
+            config: OmniConfig(
+              onboarding: const OmniOnboarding(
+                enabled: false,
+                screens: [S('DisabledSlide')],
+              ),
+            ),
+            routes: [OmniPage('/', (_) => const S('DirectMainApp'))],
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('DisabledSlide'), findsNothing);
+        expect(find.text('DirectMainApp'), findsOneWidget);
+
+        // 2. custom OmniLocalStore + persist: false control.
+        final customDb = _InMemoryLocalStore();
+
+        Widget buildCustomStoreApp({required bool persist}) => OmniApp.material(
+          key: UniqueKey(),
+          config: OmniConfig(
+            onboarding: OmniOnboarding(
+              persist: persist,
+              storageKey: 'v2',
+              storage: customDb,
+              screens: [
+                Builder(
+                  builder: (ctx) => Scaffold(
+                    body: TextButton(
+                      onPressed: () => ctx.flow?.completeOnboarding(),
+                      child: const Text('CustomDbObDone'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          routes: [OmniPage('/', (_) => const S('MainAfterCustomDb'))],
+        );
+
+        // persist: false does not save in customDb -> re-shows after restart.
+        await t.pumpWidget(buildCustomStoreApp(persist: false));
+        await t.pumpAndSettle();
+        await t.tap(find.text('CustomDbObDone'));
+        await t.pumpAndSettle();
+        expect(customDb.data, isEmpty);
+
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildCustomStoreApp(persist: false));
+        await t.pumpAndSettle();
+        expect(find.text('CustomDbObDone'), findsOneWidget);
+
+        // persist: true saves under storageKey 'v2' in customDb -> skips next open!
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildCustomStoreApp(persist: true));
+        await t.pumpAndSettle();
+        await t.tap(find.text('CustomDbObDone'));
+        await t.pumpAndSettle();
+        expect(customDb.data['omni_route.onboarding.v2.done'], isTrue);
+
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(buildCustomStoreApp(persist: true));
+        await t.pumpAndSettle();
+        expect(find.text('CustomDbObDone'), findsNothing);
+        expect(find.text('MainAfterCustomDb'), findsOneWidget);
+      },
+    );
   });
+}
+
+class _InMemoryLocalStore implements OmniLocalStore {
+  final Map<String, bool> data = {};
+
+  @override
+  Future<bool?> getBool(String key) async => data[key];
+
+  @override
+  Future<void> setBool(String key, bool value) async => data[key] = value;
+
+  @override
+  Future<void> remove(String key) async => data.remove(key);
 }
 
 class _GreetingService {

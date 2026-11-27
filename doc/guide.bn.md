@@ -402,15 +402,22 @@ URL-এর `/users/7?age=25&rate=4.5&active=true&sort=newest&tag=a&tag=b` থে
    - **একাধিক স্ক্রিন উইজেট:** `screens: const [Step1(), Step2(), Step3()]` (নিজেই সোয়াইপ ও `nextOnboarding()` / `previousOnboarding()` / `goToOnboardingStep()` কাজ করবে — সাথে চাইলে সব স্ক্রিনের উপর শেয়ার্ড `overlayBuilder` দিন!)
    - **বিল্ডার তালিকা / একক বিল্ডার:** `screenBuilders: [...]` অথবা `builder: (ctx, flow) => ...`
    - **রুট তালিকা:** `route: '/onboarding'` বা `routes: ['/ob-1', '/ob-2']` (লগইন ছাড়াই স্বয়ংক্রিয়ভাবে চলবে)
+   - **বিল্ট-ইন লোকাল ডাটাবেজ ও অটো-সেভ মোড (`OmniOnboardingMode`, কোনো ম্যানুয়াল কোড ছাড়াই):**
+     - `mode: OmniOnboardingMode.onceUntilLoginScreen` *(ডিফল্ট)* — প্রথমবার ইনস্টল/ওপেন করলে অনবোর্ডিং দেখাবে; একবার **Login স্ক্রিনে ঢুকলেই** (বা অনবোর্ডিং শেষ/স্কিপ করলে) অটো লোকাল ডাটাবেজে সেভ হয়ে যাবে। এরপর অ্যাপ ব্যাকগ্রাউন্ড থেকে ক্লিয়ার করে আবার খুললেও আর অনবোর্ডিং দেখাবে না।
+     - `mode: OmniOnboardingMode.untilLoggedIn` — ইউজার যতক্ষণ **সফলভাবে লগইন (`isAuthenticated == true`) না করছে** ততক্ষণ অ্যাপ ব্যাকগ্রাউন্ড থেকে ক্লিয়ার করে পুনরায় খুললেও অনবোর্ডিং দেখাবে; একবার লগইন সম্পন্ন হয়ে গেলেই লোকাল ডাটাবেজে সেভ হবে, পরে আর দেখাবে না।
+     - `mode: OmniOnboardingMode.onceAfterComplete` — শুধু অনবোর্ডিং সম্পন্ন/স্কিপ করলেই সেভ হয়।
+     - `mode: OmniOnboardingMode.always` — প্রতিবার অ্যাপ খুললেই দেখাবে।
+     - `enabled: false` (বা `mode: OmniOnboardingMode.disabled`) — পুরো অনবোর্ডিং বন্ধ রাখতে। আর `persist: false` দিলে লোকাল ডাটাবেজে সেভ বন্ধ থাকবে।
+     - `storageKey` / `storage` — চাইলে ভার্সন (`'v2'`) বদলাতে বা কাস্টম লোকাল স্টোর (`OmniLocalStore`) দিতে পারবেন।
    - **কন্ট্রোল ও কলব্যাক:** `shouldShow`, `alwaysShow`, `swipeable`, `onStepChanged`, `onDone`, `onSkip`, `afterDone`।
 3. **`auth: OmniAuth(...)`** — সরাসরি `loginScreen: const LoginScreen()` (বা `loginBuilder`), `signupScreen: const SignupScreen()` (বা `signupBuilder`), `homeRoute`, `isAuthenticated`, `refreshStream` / `refreshListenable`, `afterLogin`, `afterLogout`, `onUnauthenticated`, `blockAuthWhenLoggedIn` (লগইনের পর Web Back/URL দিয়ে Login/Signup-এ ফেরা আটকায়), `preserveRedirectQuery` (`?from=`)।
 4. **লগইন ছাড়া ভিজিটযোগ্য পাবলিক স্ক্রিন:**
    - **`publicScreens: {'/about': const AboutScreen(), '/terms': const TermsScreen()}`** — একদম সরাসরি রুট ও স্ক্রিন ম্যাপে দিয়ে দিন (আলাদা `routes:`-এ লেখা বা গার্ড কনফিগ করার দরকার নেই)।
    - **`publicPages`** — প্যারামিটারসহ (`/article/:id`) বা `provide:` যুক্ত পাবলিক `OmniPage`।
    - **`publicRoutes`** — মূল `routes:`-এ থাকা পাবলিক প্যাটার্ন (`'/docs/*'`).
-5. **যেকোনো স্ক্রিন থেকে রানটাইম কন্ট্রোল (`context.flow`):** `finishSplash()`, `nextOnboarding({redirectTo})`, `previousOnboarding()`, `goToOnboardingStep(i)`, `completeOnboarding({redirectTo})`, `skipOnboarding({redirectTo})`, `replayOnboarding()`, `restartStartup()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic('/about')`, `pushPublic('/terms')`, `logout(...)`, `refresh()`।
+5. **যেকোনো স্ক্রিন থেকে রানটাইম কন্ট্রোল (`context.flow`):** `finishSplash()`, `nextOnboarding({redirectTo})`, `previousOnboarding()`, `goToOnboardingStep(i)`, `completeOnboarding({redirectTo})`, `skipOnboarding({redirectTo})`, `replayOnboarding()`, `resetOnboarding({replay})`, `restartStartup()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic('/about')`, `pushPublic('/terms')`, `logout(...)`, `refresh()`।
 
-**উদাহরণ (নিজস্ব Splash, ৩টি Onboarding স্ক্রিন, Login/Signup ও Public ভিজিট স্ক্রিন একসাথে):**
+**উদাহরণ (নিজস্ব Splash, ৩টি Onboarding স্ক্রিন, অটো লোকাল DB, Login/Signup ও Public ভিজিট স্ক্রিন একসাথে):**
 ```dart
 OmniApp.material(
   title: 'আমার অ্যাপ',
@@ -422,8 +429,12 @@ OmniApp.material(
       onInit: (c) => c.read<SessionRepo>().restore(),
     ),
 
-    // ২. যতগুলো খুশি নিজের তৈরি Onboarding স্ক্রিন
+    // ২. যতগুলো খুশি নিজের তৈরি Onboarding স্ক্রিন (অটো লোকাল ডাটাবেজসহ)
     onboarding: OmniOnboarding(
+      // onceUntilLoginScreen (ডিফল্ট): Login স্ক্রিনে ঢুকলেই অটো সেভ (আর দেখাবে না)
+      // untilLoggedIn: সফল লগইন না করা পর্যন্ত প্রতিটি লঞ্চে দেখাবে
+      // enabled: false দিলে পুরোপুরি বন্ধ থাকবে
+      mode: OmniOnboardingMode.onceUntilLoginScreen,
       screens: const [
         WelcomeStepScreen(),
         FeatureStepScreen(),
@@ -448,8 +459,6 @@ OmniApp.material(
           ],
         ),
       ),
-      shouldShow: (c) => !c.read<SessionRepo>().seenOnboarding,
-      onDone: (c) => c.read<SessionRepo>().markOnboardingSeen(),
     ),
 
     // ৩. Login, Signup ও Home কন্ট্রোল
@@ -607,8 +616,8 @@ OmniApp.material(
 
 | প্যারামিটার | কী কাজে লাগে ও কীভাবে কাজ করে | ব্যবহার উদাহরণ |
 |---|---|---|
-| `config` (`OmniConfig?`) | `OmniApp`, `OmniApp.material` ও `OmniApp.cupertino`-এ সরাসরি `OmniSplash`, `OmniOnboarding` (`screens:`), `OmniAuth` (`loginScreen`/`signupScreen`/`homeRoute`), এবং `publicScreens`/`publicPages`/`publicRoutes` সেটআপ করে। | `config: OmniConfig(...)` |
-| `context.flow` (`OmniFlowController?`) | যেকোনো স্ক্রিন থেকে `finishSplash()`, `nextOnboarding()`, `previousOnboarding()`, `goToOnboardingStep()`, `completeOnboarding()`, `skipOnboarding()`, `replayOnboarding()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic()`, `pushPublic()`, `logout()`, `refresh()` চালায়। | `onPressed: () => context.flow?.logout()` |
+| `config` (`OmniConfig?`) | `OmniApp`, `OmniApp.material` ও `OmniApp.cupertino`-এ সরাসরি `OmniSplash`, `OmniOnboarding` (`screens:`, অটো লোকাল DB ও `OmniOnboardingMode`), `OmniAuth` এবং `publicScreens`/`publicPages`/`publicRoutes` সেটআপ করে। | `config: OmniConfig(...)` |
+| `context.flow` (`OmniFlowController?`) | যেকোনো স্ক্রিন থেকে `finishSplash()`, `nextOnboarding()`, `previousOnboarding()`, `goToOnboardingStep()`, `completeOnboarding()`, `skipOnboarding()`, `replayOnboarding()`, `resetOnboarding()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic()`, `pushPublic()`, `logout()`, `refresh()` চালায়। | `onPressed: () => context.flow?.logout()` |
 | `onInit` (`Future<void> Function(BuildContext)?`) | রুট দেখানোর আগে একবার async কাজ (যেমন সেভ করা টোকেন/কনফিগ পড়া) চালায় (`OmniSplash(onInit:)` বা সরাসরি `OmniApp`)। | `onInit: (c) => c.read<AppInit>().load()` |
 | `initTimeout` (`Duration?`) | `onInit` অতিরিক্ত দেরি করলে নির্দিষ্ট সময় পর টাইমআউট এরর দেয়, স্প্ল্যাশ আটকে থাকে না। | `initTimeout: const Duration(seconds: 8)` |
 | `splash` (`WidgetBuilder?`) | সম্পূর্ণ নিজের ডিজাইন করা কাস্টম স্প্ল্যাশ উইজেট দিতে। | `splash: (_) => const MySplashScreen()` |
