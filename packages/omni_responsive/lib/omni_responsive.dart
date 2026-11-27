@@ -149,5 +149,7 @@ export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'
         OmniSheetDetent,
         OmniSheetMotion,
         OmniSheetRoute,
+        OmniSheetScrollPhysics,
+        OmniSheetScrolling,
         OmniSheetStyle,
         showOmniBottomSheet;

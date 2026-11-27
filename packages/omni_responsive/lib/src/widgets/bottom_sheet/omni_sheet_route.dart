@@ -29,6 +29,8 @@ part of 'omni_bottom_sheet.dart';
 Future<T?> showOmniBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
+  WidgetBuilder? header,
+  OmniSheetScrolling scrolling = const OmniSheetScrolling(),
   OmniSheetStyle style = OmniSheetStyle.adaptive,
   List<OmniSheetDetent> detents = const [OmniSheetDetent.content],
   int initialDetent = 0,
@@ -53,6 +55,8 @@ Future<T?> showOmniBottomSheet<T>({
   return navigator.push(
     OmniSheetRoute<T>(
       builder: builder,
+      header: header,
+      scrolling: scrolling,
       style: resolved,
       detents: detents,
       initialDetent: initialDetent,
@@ -85,6 +89,8 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
   /// Creates the route. See [showOmniBottomSheet] for the parameters.
   OmniSheetRoute({
     required this.builder,
+    this.header,
+    this.scrolling = const OmniSheetScrolling(),
     this.style = OmniSheetStyle.adaptive,
     this.detents = const [OmniSheetDetent.content],
     this.initialDetent = 0,
@@ -115,6 +121,13 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
 
   /// Builds the sheet's content.
   final WidgetBuilder builder;
+
+  /// A pinned header above the content: dragging it always moves the sheet,
+  /// and a separator appears under it while the content is scrolled.
+  final WidgetBuilder? header;
+
+  /// How scroll views inside behave.
+  final OmniSheetScrolling scrolling;
 
   /// Look and motion preset.
   final OmniSheetStyle style;
@@ -247,6 +260,8 @@ class _RouteSheetHost<T> implements _SheetHost {
   @override
   late final _SheetConfig config = _SheetConfig(
     builder: route.builder,
+    header: route.header,
+    scrolling: route.scrolling,
     detents: route.detents,
     initialDetent: route.initialDetent,
     isDismissible: route.isDismissible,

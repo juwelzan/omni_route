@@ -22,6 +22,10 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   );
   late final ValueNotifier<int> _detent = ValueNotifier(_metrics.index);
   late final _SheetScrollController _scroll = _SheetScrollController(this);
+  final ValueNotifier<bool> _scrolled = ValueNotifier(false);
+  int _dragStartIndex = 0;
+  Widget? _header;
+  WidgetBuilder? _headerBuilder;
 
   // Content built once; the sheet's own rebuilds (keyboard, rotation) reuse
   // it, so dragging and animating never rebuild what the developer wrote.
@@ -80,6 +84,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     _host.attachView(null);
     _extent.dispose();
     _detent.dispose();
+    _scrolled.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -94,6 +99,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
 
   @override
   ValueListenable<int> get detent => _detent;
+
+  @override
+  ValueListenable<bool> get isScrolled => _scrolled;
 
   @override
   int get detentCount => _config.detents.length;
@@ -117,6 +125,8 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   void _dragStart() {
     if (_heights.isEmpty) return;
     _dragging = true;
+    _dragStartIndex = _metrics.index;
+    if (_config.scrolling.dismissKeyboardOnDrag) _closeKeyboard();
     _metrics.settled = false;
     _extent.stop();
     _presence.stop();
@@ -192,6 +202,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _dismiss(velocity);
       return;
     }
+    if (target != _dragStartIndex && _config.scrolling.hapticFeedback) {
+      HapticFeedback.selectionClick();
+    }
     _snap(target, -velocity);
   }
 
@@ -213,6 +226,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _detent.value = i;
       _host.didChangeDetent(i);
     }
+    if (i == 0 && _heights.length > 1 && _config.scrolling.resetOnCollapse) {
+      _scrollToTop();
+    }
     _metrics.settled = false;
     final target = _heights[i];
     if (_host.reduceMotion) {
@@ -231,6 +247,45 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     );
   }
 
+  /// Unfocuses a text field inside this sheet (closing the keyboard). The
+  /// keyboard inset can't be read here — a Scaffold removes it from its
+  /// body — so the focused field itself is the signal.
+  void _closeKeyboard() {
+    final focus = FocusManager.instance.primaryFocus;
+    final focusContext = focus?.context;
+    if (focusContext == null) return;
+    final inSheet = identical(
+      focusContext.getInheritedWidgetOfExactType<_OmniSheetScope>()?.controller,
+      this,
+    );
+    if (inSheet &&
+        focusContext.findAncestorWidgetOfExactType<EditableText>() != null) {
+      focus!.unfocus();
+    }
+  }
+
+  /// Animates scrolled lists inside back to their top; `false` when none
+  /// was scrolled.
+  bool _scrollToTop() {
+    var any = false;
+    for (final p in _scroll.positions) {
+      if (p.pixels > p.minScrollExtent + 0.5) {
+        any = true;
+        p.animateTo(
+          p.minScrollExtent,
+          duration: const Duration(milliseconds: 360),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    }
+    return any;
+  }
+
+  void _onHandleTap() {
+    if (_config.scrolling.handleTapScrollsToTop && _scrollToTop()) return;
+    _cycleDetent();
+  }
+
   void _cycleDetent() {
     if (detentCount > 1) {
       _snap((_metrics.index + 1) % _heights.length, 0);
@@ -245,10 +300,14 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     if (!_config.enableDrag || _heights.isEmpty) return false;
     if (_dragging) {
       // Keep the sheet until it is fully expanded again.
-      return delta > 0 || _presence.value < 1 || _raw < _heights.last;
+      return delta > 0 ||
+          _presence.value < 1 ||
+          (_config.scrolling.expandBeforeScroll && _raw < _heights.last);
     }
     if (delta > 0) return position.pixels <= position.minScrollExtent;
-    return _presence.value < 1 || _extent.value < _heights.last - 0.5;
+    return _presence.value < 1 ||
+        (_config.scrolling.expandBeforeScroll &&
+            _extent.value < _heights.last - 0.5);
   }
 
   // ── Build ─────────────────────────────────────────────────────────────────
@@ -298,6 +357,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _content = Builder(builder: route.builder);
     }
     Widget content = _content!;
+    final physics = route.scrolling.resolve(style, _platformOf(context));
     if (look.cupertinoText) {
       content = DefaultTextStyle.merge(
         style: CupertinoTheme.of(context).textTheme.textStyle,
@@ -313,10 +373,31 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         removeBottom: true,
         child: Padding(
           padding: EdgeInsets.only(bottom: floating ? 0 : safeBottom),
-          child: PrimaryScrollController(controller: _scroll, child: content),
+          child: PrimaryScrollController(
+            controller: _scroll,
+            child: ScrollConfiguration(
+              behavior: ScrollConfiguration.of(context).copyWith(
+                physics: physics,
+                overscroll: physics is BouncingScrollPhysics ? false : null,
+                keyboardDismissBehavior: route.scrolling.dismissKeyboardOnDrag
+                    ? ScrollViewKeyboardDismissBehavior.onDrag
+                    : null,
+              ),
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _onScroll,
+                child: content,
+              ),
+            ),
+          ),
         ),
       ),
     );
+
+    final header = route.header;
+    if (!identical(_headerBuilder, header)) {
+      _headerBuilder = header;
+      _header = header == null ? null : Builder(builder: header);
+    }
 
     final showHandle = route.showHandle ?? route.enableDrag;
     Widget sheet = Material(
@@ -332,7 +413,13 @@ class _OmniSheetViewState extends State<_OmniSheetView>
               style: style,
               color: look.handle,
               hint: _handleHint(context),
-              onTap: _cycleDetent,
+              onTap: _onHandleTap,
+            ),
+          if (_header case final header?)
+            _SheetHeader(
+              scrolled: _scrolled,
+              dividerColor: look.divider,
+              child: header,
             ),
           if (_contentSized)
             Flexible(child: content)
@@ -401,6 +488,13 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         ),
       ),
     );
+  }
+
+  bool _onScroll(ScrollNotification n) {
+    if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+      _scrolled.value = n.metrics.extentBefore > 0.5;
+    }
+    return false;
   }
 
   String _handleHint(BuildContext context) {

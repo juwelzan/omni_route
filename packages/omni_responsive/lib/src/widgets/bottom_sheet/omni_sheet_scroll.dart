@@ -37,6 +37,21 @@ class _SheetScrollPosition extends ScrollPositionWithSingleContext {
 
   @override
   void applyUserOffset(double delta) {
+    // A drag down that reaches the top mid-gesture: the list scrolls the
+    // rest of the way to its top, the remainder moves the sheet.
+    if (!_driving &&
+        delta > 0 &&
+        pixels > minScrollExtent &&
+        pixels - delta < minScrollExtent &&
+        sheet._config.enableDrag &&
+        sheet._heights.isNotEmpty) {
+      final toTop = pixels - minScrollExtent;
+      super.applyUserOffset(toTop);
+      _driving = true;
+      sheet._dragStart();
+      sheet._dragUpdate(delta - toTop);
+      return;
+    }
     if (sheet._takesScroll(delta, this)) {
       if (!_driving) {
         _driving = true;

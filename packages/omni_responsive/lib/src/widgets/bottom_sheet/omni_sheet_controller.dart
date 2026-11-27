@@ -5,6 +5,10 @@ abstract interface class OmniSheetController {
   /// Index of the detent the sheet rests on (or is moving to).
   ValueListenable<int> get detent;
 
+  /// Whether the scroll view inside is scrolled away from its top — for a
+  /// custom header that shows a separator or a shadow.
+  ValueListenable<bool> get isScrolled;
+
   /// How many detents the sheet has.
   int get detentCount;
 

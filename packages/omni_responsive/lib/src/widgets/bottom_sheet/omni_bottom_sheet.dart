@@ -5,6 +5,7 @@
 ///   — the public configuration types (and the spring / rubber-band math);
 /// - `omni_sheet_route.dart` — `showOmniBottomSheet` and the route;
 /// - `omni_scalable_sheet.dart` — `OmniScalableSheet`, the in-page sheet;
+/// - `omni_sheet_scrolling.dart` — `OmniSheetScrolling`, list behaviour;
 /// - `omni_sheet_host.dart` — what both hosts give the shared view;
 /// - `omni_sheet_controller.dart` — `OmniSheet.of(context)`;
 /// - `omni_sheet_view.dart` — the sheet widget: gestures, detents, layout values;
@@ -21,12 +22,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../../omni_colors.dart';
 
 part 'omni_sheet_style.dart';
 part 'omni_sheet_detent.dart';
 part 'omni_sheet_motion.dart';
+part 'omni_sheet_scrolling.dart';
 part 'omni_sheet_controller.dart';
 part 'omni_sheet_host.dart';
 part 'omni_sheet_route.dart';

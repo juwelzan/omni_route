@@ -34,6 +34,8 @@ class OmniScalableSheet extends StatefulWidget {
     super.key,
     required this.body,
     required this.builder,
+    this.header,
+    this.scrolling = const OmniSheetScrolling(),
     this.controller,
     this.style = OmniSheetStyle.adaptive,
     this.detents = const [
@@ -72,6 +74,13 @@ class OmniScalableSheet extends StatefulWidget {
 
   /// The sheet's content.
   final WidgetBuilder builder;
+
+  /// A pinned header above the content: dragging it always moves the sheet,
+  /// and a separator appears under it while the content is scrolled.
+  final WidgetBuilder? header;
+
+  /// How scroll views inside behave.
+  final OmniSheetScrolling scrolling;
 
   /// Optional outside control (snap, expand, collapse, show, hide).
   final OmniScalableSheetController? controller;
@@ -279,6 +288,8 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
 
   _SheetConfig _buildConfig() => _SheetConfig(
     builder: widget.builder,
+    header: widget.header,
+    scrolling: widget.scrolling,
     detents: widget.detents,
     initialDetent: widget.initialDetent,
     isDismissible: widget.isDismissible,

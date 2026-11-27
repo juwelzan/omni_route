@@ -81,6 +81,13 @@
   engine.
 - Bottom sheets: releasing a non-dismissible sheet dragged below its
   smallest detent now rests on the smallest one.
+- Sheet scrolling (`OmniSheetScrolling`, both sheets): adaptive bounce /
+  clamp physics, expand-before-scroll (optional), back-to-top on collapse,
+  handle tap scrolls to top first, keyboard dismissal on drag, optional
+  haptic tick on snap, and a drag that reaches the list's top now hands the
+  rest of the same gesture to the sheet. New pinned `header:` that always
+  drags the sheet and shows a separator while content is scrolled
+  (`OmniSheet.of(context).isScrolled`).
 - Install docs use one repository tag (`ref: v0.5.0`) for every package;
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step

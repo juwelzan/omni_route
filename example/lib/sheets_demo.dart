@@ -20,6 +20,21 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
   OmniSheetStyle _style = OmniSheetStyle.adaptive;
   String? _city;
 
+  // Scroll behaviour of the list sheet, switchable on this page.
+  OmniSheetScrollPhysics _physics = OmniSheetScrollPhysics.adaptive;
+  bool _expandBeforeScroll = true;
+  bool _resetOnCollapse = true;
+  bool _handleTapScrollsToTop = true;
+  bool _haptics = true;
+
+  OmniSheetScrolling get _scrolling => OmniSheetScrolling(
+    physics: _physics,
+    expandBeforeScroll: _expandBeforeScroll,
+    resetOnCollapse: _resetOnCollapse,
+    handleTapScrollsToTop: _handleTapScrollsToTop,
+    hapticFeedback: _haptics,
+  );
+
   void _toast(String message) => ScaffoldMessenger.of(context)
     ..hideCurrentSnackBar()
     ..showSnackBar(SnackBar(content: Text(message)));
@@ -37,10 +52,14 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
   }
 
   // 2. Medium / large detents with a long list that drags the sheet.
+  // A pinned header (always drags the sheet, separator when scrolled) and
+  // the scroll behaviour chosen below.
   void _openList() => showOmniBottomSheet<void>(
     context: context,
     style: _style,
     detents: const [OmniSheetDetent.medium, OmniSheetDetent.large],
+    scrolling: _scrolling,
+    header: (context) => const _ListHeader(title: 'Students'),
     builder: (context) => const _LongList(),
   );
 
@@ -170,6 +189,62 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
               ],
             ),
           ),
+          tk.gapMd,
+          Text('List scroll behaviour', style: context.textStyles.title),
+          Text(
+            'Applies to "Long list with detents"',
+            style: context.textStyles.caption,
+          ),
+          tk.gapSm,
+          SegmentedButton<OmniSheetScrollPhysics>(
+            segments: const [
+              ButtonSegment(
+                value: OmniSheetScrollPhysics.adaptive,
+                label: Text('Adaptive'),
+              ),
+              ButtonSegment(
+                value: OmniSheetScrollPhysics.bouncing,
+                label: Text('Bounce'),
+              ),
+              ButtonSegment(
+                value: OmniSheetScrollPhysics.clamping,
+                label: Text('Clamp'),
+              ),
+            ],
+            selected: {_physics},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() => _physics = s.first),
+          ),
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                SwitchListTile(
+                  title: const Text('Expand before scrolling'),
+                  subtitle: const Text('Dragging the list up grows the sheet'),
+                  value: _expandBeforeScroll,
+                  onChanged: (v) => setState(() => _expandBeforeScroll = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Back to top on collapse'),
+                  subtitle: const Text('Smallest size scrolls the list up'),
+                  value: _resetOnCollapse,
+                  onChanged: (v) => setState(() => _resetOnCollapse = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Handle tap scrolls to top'),
+                  subtitle: const Text('Then moves to the next size'),
+                  value: _handleTapScrollsToTop,
+                  onChanged: (v) => setState(() => _handleTapScrollsToTop = v),
+                ),
+                SwitchListTile(
+                  title: const Text('Haptic tick on snap'),
+                  value: _haptics,
+                  onChanged: (v) => setState(() => _haptics = v),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -224,47 +299,52 @@ class _CityPicker extends StatelessWidget {
   );
 }
 
-class _LongList extends StatelessWidget {
-  const _LongList();
+/// A sheet header with the detent toggle; passed as `header:` so it stays
+/// pinned, always drags the sheet and gets a separator when scrolled.
+class _ListHeader extends StatelessWidget {
+  const _ListHeader({required this.title});
+
+  final String title;
 
   @override
   Widget build(BuildContext context) {
     final sheet = OmniSheet.of(context);
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(24, 0, 12, 4),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text('Students', style: context.textStyles.title),
-              ),
-              // Rebuilds only this button when the detent changes.
-              ValueListenableBuilder<int>(
-                valueListenable: sheet.detent,
-                builder: (context, detent, _) => TextButton(
-                  onPressed: () => sheet.snapTo(detent == 0 ? 1 : 0),
-                  child: Text(detent == 0 ? 'Expand' : 'Collapse'),
-                ),
-              ),
-            ],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 0, 12, 4),
+      child: Row(
+        children: [
+          Expanded(child: Text(title, style: context.textStyles.title)),
+          // Rebuilds only this button when the detent changes.
+          ValueListenableBuilder<int>(
+            valueListenable: sheet.detent,
+            builder: (context, detent, _) {
+              final last = sheet.detentCount - 1;
+              return TextButton(
+                onPressed: () => sheet.snapTo(detent == last ? 0 : last),
+                child: Text(detent == last ? 'Collapse' : 'Expand'),
+              );
+            },
           ),
-        ),
-        Expanded(
-          // No controller needed on iOS/Android; desktop passes it explicitly.
-          child: ListView.builder(
-            controller: sheet.scrollController,
-            itemCount: 60,
-            itemBuilder: (context, i) => ListTile(
-              leading: CircleAvatar(child: Text('${i + 1}')),
-              title: Text('Student #${100 + i}'),
-              subtitle: const Text('Drag at the top of the list to close'),
-            ),
-          ),
-        ),
-      ],
+        ],
+      ),
     );
   }
+}
+
+class _LongList extends StatelessWidget {
+  const _LongList();
+
+  @override
+  Widget build(BuildContext context) => ListView.builder(
+    // No controller needed on iOS/Android; desktop passes it explicitly.
+    controller: OmniSheet.of(context).scrollController,
+    itemCount: 60,
+    itemBuilder: (context, i) => ListTile(
+      leading: CircleAvatar(child: Text('${i + 1}')),
+      title: Text('Student #${100 + i}'),
+      subtitle: const Text('At the top, keep dragging down to close'),
+    ),
+  );
 }
 
 class _NoteForm extends StatefulWidget {
@@ -428,8 +508,10 @@ class _ScalableSheetDemoScreenState extends OmniState<ScalableSheetDemoScreen> {
       ],
       initialDetent: 1, // opens at medium
       dimFromDetent: 1, // the map dims as it grows past medium
+      scrolling: const OmniSheetScrolling(hapticFeedback: true),
+      header: (context) => const _ListHeader(title: 'Places nearby'),
       body: _FakeMap(sheet: _sheet),
-      builder: (context) => _PlacesList(sheet: _sheet),
+      builder: (context) => const _PlacesList(),
     ),
   );
 }
@@ -480,41 +562,16 @@ class _FakeMap extends StatelessWidget {
 }
 
 class _PlacesList extends StatelessWidget {
-  const _PlacesList({required this.sheet});
-
-  final OmniScalableSheetController sheet;
+  const _PlacesList();
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(20, 0, 8, 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text('Places nearby', style: context.textStyles.title),
-            ),
-            ValueListenableBuilder<int>(
-              valueListenable: sheet.detent,
-              builder: (context, detent, _) => TextButton(
-                onPressed: detent == 2 ? sheet.collapse : sheet.expand,
-                child: Text(detent == 2 ? 'Collapse' : 'Expand'),
-              ),
-            ),
-          ],
-        ),
-      ),
-      Expanded(
-        child: ListView.builder(
-          controller: OmniSheet.of(context).scrollController,
-          itemCount: 30,
-          itemBuilder: (context, i) => ListTile(
-            leading: const Icon(Icons.place_outlined),
-            title: Text('Place #${i + 1}'),
-            subtitle: Text('${(i + 1) * 120} m away'),
-          ),
-        ),
-      ),
-    ],
+  Widget build(BuildContext context) => ListView.builder(
+    controller: OmniSheet.of(context).scrollController,
+    itemCount: 30,
+    itemBuilder: (context, i) => ListTile(
+      leading: const Icon(Icons.place_outlined),
+      title: Text('Place #${i + 1}'),
+      subtitle: Text('${(i + 1) * 120} m away'),
+    ),
   );
 }

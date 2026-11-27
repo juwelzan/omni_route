@@ -183,3 +183,43 @@ AnimatedBuilder(
 রঙ, কোণ, মার্জিন, শ্যাডো, হ্যান্ডেল, `motion`, `onDetentChanged` — modal শিটের মতোই সব বদলানো যায়।
 Modal শিট ও স্কেলেবল শিট একই ইঞ্জিন ব্যবহার করে, তাই ড্র্যাগ, স্প্রিং ও পারফরম্যান্স (শুধু রিপেইন্ট,
 কনটেন্ট একবার build) দুটোতেই এক।
+
+---
+
+# স্ক্রলের আচরণ ও পিন করা হেডার (দুই শিটেই)
+
+Modal শিট (`showOmniBottomSheet`) ও স্কেলেবল শিট (`OmniScalableSheet`) — দুটোতেই একই প্যারামিটার:
+
+```dart
+showOmniBottomSheet(
+  context: context,
+  detents: const [OmniSheetDetent.medium, OmniSheetDetent.large],
+  header: (context) => const Text('Students'),     // পিন করা হেডার
+  scrolling: const OmniSheetScrolling(
+    physics: OmniSheetScrollPhysics.adaptive,      // adaptive · bouncing · clamping
+    expandBeforeScroll: true,
+    resetOnCollapse: true,
+    handleTapScrollsToTop: true,
+    dismissKeyboardOnDrag: true,
+    hapticFeedback: false,
+  ),
+  builder: (context) => ListView(...),
+);
+```
+
+| আচরণ | কী হয় | ডিফল্ট |
+|---|---|---|
+| `physics: adaptive` | iOS/macOS ও cupertino স্টাইলে লিস্ট বাউন্স করে, বাকি জায়গায় থেমে যায় (Android-এ stretch)। লিস্টের নিজের `physics` দিলে সেটাই চলে | চালু |
+| `expandBeforeScroll` | লিস্ট উপরে টানলে আগে শিট সবচেয়ে বড় হয়, তারপর লিস্ট স্ক্রল করে (iOS/Maps)। বন্ধ করলে যেকোনো সাইজে লিস্ট স্ক্রল হয়, শিট বদলায় শুধু হ্যান্ডেল/হেডার টেনে | চালু |
+| `resetOnCollapse` | সবচেয়ে ছোট সাইজে নামলে লিস্ট উপরে ফিরে যায় | চালু |
+| `handleTapScrollsToTop` | হ্যান্ডেলে ট্যাপ করলে লিস্ট স্ক্রল করা থাকলে আগে উপরে যায়, তারপরের ট্যাপে পরের সাইজে | চালু |
+| `dismissKeyboardOnDrag` | শিট টানলে বা লিস্ট স্ক্রল করলে কিবোর্ড বন্ধ হয় | চালু |
+| `hapticFeedback` | টানা শেষে নতুন সাইজে থামলে হালকা ভাইব্রেশন | বন্ধ |
+
+সবসময় কাজ করে:
+
+- **নিখুঁত হ্যান্ড-অফ:** স্ক্রল করা লিস্ট নিচে টানতে টানতে উপরে পৌঁছালে, একই আঙুলের বাকি অংশে শিট নামতে
+  শুরু করে — আঙুল তুলে আবার টানতে হয় না।
+- **পিন করা হেডার (`header`):** লিস্টের বাইরে থাকে, তাই হেডার টানলে লিস্ট যতই স্ক্রল করা থাকুক শিট সরে। লিস্ট
+  স্ক্রল করা থাকলে হেডারের নিচে একটি পাতলা লাইন ফুটে ওঠে (জায়গা আগে থেকে রাখা, তাই কিছু সরে না)।
+- নিজের হেডার বানাতে চাইলে `OmniSheet.of(context).isScrolled` (`ValueListenable<bool>`) শুনুন।

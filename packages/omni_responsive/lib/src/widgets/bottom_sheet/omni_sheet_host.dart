@@ -6,6 +6,8 @@ part of 'omni_bottom_sheet.dart';
 class _SheetConfig {
   const _SheetConfig({
     required this.builder,
+    required this.header,
+    required this.scrolling,
     required this.detents,
     required this.initialDetent,
     required this.isDismissible,
@@ -22,6 +24,8 @@ class _SheetConfig {
   });
 
   final WidgetBuilder builder;
+  final WidgetBuilder? header;
+  final OmniSheetScrolling scrolling;
   final List<OmniSheetDetent> detents;
   final int initialDetent;
   final bool isDismissible;
