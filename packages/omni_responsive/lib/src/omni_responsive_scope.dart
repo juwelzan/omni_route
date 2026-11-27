@@ -2,7 +2,9 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
 
+import 'omni_localization.dart';
 import 'omni_responsive_config.dart';
+import 'omni_text_scale.dart';
 
 /// Granular dependency aspects used by [OmniResponsiveScope] so widgets only
 /// rebuild when the exact slice they consume changes.
@@ -587,61 +589,48 @@ class OmniResponsiveTextScaleHost extends StatelessWidget {
       ? OmniResponsiveScope.tokensOf(context).textScale
       : 1.0;
 
-  Widget _applyWithFullMediaQuery(
-    BuildContext context,
-    MediaQueryData mq,
-    double tierScale,
-  ) {
-    final nextScaler = OmniResponsiveConfig.composeTextScaler(
+  /// Tier scale × the user's text size × the language's scale.
+  double _extraScale(BuildContext context) {
+    final l10n = OmniL10nScope.maybeOf(context);
+    final state = l10n?.notifier?.value;
+    final language = state == null
+        ? 1.0
+        : l10n!.config.textScaleFor(state.language);
+    return _resolveTierScale(context) *
+        OmniTextScaleScope.factorOf(context) *
+        language;
+  }
+
+  Widget _scaled(MediaQueryData mq, double extra) {
+    final next = OmniResponsiveConfig.composeTextScaler(
       mq.textScaler,
-      tierScale,
+      extra,
       minScale: minTextScale,
       maxScale: maxTextScale,
     );
-    if (nextScaler == mq.textScaler) return child;
-
+    // Always the same shape (MediaQuery → child): returning `child` alone
+    // when nothing changes would remount the whole app below whenever the
+    // scale crosses 1.0 (window resize across a breakpoint, text size or
+    // language change). With unchanged data the MediaQuery notifies nobody.
     return MediaQuery(
-      data: mq.copyWith(textScaler: nextScaler),
+      data: next == mq.textScaler ? mq : mq.copyWith(textScaler: next),
       child: child,
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final tierScale = _resolveTierScale(context);
-    if (tierScale == 1.0 && minTextScale == null && maxTextScale == null) {
-      return child;
-    }
+    final extra = _extraScale(context);
+    final mq = MediaQuery.maybeOf(context);
+    if (mq != null) return _scaled(mq, extra);
 
-    // Subscribe ONLY to textScaler first so keyboard viewInsets animations do
-    // NOT rebuild the app root when the composed scaler matches OS textScaler!
-    final currentScaler = MediaQuery.maybeTextScalerOf(context);
-    if (currentScaler != null) {
-      final preview = OmniResponsiveConfig.composeTextScaler(
-        currentScaler,
-        tierScale,
-        minScale: minTextScale,
-        maxScale: maxTextScale,
-      );
-      if (preview == currentScaler) return child;
-
-      final mq = MediaQuery.of(context);
-      return _applyWithFullMediaQuery(context, mq, tierScale);
-    }
-
-    // Fallback when wrapped outside MaterialApp (e.g. custom OmniApp(builder:)
-    // under runApp where no ancestor MediaQuery exists yet).
+    // Wrapped outside MaterialApp with no MediaQuery above yet (custom
+    // `OmniApp(builder:)` directly under runApp).
     final view = View.maybeOf(context);
     if (view == null) return child;
     return MediaQuery.fromView(
       view: view,
-      child: Builder(
-        builder: (innerCtx) => _applyWithFullMediaQuery(
-          innerCtx,
-          MediaQuery.of(innerCtx),
-          tierScale,
-        ),
-      ),
+      child: Builder(builder: (inner) => _scaled(MediaQuery.of(inner), extra)),
     );
   }
 }

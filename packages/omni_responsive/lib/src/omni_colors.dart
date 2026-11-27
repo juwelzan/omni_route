@@ -656,6 +656,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
   factory OmniColors.fromSeed({
     required Color primaryColor,
     required Brightness brightness,
+    DynamicSchemeVariant variant = DynamicSchemeVariant.tonalSpot,
+    double contrastLevel = 0.0,
     Color? secondaryColor,
     Color? surfaceColor,
     Color? secondaryBackgroundColor,
@@ -715,6 +717,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
       seedColor: primaryColor,
       brightness: brightness,
       secondary: secondaryColor,
+      dynamicSchemeVariant: variant,
+      contrastLevel: contrastLevel,
     );
     final isDark = brightness == Brightness.dark;
 
@@ -728,17 +732,14 @@ class OmniColors extends ThemeExtension<OmniColors> {
         cardColor ?? (isDark ? const Color(0xFF131C31) : Colors.white);
     final resolvedPrimary = primaryColor;
     final resolvedButton = buttonColor ?? resolvedPrimary;
-    final resolvedButtonText =
-        buttonTextColor ??
-        (ThemeData.estimateBrightnessForColor(resolvedButton) == Brightness.dark
-            ? Colors.white
-            : const Color(0xFF0F172A));
+    final resolvedButtonText = buttonTextColor ?? _readableOn(resolvedButton);
     final resolvedError =
         errorColor ??
         (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626));
     final resolvedDanger =
         dangerButtonColor ?? (isDark ? const Color(0xFFEF4444) : resolvedError);
-    final resolvedDangerText = dangerButtonTextColor ?? Colors.white;
+    final resolvedDangerText =
+        dangerButtonTextColor ?? _readableOn(resolvedDanger);
     final resolvedWarning =
         warningColor ??
         (isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706));
@@ -1815,4 +1816,14 @@ extension OmniColorsContext on BuildContext {
         ? OmniColors.darkDefault
         : OmniColors.lightDefault;
   }
+}
+
+/// White or near-black, whichever reads better on [background] (higher WCAG
+/// contrast ratio).
+Color _readableOn(Color background) {
+  const dark = Color(0xFF0F172A);
+  final bg = background.computeLuminance();
+  final onWhite = (1.0 + 0.05) / (bg + 0.05);
+  final onDark = (bg + 0.05) / (dark.computeLuminance() + 0.05);
+  return onWhite >= onDark ? Colors.white : dark;
 }

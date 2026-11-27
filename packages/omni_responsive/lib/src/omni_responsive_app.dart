@@ -3,12 +3,13 @@ import 'package:flutter/services.dart';
 
 import 'omni_localization.dart';
 import 'omni_responsive_config.dart';
-import 'omni_responsive_scope.dart';
 import 'omni_status_bar.dart';
 import 'omni_system_navigation_bar.dart';
 import 'omni_system_ui.dart';
+import 'omni_text_scale.dart';
 import 'omni_theme.dart';
 import 'omni_theme_transition.dart';
+import 'omni_ui_host.dart';
 
 /// Everything an app widget needs from [OmniResponsiveApp]: pass these
 /// straight to `MaterialApp`, `MaterialApp.router`, `CupertinoApp`, …
@@ -100,6 +101,8 @@ class OmniResponsiveApp extends StatefulWidget {
     this.themeAnimation,
     this.localization,
     this.localeController,
+    this.textScaling = const OmniTextScaling(),
+    this.textScaleController,
     this.statusBar,
     this.systemNavigationBar,
     this.screenMode,
@@ -135,6 +138,14 @@ class OmniResponsiveApp extends StatefulWidget {
   /// Optional isolated locale controller.
   final OmniLocaleController? localeController;
 
+  /// The user's text size (small / medium / large …) and whether it is
+  /// saved. Change it with `context.setTextSize(...)` or
+  /// [OmniTextSizePicker].
+  final OmniTextScaling textScaling;
+
+  /// Optional isolated text size controller.
+  final OmniTextScaleController? textScaleController;
+
   /// App-wide status bar style.
   final OmniStatusBarStyle? statusBar;
 
@@ -158,101 +169,28 @@ class OmniResponsiveApp extends StatefulWidget {
 }
 
 class _OmniResponsiveAppState extends State<OmniResponsiveApp> {
-  final OmniSystemUiController _systemUi = OmniSystemUiController();
-
   bool get _hasThemeHost =>
       widget.omniTheme != null || widget.themes.isNotEmpty;
 
   @override
-  void dispose() {
-    _systemUi.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    Widget child = Builder(builder: _buildApp);
-    child = ListenableBuilder(
-      listenable: _systemUi,
-      child: child,
-      builder: (context, built) => _systemUiLayer(context, built!),
-    );
-    child = OmniLocalizationHost(
-      config: widget.localization ?? const OmniLocalization(),
-      controller: widget.localeController,
-      child: child,
-    );
-    return OmniResponsiveScope(
-      config: widget.responsive,
-      minTextScale: widget.minTextScale,
-      maxTextScale: widget.maxTextScale,
-      child: child,
-    );
-  }
-
-  Widget _systemUiLayer(BuildContext context, Widget child) {
-    final statusBar = _systemUi.statusBar ?? widget.statusBar;
-    final navBar = _systemUi.systemNavigationBar ?? widget.systemNavigationBar;
-    final baseMode = _systemUi.screenMode ?? widget.screenMode;
-    final screenMode = baseMode != null || statusBar != null || navBar != null
-        ? resolveEffectiveOmniScreenMode(
-            baseMode ?? OmniScreenMode.edgeToEdge,
-            statusBar: statusBar,
-            systemNavigationBar: navBar,
-          )
-        : null;
-    final runtimeOrientation =
-        _systemUi.orientations != null || _systemUi.orientation != null;
-    final orientation = runtimeOrientation
-        ? _systemUi.orientation
-        : widget.orientation;
-    final orientations = runtimeOrientation
-        ? _systemUi.orientations
-        : (widget.orientation != null ? null : widget.orientations);
-    final hasThemeHost = _hasThemeHost;
-
-    var current = child;
-    if (hasThemeHost) {
-      current = OmniResponsiveThemeHost(
-        omniTheme: widget.omniTheme,
-        themes: widget.themes,
-        themeAnimation: widget.themeAnimation,
-        appScreenMode: screenMode,
-        appStatusBar: statusBar,
-        appSystemNavigationBar: navBar,
-        child: current,
-      );
-    }
-    current = OmniSystemUi(
-      screenMode: hasThemeHost ? null : screenMode,
-      statusBar: hasThemeHost ? null : statusBar,
-      systemNavigationBar: hasThemeHost ? null : navBar,
-      brightness:
-          !hasThemeHost &&
-              (statusBar != null || navBar != null || screenMode != null)
-          ? MediaQuery.platformBrightnessOf(context)
-          : null,
-      orientation: orientation,
-      orientations: orientations,
-      child: current,
-    );
-    final first = widget.omniTheme ?? widget.themes.firstOrNull;
-    return OmniSystemUiScope(
-      controller: _systemUi,
-      effectiveScreenMode:
-          screenMode ?? first?.screenMode ?? OmniScreenMode.edgeToEdge,
-      effectiveOrientation: orientation,
-      effectiveStatusBar:
-          statusBar ??
-          first?.statusBar ??
-          const OmniStatusBarStyle.transparent(),
-      effectiveSystemNavigationBar:
-          navBar ??
-          first?.systemNavigationBar ??
-          const OmniSystemNavigationBarStyle.transparent(),
-      child: current,
-    );
-  }
+  Widget build(BuildContext context) => OmniUiHost(
+    responsive: widget.responsive,
+    minTextScale: widget.minTextScale,
+    maxTextScale: widget.maxTextScale,
+    omniTheme: widget.omniTheme,
+    themes: widget.themes,
+    themeAnimation: widget.themeAnimation,
+    localization: widget.localization,
+    localeController: widget.localeController,
+    textScaling: widget.textScaling,
+    textScaleController: widget.textScaleController,
+    statusBar: widget.statusBar,
+    systemNavigationBar: widget.systemNavigationBar,
+    screenMode: widget.screenMode,
+    orientation: widget.orientation,
+    orientations: widget.orientations,
+    child: Builder(builder: _buildApp),
+  );
 
   Widget _buildApp(BuildContext context) {
     final themes = OmniThemeScope.maybeThemesOf(context);
@@ -285,53 +223,14 @@ class _OmniResponsiveAppState extends State<OmniResponsiveApp> {
     return widget.builder(context, data);
   }
 
-  Widget _appBuilder(BuildContext context, Widget? child) {
-    var current = child ?? const SizedBox.shrink();
-    if (!_hasThemeHost) current = _syncBarTheme(context, current);
-    if (widget.appBuilder case final own?) current = own(context, current);
-    final scales =
-        (widget.responsive.enabled && widget.responsive.adaptTextScaling) ||
-        widget.minTextScale != null ||
-        widget.maxTextScale != null;
-    if (scales) {
-      current = OmniResponsiveTextScaleHost(
-        config: widget.responsive,
+  Widget _appBuilder(BuildContext context, Widget? child) =>
+      OmniUiHost.buildAppContent(
+        context,
+        child,
+        responsive: widget.responsive,
         minTextScale: widget.minTextScale,
         maxTextScale: widget.maxTextScale,
-        child: current,
+        syncBarTheme: !_hasThemeHost,
+        appBuilder: widget.appBuilder,
       );
-    }
-    return current;
-  }
-
-  /// Without an [OmniTheme], AppBars would reset the system bar style the
-  /// app asked for; give them the same overlay style.
-  static Widget _syncBarTheme(BuildContext context, Widget child) {
-    final scope = context
-        .dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
-    if (scope == null ||
-        (scope.effectiveStatusBar == const OmniStatusBarStyle.transparent() &&
-            scope.effectiveSystemNavigationBar ==
-                const OmniSystemNavigationBarStyle.transparent() &&
-            scope.effectiveScreenMode == OmniScreenMode.edgeToEdge)) {
-      return child;
-    }
-    final theme = Theme.of(context);
-    final overlay = composeOmniSystemUiOverlayStyle(
-      brightness: theme.brightness,
-      screenMode: scope.effectiveScreenMode,
-      statusBar: scope.effectiveStatusBar,
-      systemNavigationBar: scope.effectiveSystemNavigationBar,
-      fallbackTopBackground:
-          theme.appBarTheme.backgroundColor ?? theme.scaffoldBackgroundColor,
-      fallbackBottomBackground: theme.scaffoldBackgroundColor,
-    );
-    if (theme.appBarTheme.systemOverlayStyle == overlay) return child;
-    return Theme(
-      data: theme.copyWith(
-        appBarTheme: theme.appBarTheme.copyWith(systemOverlayStyle: overlay),
-      ),
-      child: child,
-    );
-  }
 }

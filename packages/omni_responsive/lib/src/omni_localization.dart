@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'omni_debug_report.dart';
+import 'omni_preferences.dart';
 
 /// বিশ্বের প্রধান দেশসমূহের টাইপ-সেইফ ISO-3166 কান্ট্রি কোড ইনাম (`OmniCountryCode`)।
 ///
@@ -903,7 +904,9 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
     if (!persist || _hydrated || _disposed) return;
     _hydrated = true;
     final editsBefore = _userEdits;
-    final restored = await _loadPrefs(storageKey, value);
+    final restored = OmniPreferences.cached != null
+        ? _restoreFromPrefs(OmniPreferences.cached!, storageKey, value)
+        : await _loadPrefs(storageKey, value);
     if (!_disposed &&
         _userEdits == editsBefore &&
         restored != null &&
@@ -921,7 +924,7 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
 
 Future<void> _savePrefs(String storageKey, OmniLocaleState state) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
+    final prefs = await OmniPreferences.load();
     await prefs.setBool(
       'omni_route.l10n.$storageKey.followSystem',
       state.followSystem,
@@ -951,7 +954,20 @@ Future<OmniLocaleState?> _loadPrefs(
   OmniLocaleState base,
 ) async {
   try {
-    final prefs = await SharedPreferences.getInstance();
+    return _restoreFromPrefs(await OmniPreferences.load(), storageKey, base);
+  } catch (e, st) {
+    omniReportRecovered('l10n.load', e, st);
+    return null;
+  }
+}
+
+/// Reads the saved language synchronously from already-loaded [prefs].
+OmniLocaleState? _restoreFromPrefs(
+  SharedPreferences prefs,
+  String storageKey,
+  OmniLocaleState base,
+) {
+  {
     final follow = prefs.getBool('omni_route.l10n.$storageKey.followSystem');
     final rawLang = prefs.getString('omni_route.l10n.$storageKey.language');
     final rawCountry = prefs.getString('omni_route.l10n.$storageKey.country');
@@ -981,9 +997,6 @@ Future<OmniLocaleState?> _loadPrefs(
       selectedLocale: Locale(lang.languageCode, country.isoCode),
       useLocaleDigits: digits ?? base.useLocaleDigits,
     );
-  } catch (e, st) {
-    omniReportRecovered('l10n.load', e, st);
-    return null;
   }
 }
 
@@ -1003,6 +1016,7 @@ class OmniLocalization {
     this.useLocaleDigits = false,
     this.animateTransition = true,
     this.localeFonts = const <String, String>{},
+    this.languageTextScale = const <String, double>{},
   });
 
   /// শুরুর ভাষা (না দিলে পূর্বের সেভ করা বা ইংরেজি)।
@@ -1034,6 +1048,23 @@ class OmniLocalization {
 
   /// ভাষা কোড অনুযায়ী ঐচ্ছিক কাস্টম ফন্ট (`{'bn': 'HindSiliguri', 'ar': 'Cairo'}`)।
   final Map<String, String> localeFonts;
+
+  /// Extra text scale per language code, combined with the user's text size
+  /// and the OS accessibility setting (e.g. `{'bn': 1.06}` because Bengali
+  /// glyphs look smaller than Latin ones at the same font size).
+  final Map<String, double> languageTextScale;
+
+  /// The font configured for [language] in [localeFonts], or `null`.
+  String? fontFor(OmniLanguage language) {
+    final font = localeFonts[language.languageCode];
+    return (font == null || font.isEmpty) ? null : font;
+  }
+
+  /// The [languageTextScale] factor for [language] (`1.0` when unset).
+  double textScaleFor(OmniLanguage language) {
+    final f = languageTextScale[language.languageCode];
+    return (f == null || f <= 0) ? 1.0 : f;
+  }
 }
 
 /// উইজেট ট্রির যেকোনো জায়গায় বর্তমান [OmniLocaleState]-এ সাবস্ক্রিপশন দেয়।
@@ -1147,19 +1178,19 @@ class _OmniLocalizationHostState extends State<OmniLocalizationHost>
       listenable: _activeListenable,
       builder: (context, _) {
         final state = _activeListenable.value;
-        final font = widget.config.localeFonts[state.language.languageCode];
-        Widget body = widget.child;
-        if (font != null && font.isNotEmpty) {
-          body = DefaultTextStyle.merge(
-            style: TextStyle(fontFamily: font),
-            child: body,
-          );
-        }
+        final font = widget.config.fontFor(state.language);
         return OmniL10nScope(
           listenable: _activeListenable,
           config: widget.config,
           controller: widget.controller,
-          child: body,
+          // Always present (even without a font) so switching between a
+          // language with a font and one without never changes the tree
+          // shape, which would remount the whole app. Material screens get
+          // the font through the theme (see OmniUiHost).
+          child: DefaultTextStyle.merge(
+            style: TextStyle(fontFamily: font),
+            child: widget.child,
+          ),
         );
       },
     );
@@ -1648,7 +1679,13 @@ class OmniText extends StatelessWidget {
   static Future<void> _hydrateGlobalOnce(OmniLocalization config) async {
     if (!config.persist || _globalHydrated || _explicitlyChanged) return;
     _globalHydrated = true;
-    final restored = await _loadPrefs(config.storageKey, _channel.value);
+    final restored = OmniPreferences.cached != null
+        ? _restoreFromPrefs(
+            OmniPreferences.cached!,
+            config.storageKey,
+            _channel.value,
+          )
+        : await _loadPrefs(config.storageKey, _channel.value);
     if (restored != null && !_explicitlyChanged && restored != _channel.value) {
       _channel.setValue(
         restored.copyWith(revision: _channel.value.revision + 1),

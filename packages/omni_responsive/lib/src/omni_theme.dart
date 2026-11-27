@@ -1,7 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'omni_colors.dart';
@@ -14,6 +17,9 @@ import 'omni_system_navigation_bar.dart';
 import 'omni_system_ui.dart';
 import 'omni_theme_transition.dart';
 import 'omni_debug_report.dart';
+import 'omni_localization.dart';
+import 'omni_preferences.dart';
+import 'omni_text_scale.dart';
 
 /// বর্তমান সক্রিয় থিম কনফিগার করার জন্য কাস্টম হুক (প্রতি ডিভাইস টিয়ারে একবার
 /// চলে ও ফল মেমোইজড থাকে)।
@@ -161,13 +167,34 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
 
   /// স্টার্টআপে প্রথম ফ্রেম ব্লক না করে `SharedPreferences` থেকে সেভ করা
   /// থিম, মোড, স্টাইল ও অ্যানিমেশন পছন্দ লোড করে (কোনো স্টার্টআপ ফ্ল্যাশ ছাড়াই)।
+  ///
+  /// When [OmniPreferences] already holds the loaded settings (after
+  /// [OmniPreferences.preload]) the saved choice is applied synchronously,
+  /// before the first frame.
   Future<void> hydrate() async {
     if (!persist || _hydrated || _disposed) return;
     _hydrated = true;
+    if (OmniPreferences.cached case final prefs?) {
+      _restoreFrom(prefs, const <String>{});
+      return;
+    }
     final touched = _touchedDuringHydrate = <String>{};
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await OmniPreferences.load();
       if (_disposed) return;
+      _restoreFrom(prefs, touched);
+    } catch (e, st) {
+      omniReportRecovered('theme.hydrate', e, st);
+      // হেডলেস টেস্টে SharedPreferences মক না থাকলে নিরাপদ ফলব্যাক।
+    } finally {
+      _touchedDuringHydrate = null;
+    }
+  }
+
+  void _restoreFrom(SharedPreferences prefs, Set<String> touched) {
+    final revisionBefore = _themesRevision;
+    _restoreRuntimeThemes(prefs, touched);
+    {
       final rawMode = prefs.getString(prefKey);
       final restoredMode = switch (rawMode) {
         'light' => ThemeMode.light,
@@ -216,12 +243,96 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
       if (next != value) {
         _nonAnimatedVersion++;
         value = next;
+      } else if (_themesRevision != revisionBefore) {
+        notifyListeners();
       }
+    }
+  }
+
+  /// Key the user-added themes ([addTheme]) are saved under.
+  String get customThemesPrefKey => 'omni_route.theme.$storageKey.custom';
+
+  List<OmniTheme> _runtimeThemes = const [];
+  int _themesRevision = 0;
+  void Function(Iterable<String> themeIds)? _precacheHook;
+
+  /// Themes added at runtime with [addTheme] (restored on launch).
+  List<OmniTheme> get runtimeThemes => _runtimeThemes;
+
+  /// Changes whenever [runtimeThemes] changes.
+  int get themesRevision => _themesRevision;
+
+  /// Adds (or replaces, by `id`) a theme while the app runs — e.g. one the
+  /// user built with a color picker. It appears in pickers and survives
+  /// restarts (only its [OmniTheme.toJson] settings are saved).
+  ///
+  /// ```dart
+  /// controller.addTheme(OmniTheme.fromSeed(color, id: 'mine'));
+  /// controller.setTheme('mine');
+  /// ```
+  void addTheme(OmniTheme theme, {bool persist = true}) {
+    if (_disposed) return;
+    _runtimeThemes = List.unmodifiable([
+      for (final t in _runtimeThemes)
+        if (t.id != theme.id) t,
+      theme,
+    ]);
+    _themesRevision++;
+    _touchedDuringHydrate?.add(customThemesPrefKey);
+    notifyListeners();
+    if (persist && this.persist) unawaited(_saveRuntimeThemes());
+  }
+
+  /// Removes a theme added with [addTheme]; the active one falls back to
+  /// the app's first theme.
+  void removeTheme(String themeId) {
+    if (_disposed || !_runtimeThemes.any((t) => t.id == themeId)) return;
+    _runtimeThemes = List.unmodifiable([
+      for (final t in _runtimeThemes)
+        if (t.id != themeId) t,
+    ]);
+    _themesRevision++;
+    _touchedDuringHydrate?.add(customThemesPrefKey);
+    if (value.themeId == themeId) {
+      value = value.copyWith(themeId: _initialSelection.themeId);
+    } else {
+      notifyListeners();
+    }
+    if (persist) unawaited(_saveRuntimeThemes());
+  }
+
+  /// Builds these themes ahead of time, in idle frames, so switching to them
+  /// later does no theme work on the tap. Pickers call this automatically.
+  void precache(Iterable<String> themeIds) => _precacheHook?.call(themeIds);
+
+  Future<void> _saveRuntimeThemes() async {
+    try {
+      final prefs = await OmniPreferences.load();
+      await prefs.setString(
+        customThemesPrefKey,
+        jsonEncode([for (final t in _runtimeThemes) t.toJson()]),
+      );
     } catch (e, st) {
-      omniReportRecovered('theme.hydrate', e, st);
-      // হেডলেস টেস্টে SharedPreferences মক না থাকলে নিরাপদ ফলব্যাক।
-    } finally {
-      _touchedDuringHydrate = null;
+      omniReportRecovered('theme.saveCustom', e, st);
+    }
+  }
+
+  void _restoreRuntimeThemes(SharedPreferences prefs, Set<String> touched) {
+    if (touched.contains(customThemesPrefKey)) return;
+    final raw = prefs.getString(customThemesPrefKey);
+    if (raw == null || raw.isEmpty) return;
+    try {
+      final list = jsonDecode(raw);
+      if (list is! List) return;
+      final restored = [
+        for (final item in list)
+          if (item is Map<String, Object?>) OmniTheme.fromJson(item),
+      ];
+      if (restored.isEmpty) return;
+      _runtimeThemes = List.unmodifiable(restored);
+      _themesRevision++;
+    } catch (e, st) {
+      omniReportRecovered('theme.restoreCustom', e, st);
     }
   }
 
@@ -346,7 +457,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
       value = _initialSelection;
     }
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await OmniPreferences.load();
       await prefs.remove(prefKey);
       await prefs.remove(themeIdPrefKey);
       await prefs.remove(stylePrefKey);
@@ -359,7 +470,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
 
   Future<void> _saveString(String key, String data) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      final prefs = await OmniPreferences.load();
       await prefs.setString(key, data);
     } catch (e, st) {
       omniReportRecovered('theme.save', e, st);
@@ -477,6 +588,8 @@ class OmniTheme {
     this.animation = const OmniThemeAnimation(),
     this.fieldTheme,
     this.customizer,
+    this.schemeVariant = DynamicSchemeVariant.tonalSpot,
+    this.contrastLevel = 0.0,
   });
 
   /// কম্প্যাক্ট `8dp` কর্নারওয়ালা প্রোডাক্টিভিটি প্রিসেট।
@@ -565,6 +678,8 @@ class OmniTheme {
     this.animation = const OmniThemeAnimation(),
     this.fieldTheme,
     this.customizer,
+    this.schemeVariant = DynamicSchemeVariant.tonalSpot,
+    this.contrastLevel = 0.0,
   });
 
   /// রাউন্ডেড `20dp` কর্নারওয়ালা কনজিউমার অ্যাপ প্রিসেট।
@@ -653,6 +768,8 @@ class OmniTheme {
     this.animation = const OmniThemeAnimation(),
     this.fieldTheme,
     this.customizer,
+    this.schemeVariant = DynamicSchemeVariant.tonalSpot,
+    this.contrastLevel = 0.0,
   });
 
   /// এই থিমটিকে `OmniThemePicker`-এ চেনার জন্য ইউনিক আইডি (যেমন `'ocean'`)।
@@ -914,6 +1031,271 @@ class OmniTheme {
 
   /// যেকোনো থিম উপাদান (`Switch`, `Chip`, `BottomSheet`) আরও কাস্টম করার হুক।
   final OmniThemeCustomizer? customizer;
+
+  /// Palette flavour generated from [seedColor]: `tonalSpot` (Material
+  /// default), `vibrant`, `expressive`, `fidelity`, `content`, `rainbow`,
+  /// `fruitSalad`, `monochrome`, `neutral`.
+  final DynamicSchemeVariant schemeVariant;
+
+  /// `0` = standard contrast … `1` = high contrast. When the OS asks for
+  /// high contrast, the app uses `1` automatically.
+  final double contrastLevel;
+
+  /// A JSON map of this theme's serializable settings: ids, colors, style,
+  /// palette variant, shape and typography. Not included: [controller],
+  /// [light]/[dark] palettes, [lightColors]/[darkColors], [statusBar],
+  /// [systemNavigationBar], [animation], [fieldTheme] and [customizer].
+  ///
+  /// Use it to save a user-made theme or ship brand themes from a server.
+  Map<String, Object?> toJson() => {
+    'id': id,
+    'name': name,
+    'seedColor': seedColor.toARGB32(),
+    'mode': mode.name,
+    'style': style.name,
+    'schemeVariant': schemeVariant.name,
+    if (contrastLevel != 0) 'contrastLevel': contrastLevel,
+    if (!useMaterial3) 'useMaterial3': false,
+    'fontFamily': ?fontFamily,
+    if (headingWeight != FontWeight.w700) 'headingWeight': headingWeight.value,
+    'borderRadius': ?borderRadius,
+    if (inputVariant case final v?) 'inputVariant': v.name,
+    'borderWidth': ?borderWidth,
+    'focusedBorderWidth': ?focusedBorderWidth,
+    'cardBorderWidth': ?cardBorderWidth,
+    'cardElevation': ?cardElevation,
+    'appBarCenterTitle': ?appBarCenterTitle,
+    if (screenMode != OmniScreenMode.edgeToEdge) 'screenMode': screenMode.name,
+    if (previewColor case final v?) 'previewColor': v.toARGB32(),
+    if (darkSeedColor case final v?) 'darkSeedColor': v.toARGB32(),
+    if (secondaryColor case final v?) 'secondaryColor': v.toARGB32(),
+    if (darkSecondaryColor case final v?) 'darkSecondaryColor': v.toARGB32(),
+    if (surfaceColor case final v?) 'surfaceColor': v.toARGB32(),
+    if (darkSurfaceColor case final v?) 'darkSurfaceColor': v.toARGB32(),
+    if (secondaryBackgroundColor case final v?)
+      'secondaryBackgroundColor': v.toARGB32(),
+    if (darkSecondaryBackgroundColor case final v?)
+      'darkSecondaryBackgroundColor': v.toARGB32(),
+    if (scaffoldBackgroundColor case final v?)
+      'scaffoldBackgroundColor': v.toARGB32(),
+    if (darkScaffoldBackgroundColor case final v?)
+      'darkScaffoldBackgroundColor': v.toARGB32(),
+    if (cardColor case final v?) 'cardColor': v.toARGB32(),
+    if (darkCardColor case final v?) 'darkCardColor': v.toARGB32(),
+    if (appBarColor case final v?) 'appBarColor': v.toARGB32(),
+    if (appBarTextColor case final v?) 'appBarTextColor': v.toARGB32(),
+    if (navBarColor case final v?) 'navBarColor': v.toARGB32(),
+    if (navSelectedColor case final v?) 'navSelectedColor': v.toARGB32(),
+    if (navUnselectedColor case final v?) 'navUnselectedColor': v.toARGB32(),
+    if (buttonColor case final v?) 'buttonColor': v.toARGB32(),
+    if (buttonTextColor case final v?) 'buttonTextColor': v.toARGB32(),
+    if (secondaryButtonColor case final v?)
+      'secondaryButtonColor': v.toARGB32(),
+    if (secondaryButtonTextColor case final v?)
+      'secondaryButtonTextColor': v.toARGB32(),
+    if (dangerButtonColor case final v?) 'dangerButtonColor': v.toARGB32(),
+    if (dangerButtonTextColor case final v?)
+      'dangerButtonTextColor': v.toARGB32(),
+    if (linkColor case final v?) 'linkColor': v.toARGB32(),
+    if (borderColor case final v?) 'borderColor': v.toARGB32(),
+    if (focusedBorderColor case final v?) 'focusedBorderColor': v.toARGB32(),
+    if (dividerColor case final v?) 'dividerColor': v.toARGB32(),
+    if (inputFillColor case final v?) 'inputFillColor': v.toARGB32(),
+    if (textColor case final v?) 'textColor': v.toARGB32(),
+    if (secondaryTextColor case final v?) 'secondaryTextColor': v.toARGB32(),
+    if (hintTextColor case final v?) 'hintTextColor': v.toARGB32(),
+    if (iconColor case final v?) 'iconColor': v.toARGB32(),
+    if (chipColor case final v?) 'chipColor': v.toARGB32(),
+    if (chipTextColor case final v?) 'chipTextColor': v.toARGB32(),
+    if (badgeColor case final v?) 'badgeColor': v.toARGB32(),
+    if (badgeTextColor case final v?) 'badgeTextColor': v.toARGB32(),
+    if (selectedItemColor case final v?) 'selectedItemColor': v.toARGB32(),
+    if (hoverColor case final v?) 'hoverColor': v.toARGB32(),
+    if (rippleColor case final v?) 'rippleColor': v.toARGB32(),
+    if (disabledColor case final v?) 'disabledColor': v.toARGB32(),
+    if (disabledTextColor case final v?) 'disabledTextColor': v.toARGB32(),
+    if (disabledBorderColor case final v?) 'disabledBorderColor': v.toARGB32(),
+    if (switchActiveColor case final v?) 'switchActiveColor': v.toARGB32(),
+    if (switchInactiveColor case final v?) 'switchInactiveColor': v.toARGB32(),
+    if (snackbarColor case final v?) 'snackbarColor': v.toARGB32(),
+    if (snackbarTextColor case final v?) 'snackbarTextColor': v.toARGB32(),
+    if (tooltipColor case final v?) 'tooltipColor': v.toARGB32(),
+    if (tooltipTextColor case final v?) 'tooltipTextColor': v.toARGB32(),
+    if (errorColor case final v?) 'errorColor': v.toARGB32(),
+    if (warningColor case final v?) 'warningColor': v.toARGB32(),
+    if (successColor case final v?) 'successColor': v.toARGB32(),
+    if (infoColor case final v?) 'infoColor': v.toARGB32(),
+    if (shimmerBaseColor case final v?) 'shimmerBaseColor': v.toARGB32(),
+    if (shimmerHighlightColor case final v?)
+      'shimmerHighlightColor': v.toARGB32(),
+    if (overlayColor case final v?) 'overlayColor': v.toARGB32(),
+    if (shadowColor case final v?) 'shadowColor': v.toARGB32(),
+  };
+
+  /// Builds a theme from [toJson] output (unknown keys are ignored, missing
+  /// ones use the defaults). Throws [FormatException] for a malformed map.
+  factory OmniTheme.fromJson(Map<String, Object?> json) {
+    Color? color(String key) => switch (json[key]) {
+      final int v => Color(v),
+      final String v when v.startsWith('#') => Color(
+        int.parse(
+          v.length == 7 ? 'FF${v.substring(1)}' : v.substring(1),
+          radix: 16,
+        ),
+      ),
+      null => null,
+      final other => throw FormatException('"$key" is not a color', other),
+    };
+    double? number(String key) => switch (json[key]) {
+      final num v => v.toDouble(),
+      null => null,
+      final other => throw FormatException('"$key" is not a number', other),
+    };
+    T byName<T extends Enum>(List<T> values, String key, T fallback) {
+      final raw = json[key];
+      if (raw == null) return fallback;
+      for (final v in values) {
+        if (v.name == raw) return v;
+      }
+      throw FormatException('"$key" has an unknown value', raw);
+    }
+
+    final id = json['id'];
+    if (id is! String || id.isEmpty) {
+      throw FormatException('A theme needs a non-empty "id"', json);
+    }
+    final weight = json['headingWeight'];
+    return OmniTheme(
+      id: id,
+      name: json['name'] is String ? json['name']! as String : id,
+      seedColor: color('seedColor') ?? const Color(0xFF2563EB),
+      mode: byName(ThemeMode.values, 'mode', ThemeMode.system),
+      style: byName(OmniThemeStyle.values, 'style', OmniThemeStyle.modern),
+      schemeVariant: byName(
+        DynamicSchemeVariant.values,
+        'schemeVariant',
+        DynamicSchemeVariant.tonalSpot,
+      ),
+      contrastLevel: number('contrastLevel') ?? 0,
+      useMaterial3: json['useMaterial3'] != false,
+      fontFamily: json['fontFamily'] is String
+          ? json['fontFamily']! as String
+          : null,
+      headingWeight: weight is int
+          ? FontWeight.values.firstWhere(
+              (w) => w.value == weight,
+              orElse: () => FontWeight.w700,
+            )
+          : FontWeight.w700,
+      borderRadius: number('borderRadius'),
+      inputVariant: json['inputVariant'] == null
+          ? null
+          : byName(
+              OmniInputVariant.values,
+              'inputVariant',
+              OmniInputVariant.values.first,
+            ),
+      borderWidth: number('borderWidth'),
+      focusedBorderWidth: number('focusedBorderWidth'),
+      cardBorderWidth: number('cardBorderWidth'),
+      cardElevation: number('cardElevation'),
+      appBarCenterTitle: json['appBarCenterTitle'] is bool
+          ? json['appBarCenterTitle']! as bool
+          : null,
+      screenMode: byName(
+        OmniScreenMode.values,
+        'screenMode',
+        OmniScreenMode.edgeToEdge,
+      ),
+      previewColor: color('previewColor'),
+      darkSeedColor: color('darkSeedColor'),
+      secondaryColor: color('secondaryColor'),
+      darkSecondaryColor: color('darkSecondaryColor'),
+      surfaceColor: color('surfaceColor'),
+      darkSurfaceColor: color('darkSurfaceColor'),
+      secondaryBackgroundColor: color('secondaryBackgroundColor'),
+      darkSecondaryBackgroundColor: color('darkSecondaryBackgroundColor'),
+      scaffoldBackgroundColor: color('scaffoldBackgroundColor'),
+      darkScaffoldBackgroundColor: color('darkScaffoldBackgroundColor'),
+      cardColor: color('cardColor'),
+      darkCardColor: color('darkCardColor'),
+      appBarColor: color('appBarColor'),
+      appBarTextColor: color('appBarTextColor'),
+      navBarColor: color('navBarColor'),
+      navSelectedColor: color('navSelectedColor'),
+      navUnselectedColor: color('navUnselectedColor'),
+      buttonColor: color('buttonColor'),
+      buttonTextColor: color('buttonTextColor'),
+      secondaryButtonColor: color('secondaryButtonColor'),
+      secondaryButtonTextColor: color('secondaryButtonTextColor'),
+      dangerButtonColor: color('dangerButtonColor'),
+      dangerButtonTextColor: color('dangerButtonTextColor'),
+      linkColor: color('linkColor'),
+      borderColor: color('borderColor'),
+      focusedBorderColor: color('focusedBorderColor'),
+      dividerColor: color('dividerColor'),
+      inputFillColor: color('inputFillColor'),
+      textColor: color('textColor'),
+      secondaryTextColor: color('secondaryTextColor'),
+      hintTextColor: color('hintTextColor'),
+      iconColor: color('iconColor'),
+      chipColor: color('chipColor'),
+      chipTextColor: color('chipTextColor'),
+      badgeColor: color('badgeColor'),
+      badgeTextColor: color('badgeTextColor'),
+      selectedItemColor: color('selectedItemColor'),
+      hoverColor: color('hoverColor'),
+      rippleColor: color('rippleColor'),
+      disabledColor: color('disabledColor'),
+      disabledTextColor: color('disabledTextColor'),
+      disabledBorderColor: color('disabledBorderColor'),
+      switchActiveColor: color('switchActiveColor'),
+      switchInactiveColor: color('switchInactiveColor'),
+      snackbarColor: color('snackbarColor'),
+      snackbarTextColor: color('snackbarTextColor'),
+      tooltipColor: color('tooltipColor'),
+      tooltipTextColor: color('tooltipTextColor'),
+      errorColor: color('errorColor'),
+      warningColor: color('warningColor'),
+      successColor: color('successColor'),
+      infoColor: color('infoColor'),
+      shimmerBaseColor: color('shimmerBaseColor'),
+      shimmerHighlightColor: color('shimmerHighlightColor'),
+      overlayColor: color('overlayColor'),
+      shadowColor: color('shadowColor'),
+    );
+  }
+
+  /// A complete theme from one brand color — light and dark palettes,
+  /// components, typography and shapes are all derived from [seedColor].
+  ///
+  /// ```dart
+  /// OmniTheme.fromSeed(const Color(0xFF0EA5E9), id: 'brand',
+  ///     variant: DynamicSchemeVariant.vibrant)
+  /// ```
+  factory OmniTheme.fromSeed(
+    Color seedColor, {
+    String id = 'custom',
+    String? name,
+    DynamicSchemeVariant variant = DynamicSchemeVariant.tonalSpot,
+    Color? secondaryColor,
+    OmniThemeStyle style = OmniThemeStyle.modern,
+    ThemeMode mode = ThemeMode.system,
+    String? fontFamily,
+    double? borderRadius,
+    double contrastLevel = 0,
+  }) => OmniTheme(
+    id: id,
+    name: name ?? id,
+    seedColor: seedColor,
+    schemeVariant: variant,
+    secondaryColor: secondaryColor,
+    style: style,
+    mode: mode,
+    fontFamily: fontFamily,
+    borderRadius: borderRadius,
+    contrastLevel: contrastLevel,
+  );
 
   /// পিকারের জন্য রঙের স্যাম্পল রিটার্ন করে।
   Color get swatchColor =>
@@ -1344,6 +1726,8 @@ class OmniTheme {
     OmniThemeAnimation? animation,
     OmniFieldTheme? fieldTheme,
     OmniThemeCustomizer? customizer,
+    DynamicSchemeVariant? schemeVariant,
+    double? contrastLevel,
   }) => OmniTheme(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -1434,16 +1818,69 @@ class OmniTheme {
     animation: animation ?? this.animation,
     fieldTheme: fieldTheme ?? this.fieldTheme,
     customizer: customizer ?? this.customizer,
+    schemeVariant: schemeVariant ?? this.schemeVariant,
+    contrastLevel: contrastLevel ?? this.contrastLevel,
+  );
+
+  static final Expando<List<OmniColors?>> _colorsCache = Expando(
+    'omniThemeColors',
   );
 
   /// [brightness]-এর জন্য কার্যকর [OmniColors] তৈরি করে।
-  OmniColors resolveColors(Brightness brightness) {
+  ///
+  /// Cached per theme instance (palette generation is the most expensive
+  /// step of building a theme). [highContrast] raises [contrastLevel] to 1.
+  OmniColors resolveColors(Brightness brightness, {bool highContrast = false}) {
+    final slot = brightness.index * 2 + (highContrast ? 1 : 0);
+    final cache = _colorsCache[this] ??= List<OmniColors?>.filled(4, null);
+    final hit = cache[slot];
+    if (hit != null) return hit;
+    final colors = cache[slot] = _computeColors(brightness, highContrast);
+    assert(() {
+      _debugWarnLowContrast(colors, brightness);
+      return true;
+    }());
+    return colors;
+  }
+
+  /// Debug builds: warns once per theme when its colors are hard to read
+  /// (WCAG AA: 4.5:1 for text, 3:1 for button labels).
+  void _debugWarnLowContrast(OmniColors c, Brightness brightness) {
+    double ratio(Color a, Color b) {
+      final la = a.computeLuminance();
+      final lb = b.computeLuminance();
+      return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+    }
+
+    final problems = <String>[
+      if (ratio(c.textColor, c.surfaceColor) < 4.5)
+        'text on surface ${ratio(c.textColor, c.surfaceColor).toStringAsFixed(1)}:1 (needs 4.5)',
+      if (ratio(c.textColor, c.cardColor) < 4.5)
+        'text on card ${ratio(c.textColor, c.cardColor).toStringAsFixed(1)}:1 (needs 4.5)',
+      if (ratio(c.buttonTextColor, c.buttonColor) < 3)
+        'button label ${ratio(c.buttonTextColor, c.buttonColor).toStringAsFixed(1)}:1 (needs 3)',
+    ];
+    if (problems.isEmpty) return;
+    debugPrint(
+      'OmniTheme "$id" (${brightness.name}) is hard to read: '
+      '${problems.join(', ')}. Adjust textColor / surfaceColor / cardColor / '
+      'buttonColor / buttonTextColor.',
+    );
+  }
+
+  /// Contrast used for [highContrast] or the theme's own [contrastLevel].
+  double _contrastFor(bool highContrast) =>
+      highContrast ? 1.0 : contrastLevel.clamp(-1.0, 1.0).toDouble();
+
+  OmniColors _computeColors(Brightness brightness, bool highContrast) {
     final isDark = brightness == Brightness.dark;
     final explicit = isDark ? darkColors : lightColors;
     if (explicit != null) return explicit;
 
     final p = isDark ? dark : light;
     return OmniColors.fromSeed(
+      variant: schemeVariant,
+      contrastLevel: _contrastFor(highContrast),
       primaryColor:
           p?.primaryColor ??
           (isDark ? (darkSeedColor ?? seedColor) : seedColor),
@@ -1516,6 +1953,11 @@ class OmniTheme {
     );
   }
 
+  /// How many full [resolve] calls ran (debug builds only) — lets tests and
+  /// benchmarks check that theme switches hit the cache.
+  @visibleForTesting
+  static int debugResolveCount = 0;
+
   /// [device], [tokens], [brightness] এবং ঐচ্ছিক [styleOverride] অনুযায়ী সম্পূর্ণ
   /// Material [ThemeData] তৈরি করে (`Scaffold`, `Button`, `TextField`, `Card`, `Dialog`,
   /// `NavigationBar`, `Switch`, `Checkbox`, `Tooltip`, `SnackBar`, [OmniColors],
@@ -1528,12 +1970,19 @@ class OmniTheme {
     OmniScreenMode? screenModeOverride,
     OmniStatusBarStyle? statusBarOverride,
     OmniSystemNavigationBarStyle? systemNavigationBarOverride,
+    bool highContrast = false,
   }) {
-    final colors = resolveColors(brightness);
+    assert(() {
+      debugResolveCount++;
+      return true;
+    }());
+    final colors = resolveColors(brightness, highContrast: highContrast);
     final isDark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
       seedColor: colors.primaryColor,
       brightness: brightness,
+      dynamicSchemeVariant: schemeVariant,
+      contrastLevel: _contrastFor(highContrast),
       primary: colors.primaryColor,
       onPrimary: colors.buttonTextColor,
       secondary: colors.secondaryColor,
@@ -1900,7 +2349,9 @@ class OmniTheme {
           systemNavigationBar == other.systemNavigationBar &&
           animation == other.animation &&
           fieldTheme == other.fieldTheme &&
-          customizer == other.customizer;
+          customizer == other.customizer &&
+          schemeVariant == other.schemeVariant &&
+          contrastLevel == other.contrastLevel;
 
   @override
   int get hashCode => Object.hashAll([
@@ -1988,6 +2439,8 @@ class OmniTheme {
     animation,
     fieldTheme,
     customizer,
+    schemeVariant,
+    contrastLevel,
   ]);
 }
 
@@ -2009,8 +2462,13 @@ class OmniThemeScope extends InheritedModel<Object> {
     required this.darkTheme,
     this.animationDuration = Duration.zero,
     this.animationCurve = Curves.linear,
+    this.displayedBrightness,
     required super.child,
   });
+
+  /// The brightness on screen right now (the host resolves `system` from the
+  /// platform). When set, [maybeThemesOf] reports it as an explicit mode.
+  final Brightness? displayedBrightness;
 
   /// থিম, মোড, স্টাইল ও অ্যানিমেশন পরিবর্তনকারী কন্ট্রোলার।
   final OmniThemeController controller;
@@ -2109,7 +2567,11 @@ class OmniThemeScope extends InheritedModel<Object> {
     return (
       light: scope.lightTheme,
       dark: scope.darkTheme,
-      mode: scope.selection.mode,
+      mode: switch (scope.displayedBrightness) {
+        Brightness.light => ThemeMode.light,
+        Brightness.dark => ThemeMode.dark,
+        null => scope.selection.mode,
+      },
     );
   }
 
@@ -2135,6 +2597,7 @@ class OmniThemeScope extends InheritedModel<Object> {
       !identical(oldWidget.availableThemes, availableThemes) ||
       !identical(oldWidget.lightTheme, lightTheme) ||
       !identical(oldWidget.darkTheme, darkTheme) ||
+      oldWidget.displayedBrightness != displayedBrightness ||
       oldWidget.animationDuration != animationDuration ||
       oldWidget.animationCurve != animationCurve;
 
@@ -2166,6 +2629,7 @@ class OmniThemeScope extends InheritedModel<Object> {
     if (dependencies.contains(_OmniThemeAspect.themes) &&
         (!identical(oldWidget.lightTheme, lightTheme) ||
             !identical(oldWidget.darkTheme, darkTheme) ||
+            oldWidget.displayedBrightness != displayedBrightness ||
             oldWidget.animationDuration != animationDuration ||
             oldWidget.animationCurve != animationCurve)) {
       return true;
@@ -2251,21 +2715,19 @@ class OmniResponsiveThemeHost extends StatefulWidget {
 class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
   OmniThemeController? _ownedController;
   late List<OmniTheme> _catalog;
-  OmniDeviceType? _cacheDevice;
-  OmniResponsiveTokens? _cacheTokens;
-  final Map<
-    String,
-    ({
-      OmniTheme source,
-      OmniThemeStyle? styleOverride,
-      OmniScreenMode? screenModeOverride,
-      OmniStatusBarStyle? statusBarOverride,
-      OmniSystemNavigationBarStyle? systemNavigationBarOverride,
-      ThemeData light,
-      ThemeData dark,
-    })
-  >
-  _resolvedCache = {};
+
+  /// Resolved themes per device tier, so resizing across breakpoints reuses
+  /// what was built before instead of rebuilding everything.
+  final Map<OmniDeviceType, _OmniTierThemeCache> _tiers = {};
+
+  // Last environment the host built for; used to precache themes.
+  OmniDeviceType? _lastDevice;
+  OmniResponsiveTokens? _lastTokens;
+  Brightness _lastBrightness = Brightness.light;
+  bool _lastHighContrast = false;
+  OmniThemeController? _hookedController;
+  int _catalogRevision = -1;
+  OmniThemeController? _catalogController;
 
   OmniTheme get _primaryTheme => widget.omniTheme ?? widget.themes.first;
 
@@ -2280,15 +2742,17 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     for (final t in widget.themes) {
       addIfNew(t);
     }
+    final controller = _controller;
+    _catalogRevision = controller.themesRevision;
+    _catalogController = controller;
+    for (final t in controller.runtimeThemes) {
+      addIfNew(t);
+    }
     return List<OmniTheme>.unmodifiable(out);
   }
 
-  OmniTheme _findTheme(String themeId) {
-    for (final t in _catalog) {
-      if (t.id == themeId) return t;
-    }
-    return _catalog.first;
-  }
+  OmniTheme _findTheme(String themeId) =>
+      _findThemeOrNull(themeId) ?? _catalog.first;
 
   OmniThemeController get _controller {
     final primary = _primaryTheme;
@@ -2314,7 +2778,7 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     if (widget.omniTheme != oldWidget.omniTheme ||
         widget.themes != oldWidget.themes) {
       _catalog = _buildCatalog();
-      _resolvedCache.clear();
+      _tiers.clear();
     }
 
     final oldPrimary = oldWidget.omniTheme ?? oldWidget.themes.firstOrNull;
@@ -2337,62 +2801,90 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
 
   @override
   void dispose() {
+    _hookPrecache(null);
     _ownedController?.dispose();
-    _resolvedCache.clear();
+    _tiers.clear();
     super.dispose();
   }
 
-  ({ThemeData light, ThemeData dark}) _resolveFor(
+  void _hookPrecache(OmniThemeController? controller) {
+    if (identical(_hookedController, controller)) return;
+    _hookedController?._precacheHook = null;
+    _hookedController = controller;
+    controller?._precacheHook = _precache;
+  }
+
+  /// Builds [themeIds] for the current screen in idle time, one per task, so
+  /// switching to them later costs no theme building on the tap frame.
+  void _precache(Iterable<String> themeIds) {
+    final device = _lastDevice;
+    final tokens = _lastTokens;
+    if (device == null || tokens == null) return;
+    final style = _controller.value.style;
+    for (final id in themeIds) {
+      final theme = _findThemeOrNull(id);
+      if (theme == null) continue;
+      final entry = _entryFor(theme, style, device, tokens, _lastHighContrast);
+      _warm(entry, _lastBrightness, device, tokens);
+    }
+  }
+
+  OmniTheme? _findThemeOrNull(String themeId) {
+    for (final t in _catalog) {
+      if (t.id == themeId) return t;
+    }
+    for (final t in _controller.runtimeThemes) {
+      if (t.id == themeId) return t;
+    }
+    return null;
+  }
+
+  _OmniThemeEntry _entryFor(
     OmniTheme theme,
-    OmniThemeStyle? styleOverride,
-    OmniScreenMode? screenModeOverride,
-    OmniStatusBarStyle? statusBarOverride,
-    OmniSystemNavigationBarStyle? systemNavigationBarOverride,
+    OmniThemeStyle? style,
+    OmniDeviceType device,
+    OmniResponsiveTokens tokens,
+    bool highContrast,
+  ) {
+    var tier = _tiers[device];
+    if (tier == null || tier.tokens != tokens) {
+      tier = _tiers[device] = _OmniTierThemeCache(tokens);
+    }
+    final key = '${theme.id}|${style?.name ?? ''}|${highContrast ? 1 : 0}';
+    final existing = tier.entries[key];
+    if (existing != null &&
+        existing.matches(
+          theme,
+          style,
+          widget.appScreenMode,
+          widget.appStatusBar,
+          widget.appSystemNavigationBar,
+        )) {
+      return existing;
+    }
+    return tier.entries[key] = _OmniThemeEntry(
+      source: theme,
+      style: style,
+      highContrast: highContrast,
+      screenMode: widget.appScreenMode,
+      statusBar: widget.appStatusBar,
+      systemNavigationBar: widget.appSystemNavigationBar,
+    );
+  }
+
+  /// Resolves [brightness] of [entry] in an idle task (no-op when cached).
+  void _warm(
+    _OmniThemeEntry entry,
+    Brightness brightness,
     OmniDeviceType device,
     OmniResponsiveTokens tokens,
   ) {
-    if (_cacheDevice != device || _cacheTokens != tokens) {
-      _resolvedCache.clear();
-      _cacheDevice = device;
-      _cacheTokens = tokens;
+    if (entry.themeFor(brightness) != null || !entry.claimWarm(brightness)) {
+      return;
     }
-    final cacheKey = '${theme.id}|${styleOverride?.name ?? ''}';
-    final existing = _resolvedCache[cacheKey];
-    if (existing != null &&
-        existing.source == theme &&
-        existing.styleOverride == styleOverride &&
-        existing.screenModeOverride == screenModeOverride &&
-        existing.statusBarOverride == statusBarOverride &&
-        existing.systemNavigationBarOverride == systemNavigationBarOverride) {
-      return (light: existing.light, dark: existing.dark);
-    }
-    final built = (
-      source: theme,
-      styleOverride: styleOverride,
-      screenModeOverride: screenModeOverride,
-      statusBarOverride: statusBarOverride,
-      systemNavigationBarOverride: systemNavigationBarOverride,
-      light: theme.resolve(
-        device: device,
-        tokens: tokens,
-        brightness: Brightness.light,
-        styleOverride: styleOverride,
-        screenModeOverride: screenModeOverride,
-        statusBarOverride: statusBarOverride,
-        systemNavigationBarOverride: systemNavigationBarOverride,
-      ),
-      dark: theme.resolve(
-        device: device,
-        tokens: tokens,
-        brightness: Brightness.dark,
-        styleOverride: styleOverride,
-        screenModeOverride: screenModeOverride,
-        statusBarOverride: statusBarOverride,
-        systemNavigationBarOverride: systemNavigationBarOverride,
-      ),
-    );
-    _resolvedCache[cacheKey] = built;
-    return (light: built.light, dark: built.dark);
+    SchedulerBinding.instance.scheduleTask<void>(() {
+      if (mounted) entry.resolve(brightness, device, tokens);
+    }, Priority.idle);
   }
 
   OmniThemeAnimation _effectiveAnimationFor(OmniTheme targetTheme) {
@@ -2408,11 +2900,17 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     final device = OmniResponsiveScope.deviceOf(context);
     final tokens = OmniResponsiveScope.tokensOf(context);
     final controller = _controller;
+    _hookPrecache(controller);
+    final highContrast = MediaQuery.maybeHighContrastOf(context) ?? false;
 
     return ValueListenableBuilder<OmniThemeSelection>(
       valueListenable: controller,
       child: widget.child,
       builder: (hostContext, selection, child) {
+        if (controller.themesRevision != _catalogRevision ||
+            !identical(controller, _catalogController)) {
+          _catalog = _buildCatalog();
+        }
         final activeTheme = _findTheme(selection.themeId);
         final activeStyle = selection.style ?? activeTheme.style;
         final activeBrightness = switch (selection.mode) {
@@ -2449,7 +2947,10 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
           builder: (_, displayed, materialDuration, materialCurve) {
             final dispTheme = displayed.theme;
             final dispSelection = displayed.selection;
-            final dispColors = dispTheme.resolveColors(displayed.brightness);
+            final dispColors = dispTheme.resolveColors(
+              displayed.brightness,
+              highContrast: highContrast,
+            );
             final effectiveStatusBar =
                 widget.appStatusBar ?? dispTheme.resolveStatusBar(dispColors);
             final effectiveNavBar =
@@ -2460,15 +2961,28 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
               statusBar: effectiveStatusBar,
               systemNavigationBar: effectiveNavBar,
             );
-            final resolved = _resolveFor(
+            // Only the brightness on screen is built now; the other one is
+            // built in idle time (needed only if the mode flips later).
+            final entry = _entryFor(
               dispTheme,
               dispSelection.style,
-              widget.appScreenMode,
-              widget.appStatusBar,
-              widget.appSystemNavigationBar,
               device,
               tokens,
+              highContrast,
             );
+            final shownBrightness = displayed.brightness;
+            final shown = entry.resolve(shownBrightness, device, tokens);
+            final otherBrightness = shownBrightness == Brightness.dark
+                ? Brightness.light
+                : Brightness.dark;
+            final other = entry.themeFor(otherBrightness);
+            if (other == null) {
+              _warm(entry, otherBrightness, device, tokens);
+            }
+            _lastDevice = device;
+            _lastTokens = tokens;
+            _lastBrightness = shownBrightness;
+            _lastHighContrast = highContrast;
             final activeAnimMode =
                 dispSelection.animationMode ?? animConfig.mode;
 
@@ -2479,8 +2993,13 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
               activeStyle: displayed.style,
               activeAnimationMode: activeAnimMode,
               availableThemes: _catalog,
-              lightTheme: resolved.light,
-              darkTheme: resolved.dark,
+              lightTheme: shownBrightness == Brightness.light
+                  ? shown
+                  : (other ?? shown),
+              darkTheme: shownBrightness == Brightness.dark
+                  ? shown
+                  : (other ?? shown),
+              displayedBrightness: shownBrightness,
               animationDuration: materialDuration,
               animationCurve: materialCurve,
               child: OmniSystemUi(
@@ -2497,6 +3016,81 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
         );
       },
     );
+  }
+}
+
+class _OmniTierThemeCache {
+  _OmniTierThemeCache(this.tokens);
+
+  final OmniResponsiveTokens tokens;
+  final Map<String, _OmniThemeEntry> entries = {};
+}
+
+/// One theme + style + overrides; light and dark are built on demand.
+class _OmniThemeEntry {
+  _OmniThemeEntry({
+    required this.source,
+    required this.style,
+    required this.highContrast,
+    required this.screenMode,
+    required this.statusBar,
+    required this.systemNavigationBar,
+  });
+
+  final OmniTheme source;
+  final OmniThemeStyle? style;
+  final bool highContrast;
+  final OmniScreenMode? screenMode;
+  final OmniStatusBarStyle? statusBar;
+  final OmniSystemNavigationBarStyle? systemNavigationBar;
+  ThemeData? _light;
+  ThemeData? _dark;
+  bool _warmingLight = false;
+  bool _warmingDark = false;
+
+  bool matches(
+    OmniTheme theme,
+    OmniThemeStyle? style,
+    OmniScreenMode? screenMode,
+    OmniStatusBarStyle? statusBar,
+    OmniSystemNavigationBarStyle? systemNavigationBar,
+  ) =>
+      (identical(source, theme) || source == theme) &&
+      this.style == style &&
+      this.screenMode == screenMode &&
+      this.statusBar == statusBar &&
+      this.systemNavigationBar == systemNavigationBar;
+
+  ThemeData? themeFor(Brightness b) => b == Brightness.dark ? _dark : _light;
+
+  /// Marks an idle build as scheduled; `false` if one already is.
+  bool claimWarm(Brightness b) {
+    if (b == Brightness.dark) {
+      if (_warmingDark) return false;
+      return _warmingDark = true;
+    }
+    if (_warmingLight) return false;
+    return _warmingLight = true;
+  }
+
+  ThemeData resolve(
+    Brightness b,
+    OmniDeviceType device,
+    OmniResponsiveTokens tokens,
+  ) {
+    final cached = themeFor(b);
+    if (cached != null) return cached;
+    final built = source.resolve(
+      device: device,
+      tokens: tokens,
+      brightness: b,
+      styleOverride: style,
+      screenModeOverride: screenMode,
+      statusBarOverride: statusBar,
+      systemNavigationBarOverride: systemNavigationBar,
+      highContrast: highContrast,
+    );
+    return b == Brightness.dark ? _dark = built : _light = built;
   }
 }
 
@@ -2683,20 +3277,20 @@ class OmniThemeModeSwitch extends StatelessWidget {
   /// ৩টি মোডের মধ্যে থেকে বেছে নেওয়ার সুইচ তৈরি করে।
   const OmniThemeModeSwitch({
     super.key,
-    this.systemLabel = 'System',
-    this.lightLabel = 'Light',
-    this.darkLabel = 'Dark',
+    this.systemLabel,
+    this.lightLabel,
+    this.darkLabel,
     this.showIcons = true,
   });
 
-  /// `ThemeMode.system`-এর লেখা।
-  final String systemLabel;
+  /// `ThemeMode.system`-এর লেখা (default: localized "System").
+  final String? systemLabel;
 
-  /// `ThemeMode.light`-এর লেখা।
-  final String lightLabel;
+  /// `ThemeMode.light`-এর লেখা (default: localized "Light").
+  final String? lightLabel;
 
-  /// `ThemeMode.dark`-এর লেখা।
-  final String darkLabel;
+  /// `ThemeMode.dark`-এর লেখা (default: localized "Dark").
+  final String? darkLabel;
 
   /// লেখার সাথে আইকন দেখাবে কি না।
   final bool showIcons;
@@ -2709,17 +3303,17 @@ class OmniThemeModeSwitch extends StatelessWidget {
       segments: [
         ButtonSegment<ThemeMode>(
           value: ThemeMode.system,
-          label: Text(systemLabel),
+          label: Text(systemLabel ?? _systemLabel(context)),
           icon: showIcons ? const Icon(Icons.brightness_auto_outlined) : null,
         ),
         ButtonSegment<ThemeMode>(
           value: ThemeMode.light,
-          label: Text(lightLabel),
+          label: Text(lightLabel ?? _lightLabel(context)),
           icon: showIcons ? const Icon(Icons.light_mode_outlined) : null,
         ),
         ButtonSegment<ThemeMode>(
           value: ThemeMode.dark,
-          label: Text(darkLabel),
+          label: Text(darkLabel ?? _darkLabel(context)),
           icon: showIcons ? const Icon(Icons.dark_mode_outlined) : null,
         ),
       ],
@@ -2773,7 +3367,10 @@ class OmniThemePicker extends StatelessWidget {
     final scoped = OmniThemeScope.availableThemesOf(context);
     final items = themes ?? (scoped.isNotEmpty ? scoped : OmniTheme.presets);
     final activeId = OmniThemeScope.activeThemeOf(context)?.id ?? '';
-    final hasController = OmniThemeScope.maybeControllerOf(context) != null;
+    final controller = OmniThemeScope.maybeControllerOf(context);
+    final hasController = controller != null;
+    // Build the offered themes in idle time so a tap switches instantly.
+    controller?.precache([for (final t in items) t.id]);
     final c = context.colors;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -3101,13 +3698,14 @@ class OmniThemePanel extends StatelessWidget {
   /// সম্পূর্ণ থিম ও কালার প্যালেট সেটিংস প্যানেল তৈরি করে।
   const OmniThemePanel({
     super.key,
-    this.modeTitle = 'Appearance Mode',
-    this.themeTitle = 'Color Palette',
-    this.styleTitle = 'Theme Style',
-    this.animationTitle = 'Theme Animation',
-    this.systemLabel = 'System',
-    this.lightLabel = 'Light',
-    this.darkLabel = 'Dark',
+    this.modeTitle,
+    this.themeTitle,
+    this.styleTitle,
+    this.animationTitle,
+    this.textSizeTitle,
+    this.systemLabel,
+    this.lightLabel,
+    this.darkLabel,
     this.themes,
     this.pickerLayout = OmniThemePickerLayout.paletteCards,
     this.showModeSwitch = true,
@@ -3115,28 +3713,29 @@ class OmniThemePanel extends StatelessWidget {
     this.showStylePicker = false,
     this.showAnimationPicker = false,
     this.showPalettePreview = true,
+    this.showTextSize = true,
   });
 
-  /// মোড সেকশনের শিরোনাম।
-  final String modeTitle;
+  /// মোড সেকশনের শিরোনাম। (default: localized).
+  final String? modeTitle;
 
-  /// কালার প্যালেট সেকশনের শিরোনাম।
-  final String themeTitle;
+  /// কালার প্যালেট সেকশনের শিরোনাম। (default: localized).
+  final String? themeTitle;
 
-  /// ডিজাইন স্টাইল সেকশনের শিরোনাম।
-  final String styleTitle;
+  /// ডিজাইন স্টাইল সেকশনের শিরোনাম। (default: localized).
+  final String? styleTitle;
 
-  /// অ্যানিমেশন সেকশনের শিরোনাম।
-  final String animationTitle;
+  /// অ্যানিমেশন সেকশনের শিরোনাম। (default: localized).
+  final String? animationTitle;
 
-  /// সিস্টেম মোডের লেবেল।
-  final String systemLabel;
+  /// সিস্টেম মোডের লেবেল। (default: localized).
+  final String? systemLabel;
 
-  /// লাইট মোডের লেবেল।
-  final String lightLabel;
+  /// লাইট মোডের লেবেল। (default: localized).
+  final String? lightLabel;
 
-  /// ডার্ক মোডের লেবেল।
-  final String darkLabel;
+  /// ডার্ক মোডের লেবেল। (default: localized).
+  final String? darkLabel;
 
   /// ঐচ্ছিক কাস্টম থিম তালিকা (না দিলে `OmniApp(themes: ...)` থেকে নেয়)।
   final List<OmniTheme>? themes;
@@ -3159,6 +3758,12 @@ class OmniThemePanel extends StatelessWidget {
   /// বর্তমান প্যালেটের প্রধান কালারগুলোর লাইভ ডট প্রিভিউ দেখাবে কি না।
   final bool showPalettePreview;
 
+  /// Text size section title (default: localized "Text size").
+  final String? textSizeTitle;
+
+  /// Show the [OmniTextSizePicker] (small / medium / large / extra large).
+  final bool showTextSize;
+
   @override
   Widget build(BuildContext context) {
     final t = OmniResponsiveScope.tokensOf(context);
@@ -3174,7 +3779,17 @@ class OmniThemePanel extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             if (showModeSwitch) ...[
-              Text(modeTitle, style: context.textStyles.title),
+              Text(
+                modeTitle ??
+                    _themeLabel(
+                      context,
+                      en: 'Appearance',
+                      bn: 'থিম মোড',
+                      ar: 'المظهر',
+                      hi: 'थीम मोड',
+                    ),
+                style: context.textStyles.title,
+              ),
               t.gapSm,
               OmniThemeModeSwitch(
                 systemLabel: systemLabel,
@@ -3187,7 +3802,17 @@ class OmniThemePanel extends StatelessWidget {
               Row(
                 children: [
                   Expanded(
-                    child: Text(themeTitle, style: context.textStyles.title),
+                    child: Text(
+                      themeTitle ??
+                          _themeLabel(
+                            context,
+                            en: 'Color palette',
+                            bn: 'রঙের প্যালেট',
+                            ar: 'لوحة الألوان',
+                            hi: 'रंग पैलेट',
+                          ),
+                      style: context.textStyles.title,
+                    ),
                   ),
                   if (showPalettePreview) _ActivePaletteStrip(colors: c),
                 ],
@@ -3197,15 +3822,55 @@ class OmniThemePanel extends StatelessWidget {
             ],
             if (showStylePicker) ...[
               if (showModeSwitch || showPalettes) t.gapMd,
-              Text(styleTitle, style: context.textStyles.title),
+              Text(
+                styleTitle ??
+                    _themeLabel(
+                      context,
+                      en: 'Theme style',
+                      bn: 'থিম স্টাইল',
+                      ar: 'نمط السمة',
+                      hi: 'थीम शैली',
+                    ),
+                style: context.textStyles.title,
+              ),
               t.gapSm,
               const OmniThemeStylePicker(),
             ],
             if (showAnimationPicker) ...[
               if (showModeSwitch || showPalettes || showStylePicker) t.gapMd,
-              Text(animationTitle, style: context.textStyles.title),
+              Text(
+                animationTitle ??
+                    _themeLabel(
+                      context,
+                      en: 'Theme animation',
+                      bn: 'থিম অ্যানিমেশন',
+                      ar: 'حركة السمة',
+                      hi: 'थीम एनिमेशन',
+                    ),
+                style: context.textStyles.title,
+              ),
               t.gapSm,
               const OmniThemeAnimationPicker(),
+            ],
+            if (showTextSize) ...[
+              if (showModeSwitch ||
+                  showPalettes ||
+                  showStylePicker ||
+                  showAnimationPicker)
+                t.gapMd,
+              Text(
+                textSizeTitle ??
+                    _themeLabel(
+                      context,
+                      en: 'Text size',
+                      bn: 'লেখার আকার',
+                      ar: 'حجم النص',
+                      hi: 'टेक्स्ट का आकार',
+                    ),
+                style: context.textStyles.title,
+              ),
+              t.gapSm,
+              const OmniTextSizePicker(),
             ],
           ],
         ),
@@ -3270,45 +3935,49 @@ class OmniThemeSettingsTile extends StatelessWidget {
   /// সেটিংস মেনুর জন্য রেডি থিম ও কালার প্যালেট রো তৈরি করে।
   const OmniThemeSettingsTile({
     super.key,
-    this.title = 'Theme & Color Palette',
-    this.sheetTitle = 'Theme & Appearance',
-    this.modeTitle = 'Appearance Mode',
-    this.themeTitle = 'Color Palette',
-    this.styleTitle = 'Theme Style',
-    this.animationTitle = 'Theme Animation',
-    this.systemLabel = 'System',
-    this.lightLabel = 'Light',
-    this.darkLabel = 'Dark',
+    this.title,
+    this.sheetTitle,
+    this.modeTitle,
+    this.themeTitle,
+    this.styleTitle,
+    this.animationTitle,
+    this.textSizeTitle,
+    this.systemLabel,
+    this.lightLabel,
+    this.darkLabel,
     this.showStylePicker = true,
     this.showAnimationPicker = false,
   });
 
   /// সেটিংস রো-এর শিরোনাম।
-  final String title;
+  final String? title;
 
   /// ওপেন হওয়া শিটের শিরোনাম।
-  final String sheetTitle;
+  final String? sheetTitle;
 
   /// মোড সেকশনের শিরোনাম।
-  final String modeTitle;
+  final String? modeTitle;
 
   /// কালার প্যালেট সেকশনের শিরোনাম।
-  final String themeTitle;
+  final String? themeTitle;
 
   /// স্টাইল সেকশনের শিরোনাম।
-  final String styleTitle;
+  final String? styleTitle;
 
   /// অ্যানিমেশন সেকশনের শিরোনাম।
-  final String animationTitle;
+  final String? animationTitle;
 
   /// সিস্টেম মোড লেবেল।
-  final String systemLabel;
+  final String? systemLabel;
 
   /// লাইট মোড লেবেল।
-  final String lightLabel;
+  final String? lightLabel;
 
   /// ডার্ক মোড লেবেল।
-  final String darkLabel;
+  final String? darkLabel;
+
+  /// Text size section title in the sheet (default: localized).
+  final String? textSizeTitle;
 
   /// শিটের ভেতর থিম স্টাইল পিকার দেখাবে কি না।
   final bool showStylePicker;
@@ -3323,9 +3992,9 @@ class OmniThemeSettingsTile extends StatelessWidget {
     final mode = OmniThemeScope.modeOf(context);
     final style = OmniThemeScope.activeStyleOf(context);
     final modeLabel = switch (mode) {
-      ThemeMode.system => systemLabel,
-      ThemeMode.light => lightLabel,
-      ThemeMode.dark => darkLabel,
+      ThemeMode.system => systemLabel ?? _systemLabel(context),
+      ThemeMode.light => lightLabel ?? _lightLabel(context),
+      ThemeMode.dark => darkLabel ?? _darkLabel(context),
     };
     final paletteName = activeTheme?.name ?? 'Default';
 
@@ -3334,7 +4003,17 @@ class OmniThemeSettingsTile extends StatelessWidget {
         backgroundColor: c.selectedItemColor,
         child: Icon(Icons.palette_outlined, color: c.primaryColor),
       ),
-      title: Text(title, style: context.textStyles.subtitle),
+      title: Text(
+        title ??
+            _themeLabel(
+              context,
+              en: 'Theme & colors',
+              bn: 'থিম ও রং',
+              ar: 'السمة والألوان',
+              hi: 'थीम और रंग',
+            ),
+        style: context.textStyles.subtitle,
+      ),
       subtitle: Text(
         '$paletteName · $modeLabel · ${style.label}',
         style: context.textStyles.caption,
@@ -3356,6 +4035,7 @@ class OmniThemeSettingsTile extends StatelessWidget {
         themeTitle: themeTitle,
         styleTitle: styleTitle,
         animationTitle: animationTitle,
+        textSizeTitle: textSizeTitle,
         systemLabel: systemLabel,
         lightLabel: lightLabel,
         darkLabel: darkLabel,
@@ -3370,16 +4050,18 @@ class OmniThemeSettingsTile extends StatelessWidget {
 /// কালার প্যালেট ও মোড কন্ট্রোল শিট খুলে দেয়।
 Future<T?> showOmniThemeSheet<T>(
   BuildContext context, {
-  String title = 'Theme & Appearance',
-  String modeTitle = 'Appearance Mode',
-  String themeTitle = 'Color Palette',
-  String styleTitle = 'Theme Style',
-  String animationTitle = 'Theme Animation',
-  String systemLabel = 'System',
-  String lightLabel = 'Light',
-  String darkLabel = 'Dark',
+  String? title,
+  String? modeTitle,
+  String? themeTitle,
+  String? styleTitle,
+  String? animationTitle,
+  String? textSizeTitle,
+  String? systemLabel,
+  String? lightLabel,
+  String? darkLabel,
   bool showStylePicker = true,
   bool showAnimationPicker = false,
+  bool showTextSize = true,
 }) {
   final device = OmniResponsiveScope.deviceOf(context);
   final isCompact = device == OmniDeviceType.mobile;
@@ -3394,9 +4076,21 @@ Future<T?> showOmniThemeSheet<T>(
         children: [
           Row(
             children: [
-              Expanded(child: Text(title, style: ctx.textStyles.heading)),
+              Expanded(
+                child: Text(
+                  title ??
+                      _themeLabel(
+                        ctx,
+                        en: 'Theme & appearance',
+                        bn: 'থিম ও চেহারা',
+                        ar: 'السمة والمظهر',
+                        hi: 'थीम और रूप',
+                      ),
+                  style: ctx.textStyles.heading,
+                ),
+              ),
               IconButton(
-                tooltip: 'Close',
+                tooltip: MaterialLocalizations.of(ctx).closeButtonTooltip,
                 onPressed: () => Navigator.of(ctx).maybePop(),
                 icon: const Icon(Icons.close),
               ),
@@ -3410,11 +4104,13 @@ Future<T?> showOmniThemeSheet<T>(
                 themeTitle: themeTitle,
                 styleTitle: styleTitle,
                 animationTitle: animationTitle,
+                textSizeTitle: textSizeTitle,
                 systemLabel: systemLabel,
                 lightLabel: lightLabel,
                 darkLabel: darkLabel,
                 showStylePicker: showStylePicker,
                 showAnimationPicker: showAnimationPicker,
+                showTextSize: showTextSize,
               ),
             ),
           ),
@@ -3445,3 +4141,25 @@ Future<T?> showOmniThemeSheet<T>(
     ),
   );
 }
+
+/// Built-in labels of the theme widgets in the current language (English,
+/// Bengali, Arabic, Hindi; English otherwise). Subscribes [context] to
+/// language changes.
+String _themeLabel(
+  BuildContext context, {
+  required String en,
+  required String bn,
+  required String ar,
+  required String hi,
+}) {
+  final state =
+      OmniL10nScope.maybeOf(context)?.notifier?.value ?? OmniText.state;
+  return OmniText.resolveTextFor(state, en: en, bn: bn, ar: ar, hi: hi);
+}
+
+String _systemLabel(BuildContext c) =>
+    _themeLabel(c, en: 'System', bn: 'সিস্টেম', ar: 'النظام', hi: 'सिस्टम');
+String _lightLabel(BuildContext c) =>
+    _themeLabel(c, en: 'Light', bn: 'লাইট', ar: 'فاتح', hi: 'लाइट');
+String _darkLabel(BuildContext c) =>
+    _themeLabel(c, en: 'Dark', bn: 'ডার্ক', ar: 'داكن', hi: 'डार्क');

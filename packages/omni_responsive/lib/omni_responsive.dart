@@ -128,3 +128,14 @@ export 'src/omni_localization.dart'
         showOmniLanguageSheet;
 export 'src/omni_responsive_app.dart'
     show OmniResponsiveApp, OmniResponsiveAppBuilder, OmniResponsiveAppData;
+export 'src/omni_preferences.dart' show OmniPreferences;
+export 'src/omni_text_scale.dart'
+    show
+        OmniTextScale,
+        OmniTextScaleContext,
+        OmniTextScaleController,
+        OmniTextScaleScope,
+        OmniTextScaling,
+        OmniTextSize,
+        OmniTextSizePicker;
+export 'src/omni_theme_override.dart' show OmniThemeOverride;

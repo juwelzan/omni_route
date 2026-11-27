@@ -98,6 +98,8 @@ class OmniApp extends StatefulWidget {
     this.themeAnimation,
     this.localization,
     this.localeController,
+    this.textScaling = const OmniTextScaling(),
+    this.textScaleController,
     this.maxBreadcrumbs = 25,
   }) : _applyRootOverlay = true;
 
@@ -151,6 +153,8 @@ class OmniApp extends StatefulWidget {
     this.themeAnimation,
     this.localization,
     this.localeController,
+    this.textScaling = const OmniTextScaling(),
+    this.textScaleController,
     this.maxBreadcrumbs = 25,
     String title = '',
     ThemeData? theme,
@@ -206,13 +210,15 @@ class OmniApp extends StatefulWidget {
            actions: actions,
            scrollBehavior: scrollBehavior,
            routerConfig: router,
-           builder: _chainBuilders(
-             appBuilder,
-             overlayBuilder,
-             responsive,
-             minTextScale,
-             maxTextScale,
-             syncMaterialBarTheme: omniTheme == null && themes.isEmpty,
+           builder: (context, child) => OmniUiHost.buildAppContent(
+             context,
+             child,
+             responsive: responsive,
+             minTextScale: minTextScale,
+             maxTextScale: maxTextScale,
+             syncBarTheme: omniTheme == null && themes.isEmpty,
+             appBuilder: appBuilder,
+             overlayBuilder: overlayBuilder,
            ),
          );
 
@@ -325,6 +331,8 @@ class OmniApp extends StatefulWidget {
     this.responsive = const OmniResponsiveConfig(),
     this.localization,
     this.localeController,
+    this.textScaling = const OmniTextScaling(),
+    this.textScaleController,
     this.maxBreadcrumbs = 25,
     String title = '',
     CupertinoThemeData? theme,
@@ -356,12 +364,15 @@ class OmniApp extends StatefulWidget {
            actions: actions,
            scrollBehavior: scrollBehavior,
            routerConfig: router,
-           builder: _chainBuilders(
-             appBuilder,
-             overlayBuilder,
-             responsive,
-             minTextScale,
-             maxTextScale,
+           builder: (context, child) => OmniUiHost.buildAppContent(
+             context,
+             child,
+             responsive: responsive,
+             minTextScale: minTextScale,
+             maxTextScale: maxTextScale,
+             material: false,
+             appBuilder: appBuilder,
+             overlayBuilder: overlayBuilder,
            ),
          );
        }),
@@ -401,72 +412,6 @@ class OmniApp extends StatefulWidget {
       delegates: delegates,
       supportedLocales: supported,
     );
-  }
-
-  static TransitionBuilder? _chainBuilders(
-    TransitionBuilder? appBuilder,
-    TransitionBuilder? overlayBuilder,
-    OmniResponsiveConfig responsive,
-    double? minTextScale,
-    double? maxTextScale, {
-    bool syncMaterialBarTheme = false,
-  }) {
-    final hasScale =
-        (responsive.enabled && responsive.adaptTextScaling) ||
-        minTextScale != null ||
-        maxTextScale != null;
-    if (appBuilder == null &&
-        overlayBuilder == null &&
-        !hasScale &&
-        !syncMaterialBarTheme) {
-      return null;
-    }
-    return (context, child) {
-      var current = child;
-      if (syncMaterialBarTheme && current != null) {
-        final scope = context
-            .dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
-        if (scope != null &&
-            (scope.effectiveStatusBar !=
-                    const OmniStatusBarStyle.transparent() ||
-                scope.effectiveSystemNavigationBar !=
-                    const OmniSystemNavigationBarStyle.transparent() ||
-                scope.effectiveScreenMode != OmniScreenMode.edgeToEdge)) {
-          final theme = Theme.of(context);
-          final overlay = composeOmniSystemUiOverlayStyle(
-            brightness: theme.brightness,
-            screenMode: scope.effectiveScreenMode,
-            statusBar: scope.effectiveStatusBar,
-            systemNavigationBar: scope.effectiveSystemNavigationBar,
-            fallbackTopBackground:
-                theme.appBarTheme.backgroundColor ??
-                theme.scaffoldBackgroundColor,
-            fallbackBottomBackground: theme.scaffoldBackgroundColor,
-          );
-          if (theme.appBarTheme.systemOverlayStyle != overlay) {
-            current = Theme(
-              data: theme.copyWith(
-                appBarTheme: theme.appBarTheme.copyWith(
-                  systemOverlayStyle: overlay,
-                ),
-              ),
-              child: current,
-            );
-          }
-        }
-      }
-      if (appBuilder != null) current = appBuilder(context, current);
-      if (overlayBuilder != null) current = overlayBuilder(context, current);
-      if (hasScale && current != null) {
-        current = OmniResponsiveTextScaleHost(
-          config: responsive,
-          minTextScale: minTextScale,
-          maxTextScale: maxTextScale,
-          child: current,
-        );
-      }
-      return current!;
-    };
   }
 
   /// Validates [routes] upfront (duplicate `routePath`, duplicate names,
@@ -643,6 +588,18 @@ class OmniApp extends StatefulWidget {
 
   /// Optional isolated [OmniLocaleController] override.
   final OmniLocaleController? localeController;
+
+  /// The user's text size (small / medium / large / extra large) and
+  /// whether it is saved. Every `Text` scales with it — combined with the OS
+  /// accessibility setting, the screen tier and
+  /// [OmniLocalization.languageTextScale] — with no per-widget code. Change
+  /// it with `context.setTextSize(OmniTextSize.large)`,
+  /// `OmniTextScale.setSize(...)` or the ready-made [OmniTextSizePicker].
+  final OmniTextScaling textScaling;
+
+  /// Optional isolated [OmniTextScaleController] (then [textScaling] is
+  /// unused).
+  final OmniTextScaleController? textScaleController;
 
   /// Bounded in-memory navigation/error breadcrumb capacity retained for
   /// `OmniRoute.breadcrumbs` and `OmniRoute.exportDiagnostics()` (`0` disables
@@ -1022,20 +979,20 @@ class _OmniAppState extends State<OmniApp> {
   Widget _wrapApp(Widget app, OmniRouter router) {
     var child = app;
     if (widget._applyRootOverlay) {
-      if (widget.overlayBuilder case final overlay?) {
-        final inner = child;
-        child = Builder(builder: (context) => overlay(context, inner));
-      }
-      if ((widget.responsive.enabled && widget.responsive.adaptTextScaling) ||
-          widget.minTextScale != null ||
-          widget.maxTextScale != null) {
-        child = OmniResponsiveTextScaleHost(
-          config: widget.responsive,
+      // Custom `builder:` apps: same app content as the material/cupertino
+      // constructors, minus the Material theme tweaks.
+      final inner = child;
+      child = Builder(
+        builder: (context) => OmniUiHost.buildAppContent(
+          context,
+          inner,
+          responsive: widget.responsive,
           minTextScale: widget.minTextScale,
           maxTextScale: widget.maxTextScale,
-          child: child,
-        );
-      }
+          material: false,
+          overlayBuilder: widget.overlayBuilder,
+        ),
+      );
     }
     if (widget.dismissKeyboardOnTap) {
       child = OmniKeyboardDismiss(child: child);
@@ -1049,101 +1006,27 @@ class _OmniAppState extends State<OmniApp> {
         child: child,
       );
     }
-    final hasThemeHost = widget.omniTheme != null || widget.themes.isNotEmpty;
-    final innerChild = child;
-    child = ListenableBuilder(
-      listenable: _systemUiController,
-      child: innerChild,
-      builder: (context, builtChild) {
-        final effectiveStatusBar =
-            _systemUiController.statusBar ?? widget.statusBar;
-        final effectiveNavBar =
-            _systemUiController.systemNavigationBar ??
-            widget.systemNavigationBar;
-        final baseMode = _systemUiController.screenMode ?? widget.screenMode;
-        final effectiveScreenMode = baseMode != null
-            ? resolveEffectiveOmniScreenMode(
-                baseMode,
-                statusBar: effectiveStatusBar,
-                systemNavigationBar: effectiveNavBar,
-              )
-            : (effectiveStatusBar != null || effectiveNavBar != null
-                  ? resolveEffectiveOmniScreenMode(
-                      OmniScreenMode.edgeToEdge,
-                      statusBar: effectiveStatusBar,
-                      systemNavigationBar: effectiveNavBar,
-                    )
-                  : null);
-        final hasRuntimeOrient =
-            _systemUiController.orientations != null ||
-            _systemUiController.orientation != null;
-        final effectiveOrientation = hasRuntimeOrient
-            ? _systemUiController.orientation
-            : widget.orientation;
-        final effectiveOrientations = hasRuntimeOrient
-            ? _systemUiController.orientations
-            : (widget.orientation != null ? null : widget.orientations);
-
-        var current = builtChild!;
-        if (hasThemeHost) {
-          current = OmniResponsiveThemeHost(
-            omniTheme: widget.omniTheme,
-            themes: widget.themes,
-            themeAnimation: widget.themeAnimation,
-            appScreenMode: effectiveScreenMode,
-            appStatusBar: effectiveStatusBar,
-            appSystemNavigationBar: effectiveNavBar,
-            child: current,
-          );
-        }
-        current = OmniSystemUi(
-          screenMode: hasThemeHost ? null : effectiveScreenMode,
-          statusBar: hasThemeHost ? null : effectiveStatusBar,
-          systemNavigationBar: hasThemeHost ? null : effectiveNavBar,
-          brightness:
-              !hasThemeHost &&
-                  (effectiveStatusBar != null ||
-                      effectiveNavBar != null ||
-                      effectiveScreenMode != null)
-              ? MediaQuery.platformBrightnessOf(context)
-              : null,
-          orientation: effectiveOrientation,
-          orientations: effectiveOrientations,
-          child: current,
-        );
-        return OmniSystemUiScope(
-          controller: _systemUiController,
-          effectiveScreenMode:
-              effectiveScreenMode ??
-              (widget.omniTheme ?? widget.themes.firstOrNull)?.screenMode ??
-              OmniScreenMode.edgeToEdge,
-          effectiveOrientation: effectiveOrientation,
-          effectiveStatusBar:
-              effectiveStatusBar ??
-              (widget.omniTheme ?? widget.themes.firstOrNull)?.statusBar ??
-              const OmniStatusBarStyle.transparent(),
-          effectiveSystemNavigationBar:
-              effectiveNavBar ??
-              (widget.omniTheme ?? widget.themes.firstOrNull)
-                  ?.systemNavigationBar ??
-              const OmniSystemNavigationBarStyle.transparent(),
-          child: current,
-        );
-      },
-    );
     final lifecycle = widget.lifecycle;
     if (lifecycle != null) {
       child = OmniAppLifecycleScope(lifecycle: lifecycle, child: child);
     }
-    child = OmniLocalizationHost(
-      config: widget.localization ?? const OmniLocalization(),
-      controller: widget.localeController,
-      child: child,
-    );
-    return OmniResponsiveScope(
-      config: widget.responsive,
+    return OmniUiHost(
+      responsive: widget.responsive,
       minTextScale: widget.minTextScale,
       maxTextScale: widget.maxTextScale,
+      omniTheme: widget.omniTheme,
+      themes: widget.themes,
+      themeAnimation: widget.themeAnimation,
+      localization: widget.localization,
+      localeController: widget.localeController,
+      textScaling: widget.textScaling,
+      textScaleController: widget.textScaleController,
+      statusBar: widget.statusBar,
+      systemNavigationBar: widget.systemNavigationBar,
+      screenMode: widget.screenMode,
+      orientation: widget.orientation,
+      orientations: widget.orientations,
+      systemUiController: _systemUiController,
       child: child,
     );
   }
