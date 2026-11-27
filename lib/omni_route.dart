@@ -73,3 +73,26 @@ export 'src/screens/omni_screen.dart' show OmniScreen, OmniScreenMetadata;
 export 'src/screens/omni_screen_host.dart' show OmniScreenHost;
 export 'src/screens/omni_stateful_widget.dart';
 export 'src/screens/omni_stateless_widget.dart';
+
+// ── Responsive Engine ───────────────────────────────────────────────────────
+export 'src/responsive/omni_adaptive_shell.dart'
+    show OmniAdaptiveDestination, OmniAdaptiveShellScaffold;
+export 'src/responsive/omni_responsive_config.dart'
+    show
+        OmniDeviceType,
+        OmniResponsiveConfig,
+        OmniResponsiveTokenSet,
+        OmniResponsiveTokens,
+        OmniWindowSize;
+export 'src/responsive/omni_responsive_extensions.dart';
+export 'src/responsive/omni_responsive_scope.dart'
+    show OmniResponsiveData, OmniResponsiveScope;
+export 'src/responsive/omni_responsive_widgets.dart'
+    show
+        OmniResponsiveBuilder,
+        OmniResponsiveContainer,
+        OmniResponsiveGrid,
+        OmniResponsiveLayout,
+        OmniResponsiveRowColumn,
+        OmniResponsiveVisibility,
+        OmniResponsiveWidgetBuilder;

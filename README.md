@@ -40,7 +40,8 @@
 19. [Error ও সমাধান](#১৯-error-ও-সমাধান)
 20. [সম্পূর্ণ উদাহরণ](#২০-সম্পূর্ণ-উদাহরণ)
 21. [OmniNetwork — API call (HTTP, Auth, Cache, Upload…)](#২১-omninetwork--api-call-http-auth-cache-upload)
-22. [Migration — 0.3 থেকে 0.4](#migration--03-থেকে-04)
+22. [Responsive Handling (জিরো-ল্যাগ নেটিভ-গ্রেড)](#২২-responsive-handling-জিরো-ল্যাগ-নেটিভ-গ্রেড)
+23. [Migration — 0.3 থেকে 0.4](#migration--03-থেকে-04)
 
 ---
 
@@ -1994,6 +1995,19 @@ model (`fromJson`/`toJson`), enum আর typed `Endpoint` তৈরি হয়
 
 আরও বিস্তারিত (ইংরেজিতে): [packages/omni_network/README.md](packages/omni_network/README.md),
 [packages/omni_network/doc/advanced.md](packages/omni_network/doc/advanced.md)।
+
+---
+
+## ২২. Responsive Handling (জিরো-ল্যাগ নেটিভ-গ্রেড)
+
+`omni_route` কোনো অতিরিক্ত থার্ড-পার্টি প্যাকেজ ছাড়াই প্রতিটি `OmniApp`-এ স্বয়ংক্রিয়ভাবে **নেটিভ Android/iOS মানের জিরো-ল্যাগ Responsive System** সক্রিয় রাখে:
+
+- **কোনো পিক্সেল জ্যাঙ্ক নেই:** `.w`/`.h`/`.sp` পিক্সেল গুণ না করে `InheritedModel` Aspect Splitting (`device`, `windowSize`, `orientation`, `tokens`, `metrics`) ও প্রি-অ্যালোকেটেড `const OmniResponsiveTokens` ব্যবহার করে — ফলে একই ব্রেকপয়েন্টের মধ্যে উইন্ডো রিসাইজ বা কিবোর্ড ওঠা-নামা করলে **০টি অযথা রি-বিল্ড** হয়।
+- **স্বয়ংক্রিয় `const Text` স্কেলিং:** OS Accessibility ও `minTextScale`/`maxTextScale` মেনে প্রতিটি টিয়ারে (`smallPhone`, `mobile`, `tablet`, `desktop`, `largeDesktop`) টেক্সট ও স্পেসিং সামঞ্জস্য করে।
+- **প্রধান শর্টকাট ও উইজেট:** `context.isMobile` / `isTablet` / `isDesktop`, `context.tokens`, `context.responsiveValue(...)`, `OmniResponsiveLayout`, `OmniResponsiveContainer`, `OmniResponsiveGrid` (বা `maxItemWidth` দিয়ে C++ 120fps রিফ্লো), `OmniResponsiveRowColumn`, `OmniResponsiveVisibility`।
+- **অ্যাডাপ্টিভ শেল ও মোডাল:** `OmniStatefulShell.adaptive(...)` (Bottom NavigationBar ↔ Compact Rail ↔ Extended Rail) ও `OmniPages.adaptiveModal(...)` (মোবাইলে BottomSheet ↔ বড় স্ক্রিনে Dialog)।
+
+বিস্তারিত উদাহরণ ও সব প্যারামিটার দেখুন: [doc/guide.bn.md — ১৪. Responsive Handling](doc/guide.bn.md#১৪-জিরো-ল্যাগ-responsive-handling--omniresponsiveconfig-ও-অ্যাডাপ্টিভ-শেলমোডাল)।
 
 ---
 

@@ -10,6 +10,8 @@ import '../core/omni_app_features.dart';
 import '../core/omni_router.dart';
 import '../errors/omni_route_exception.dart';
 import '../guards/omni_guard.dart';
+import '../responsive/omni_responsive_config.dart';
+import '../responsive/omni_responsive_scope.dart';
 import '../screens/omni_screen.dart';
 import '../screens/omni_screen_host.dart';
 import 'omni_params.dart';
@@ -243,6 +245,26 @@ abstract final class OmniPages {
         isScrollControlled: isScrollControlled,
       );
 
+  /// Displays the screen as a modal bottom sheet on mobile viewports and a
+  /// constrained centered modal dialog on tablet and desktop viewports.
+  static OmniPageType adaptiveModal({
+    Color? barrierColor = Colors.black54,
+    bool barrierDismissible = true,
+    bool? showDragHandle,
+    bool isScrollControlled = true,
+    double maxDialogWidth = 560,
+  }) =>
+      (key, name, child) => _OmniAdaptiveModalPage(
+        key: key,
+        name: name,
+        child: child,
+        barrierColor: barrierColor,
+        barrierDismissible: barrierDismissible,
+        showDragHandle: showDragHandle,
+        isScrollControlled: isScrollControlled,
+        maxDialogWidth: maxDialogWidth,
+      );
+
   static OmniTransitionBuilder _builderFor(OmniTransition kind, CurveTween c) =>
       switch (kind) {
         OmniTransition.fade => (context, a, s, child) => FadeTransition(
@@ -405,6 +427,61 @@ class _OmniSheetPage extends Page<void> {
     isScrollControlled: isScrollControlled,
     builder: (_) => child,
   );
+}
+
+class _OmniAdaptiveModalPage extends Page<void> {
+  const _OmniAdaptiveModalPage({
+    super.key,
+    super.name,
+    required this.child,
+    required this.barrierColor,
+    required this.barrierDismissible,
+    required this.showDragHandle,
+    required this.isScrollControlled,
+    required this.maxDialogWidth,
+  });
+
+  final Widget child;
+  final Color? barrierColor;
+  final bool barrierDismissible;
+  final bool? showDragHandle;
+  final bool isScrollControlled;
+  final double maxDialogWidth;
+
+  @override
+  Route<void> createRoute(BuildContext context) {
+    final snapshot = OmniResponsiveScope.read(context);
+    if (snapshot.device == OmniDeviceType.mobile) {
+      return ModalBottomSheetRoute<void>(
+        settings: this,
+        showDragHandle: showDragHandle,
+        isScrollControlled: isScrollControlled,
+        useSafeArea: true,
+        builder: (_) => child,
+      );
+    }
+    return DialogRoute<void>(
+      context: context,
+      settings: this,
+      barrierColor: barrierColor,
+      barrierDismissible: barrierDismissible,
+      builder: (dialogContext) => child is Dialog
+          ? ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxDialogWidth),
+              child: child,
+            )
+          : Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: snapshot.tokens.dialogBorderRadius,
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: maxDialogWidth),
+                child: child,
+              ),
+            ),
+    );
+  }
 }
 
 /// Declares a route inside an [OmniApp] mapping [path] to any [Widget] (either

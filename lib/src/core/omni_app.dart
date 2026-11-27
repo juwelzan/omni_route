@@ -7,6 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
 import '../guards/omni_guard.dart';
+import '../responsive/omni_responsive_config.dart';
+import '../responsive/omni_responsive_scope.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
@@ -85,6 +87,7 @@ class OmniApp extends StatefulWidget {
     this.blocObserver,
     this.onError,
     this.overlayBuilder,
+    this.responsive = const OmniResponsiveConfig(),
   }) : _applyRootOverlay = true;
 
   /// Creates an [OmniApp] pre-configured with `MaterialApp.router`, removing
@@ -127,6 +130,7 @@ class OmniApp extends StatefulWidget {
     this.blocObserver,
     this.onError,
     this.overlayBuilder,
+    this.responsive = const OmniResponsiveConfig(),
     String title = '',
     ThemeData? theme,
     ThemeData? darkTheme,
@@ -161,7 +165,13 @@ class OmniApp extends StatefulWidget {
          actions: actions,
          scrollBehavior: scrollBehavior,
          routerConfig: router,
-         builder: _chainBuilders(appBuilder, overlayBuilder),
+         builder: _chainBuilders(
+           appBuilder,
+           overlayBuilder,
+           responsive,
+           minTextScale,
+           maxTextScale,
+         ),
        )),
        _applyRootOverlay = false;
 
@@ -204,6 +214,7 @@ class OmniApp extends StatefulWidget {
     this.blocObserver,
     this.onError,
     this.overlayBuilder,
+    this.responsive = const OmniResponsiveConfig(),
     String title = '',
     CupertinoThemeData? theme,
     Color? color,
@@ -227,19 +238,44 @@ class OmniApp extends StatefulWidget {
          actions: actions,
          scrollBehavior: scrollBehavior,
          routerConfig: router,
-         builder: _chainBuilders(appBuilder, overlayBuilder),
+         builder: _chainBuilders(
+           appBuilder,
+           overlayBuilder,
+           responsive,
+           minTextScale,
+           maxTextScale,
+         ),
        )),
        _applyRootOverlay = false;
 
   static TransitionBuilder? _chainBuilders(
     TransitionBuilder? appBuilder,
     TransitionBuilder? overlayBuilder,
+    OmniResponsiveConfig responsive,
+    double? minTextScale,
+    double? maxTextScale,
   ) {
-    if (appBuilder == null && overlayBuilder == null) return null;
-    if (appBuilder == null) return overlayBuilder;
-    if (overlayBuilder == null) return appBuilder;
-    return (context, child) =>
-        overlayBuilder(context, appBuilder(context, child));
+    final hasScale =
+        (responsive.enabled && responsive.adaptTextScaling) ||
+        minTextScale != null ||
+        maxTextScale != null;
+    if (appBuilder == null && overlayBuilder == null && !hasScale) {
+      return null;
+    }
+    return (context, child) {
+      var current = child;
+      if (appBuilder != null) current = appBuilder(context, current);
+      if (overlayBuilder != null) current = overlayBuilder(context, current);
+      if (hasScale && current != null) {
+        current = OmniResponsiveTextScaleHost(
+          config: responsive,
+          minTextScale: minTextScale,
+          maxTextScale: maxTextScale,
+          child: current,
+        );
+      }
+      return current!;
+    };
   }
 
   /// Validates [routes] upfront (duplicate `routePath`, duplicate names,
@@ -373,6 +409,10 @@ class OmniApp extends StatefulWidget {
   /// Directionality when using [OmniApp.material] or [OmniApp.cupertino], or
   /// wrapping [builder] in the default constructor).
   final TransitionBuilder? overlayBuilder;
+
+  /// Native-equivalent, zero-overhead responsive configuration (active by
+  /// default via discrete breakpoint tiers and pre-cached constant tokens).
+  final OmniResponsiveConfig responsive;
 
   final bool _applyRootOverlay;
 
@@ -711,16 +751,16 @@ class _OmniAppState extends State<OmniApp> {
         final inner = child;
         child = Builder(builder: (context) => overlay(context, inner));
       }
-    }
-    if (widget.minTextScale != null || widget.maxTextScale != null) {
-      final inner = child;
-      child = Builder(
-        builder: (context) => MediaQuery.withClampedTextScaling(
-          minScaleFactor: widget.minTextScale ?? 0,
-          maxScaleFactor: widget.maxTextScale ?? double.infinity,
-          child: inner,
-        ),
-      );
+      if ((widget.responsive.enabled && widget.responsive.adaptTextScaling) ||
+          widget.minTextScale != null ||
+          widget.maxTextScale != null) {
+        child = OmniResponsiveTextScaleHost(
+          config: widget.responsive,
+          minTextScale: widget.minTextScale,
+          maxTextScale: widget.maxTextScale,
+          child: child,
+        );
+      }
     }
     if (widget.dismissKeyboardOnTap) {
       child = OmniKeyboardDismiss(child: child);
@@ -738,7 +778,12 @@ class _OmniAppState extends State<OmniApp> {
     if (lifecycle != null) {
       child = OmniAppLifecycleScope(lifecycle: lifecycle, child: child);
     }
-    return child;
+    return OmniResponsiveScope(
+      config: widget.responsive,
+      minTextScale: widget.minTextScale,
+      maxTextScale: widget.maxTextScale,
+      child: child,
+    );
   }
 
   OmniConfig? _effectiveConfig() {

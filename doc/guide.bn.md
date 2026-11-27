@@ -28,6 +28,7 @@
 11. [অ্যাপ ও স্ক্রিনের লাইফসাইকেল — OmniLifecycle ও OmniScreenHost](#১১-অ্যাপ-ও-স্ক্রিনের-লাইফসাইকেল--omnilifecycle-ও-omniscreenhost)
 12. [পেজ অ্যানিমেশন ও সোয়াইপ ব্যাক — OmniPages ও OmniSwipeBackStyle](#১২-পেজ-অ্যানিমেশন-ও-সোয়াইপ-ব্যাক--omnipages-ও-omniswipebackstyle)
 13. [টার্মিনাল কালার লগ ও ইন-অ্যাপ ইন্সপেক্টর — LogOptions ও OmniInspector](#১৩-টার্মিনাল-কালার-লগ-ও-ইন-অ্যাপ-ইন্সপেক্টর--logoptions-ও-omniinspector)
+14. [জিরো-ল্যাগ Responsive Handling — OmniResponsiveConfig ও অ্যাডাপ্টিভ শেল/মোডাল](#১৪-জিরো-ল্যাগ-responsive-handling--omniresponsiveconfig-ও-অ্যাডাপ্টিভ-শেলমোডাল)
 
 ---
 
@@ -762,3 +763,55 @@ class AuthGuard extends OmniGuard {
 - `inspector.attachClient(api, includeAi: true)` → HTTP, WebSocket ও AI কল অটো যুক্ত করে।
 - `inspector.logRoute(...)` ও `inspector.logBloc(...)` → নেভিগেশন ও ব্লক কার্ডও একই টাইমলাইনে দেখায়।
 - `OmniInspectorLauncher(inspector:, initialTab: InspectorTab.logs, alignment:, child:)` → অ্যাপের কোনায় ফ্লোটিং বাটন বসিয়ে **`All Logs`** কার্ড, ট্যাগ ফিল্টার, সার্চ ও প্রতিটি কার্ডে **১-ক্লিক JSON কপি** (`Copy Full Response`, `Copy Full Log`, `Copy as cURL`, `Copy HAR`, `Copy all logs`) সুবিধা দেয়।
+
+---
+
+## ১৪. জিরো-ল্যাগ Responsive Handling — `OmniResponsiveConfig` ও অ্যাডাপ্টিভ শেল/মোডাল
+
+`omni_route` কোনো বাড়তি প্যাকেজ ছাড়াই নেটিভ Android (`dp` / `WindowSizeClass`) ও iOS (`pt` / `TraitCollection`)-এর মতো **জিরো-ওভারহেড রেসপন্সিভ ইঞ্জিন** সরাসরি `OmniApp`-এর সাথে চালু রাখে:
+
+- **কোনো পিক্সেল জ্যাঙ্ক নেই:** প্রতিটি উইজেটে `.w`/`.h`/`.sp` ক্যালকুলেশন করে `const` ভাঙার বদলে `InheritedModel` ভিত্তিক ৫টি আলাদা অ্যাস্পেক্ট (`device`, `windowSize`, `orientation`, `tokens`, `metrics`) ও আগে থেকেই তৈরি **`const OmniResponsiveTokens`** ব্যবহার করে।
+- **ইন্ট্রা-টিয়ার রি-বিল্ড শূন্য (`0`):** একই ব্রেকপয়েন্টের মধ্যে উইন্ডো রিসাইজ (`380px → 580px`) বা কিবোর্ড খোলা/বন্ধ হলে (`viewInsets`) `context.isMobile`, `context.tokens`, `context.responsiveValue(...)` বা `OmniResponsiveLayout` **একবারও রি-বিল্ড হয় না**।
+- **`const Text` স্বয়ংক্রিয়ভাবে স্কেল হয়:** `OmniResponsiveConfig(adaptTextScaling: true)` প্রতিটি টিয়ারে (`smallPhone: 0.94`, `mobile: 1.0`, `tablet: 1.0`, `desktop: 1.05`, `largeDesktop: 1.08`) সুষম `TextScaler` বসায় এবং আপনার `minTextScale`/`maxTextScale` ও OS Accessibility মেনে চলে।
+- **ডিফল্ট ব্রেকপয়েন্ট:** `mobile < 600` (`smallPhone < 360`), `tablet 600..1023`, `desktop 1024..1439`, `largeDesktop >= 1440` (চাইলে `useShortestSide: true` দিয়ে ফোনের ল্যান্ডস্কেপকে মোবাইল টিয়ারে স্থির রাখা যায়, অথবা `OmniResponsiveConfig.disabled()` দিয়ে বন্ধ করা যায়)।
+
+### ক. `BuildContext` ও উইজেট হেল্পারসমূহ
+
+| API / উইজেট | কাজ | রি-বিল্ড আচরণ |
+|---|---|---|
+| `context.isMobile` / `isTablet` / `isDesktop` / `isLargeDesktop` / `isCompactHeight` | ডিভাইস টিয়ার ও ছোট উচ্চতা চেক | কেবল ব্রেকপয়েন্ট সীমা পার হলেই রি-বিল্ড |
+| `context.responsiveRead` | `onPressed` / কলব্যাকে নিরাপদ নন-লিসেনিং পড়া | **০ রি-বিল্ড** (`depend` করে না) |
+| `OmniResponsiveScope.constrained(child:)` | স্প্লিট-প্যান বা সাইডবারের নিজের প্রস্থ অনুযায়ী রেসপন্সিভ | কেবল কন্টেইনার সাইজ বদলালে |
+| `context.tokens` | `pagePadding`, `cardPadding`, `gapMd`, `cardBorderRadius`, `gridColumns`, `iconSize`, `maxContentWidth` | কেবল টিয়ার বদলালেই রি-বিল্ড (`const` অবজেক্ট) |
+| `context.responsiveValue(mobile:, tablet:, desktop:)` | টিয়ার অনুযায়ী মান নেওয়া (নিচের টিয়ারে অটো ফলব্যাক) | কেবল টিয়ার বদলালেই রি-বিল্ড |
+| `OmniResponsiveLayout(mobile:, tablet:, desktop:)` | স্ক্রিন ভেদে আলাদা লেআউট | কেবল টিয়ার বদলালেই রি-বিল্ড |
+| `OmniResponsiveContainer(maxWidth:, child:)` | ওয়েব/ডেস্কটপে কনটেন্ট মাঝখানে ও নির্দিষ্ট প্রস্থে রাখা | এক পাসে নেটিভ `ConstrainedBox` লেআউট |
+| `OmniResponsiveGrid` / `.builder` | `mobileColumns`/`desktopColumns` অথবা `maxItemWidth` দিলে C++ RenderObject-এ **120fps রিফ্লো** | `maxItemWidth` দিলে **০ Dart রি-বিল্ড** |
+| `OmniResponsiveRowColumn` | মোবাইলে `Column`, ট্যাবলেট/ডেস্কটপে `Row` | কেবল টিয়ার বদলালেই রি-বিল্ড |
+| `OmniResponsiveVisibility` | ডিভাইস অনুযায়ী উইজেট দেখানো/লুকানো | কেবল টিয়ার বদলালেই রি-বিল্ড |
+
+### খ. অ্যাডাপ্টিভ ট্যাব নেভিগেশন ও মোডাল পেজ
+
+```dart
+OmniApp.material(
+  routes: [
+    // ১. মোবাইলে Bottom NavigationBar, ট্যাবলেটে Rail, ডেস্কটপে Extended Rail (ট্যাব স্টেট অক্ষুণ্ণ!)
+    OmniStatefulShell.adaptive(
+      destinations: const [
+        OmniAdaptiveDestination(icon: Icon(Icons.home), label: 'Home'),
+        OmniAdaptiveDestination(icon: Icon(Icons.person), label: 'Profile'),
+      ],
+      branches: [
+        OmniBranch(routes: [OmniPage('/home', (_) => const HomePage())]),
+        OmniBranch(routes: [OmniPage('/profile', (_) => const ProfilePage())]),
+      ],
+    ),
+    // ২. মোবাইলে BottomSheet, ট্যাবলেট/ডেস্কটপে Dialog!
+    OmniPage(
+      '/filter',
+      (_) => const FilterContent(),
+      transition: OmniPages.adaptiveModal(),
+    ),
+  ],
+)
+```

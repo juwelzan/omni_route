@@ -1,7 +1,8 @@
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../guards/omni_guard.dart';
+import '../responsive/omni_adaptive_shell.dart';
 import 'omni_route_state.dart';
 
 /// Builds a shared shell layout around child routes.
@@ -117,6 +118,68 @@ class OmniStatefulShell extends OmniRouteBase {
     this.restorationScopeId,
     this.guards = const [],
   });
+
+  /// Creates an adaptive navigation shell that automatically switches between a
+  /// bottom `NavigationBar` on phones, a compact `NavigationRail` on tablets,
+  /// and an extended `NavigationRail` on desktops while preserving every tab's
+  /// navigation stack and scroll state.
+  factory OmniStatefulShell.adaptive({
+    required List<OmniAdaptiveDestination> destinations,
+    required List<OmniBranch> branches,
+    PreferredSizeWidget? Function(
+      BuildContext context,
+      OmniRouteState state,
+      OmniNavigationShell shell,
+    )?
+    appBarBuilder,
+    PreferredSizeWidget? appBar,
+    Widget? Function(
+      BuildContext context,
+      OmniRouteState state,
+      OmniNavigationShell shell,
+    )?
+    floatingActionButtonBuilder,
+    Widget? floatingActionButton,
+    Color? backgroundColor,
+    Widget? railLeading,
+    Widget? railTrailing,
+    bool extendedDesktopRail = true,
+    bool resetTabOnReselect = true,
+    List<OmniBlocEntry> provide = const [],
+    GlobalKey<NavigatorState>? parentNavigatorKey,
+    String? restorationScopeId,
+    List<OmniGuard> guards = const [],
+  }) {
+    assert(
+      destinations.length == branches.length,
+      'OmniStatefulShell.adaptive requires destinations.length (${destinations.length}) '
+      'to match branches.length (${branches.length}).',
+    );
+    return OmniStatefulShell(
+      branches: branches,
+      provide: provide,
+      parentNavigatorKey: parentNavigatorKey,
+      restorationScopeId: restorationScopeId,
+      guards: guards,
+      builder: (context, state, shell) => OmniAdaptiveShellScaffold(
+        currentIndex: shell.currentIndex,
+        onSelectIndex: (index) => shell.goBranch(
+          index,
+          initialLocation: resetTabOnReselect && index == shell.currentIndex,
+        ),
+        destinations: destinations,
+        appBar: appBarBuilder?.call(context, state, shell) ?? appBar,
+        floatingActionButton:
+            floatingActionButtonBuilder?.call(context, state, shell) ??
+            floatingActionButton,
+        backgroundColor: backgroundColor,
+        railLeading: railLeading,
+        railTrailing: railTrailing,
+        extendedDesktopRail: extendedDesktopRail,
+        navigationChild: shell,
+      ),
+    );
+  }
 
   /// Builds the shell UI around [OmniNavigationShell].
   final OmniStatefulShellBuilder builder;

@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../guards/omni_guard.dart';
+import '../responsive/omni_responsive_scope.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_trie.dart';
@@ -1164,7 +1165,13 @@ class _OmniInitGateState extends State<OmniInitGate>
   Widget _wrapStageView(BuildContext context, Widget built) {
     final hasApp = context.findAncestorWidgetOfExactType<WidgetsApp>() != null;
     if (hasApp) return built;
-    return MaterialApp(debugShowCheckedModeBanner: false, home: built);
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      builder: (stageContext, child) => child == null
+          ? const SizedBox.shrink()
+          : OmniResponsiveTextScaleHost.fromScope(stageContext, child: child),
+      home: built,
+    );
   }
 
   Widget _buildSplashView(BuildContext flowContext) {
