@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:omni_responsive/integration.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
@@ -1433,11 +1434,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     return _OmniRouterScope(
       router: this,
       canPopValue: canPop(),
-      child: _buildNavigator(
-        key: navigatorKey,
-        pages: pages,
-        restorationScopeId: restorationScopeId,
-        observers: _userObservers,
+      child: OmniRouteNavigationBridge(
+        currentLocation: state.matchedLocation,
+        onNavigate: (path) => go(path),
+        child: _buildNavigator(
+          key: navigatorKey,
+          pages: pages,
+          restorationScopeId: restorationScopeId,
+          observers: _userObservers,
+        ),
       ),
     );
   }

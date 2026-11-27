@@ -140,6 +140,16 @@ export 'src/omni_text_scale.dart'
         OmniTextSize,
         OmniTextSizePicker;
 export 'src/omni_theme_override.dart' show OmniThemeOverride;
+export 'src/widgets/bottom_navigation/omni_bottom_navigation.dart'
+    show
+        OmniBottomNavLabelMode,
+        OmniBottomNavigationAction,
+        OmniBottomNavigationBar,
+        OmniBottomNavigationController,
+        OmniBottomNavigationItem,
+        OmniBottomNavigationItemBuilder,
+        OmniBottomNavigationStyle,
+        OmniBottomNavigationStyleData;
 export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'
     show
         OmniScalableSheet,

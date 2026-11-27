@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'omni_responsive_config.dart';
 import 'omni_responsive_scope.dart';
+import 'widgets/bottom_navigation/omni_bottom_navigation.dart';
 
 /// Destination descriptor used by `OmniStatefulShell.adaptive(...)` to drive
 /// bottom `NavigationBar` on mobile and `NavigationRail` on tablet/desktop
@@ -49,6 +50,9 @@ class OmniAdaptiveShellScaffold extends StatelessWidget {
     this.railLeading,
     this.railTrailing,
     this.extendedDesktopRail = true,
+    this.bottomBarStyle,
+    this.bottomBarTheme,
+    this.extendBottomBar = true,
   });
 
   /// Currently selected branch index.
@@ -81,28 +85,57 @@ class OmniAdaptiveShellScaffold extends StatelessWidget {
   /// Expand `NavigationRail` labels alongside icons on desktop/largeDesktop.
   final bool extendedDesktopRail;
 
+  /// Optional [OmniBottomNavigationStyle] applied on mobile viewports instead
+  /// of Material's default `NavigationBar`.
+  final OmniBottomNavigationStyle? bottomBarStyle;
+
+  /// Optional theme overrides paired with [bottomBarStyle].
+  final OmniBottomNavigationStyleData? bottomBarTheme;
+
+  /// Whether mobile `Scaffold.extendBody` is enabled when [bottomBarStyle] is
+  /// active (default `true` for floating/glass/notched styles).
+  final bool extendBottomBar;
+
   @override
   Widget build(BuildContext context) {
     final device = OmniResponsiveScope.deviceOf(context);
     if (device == OmniDeviceType.mobile) {
+      final useCustomBar = bottomBarStyle != null || bottomBarTheme != null;
       return Scaffold(
         appBar: appBar,
         backgroundColor: backgroundColor,
         floatingActionButton: floatingActionButton,
+        extendBody: useCustomBar && extendBottomBar,
         body: navigationChild,
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: currentIndex,
-          onDestinationSelected: onSelectIndex,
-          destinations: [
-            for (final d in destinations)
-              NavigationDestination(
-                icon: d.icon,
-                selectedIcon: d.selectedIcon,
-                label: d.label,
-                tooltip: d.tooltip,
+        bottomNavigationBar: useCustomBar
+            ? OmniBottomNavigationBar(
+                style: bottomBarStyle,
+                theme: bottomBarTheme,
+                currentIndex: currentIndex,
+                onTap: onSelectIndex,
+                items: [
+                  for (final d in destinations)
+                    OmniBottomNavigationItem(
+                      icon: d.icon,
+                      selectedIcon: d.selectedIcon,
+                      label: d.label,
+                      tooltip: d.tooltip,
+                    ),
+                ],
+              )
+            : NavigationBar(
+                selectedIndex: currentIndex,
+                onDestinationSelected: onSelectIndex,
+                destinations: [
+                  for (final d in destinations)
+                    NavigationDestination(
+                      icon: d.icon,
+                      selectedIcon: d.selectedIcon,
+                      label: d.label,
+                      tooltip: d.tooltip,
+                    ),
+                ],
               ),
-          ],
-        ),
       );
     }
 

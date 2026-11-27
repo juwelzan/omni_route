@@ -7,3 +7,5 @@ export 'src/omni_responsive_scope.dart' show OmniResponsiveTextScaleHost;
 export 'src/omni_system_ui.dart'
     show composeOmniSystemUiOverlayStyle, resolveEffectiveOmniScreenMode;
 export 'src/omni_ui_host.dart' show OmniUiHost;
+export 'src/widgets/bottom_navigation/omni_bottom_navigation.dart'
+    show OmniRouteNavigationBridge;

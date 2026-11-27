@@ -49,6 +49,8 @@ export 'src/platform/omni_route_method_channel.dart'
 export 'src/platform/omni_route_platform_interface.dart' show OmniRoutePlatform;
 
 // ── Pages, Shells, Transitions & Screens ────────────────────────────────────
+export 'src/routing/omni_bottom_bar_host.dart'
+    show OmniBottomNavigationBarBuilder, OmniPageBottomBarHost;
 export 'src/routing/omni_page.dart'
     show
         OmniErrorBuilder,

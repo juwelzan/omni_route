@@ -91,6 +91,11 @@ mixin OmniScreen on Widget {
   /// [orientation] when non-null).
   List<DeviceOrientation>? get orientations => null;
 
+  /// Optional per-screen bottom navigation bar attached when this screen is
+  /// hosted inside an [OmniPage] (e.g. `OmniBottomNavigationBar`).
+  /// Overridden when `OmniPage(bottomNavigationBar: ...)` is provided.
+  Widget? buildBottomNavigationBar(BuildContext context) => null;
+
   /// Runtime class name, for debugging/logging only. Not stable under
   /// obfuscation.
   String get debugName => runtimeType.toString();

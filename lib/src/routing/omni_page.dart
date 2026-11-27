@@ -14,6 +14,7 @@ import '../guards/omni_guard.dart';
 import 'package:omni_responsive/omni_responsive.dart';
 import '../screens/omni_screen.dart';
 import '../screens/omni_screen_host.dart';
+import 'omni_bottom_bar_host.dart';
 import 'omni_params.dart';
 import 'omni_route_state.dart';
 import 'omni_swipe_back.dart';
@@ -540,6 +541,10 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.systemNavigationBar,
     this.orientation,
     this.orientations,
+    this.bottomNavigationBar,
+    this.bottomNavigationBarBuilder,
+    this.extendBottomNavigationBar = true,
+    this.hideBottomBarOnKeyboard = true,
   }) : _screen = null;
 
   /// Creates a route directly from a widget [screen], automatically using
@@ -565,6 +570,10 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.systemNavigationBar,
     this.orientation,
     this.orientations,
+    this.bottomNavigationBar,
+    this.bottomNavigationBarBuilder,
+    this.extendBottomNavigationBar = true,
+    this.hideBottomBarOnKeyboard = true,
   }) : // Named `path` cannot be a private initializing formal alongside computed `get path`.
        // ignore: prefer_initializing_formals
        _path = path,
@@ -587,6 +596,23 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   /// Allowed orientations for this route (takes precedence over
   /// [orientation]).
   final List<DeviceOrientation>? orientations;
+
+  /// Optional bottom navigation bar widget embedded directly inside this
+  /// [OmniPage] (for example, `OmniBottomNavigationBar(...)`).
+  final Widget? bottomNavigationBar;
+
+  /// Builder variant of [bottomNavigationBar] providing [BuildContext] and
+  /// matched [OmniRouteState]. Takes precedence over [bottomNavigationBar].
+  final OmniBottomNavigationBarBuilder? bottomNavigationBarBuilder;
+
+  /// Whether page content extends behind [bottomNavigationBar] (default `true`,
+  /// propagating `MediaQuery.padding.bottom` to scrollables and safe areas so
+  /// floating and glass bars look translucent without cutting off content).
+  final bool extendBottomNavigationBar;
+
+  /// Whether [bottomNavigationBar] collapses its bottom clearance when the
+  /// software keyboard opens (default `true`).
+  final bool hideBottomBarOnKeyboard;
 
   final String? _path;
   final OmniScreenBuilder<S>? _screenBuilder;
@@ -762,6 +788,24 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
         );
       }
 
+      Widget wrapBottomBar(
+        BuildContext ctx,
+        Widget body, {
+        OmniScreen? omniScreen,
+      }) {
+        final bar =
+            bottomNavigationBarBuilder?.call(ctx, state) ??
+            bottomNavigationBar ??
+            omniScreen?.buildBottomNavigationBar(ctx);
+        if (bar == null) return body;
+        return OmniPageBottomBarHost(
+          bottomNavigationBar: bar,
+          extendBody: extendBottomNavigationBar,
+          hideOnKeyboard: hideBottomBarOnKeyboard,
+          child: body,
+        );
+      }
+
       Widget buildInner(BuildContext innerContext) {
         final screen = _screen ?? screenBuilder(OmniParams(state));
         if (screen is OmniScreen) {
@@ -769,30 +813,32 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
           final effectiveTitle =
               title ?? (metadata?['title'] as String?) ?? screen.title;
           return wrapSystemUi(
-            hostScreen(
-              screen,
-              wrap: config.titles
-                  ? (s) => OmniTitle(
-                      title: effectiveTitle,
-                      color: config.titleColor,
-                      child: s,
-                    )
-                  : null,
+            wrapBottomBar(
+              innerContext,
+              hostScreen(
+                screen,
+                wrap: config.titles
+                    ? (s) => OmniTitle(
+                        title: effectiveTitle,
+                        color: config.titleColor,
+                        child: s,
+                      )
+                    : null,
+              ),
+              omniScreen: screen,
             ),
             omniScreen: screen,
           );
         }
         final effectiveTitle = title ?? (metadata?['title'] as String?);
-        if (config.titles && effectiveTitle != null) {
-          return wrapSystemUi(
-            OmniTitle(
-              title: effectiveTitle,
-              color: config.titleColor,
-              child: screen,
-            ),
-          );
-        }
-        return wrapSystemUi(screen);
+        final inner = (config.titles && effectiveTitle != null)
+            ? OmniTitle(
+                title: effectiveTitle,
+                color: config.titleColor,
+                child: screen,
+              )
+            : screen;
+        return wrapSystemUi(wrapBottomBar(innerContext, inner));
       }
 
       if (pageBlocs.isEmpty) {

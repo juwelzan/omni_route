@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:omni_route/omni_route.dart';
 
+import 'bottom_nav_demo.dart';
 import 'sheets_demo.dart';
 
 Future<void> main() async {
@@ -171,6 +172,19 @@ class ExampleApp extends StatelessWidget {
         OmniPage.screen(
           const ConfirmLogoutScreen(),
           transition: OmniPages.dialog(),
+        ),
+        OmniPage.screen(const BottomNavDemoScreen()),
+        OmniPage.screen(
+          const OmniPageNavFeedScreen(),
+          bottomNavigationBar: omniPageDemoSharedBar,
+        ),
+        OmniPage.screen(
+          const OmniPageNavExploreScreen(),
+          bottomNavigationBar: omniPageDemoSharedBar,
+        ),
+        OmniPage.screen(
+          const OmniPageNavSavedScreen(),
+          bottomNavigationBar: omniPageDemoSharedBar,
         ),
         OmniPage(
           '/classic-student/:id',
@@ -899,6 +913,15 @@ class SettingsScreen extends OmniStatelessWidget {
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.to<SheetsDemoScreen>(),
+                ),
+                Divider(height: 1, color: ui.colors.dividerColor),
+                ListTile(
+                  title: const Text('Bottom Navigation Bar'),
+                  subtitle: const Text(
+                    '12 CollectUI modes, Floating, Glass, Notch & OmniPage bar',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.to<BottomNavDemoScreen>(),
                 ),
               ],
             ),
