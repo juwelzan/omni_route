@@ -4,6 +4,8 @@
   (`OmniWebSocket`, `SseConnection`, `SseParser`, `parseSseByteStream`,
   `WsWebAuthMode`); `omni_network_ws` now re-exports them cleanly for backward
   compatibility.
+- Dropped the unused `meta` and `web_socket_channel` dependencies (the code
+  lives in `omni_network`). New projects don't need this package.
 
 ## 0.1.0
 

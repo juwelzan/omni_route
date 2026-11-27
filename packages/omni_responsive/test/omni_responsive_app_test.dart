@@ -212,4 +212,32 @@ void main() {
     expect(scope, isNotNull);
     expect(scope!.effectiveScreenMode, OmniScreenMode.edgeToEdge);
   });
+
+  testWidgets('OTP resend countdown shows mm:ss and ticks on its own', (
+    t,
+  ) async {
+    var resent = 0;
+    await t.pumpWidget(
+      _app(
+        home: (_) => Scaffold(
+          body: OmniOtpField(
+            length: 4,
+            resendDuration: const Duration(seconds: 125),
+            onResend: () => resent++,
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Resend code in 02:05'), findsOneWidget);
+    await t.pump(const Duration(seconds: 1));
+    expect(find.text('Resend code in 02:04'), findsOneWidget);
+    await t.pump(const Duration(seconds: 124));
+    expect(find.textContaining('Resend code in'), findsNothing);
+    await t.tap(find.byIcon(Icons.refresh_rounded));
+    await t.pump();
+    expect(resent, 1);
+    expect(find.text('Resend code in 02:05'), findsOneWidget);
+    // Unmount mid-countdown: the timer and notifier must be released.
+    await t.pumpWidget(const SizedBox());
+  });
 }

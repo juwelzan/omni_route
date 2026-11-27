@@ -26,6 +26,12 @@
 - State restoration looks shells up by id from a one-time index.
 - Recovered errors (storage unavailable, malformed restoration data) are
   logged to DevTools in debug builds instead of being swallowed silently.
+- The router host follows a replaced `OmniRouter` instead of keeping the
+  old one's listener.
+- Install docs use one repository tag (`ref: v0.5.0`) for every package;
+  WebSocket/SSE are documented as part of `omni_network` (no extra package).
+- The whole repository is `dart format`-clean again, so CI's format step
+  passes.
 
 ## 0.3.1
 
