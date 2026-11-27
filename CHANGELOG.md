@@ -63,6 +63,15 @@
   have no left inset; switch thumbs and checkbox ticks stay readable on a
   light `switchActiveColor`, without a grey ring around a switched-on track;
   the snackbar action keeps 3:1 contrast in both modes.
+- New `showOmniBottomSheet` / `OmniSheetRoute`: a modal bottom sheet in
+  `material`, `cupertino`, `floating` or `adaptive` style, with iOS-style
+  spring motion (`OmniSheetMotion`), detents (`OmniSheetDetent.medium`,
+  `.large`, `.fraction`, `.height`, `.content`), velocity-based snapping,
+  rubber-band stretch, drag hand-off from scroll views inside, `PopScope`-
+  aware dismissal, keyboard avoidance, reduce-motion fade, and
+  `OmniSheet.of(context)` (`snapTo`, `close`, `detent`). Works in
+  `MaterialApp` and `CupertinoApp`; opening, closing and dragging only
+  repaint. See `doc/bottom_sheet.bn.md`.
 - Install docs use one repository tag (`ref: v0.5.0`) for every package;
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step
