@@ -122,11 +122,7 @@ class OmniModelPicker extends StatelessWidget {
 }
 
 class _MenuRow extends StatelessWidget {
-  const _MenuRow({
-    required this.name,
-    required this.selected,
-    this.subtitle,
-  });
+  const _MenuRow({required this.name, required this.selected, this.subtitle});
 
   final String name;
   final bool selected;
@@ -137,10 +133,7 @@ class _MenuRow extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          selected ? Icons.check : Icons.circle_outlined,
-          size: 16,
-        ),
+        Icon(selected ? Icons.check : Icons.circle_outlined, size: 16),
         const SizedBox(width: 8),
         Expanded(
           child: Column(
@@ -149,10 +142,7 @@ class _MenuRow extends StatelessWidget {
             children: [
               Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
               if (subtitle != null)
-                Text(
-                  subtitle!,
-                  style: Theme.of(context).textTheme.labelSmall,
-                ),
+                Text(subtitle!, style: Theme.of(context).textTheme.labelSmall),
             ],
           ),
         ),

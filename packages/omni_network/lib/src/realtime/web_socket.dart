@@ -247,15 +247,18 @@ final class OmniWebSocket {
       try {
         final rawHeaders =
             await _headersProvider?.call() ?? const <String, String>{};
-        final (connectUri, connectHeaders, firstAuthFrame) =
-            resolveWsAuthForPlatform(
-              uri: uri,
-              headers: rawHeaders,
-              webAuthMode: webAuthMode,
-              supportsHandshakeHeaders:
-                  supportsHandshakeHeaders || _customConnector != null,
-              bearerOrToken: null,
-            );
+        final (
+          connectUri,
+          connectHeaders,
+          firstAuthFrame,
+        ) = resolveWsAuthForPlatform(
+          uri: uri,
+          headers: rawHeaders,
+          webAuthMode: webAuthMode,
+          supportsHandshakeHeaders:
+              supportsHandshakeHeaders || _customConnector != null,
+          bearerOrToken: null,
+        );
         channel = _customConnector != null
             ? _customConnector(connectUri, protocols, connectHeaders)
             : platformConnect(

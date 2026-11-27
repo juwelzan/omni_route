@@ -85,9 +85,8 @@ final class AiGuardrail {
 
   /// Filters all [AiTextPart] items inside [messages], throwing
   /// [RequestFailure] when [AiGuardrailAction.block] or [blockedIf] triggers.
-  ({List<AiMessage> messages, Map<String, String> placeholders}) inspectMessages(
-    List<AiMessage> messages,
-  ) {
+  ({List<AiMessage> messages, Map<String, String> placeholders})
+  inspectMessages(List<AiMessage> messages) {
     final placeholders = <String, String>{};
     var seq = 0;
 

@@ -14,7 +14,7 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_responsive
-      ref: omni_responsive-v0.1.0
+      ref: v0.5.0   # use the same tag for every package from this repo
 ```
 
 Its only dependency besides Flutter is `shared_preferences` (to remember the

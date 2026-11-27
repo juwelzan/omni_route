@@ -119,7 +119,8 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
         body: ListenableBuilder(
           listenable: Listenable.merge([widget.inspector, _filter]),
           builder: (context, _) {
-            if (_selected case final sel? when _tab == InspectorTab.http || _tab == InspectorTab.logs) {
+            if (_selected case final sel?
+                when _tab == InspectorTab.http || _tab == InspectorTab.logs) {
               return _detail(context, sel);
             }
             if (_selectedLog case final log? when _tab == InspectorTab.logs) {
@@ -481,11 +482,8 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
             trailing: IconButton(
               tooltip: 'Copy ${l.tag}',
               icon: Icon(Icons.copy, size: 18, color: accent),
-              onPressed: () => _copy(
-                context,
-                payloadToCopy,
-                'Copied ${l.tag} to clipboard',
-              ),
+              onPressed: () =>
+                  _copy(context, payloadToCopy, 'Copied ${l.tag} to clipboard'),
             ),
             onTap: () => setState(() {
               if (l.httpEntry != null) {
@@ -594,7 +592,8 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                         title: Text('${e.providerId}:${e.model}'),
                         subtitle: Text(
                           [
-                            if (e.promptPreview != null) 'Q: ${e.promptPreview}',
+                            if (e.promptPreview != null)
+                              'Q: ${e.promptPreview}',
                             if (e.responsePreview != null)
                               'A: ${e.responsePreview}',
                             if (e.error != null) 'Error: ${e.error}',
@@ -683,7 +682,9 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
             TextSpan(
               text: line.substring(i, j),
               style: TextStyle(
-                color: isKey ? const Color(0xFF67E8F9) : const Color(0xFFFDE68A),
+                color: isKey
+                    ? const Color(0xFF67E8F9)
+                    : const Color(0xFFFDE68A),
                 fontWeight: isKey ? FontWeight.w600 : FontWeight.w400,
               ),
             ),
@@ -697,7 +698,8 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
             ),
           );
           i++;
-        } else if (c == '-' || (c.codeUnitAt(0) >= 0x30 && c.codeUnitAt(0) <= 0x39)) {
+        } else if (c == '-' ||
+            (c.codeUnitAt(0) >= 0x30 && c.codeUnitAt(0) <= 0x39)) {
           var j = i + 1;
           while (j < line.length && '0123456789eE+-.'.contains(line[j])) {
             j++;
@@ -827,11 +829,8 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                   ),
                   if (log.copyBody != null && log.copyBody!.isNotEmpty)
                     OutlinedButton.icon(
-                      onPressed: () => _copy(
-                        context,
-                        log.copyBody!,
-                        'Copied JSON payload',
-                      ),
+                      onPressed: () =>
+                          _copy(context, log.copyBody!, 'Copied JSON payload'),
                       icon: const Icon(Icons.data_object, size: 16),
                       label: const Text('Copy JSON'),
                     ),
@@ -844,7 +843,10 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                 _syntaxBox(log.copyBody!, codeAccent),
               ],
               const SizedBox(height: 12),
-              Text('Full Record', style: Theme.of(context).textTheme.titleSmall),
+              Text(
+                'Full Record',
+                style: Theme.of(context).textTheme.titleSmall,
+              ),
               const SizedBox(height: 6),
               _syntaxBox(log.copyText, codeAccent),
             ],
@@ -863,8 +865,8 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
       InspectorStatus.pending => const Color(0xFFE879F9),
       InspectorStatus.success => const Color(0xFF4ADE80),
       InspectorStatus.clientError => const Color(0xFFFB923C),
-      InspectorStatus.serverError || InspectorStatus.failed =>
-        const Color(0xFFF87171),
+      InspectorStatus.serverError ||
+      InspectorStatus.failed => const Color(0xFFF87171),
     };
     final reqAccent = const Color(0xFFE879F9);
 
@@ -995,7 +997,9 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                           fontSize: 12,
                         ),
                       ),
-                      if (e.duration != null || e.source != null || e.error != null) ...[
+                      if (e.duration != null ||
+                          e.source != null ||
+                          e.error != null) ...[
                         const SizedBox(height: 4),
                         Text(
                           [
@@ -1047,9 +1051,7 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
               section(
                 'Response',
                 e.responseHeaders,
-                prettyRes.isNotEmpty
-                    ? prettyRes
-                    : (e.responseBody ?? e.error),
+                prettyRes.isNotEmpty ? prettyRes : (e.responseBody ?? e.error),
                 codeAccent,
               ),
               const SizedBox(height: 24),

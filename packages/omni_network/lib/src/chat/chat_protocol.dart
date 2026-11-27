@@ -159,13 +159,23 @@ abstract interface class ChatProtocolAdapter {
   Object encodeSend(ChatMessage message);
 
   /// Encodes typing status change.
-  Object encodeTyping(String roomId, String userId, String? userName, bool isTyping);
+  Object encodeTyping(
+    String roomId,
+    String userId,
+    String? userName,
+    bool isTyping,
+  );
 
   /// Encodes marking messages up to [messageId] as read.
   Object encodeReadReceipt(String roomId, String messageId, String userId);
 
   /// Encodes toggling an emoji reaction.
-  Object encodeReaction(String roomId, String messageId, String emoji, String userId);
+  Object encodeReaction(
+    String roomId,
+    String messageId,
+    String emoji,
+    String userId,
+  );
 
   /// Encodes editing a message.
   Object encodeEdit(String roomId, String messageId, String newText);
@@ -189,10 +199,8 @@ final class DefaultChatProtocol implements ChatProtocolAdapter {
   /// Field holding the payload object (default `'data'`).
   final String dataKey;
 
-  String _wire(String event, Map<String, Object?> data) => jsonEncode({
-    eventKey: event,
-    dataKey: data,
-  });
+  String _wire(String event, Map<String, Object?> data) =>
+      jsonEncode({eventKey: event, dataKey: data});
 
   @override
   Object encodeJoin(String roomId) => _wire('chat.join', {'roomId': roomId});
@@ -201,7 +209,8 @@ final class DefaultChatProtocol implements ChatProtocolAdapter {
   Object encodeLeave(String roomId) => _wire('chat.leave', {'roomId': roomId});
 
   @override
-  Object encodeSend(ChatMessage message) => _wire('chat.send', message.toJson());
+  Object encodeSend(ChatMessage message) =>
+      _wire('chat.send', message.toJson());
 
   @override
   Object encodeTyping(
@@ -238,12 +247,10 @@ final class DefaultChatProtocol implements ChatProtocolAdapter {
   });
 
   @override
-  Object encodeEdit(String roomId, String messageId, String newText) =>
-      _wire('chat.edit', {
-        'roomId': roomId,
-        'messageId': messageId,
-        'text': newText,
-      });
+  Object encodeEdit(String roomId, String messageId, String newText) => _wire(
+    'chat.edit',
+    {'roomId': roomId, 'messageId': messageId, 'text': newText},
+  );
 
   @override
   Object encodeDelete(String roomId, String messageId) =>
@@ -272,7 +279,9 @@ final class DefaultChatProtocol implements ChatProtocolAdapter {
               ? null
               : DateTime.parse(data['createdAt']! as String),
         ),
-        'chat.receipt' || 'chat.read' || 'chat.delivered' => ChatDeliveryUpdated(
+        'chat.receipt' ||
+        'chat.read' ||
+        'chat.delivered' => ChatDeliveryUpdated(
           roomId: data['roomId']! as String,
           messageId: data['messageId']! as String,
           status: MessageDeliveryStatus.values.byName(

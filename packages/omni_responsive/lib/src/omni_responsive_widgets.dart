@@ -5,11 +5,12 @@ import 'omni_responsive_config.dart';
 import 'omni_responsive_scope.dart';
 
 /// Signature for [OmniResponsiveBuilder.builder].
-typedef OmniResponsiveWidgetBuilder = Widget Function(
-  BuildContext context,
-  OmniDeviceType device,
-  OmniResponsiveTokens tokens,
-);
+typedef OmniResponsiveWidgetBuilder =
+    Widget Function(
+      BuildContext context,
+      OmniDeviceType device,
+      OmniResponsiveTokens tokens,
+    );
 
 /// Builds different UI with [device] and pre-cached [tokens], rebuilding ONLY
 /// when crossing a breakpoint threshold (`0` intra-breakpoint or keyboard
@@ -61,7 +62,8 @@ class OmniResponsiveLayout extends StatelessWidget {
       OmniDeviceType.mobile => mobile,
       OmniDeviceType.tablet => tablet ?? mobile,
       OmniDeviceType.desktop => desktop ?? tablet ?? mobile,
-      OmniDeviceType.largeDesktop => largeDesktop ?? desktop ?? tablet ?? mobile,
+      OmniDeviceType.largeDesktop =>
+        largeDesktop ?? desktop ?? tablet ?? mobile,
     };
   }
 }

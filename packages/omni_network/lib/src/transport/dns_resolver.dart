@@ -83,9 +83,7 @@ final class DnsOverHttpsResolver {
       }
     }
     if (ips.isEmpty) return const [];
-    final ttlDuration = minTtl == null
-        ? defaultTtl
-        : Duration(seconds: minTtl);
+    final ttlDuration = minTtl == null ? defaultTtl : Duration(seconds: minTtl);
     _cache[normalized] = (
       ips: List.unmodifiable(ips),
       expiresAt: current.add(ttlDuration),

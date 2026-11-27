@@ -120,43 +120,44 @@ void main() {
       },
     );
 
-    testWidgets('OmniFoldableSplit places secondary pane strictly right of hinge', (
-      t,
-    ) async {
-      await t.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(
-            size: Size(824, 900),
-            displayFeatures: [
-              ui.DisplayFeature(
-                bounds: Rect.fromLTWH(400, 0, 24, 900),
-                type: ui.DisplayFeatureType.hinge,
-                state: ui.DisplayFeatureState.postureHalfOpened,
-              ),
-            ],
-          ),
-          child: OmniApp.material(
-            routes: [
-              OmniPage(
-                '/',
-                (_) => const Scaffold(
-                  body: OmniFoldableSplit(
-                    primary: Center(child: Text('left-pane')),
-                    secondary: Center(child: Text('right-pane')),
+    testWidgets(
+      'OmniFoldableSplit places secondary pane strictly right of hinge',
+      (t) async {
+        await t.pumpWidget(
+          MediaQuery(
+            data: const MediaQueryData(
+              size: Size(824, 900),
+              displayFeatures: [
+                ui.DisplayFeature(
+                  bounds: Rect.fromLTWH(400, 0, 24, 900),
+                  type: ui.DisplayFeatureType.hinge,
+                  state: ui.DisplayFeatureState.postureHalfOpened,
+                ),
+              ],
+            ),
+            child: OmniApp.material(
+              routes: [
+                OmniPage(
+                  '/',
+                  (_) => const Scaffold(
+                    body: OmniFoldableSplit(
+                      primary: Center(child: Text('left-pane')),
+                      secondary: Center(child: Text('right-pane')),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      );
-      await t.pumpAndSettle();
+        );
+        await t.pumpAndSettle();
 
-      final leftRect = t.getRect(find.text('left-pane'));
-      final rightRect = t.getRect(find.text('right-pane'));
-      expect(leftRect.right, lessThanOrEqualTo(400));
-      expect(rightRect.left, greaterThanOrEqualTo(424));
-    });
+        final leftRect = t.getRect(find.text('left-pane'));
+        final rightRect = t.getRect(find.text('right-pane'));
+        expect(leftRect.right, lessThanOrEqualTo(400));
+        expect(rightRect.left, greaterThanOrEqualTo(424));
+      },
+    );
   });
 
   group('OmniTheme memoization', () {
@@ -185,7 +186,10 @@ void main() {
           ),
         );
         await t.pumpAndSettle();
-        expect(captured.single.materialTapTargetSize, MaterialTapTargetSize.padded);
+        expect(
+          captured.single.materialTapTargetSize,
+          MaterialTapTargetSize.padded,
+        );
 
         // Resize within mobile tier -> ThemeData instance MUST stay identical:
         t.view.physicalSize = const Size(480, 844);
@@ -468,9 +472,7 @@ void main() {
                   body: Column(
                     children: [
                       const _StaticThemeLeaf(),
-                      Builder(
-                        builder: (c) => Text('dark:${c.isDarkMode}'),
-                      ),
+                      Builder(builder: (c) => Text('dark:${c.isDarkMode}')),
                       const OmniThemeModeSwitch(
                         systemLabel: 'Auto',
                         lightLabel: 'Day',
@@ -501,7 +503,8 @@ void main() {
         expect(
           _StaticThemeLeaf.builds,
           1,
-          reason: 'unrelated static child widgets never rebuild on theme toggle',
+          reason:
+              'unrelated static child widgets never rebuild on theme toggle',
         );
 
         // Verify saved to SharedPreferences:
@@ -542,7 +545,9 @@ void main() {
       },
     );
 
-    testWidgets('OmniTheme shares mode inside Onboarding stage views', (t) async {
+    testWidgets('OmniTheme shares mode inside Onboarding stage views', (
+      t,
+    ) async {
       SharedPreferences.setMockInitialValues({});
 
       await t.pumpWidget(
@@ -608,10 +613,7 @@ void main() {
                 (_) => Scaffold(
                   appBar: AppBar(
                     title: const Text('Multi-Theme'),
-                    actions: const [
-                      OmniThemeButton(),
-                      OmniThemeModeButton(),
-                    ],
+                    actions: const [OmniThemeButton(), OmniThemeModeButton()],
                   ),
                   body: Builder(
                     builder: (c) {
@@ -649,7 +651,9 @@ void main() {
         expect(capturedColors.warningColor, const Color(0xFFD97706));
         expect(capturedColors.successColor, const Color(0xFF047857));
         expect(
-          Theme.of(t.element(find.text('active:custom'))).scaffoldBackgroundColor,
+          Theme.of(
+            t.element(find.text('active:custom')),
+          ).scaffoldBackgroundColor,
           const Color(0xFFF3F6FA),
         );
 
@@ -657,19 +661,13 @@ void main() {
         await t.tap(find.byType(OmniThemeButton));
         await t.pumpAndSettle();
         expect(find.text('active:ocean'), findsOneWidget);
-        expect(
-          capturedColors.primaryColor,
-          OmniTheme.ocean.seedColor,
-        );
+        expect(capturedColors.primaryColor, OmniTheme.ocean.seedColor);
 
         // 1-click Emerald chip inside OmniThemePanel:
         await t.tap(find.text('Emerald'));
         await t.pumpAndSettle();
         expect(find.text('active:emerald'), findsOneWidget);
-        expect(
-          capturedColors.primaryColor,
-          OmniTheme.emerald.seedColor,
-        );
+        expect(capturedColors.primaryColor, OmniTheme.emerald.seedColor);
 
         // Verify persisted themeId + return to custom reuses cached ThemeData:
         final prefs = await SharedPreferences.getInstance();
@@ -764,8 +762,9 @@ void main() {
                     lightStyles = c.styles;
                     lightInputTheme = Theme.of(c).inputDecorationTheme;
                     cardShape = Theme.of(c).cardTheme.shape;
-                    headlineFontSize =
-                        Theme.of(c).textTheme.headlineMedium?.fontSize;
+                    headlineFontSize = Theme.of(
+                      c,
+                    ).textTheme.headlineMedium?.fontSize;
                     expectedHeadlineSize = c.tokens.headlineSize;
                     scopeStyles1 = OmniThemeScope.maybeThemesOf(
                       c,
@@ -776,7 +775,10 @@ void main() {
                         children: [
                           Container(
                             decoration: lightStyles.cardDecoration,
-                            child: Text('Heading', style: lightTextStyles.heading),
+                            child: Text(
+                              'Heading',
+                              style: lightTextStyles.heading,
+                            ),
                           ),
                           Container(
                             decoration: lightStyles.warningBoxDecoration,
@@ -1033,7 +1035,10 @@ void main() {
         await t.pumpAndSettle();
 
         // 1. All 9 new pure semantic colors & ThemeData wiring:
-        expect(capturedUi.colors.secondaryBackgroundColor, const Color(0xFFEAF0F6));
+        expect(
+          capturedUi.colors.secondaryBackgroundColor,
+          const Color(0xFFEAF0F6),
+        );
         expect(capturedUi.colors.disabledBorderColor, const Color(0xFF94A3B8));
         expect(capturedUi.colors.rippleColor, const Color(0x1F4F46E5));
         expect(capturedUi.colors.snackbarColor, const Color(0xFF111827));
@@ -1133,28 +1138,31 @@ void main() {
   });
 
   group('System UI, Gesture Bar Edge-to-Edge, Fullscreen & Orientation Modes', () {
-    test('OmniColors includes statusBarColor & systemNavigationBarColor (55 semantic colors)', () {
-      final light = OmniColors.fromSeed(
-        primaryColor: Colors.blue,
-        brightness: Brightness.light,
-      );
-      expect(light.statusBarColor, Colors.transparent);
-      expect(light.systemNavigationBarColor, Colors.transparent);
+    test(
+      'OmniColors includes statusBarColor & systemNavigationBarColor (55 semantic colors)',
+      () {
+        final light = OmniColors.fromSeed(
+          primaryColor: Colors.blue,
+          brightness: Brightness.light,
+        );
+        expect(light.statusBarColor, Colors.transparent);
+        expect(light.systemNavigationBarColor, Colors.transparent);
 
-      final custom = light.copyWith(
-        statusBarColor: const Color(0xFF112233),
-        systemNavigationBarColor: const Color(0xFF445566),
-      );
-      expect(custom.statusBarColor, const Color(0xFF112233));
-      expect(custom.systemNavigationBarColor, const Color(0xFF445566));
-      expect(custom == light, isFalse);
+        final custom = light.copyWith(
+          statusBarColor: const Color(0xFF112233),
+          systemNavigationBarColor: const Color(0xFF445566),
+        );
+        expect(custom.statusBarColor, const Color(0xFF112233));
+        expect(custom.systemNavigationBarColor, const Color(0xFF445566));
+        expect(custom == light, isFalse);
 
-      final lerped = light.lerp(custom, 0.5);
-      expect(
-        lerped.systemNavigationBarColor,
-        Color.lerp(Colors.transparent, const Color(0xFF445566), 0.5),
-      );
-    });
+        final lerped = light.lerp(custom, 0.5);
+        expect(
+          lerped.systemNavigationBarColor,
+          Color.lerp(Colors.transparent, const Color(0xFF445566), 0.5),
+        );
+      },
+    );
 
     testWidgets(
       'OmniTheme defaults to edgeToEdge with transparent gesture bar & contrastEnforced=false across screens and dark/light modes',
@@ -1249,7 +1257,8 @@ void main() {
                 );
               } else if (c.method == 'SystemChrome.setEnabledSystemUIMode') {
                 modeCalls.add('mode:${c.arguments}');
-              } else if (c.method == 'SystemChrome.setEnabledSystemUIOverlays') {
+              } else if (c.method ==
+                  'SystemChrome.setEnabledSystemUIOverlays') {
                 modeCalls.add('overlays:${c.arguments}');
               }
               return null;
@@ -1371,7 +1380,10 @@ void main() {
           findsOneWidget,
         );
         final firstOverlay = overlayCalls.last;
-        expect(firstOverlay['statusBarColor'], const Color(0xFF0F172A).toARGB32());
+        expect(
+          firstOverlay['statusBarColor'],
+          const Color(0xFF0F172A).toARGB32(),
+        );
         expect(
           firstOverlay['systemNavigationBarColor'],
           const Color(0xFF1E293B).toARGB32(),
@@ -1405,17 +1417,15 @@ void main() {
         await t.pumpAndSettle();
         final overrideScaffoldCtx = t.element(find.byType(Scaffold).last);
         expect(
-          Theme.of(overrideScaffoldCtx)
-              .appBarTheme
-              .systemOverlayStyle
-              ?.statusBarColor,
+          Theme.of(
+            overrideScaffoldCtx,
+          ).appBarTheme.systemOverlayStyle?.statusBarColor,
           const Color(0xFFBE123C),
         );
         expect(
-          Theme.of(overrideScaffoldCtx)
-              .appBarTheme
-              .systemOverlayStyle
-              ?.systemNavigationBarColor,
+          Theme.of(
+            overrideScaffoldCtx,
+          ).appBarTheme.systemOverlayStyle?.systemNavigationBarColor,
           const Color(0xFF1E293B),
         );
         expect(
@@ -1515,7 +1525,8 @@ void main() {
             .setMockMethodCallHandler(SystemChannels.platform, (c) async {
               if (c.method == 'SystemChrome.setEnabledSystemUIMode') {
                 modeCalls.add('mode:${c.arguments}');
-              } else if (c.method == 'SystemChrome.setEnabledSystemUIOverlays') {
+              } else if (c.method ==
+                  'SystemChrome.setEnabledSystemUIOverlays') {
                 modeCalls.add('overlays:${c.arguments}');
               }
               return null;
@@ -1538,9 +1549,7 @@ void main() {
                 '/',
                 (_) => Builder(
                   builder: (context) => Scaffold(
-                    appBar: AppBar(
-                      actions: const [OmniFullscreenButton()],
-                    ),
+                    appBar: AppBar(actions: const [OmniFullscreenButton()]),
                     body: Column(
                       children: [
                         Text('full=${context.isFullscreen}'),
@@ -1683,8 +1692,7 @@ void main() {
                           child: const Text('open-player'),
                         ),
                         ElevatedButton(
-                          onPressed: () =>
-                              context.pushTo<_VideoScreen, void>(),
+                          onPressed: () => context.pushTo<_VideoScreen, void>(),
                           child: const Text('open-video-screen'),
                         ),
                       ],
@@ -1907,10 +1915,7 @@ void main() {
         await t.tap(find.text('Ocean'));
         await t.pumpAndSettle();
         final ctx = t.element(find.byType(Scaffold));
-        expect(
-          ctx.colors.primaryColor,
-          OmniTheme.ocean.dark!.primaryColor,
-        );
+        expect(ctx.colors.primaryColor, OmniTheme.ocean.dark!.primaryColor);
 
         await t.pumpWidget(const SizedBox());
       },
@@ -1943,10 +1948,7 @@ void main() {
                 (_) => Scaffold(
                   appBar: AppBar(
                     title: const Text('Animated Theme'),
-                    actions: const [
-                      OmniThemeButton(),
-                      OmniThemeModeButton(),
-                    ],
+                    actions: const [OmniThemeButton(), OmniThemeModeButton()],
                   ),
                   body: Column(
                     children: [
@@ -1985,7 +1987,8 @@ void main() {
         expect(
           overlayFinder,
           findsOneWidget,
-          reason: 'Dark/Light toggle renders screen-over reveal overlay mid-animation',
+          reason:
+              'Dark/Light toggle renders screen-over reveal overlay mid-animation',
         );
         await t.pumpAndSettle();
         expect(overlayFinder, findsNothing);
@@ -2065,7 +2068,9 @@ void main() {
         }
 
         // 4. Pick Color Morph -> uses MaterialApp AnimatedTheme interpolation without overlay:
-        await t.ensureVisible(find.text(OmniThemeAnimationMode.colorMorph.label));
+        await t.ensureVisible(
+          find.text(OmniThemeAnimationMode.colorMorph.label),
+        );
         await t.tap(find.text(OmniThemeAnimationMode.colorMorph.label));
         await t.pumpAndSettle();
         final ctxMorph = t.element(find.byType(Scaffold));
@@ -2073,7 +2078,9 @@ void main() {
         await t.pump();
         expect(overlayFinder, findsNothing);
         expect(
-          t.widget<MaterialApp>(find.byType(MaterialApp)).themeAnimationDuration,
+          t
+              .widget<MaterialApp>(find.byType(MaterialApp))
+              .themeAnimationDuration,
           const Duration(milliseconds: 300),
         );
         await t.pumpAndSettle();
@@ -2087,7 +2094,9 @@ void main() {
         await t.pump();
         expect(overlayFinder, findsNothing);
         expect(
-          t.widget<MaterialApp>(find.byType(MaterialApp)).themeAnimationDuration,
+          t
+              .widget<MaterialApp>(find.byType(MaterialApp))
+              .themeAnimationDuration,
           Duration.zero,
         );
         await t.pumpAndSettle();
@@ -2110,7 +2119,8 @@ void main() {
               OmniPage(
                 '/',
                 (_) => Builder(
-                  builder: (c) => Text('restoredAnim:${c.activeThemeAnimationMode.name}'),
+                  builder: (c) =>
+                      Text('restoredAnim:${c.activeThemeAnimationMode.name}'),
                 ),
               ),
             ],
@@ -2146,7 +2156,9 @@ void main() {
                 '/',
                 (_) => Builder(
                   builder: (c) => Scaffold(
-                    body: Text('sysDark:${c.isDarkMode}:mode:${c.themeMode.name}'),
+                    body: Text(
+                      'sysDark:${c.isDarkMode}:mode:${c.themeMode.name}',
+                    ),
                   ),
                 ),
               ),
@@ -2167,7 +2179,8 @@ void main() {
         expect(
           overlayFinder,
           findsOneWidget,
-          reason: 'OS brightness change while in ThemeMode.system animates smoothly',
+          reason:
+              'OS brightness change while in ThemeMode.system animates smoothly',
         );
         await t.pumpAndSettle();
         expect(find.text('sysDark:true:mode:system'), findsOneWidget);

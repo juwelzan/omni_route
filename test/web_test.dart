@@ -227,65 +227,67 @@ void registerWebHistoryGroup() {
       );
     });
 
-    testWidgets('replace() from /login to /home replaces web history & blocks back', (
-      t,
-    ) async {
-      await t.pumpWidget(
-        OmniApp.material(
-          initialRoute: '/login',
-          routes: [
-            OmniPage('/login', (_) => const S('Login')),
-            OmniPage('/home', (_) => const S('Home')),
-          ],
-        ),
-      );
-      await t.pumpAndSettle();
-      expect(navUpdates.last.uri, '/login');
-      expect(navUpdates.last.replace, isTrue);
+    testWidgets(
+      'replace() from /login to /home replaces web history & blocks back',
+      (t) async {
+        await t.pumpWidget(
+          OmniApp.material(
+            initialRoute: '/login',
+            routes: [
+              OmniPage('/login', (_) => const S('Login')),
+              OmniPage('/home', (_) => const S('Home')),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(navUpdates.last.uri, '/login');
+        expect(navUpdates.last.replace, isTrue);
 
-      navUpdates.clear();
-      OmniRoute.replace('/home');
-      await t.pumpAndSettle();
+        navUpdates.clear();
+        OmniRoute.replace('/home');
+        await t.pumpAndSettle();
 
-      expect(find.text('Home'), findsOneWidget);
-      expect(OmniRoute.canPop(), isFalse);
-      expect(navUpdates, [(uri: '/home', replace: true)]);
-      expect(await OmniRoute.router.routerDelegate.popRoute(), isFalse);
-    });
+        expect(find.text('Home'), findsOneWidget);
+        expect(OmniRoute.canPop(), isFalse);
+        expect(navUpdates, [(uri: '/home', replace: true)]);
+        expect(await OmniRoute.router.routerDelegate.popRoute(), isFalse);
+      },
+    );
 
-    testWidgets('go(replaceHistory: true) and OmniRoute.neglect replace history', (
-      t,
-    ) async {
-      await t.pumpWidget(
-        OmniApp.material(
-          initialRoute: '/login',
-          routes: [
-            OmniPage('/login', (_) => const S('Login')),
-            OmniPage('/otp', (_) => const S('OTP')),
-            OmniPage('/home', (_) => const S('Home')),
-            OmniPage('/other', (_) => const S('Other')),
-          ],
-        ),
-      );
-      await t.pumpAndSettle();
+    testWidgets(
+      'go(replaceHistory: true) and OmniRoute.neglect replace history',
+      (t) async {
+        await t.pumpWidget(
+          OmniApp.material(
+            initialRoute: '/login',
+            routes: [
+              OmniPage('/login', (_) => const S('Login')),
+              OmniPage('/otp', (_) => const S('OTP')),
+              OmniPage('/home', (_) => const S('Home')),
+              OmniPage('/other', (_) => const S('Other')),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
 
-      OmniRoute.push('/otp');
-      await t.pumpAndSettle();
-      expect(navUpdates.last, (uri: '/otp', replace: false));
+        OmniRoute.push('/otp');
+        await t.pumpAndSettle();
+        expect(navUpdates.last, (uri: '/otp', replace: false));
 
-      navUpdates.clear();
-      OmniRoute.go('/home', replaceHistory: true);
-      await t.pumpAndSettle();
-      expect(OmniRoute.canPop(), isFalse);
-      expect(find.text('Home'), findsOneWidget);
-      expect(navUpdates.last, (uri: '/home', replace: true));
+        navUpdates.clear();
+        OmniRoute.go('/home', replaceHistory: true);
+        await t.pumpAndSettle();
+        expect(OmniRoute.canPop(), isFalse);
+        expect(find.text('Home'), findsOneWidget);
+        expect(navUpdates.last, (uri: '/home', replace: true));
 
-      navUpdates.clear();
-      OmniRoute.neglect(() => OmniRoute.go('/other'));
-      await t.pumpAndSettle();
-      expect(find.text('Other'), findsOneWidget);
-      expect(navUpdates.last, (uri: '/other', replace: true));
-    });
+        navUpdates.clear();
+        OmniRoute.neglect(() => OmniRoute.go('/other'));
+        await t.pumpAndSettle();
+        expect(find.text('Other'), findsOneWidget);
+        expect(navUpdates.last, (uri: '/other', replace: true));
+      },
+    );
 
     testWidgets('push creates history entry; pop and AppBar back replace it', (
       t,
@@ -350,11 +352,16 @@ void registerWebHistoryGroup() {
               ),
               OmniStatefulShell(
                 builder: (_, _, shell) => Column(
-                  children: [const Text('ShellChrome'), Expanded(child: shell)],
+                  children: [
+                    const Text('ShellChrome'),
+                    Expanded(child: shell),
+                  ],
                 ),
                 branches: [
                   OmniBranch(
-                    routes: [OmniPage('/dashboard', (_) => const S('Dashboard'))],
+                    routes: [
+                      OmniPage('/dashboard', (_) => const S('Dashboard')),
+                    ],
                   ),
                 ],
               ),
@@ -397,7 +404,10 @@ void registerWebHistoryGroup() {
         await _pushPlatformRoute(t, '/dashboard');
         await t.pumpAndSettle();
         expect(find.text('Login'), findsOneWidget);
-        expect(navUpdates.last, (uri: '/login?from=%2Fdashboard', replace: true));
+        expect(navUpdates.last, (
+          uri: '/login?from=%2Fdashboard',
+          replace: true,
+        ));
       },
     );
 
@@ -411,7 +421,10 @@ void registerWebHistoryGroup() {
             OmniPage('/login', (_) => const S('Login')),
             OmniStatefulShell(
               builder: (_, _, shell) => Column(
-                children: [const Text('ShellBar'), Expanded(child: shell)],
+                children: [
+                  const Text('ShellBar'),
+                  Expanded(child: shell),
+                ],
               ),
               branches: [
                 OmniBranch(

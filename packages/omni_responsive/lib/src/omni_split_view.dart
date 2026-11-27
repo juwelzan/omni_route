@@ -24,11 +24,12 @@ class OmniMasterDetailController<T> extends ValueNotifier<T?> {
 }
 
 /// Builds the list/master pane for [OmniMasterDetail].
-typedef OmniMasterBuilder<T> = Widget Function(
-  BuildContext context,
-  ValueListenable<T?> selectionListenable,
-  void Function(T item) onSelect,
-);
+typedef OmniMasterBuilder<T> =
+    Widget Function(
+      BuildContext context,
+      ValueListenable<T?> selectionListenable,
+      void Function(T item) onSelect,
+    );
 
 /// Builds the detail pane for a selected item [item] inside [OmniMasterDetail].
 typedef OmniDetailBuilder<T> = Widget Function(BuildContext context, T item);
@@ -138,7 +139,8 @@ class _OmniMasterDetailState<T> extends State<OmniMasterDetail<T>> {
 
     return LayoutBuilder(
       builder: (splitCtx, constraints) {
-        final effectiveMasterWidth = constraints.hasBoundedWidth &&
+        final effectiveMasterWidth =
+            constraints.hasBoundedWidth &&
                 widget.masterWidth > constraints.maxWidth * 0.5
             ? (constraints.maxWidth * 0.45).clamp(240.0, widget.masterWidth)
             : widget.masterWidth;
@@ -155,7 +157,8 @@ class _OmniMasterDetailState<T> extends State<OmniMasterDetail<T>> {
                 ),
               ),
             ),
-            if (widget.showDivider) const VerticalDivider(width: 1, thickness: 1),
+            if (widget.showDivider)
+              const VerticalDivider(width: 1, thickness: 1),
             Expanded(
               child: OmniResponsiveScope.constrained(
                 child: ValueListenableBuilder<T?>(
@@ -286,10 +289,7 @@ class OmniFoldableSplit extends StatelessWidget {
     if (stackOnMobile) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          primary,
-          secondary,
-        ],
+        children: [primary, secondary],
       );
     }
 

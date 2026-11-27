@@ -10,7 +10,7 @@ dev_dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_openapi
-      ref: omni_network_openapi-v0.1.0
+      ref: v0.5.0   # use the same tag for every package from this repo
 ```
 
 ```sh

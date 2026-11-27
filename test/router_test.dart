@@ -275,10 +275,7 @@ void main() {
                           '/tab-b',
                           (_) => const Text('Tab B Root'),
                           routes: [
-                            OmniPage(
-                              'sub',
-                              (_) => const Text('Tab B Sub'),
-                            ),
+                            OmniPage('sub', (_) => const Text('Tab B Sub')),
                           ],
                         ),
                       ],

@@ -49,7 +49,7 @@ class OmniResponsiveAppData {
   /// Fallback delegates so every [OmniLanguage] renders without extra setup.
   final List<LocalizationsDelegate<dynamic>> localizationsDelegates;
 
-  /// The configured languages plus the active one.
+  /// The configured languages plus the active one; never empty.
   final List<Locale> supportedLocales;
 
   /// Pass to `MaterialApp.builder`: applies responsive text scaling and the
@@ -259,6 +259,11 @@ class _OmniResponsiveAppState extends State<OmniResponsiveApp> {
     final anim = OmniThemeScope.animationSettingsOf(context);
     final l10nScope = OmniL10nScope.maybeOf(context);
     final locale = l10nScope?.notifier?.value.effectiveLocale;
+    final supported = <Locale>{
+      if (l10nScope != null)
+        for (final lang in l10nScope.config.supportedLanguages) lang.locale,
+      ?locale,
+    };
     final data = OmniResponsiveAppData(
       theme: themes?.light,
       darkTheme: themes?.dark,
@@ -271,11 +276,10 @@ class _OmniResponsiveAppState extends State<OmniResponsiveApp> {
         OmniFallbackCupertinoLocalizationsDelegate.instance,
         OmniFallbackWidgetsLocalizationsDelegate.instance,
       ],
-      supportedLocales: <Locale>{
-        if (l10nScope != null)
-          for (final lang in l10nScope.config.supportedLanguages) lang.locale,
-        ?locale,
-      }.toList(),
+      // MaterialApp asserts on an empty list.
+      supportedLocales: supported.isEmpty
+          ? const [Locale('en', 'US')]
+          : List.unmodifiable(supported),
       builder: _appBuilder,
     );
     return widget.builder(context, data);

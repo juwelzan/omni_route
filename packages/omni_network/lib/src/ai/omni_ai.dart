@@ -116,22 +116,20 @@ final class AiCallLogRecord {
 /// image generation, semantic prompt caching, PII guardrails & RAG indexing.
 final class OmniAi {
   /// Creates an AI coordinator backed by `OmniNetwork` [client].
-  OmniAi({
-    required OmniNetwork client,
-    AiConfig config = const AiConfig(),
-  }) : _client = client, // ignore: prefer_initializing_formals
-       _providers = Map.of(config.providers),
-       _routes = Map.of(config.routes),
-       defaultModel = config.defaultModel,
-       _defaultTools = List.of(config.defaultTools),
-       _defaultMaxToolRounds = config.maxToolRounds,
-       _guardrail = config.guardrail,
-       _semanticCache = config.semanticCache,
-       _rateLimitCooldown = config.rateLimitCooldown,
-       usage = AiUsageTracker(
-         maxSessionBudgetUsd: config.maxSessionBudgetUsd,
-         pricing: config.pricing,
-       );
+  OmniAi({required OmniNetwork client, AiConfig config = const AiConfig()})
+    : _client = client, // ignore: prefer_initializing_formals
+      _providers = Map.of(config.providers),
+      _routes = Map.of(config.routes),
+      defaultModel = config.defaultModel,
+      _defaultTools = List.of(config.defaultTools),
+      _defaultMaxToolRounds = config.maxToolRounds,
+      _guardrail = config.guardrail,
+      _semanticCache = config.semanticCache,
+      _rateLimitCooldown = config.rateLimitCooldown,
+      usage = AiUsageTracker(
+        maxSessionBudgetUsd: config.maxSessionBudgetUsd,
+        pricing: config.pricing,
+      );
 
   OmniAi._scoped({
     required OmniNetwork client,
@@ -151,12 +149,15 @@ final class OmniAi {
        _providers = providers, // ignore: prefer_initializing_formals
        _routes = routes, // ignore: prefer_initializing_formals
        _defaultTools = defaultTools, // ignore: prefer_initializing_formals
-       _defaultMaxToolRounds = defaultMaxToolRounds, // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _defaultMaxToolRounds = defaultMaxToolRounds,
        _guardrail = guardrail, // ignore: prefer_initializing_formals
        _semanticCache = semanticCache, // ignore: prefer_initializing_formals
-       _rateLimitCooldown = rateLimitCooldown, // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _rateLimitCooldown = rateLimitCooldown,
        _cooldownUntil = cooldownUntil, // ignore: prefer_initializing_formals
-       _observedLatency = observedLatency, // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _observedLatency = observedLatency,
        _telemetry = telemetryController;
 
   final OmniNetwork _client;
@@ -235,10 +236,7 @@ final class OmniAi {
 
   /// Returns a view of this [OmniAi] with [tools] automatically attached to all
   /// calls (`ask`, `chat`, `stream`).
-  OmniAi withTools(
-    List<AiTool> tools, {
-    int? maxToolRounds,
-  }) => OmniAi._scoped(
+  OmniAi withTools(List<AiTool> tools, {int? maxToolRounds}) => OmniAi._scoped(
     client: _client,
     providers: _providers,
     routes: _routes,
@@ -289,7 +287,9 @@ final class OmniAi {
     int? maxToolRounds,
     OmniCancelToken? cancelToken,
   }) async {
-    final effectiveTools = options.tools.isNotEmpty ? options.tools : _defaultTools;
+    final effectiveTools = options.tools.isNotEmpty
+        ? options.tools
+        : _defaultTools;
     final effectiveOptions = options.tools.isNotEmpty
         ? options
         : options.copyWith(tools: effectiveTools);
@@ -426,7 +426,9 @@ final class OmniAi {
     int? maxToolRounds,
     OmniCancelToken? cancelToken,
   }) async* {
-    final effectiveTools = options.tools.isNotEmpty ? options.tools : _defaultTools;
+    final effectiveTools = options.tools.isNotEmpty
+        ? options.tools
+        : _defaultTools;
     final baseOptions = options.tools.isNotEmpty
         ? options
         : options.copyWith(tools: effectiveTools);
@@ -793,11 +795,7 @@ final class OmniAi {
           id: '$documentId#chunk_$i',
           text: chunks[i],
           embedding: vectors[i],
-          metadata: {
-            ...metadata,
-            'documentId': documentId,
-            'chunkIndex': i,
-          },
+          metadata: {...metadata, 'documentId': documentId, 'chunkIndex': i},
         ),
     ];
     await store.upsertAll(docs);
@@ -822,7 +820,9 @@ final class OmniAi {
     buf.writeln('Use the following retrieved context to answer accurately:');
     for (var i = 0; i < context.length; i++) {
       final hit = context[i];
-      buf.writeln('[Source ${i + 1} (${hit.document.id})]: ${hit.document.text}');
+      buf.writeln(
+        '[Source ${i + 1} (${hit.document.id})]: ${hit.document.text}',
+      );
     }
     return ask(
       question,
@@ -1250,9 +1250,9 @@ final class OmniAi {
           });
         case AiRoutingStrategy.lowestCost:
           ready.sort(
-            (a, b) => _estimatedCostWeight(a.$1).compareTo(
-              _estimatedCostWeight(b.$1),
-            ),
+            (a, b) => _estimatedCostWeight(
+              a.$1,
+            ).compareTo(_estimatedCostWeight(b.$1)),
           );
         case AiRoutingStrategy.ordered || AiRoutingStrategy.hedged:
           break;
@@ -1311,7 +1311,8 @@ final class OmniAi {
       jsonMode: callOpts.jsonMode || targetOpts.jsonMode,
       tools: callOpts.tools.isNotEmpty ? callOpts.tools : targetOpts.tools,
       promptCaching: callOpts.promptCaching || targetOpts.promptCaching,
-      useSemanticCache: callOpts.useSemanticCache && targetOpts.useSemanticCache,
+      useSemanticCache:
+          callOpts.useSemanticCache && targetOpts.useSemanticCache,
       extra: {...targetOpts.extra, ...callOpts.extra},
     );
   }
@@ -1361,9 +1362,7 @@ final class OmniAi {
 
   static String? _cacheKeyPrompt(List<AiMessage> history) {
     if (history.isEmpty) return null;
-    if (history.any(
-      (m) => m.parts.any((p) => p is! AiTextPart),
-    )) {
+    if (history.any((m) => m.parts.any((p) => p is! AiTextPart))) {
       return null;
     }
     return [for (final m in history) '${m.role.name}:${m.text}'].join('\n');
@@ -1377,7 +1376,9 @@ final class OmniAi {
     try {
       final decoded = jsonDecode(clean);
       if (decoded is! Map) {
-        throw const DecodeFailure('Expected JSON object from structured AI call');
+        throw const DecodeFailure(
+          'Expected JSON object from structured AI call',
+        );
       }
       return decoder(Map<String, dynamic>.from(decoded));
     } on FormatException catch (e) {

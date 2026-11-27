@@ -24,7 +24,8 @@ class OmniResponsiveData {
     OmniResponsiveConfig config = const OmniResponsiveConfig(),
     Orientation? orientation,
   }) {
-    final resolvedOrientation = orientation ??
+    final resolvedOrientation =
+        orientation ??
         (size.width > size.height
             ? Orientation.landscape
             : Orientation.portrait);
@@ -116,33 +117,26 @@ class OmniResponsiveData {
 
   /// Resolves a value per device tier with graceful downward fallback:
   /// `largeDesktop -> desktop -> tablet -> mobile`.
-  T value<T>({
-    required T mobile,
-    T? tablet,
-    T? desktop,
-    T? largeDesktop,
-  }) => switch (device) {
-    OmniDeviceType.mobile => mobile,
-    OmniDeviceType.tablet => tablet ?? mobile,
-    OmniDeviceType.desktop => desktop ?? tablet ?? mobile,
-    OmniDeviceType.largeDesktop => largeDesktop ?? desktop ?? tablet ?? mobile,
-  };
+  T value<T>({required T mobile, T? tablet, T? desktop, T? largeDesktop}) =>
+      switch (device) {
+        OmniDeviceType.mobile => mobile,
+        OmniDeviceType.tablet => tablet ?? mobile,
+        OmniDeviceType.desktop => desktop ?? tablet ?? mobile,
+        OmniDeviceType.largeDesktop =>
+          largeDesktop ?? desktop ?? tablet ?? mobile,
+      };
 
   /// Resolves a grid column count for the current tier, falling back cleanly
   /// to [tokens.gridColumns] (including any custom [OmniResponsiveConfig] tokens).
-  int columns({
-    int? mobile,
-    int? tablet,
-    int? desktop,
-    int? largeDesktop,
-  }) => switch (device) {
-    OmniDeviceType.mobile => mobile ?? tokens.gridColumns,
-    OmniDeviceType.tablet => tablet ?? mobile ?? tokens.gridColumns,
-    OmniDeviceType.desktop =>
-      desktop ?? tablet ?? mobile ?? tokens.gridColumns,
-    OmniDeviceType.largeDesktop =>
-      largeDesktop ?? desktop ?? tablet ?? mobile ?? tokens.gridColumns,
-  };
+  int columns({int? mobile, int? tablet, int? desktop, int? largeDesktop}) =>
+      switch (device) {
+        OmniDeviceType.mobile => mobile ?? tokens.gridColumns,
+        OmniDeviceType.tablet => tablet ?? mobile ?? tokens.gridColumns,
+        OmniDeviceType.desktop =>
+          desktop ?? tablet ?? mobile ?? tokens.gridColumns,
+        OmniDeviceType.largeDesktop =>
+          largeDesktop ?? desktop ?? tablet ?? mobile ?? tokens.gridColumns,
+      };
 
   /// Scales [base] using the coarse tier [OmniResponsiveTokens.scaleFactor].
   double scaled(double base) => tokens.scaled(base);
@@ -223,11 +217,10 @@ class OmniResponsiveScope extends StatefulWidget {
 
   /// Reads the nearest ancestor [OmniResponsiveConfig] without subscribing to
   /// metrics jitter (`null` if no [OmniResponsiveScope] exists).
-  static OmniResponsiveConfig? maybeConfigOf(BuildContext context) =>
-      context
-          .getInheritedWidgetOfExactType<_OmniResponsiveModel>()
-          ?.data
-          .config;
+  static OmniResponsiveConfig? maybeConfigOf(BuildContext context) => context
+      .getInheritedWidgetOfExactType<_OmniResponsiveModel>()
+      ?.data
+      .config;
 
   /// Breakpoint & token configuration.
   final OmniResponsiveConfig config;
@@ -300,9 +293,13 @@ class OmniResponsiveScope extends StatefulWidget {
         orientation: mqData.orientation,
       );
     }
-    final view = context.findAncestorWidgetOfExactType<View>()?.view ??
+    final view =
+        context.findAncestorWidgetOfExactType<View>()?.view ??
         WidgetsBinding.instance.platformDispatcher.implicitView;
-    final size = (view != null && view.devicePixelRatio > 0 && !view.physicalSize.isEmpty)
+    final size =
+        (view != null &&
+            view.devicePixelRatio > 0 &&
+            !view.physicalSize.isEmpty)
         ? view.physicalSize / view.devicePixelRatio
         : const Size(390, 844);
     return OmniResponsiveData.fromSize(size);
@@ -435,10 +432,13 @@ class _OmniResponsiveScopeState extends State<OmniResponsiveScope>
   }
 
   Size _readViewLogicalSize() {
-    final view = _cachedView ??
+    final view =
+        _cachedView ??
         WidgetsBinding.instance.platformDispatcher.implicitView ??
         _firstView();
-    if (view == null || view.devicePixelRatio <= 0 || view.physicalSize.isEmpty) {
+    if (view == null ||
+        view.devicePixelRatio <= 0 ||
+        view.physicalSize.isEmpty) {
       return const Size(390, 844);
     }
     return view.physicalSize / view.devicePixelRatio;
@@ -470,7 +470,8 @@ class _OmniResponsiveScopeState extends State<OmniResponsiveScope>
     final mqOrientation = mqSize != null
         ? MediaQuery.maybeOrientationOf(context)
         : null;
-    final data = (_lastData != null &&
+    final data =
+        (_lastData != null &&
             _lastSize == size &&
             _lastOrientation == mqOrientation &&
             _lastConfig == widget.config)
@@ -514,7 +515,8 @@ class _OmniResponsiveModel extends InheritedModel<_OmniResponsiveAspect> {
   ) {
     final prev = oldWidget.data;
     if (dependencies.contains(_OmniResponsiveAspect.device) &&
-        (prev.device != data.device || prev.isSmallPhone != data.isSmallPhone)) {
+        (prev.device != data.device ||
+            prev.isSmallPhone != data.isSmallPhone)) {
       return true;
     }
     if (dependencies.contains(_OmniResponsiveAspect.windowSize) &&
@@ -582,8 +584,8 @@ class OmniResponsiveTextScaleHost extends StatelessWidget {
 
   double _resolveTierScale(BuildContext context) =>
       (config.enabled && config.adaptTextScaling)
-          ? OmniResponsiveScope.tokensOf(context).textScale
-          : 1.0;
+      ? OmniResponsiveScope.tokensOf(context).textScale
+      : 1.0;
 
   Widget _applyWithFullMediaQuery(
     BuildContext context,

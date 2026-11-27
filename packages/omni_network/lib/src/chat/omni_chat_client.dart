@@ -242,7 +242,9 @@ final class OmniChatClient {
       return false;
     }
     try {
-      s.send(frame); // Will use bufferWhileDisconnected cleanly when connecting.
+      s.send(
+        frame,
+      ); // Will use bufferWhileDisconnected cleanly when connecting.
     } catch (_) {
       _pendingFrames.add(frame);
     }
@@ -256,7 +258,9 @@ final class OmniChatClient {
     for (final item in items) {
       try {
         if (item.body is Map) {
-          final msg = ChatMessage.fromJson(Map<String, Object?>.from(item.body! as Map));
+          final msg = ChatMessage.fromJson(
+            Map<String, Object?>.from(item.body! as Map),
+          );
           _socket!.send(protocol.encodeSend(msg));
         }
         await store.remove(item.id);

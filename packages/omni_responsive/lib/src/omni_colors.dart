@@ -718,37 +718,47 @@ class OmniColors extends ThemeExtension<OmniColors> {
     );
     final isDark = brightness == Brightness.dark;
 
-    final resolvedSurface = surfaceColor ??
+    final resolvedSurface =
+        surfaceColor ??
         (isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC));
-    final resolvedSecondaryBg = secondaryBackgroundColor ??
+    final resolvedSecondaryBg =
+        secondaryBackgroundColor ??
         (isDark ? const Color(0xFF162033) : const Color(0xFFF1F5F9));
-    final resolvedCard = cardColor ??
-        (isDark ? const Color(0xFF131C31) : Colors.white);
+    final resolvedCard =
+        cardColor ?? (isDark ? const Color(0xFF131C31) : Colors.white);
     final resolvedPrimary = primaryColor;
     final resolvedButton = buttonColor ?? resolvedPrimary;
-    final resolvedButtonText = buttonTextColor ??
+    final resolvedButtonText =
+        buttonTextColor ??
         (ThemeData.estimateBrightnessForColor(resolvedButton) == Brightness.dark
             ? Colors.white
             : const Color(0xFF0F172A));
-    final resolvedError = errorColor ??
+    final resolvedError =
+        errorColor ??
         (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626));
-    final resolvedDanger = dangerButtonColor ??
-        (isDark ? const Color(0xFFEF4444) : resolvedError);
+    final resolvedDanger =
+        dangerButtonColor ?? (isDark ? const Color(0xFFEF4444) : resolvedError);
     final resolvedDangerText = dangerButtonTextColor ?? Colors.white;
-    final resolvedWarning = warningColor ??
+    final resolvedWarning =
+        warningColor ??
         (isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706));
-    final resolvedSuccess = successColor ??
+    final resolvedSuccess =
+        successColor ??
         (isDark ? const Color(0xFF34D399) : const Color(0xFF059669));
-    final resolvedInfo = infoColor ??
+    final resolvedInfo =
+        infoColor ??
         (isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB));
-    final resolvedText = textColor ??
+    final resolvedText =
+        textColor ??
         (isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A));
-    final resolvedSecondaryText = secondaryTextColor ??
+    final resolvedSecondaryText =
+        secondaryTextColor ??
         (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569));
-    final resolvedSecondaryBtn = secondaryButtonColor ??
+    final resolvedSecondaryBtn =
+        secondaryButtonColor ??
         (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
-    final resolvedChip = chipColor ??
-        resolvedPrimary.withValues(alpha: isDark ? 0.18 : 0.10);
+    final resolvedChip =
+        chipColor ?? resolvedPrimary.withValues(alpha: isDark ? 0.18 : 0.10);
     final resolvedBadge = badgeColor ?? resolvedError;
 
     return OmniColors(
@@ -771,65 +781,84 @@ class OmniColors extends ThemeExtension<OmniColors> {
       dangerButtonColor: resolvedDanger,
       dangerButtonTextColor: resolvedDangerText,
       linkColor: linkColor ?? resolvedPrimary,
-      inputFillColor: inputFillColor ??
+      inputFillColor:
+          inputFillColor ??
           (isDark ? const Color(0xFF1B263B) : const Color(0xFFF1F5F9)),
-      borderColor: borderColor ??
+      borderColor:
+          borderColor ??
           (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
       focusedBorderColor: focusedBorderColor ?? resolvedPrimary,
-      dividerColor: dividerColor ??
+      dividerColor:
+          dividerColor ??
           (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
       textColor: resolvedText,
       secondaryTextColor: resolvedSecondaryText,
-      hintTextColor: hintTextColor ??
+      hintTextColor:
+          hintTextColor ??
           (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
-      iconColor: iconColor ??
+      iconColor:
+          iconColor ??
           (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
       chipColor: resolvedChip,
       chipTextColor: chipTextColor ?? resolvedPrimary,
       badgeColor: resolvedBadge,
       badgeTextColor: badgeTextColor ?? Colors.white,
-      selectedItemColor: selectedItemColor ??
+      selectedItemColor:
+          selectedItemColor ??
           resolvedPrimary.withValues(alpha: isDark ? 0.16 : 0.08),
-      hoverColor: hoverColor ??
-          resolvedText.withValues(alpha: isDark ? 0.06 : 0.04),
-      rippleColor: rippleColor ??
+      hoverColor:
+          hoverColor ?? resolvedText.withValues(alpha: isDark ? 0.06 : 0.04),
+      rippleColor:
+          rippleColor ??
           resolvedPrimary.withValues(alpha: isDark ? 0.22 : 0.12),
-      disabledColor: disabledColor ??
+      disabledColor:
+          disabledColor ??
           (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-      disabledTextColor: disabledTextColor ??
+      disabledTextColor:
+          disabledTextColor ??
           (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
-      disabledBorderColor: disabledBorderColor ??
+      disabledBorderColor:
+          disabledBorderColor ??
           (isDark ? const Color(0xFF283548) : const Color(0xFFCBD5E1)),
       switchActiveColor: switchActiveColor ?? resolvedPrimary,
-      switchInactiveColor: switchInactiveColor ??
+      switchInactiveColor:
+          switchInactiveColor ??
           (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
-      snackbarColor: snackbarColor ??
+      snackbarColor:
+          snackbarColor ??
           (isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A)),
       snackbarTextColor: snackbarTextColor ?? const Color(0xFFF8FAFC),
-      tooltipColor: tooltipColor ??
+      tooltipColor:
+          tooltipColor ??
           (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B)),
-      tooltipTextColor: tooltipTextColor ??
-          (isDark ? const Color(0xFF0F172A) : Colors.white),
+      tooltipTextColor:
+          tooltipTextColor ?? (isDark ? const Color(0xFF0F172A) : Colors.white),
       errorColor: resolvedError,
-      errorBackgroundColor: errorBackgroundColor ??
+      errorBackgroundColor:
+          errorBackgroundColor ??
           resolvedError.withValues(alpha: isDark ? 0.16 : 0.10),
       warningColor: resolvedWarning,
-      warningBackgroundColor: warningBackgroundColor ??
+      warningBackgroundColor:
+          warningBackgroundColor ??
           resolvedWarning.withValues(alpha: isDark ? 0.16 : 0.12),
       successColor: resolvedSuccess,
-      successBackgroundColor: successBackgroundColor ??
+      successBackgroundColor:
+          successBackgroundColor ??
           resolvedSuccess.withValues(alpha: isDark ? 0.16 : 0.10),
       infoColor: resolvedInfo,
-      infoBackgroundColor: infoBackgroundColor ??
+      infoBackgroundColor:
+          infoBackgroundColor ??
           resolvedInfo.withValues(alpha: isDark ? 0.16 : 0.10),
-      shimmerBaseColor: shimmerBaseColor ??
+      shimmerBaseColor:
+          shimmerBaseColor ??
           (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
-      shimmerHighlightColor: shimmerHighlightColor ??
+      shimmerHighlightColor:
+          shimmerHighlightColor ??
           (isDark ? const Color(0xFF334155) : const Color(0xFFF8FAFC)),
-      overlayColor: overlayColor ??
-          Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
-      shadowColor: shadowColor ??
-          Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+      overlayColor:
+          overlayColor ?? Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
+      shadowColor:
+          shadowColor ?? Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
     );
   }
 
@@ -924,8 +953,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
     secondaryButtonTextColor:
         secondaryButtonTextColor ?? this.secondaryButtonTextColor,
     dangerButtonColor: dangerButtonColor ?? this.dangerButtonColor,
-    dangerButtonTextColor:
-        dangerButtonTextColor ?? this.dangerButtonTextColor,
+    dangerButtonTextColor: dangerButtonTextColor ?? this.dangerButtonTextColor,
     linkColor: linkColor ?? this.linkColor,
     inputFillColor: inputFillColor ?? this.inputFillColor,
     borderColor: borderColor ?? this.borderColor,
@@ -962,8 +990,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
     infoColor: infoColor ?? this.infoColor,
     infoBackgroundColor: infoBackgroundColor ?? this.infoBackgroundColor,
     shimmerBaseColor: shimmerBaseColor ?? this.shimmerBaseColor,
-    shimmerHighlightColor:
-        shimmerHighlightColor ?? this.shimmerHighlightColor,
+    shimmerHighlightColor: shimmerHighlightColor ?? this.shimmerHighlightColor,
     overlayColor: overlayColor ?? this.overlayColor,
     shadowColor: shadowColor ?? this.shadowColor,
   );
@@ -984,10 +1011,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
       appBarColor: Color.lerp(appBarColor, other.appBarColor, t)!,
       appBarTextColor: Color.lerp(appBarTextColor, other.appBarTextColor, t)!,
       navBarColor: Color.lerp(navBarColor, other.navBarColor, t)!,
-      navSelectedColor:
-          Color.lerp(navSelectedColor, other.navSelectedColor, t)!,
-      navUnselectedColor:
-          Color.lerp(navUnselectedColor, other.navUnselectedColor, t)!,
+      navSelectedColor: Color.lerp(
+        navSelectedColor,
+        other.navSelectedColor,
+        t,
+      )!,
+      navUnselectedColor: Color.lerp(
+        navUnselectedColor,
+        other.navUnselectedColor,
+        t,
+      )!,
       statusBarColor: Color.lerp(statusBarColor, other.statusBarColor, t)!,
       systemNavigationBarColor: Color.lerp(
         systemNavigationBarColor,
@@ -996,67 +1029,121 @@ class OmniColors extends ThemeExtension<OmniColors> {
       )!,
       buttonColor: Color.lerp(buttonColor, other.buttonColor, t)!,
       buttonTextColor: Color.lerp(buttonTextColor, other.buttonTextColor, t)!,
-      secondaryButtonColor:
-          Color.lerp(secondaryButtonColor, other.secondaryButtonColor, t)!,
+      secondaryButtonColor: Color.lerp(
+        secondaryButtonColor,
+        other.secondaryButtonColor,
+        t,
+      )!,
       secondaryButtonTextColor: Color.lerp(
         secondaryButtonTextColor,
         other.secondaryButtonTextColor,
         t,
       )!,
-      dangerButtonColor:
-          Color.lerp(dangerButtonColor, other.dangerButtonColor, t)!,
-      dangerButtonTextColor:
-          Color.lerp(dangerButtonTextColor, other.dangerButtonTextColor, t)!,
+      dangerButtonColor: Color.lerp(
+        dangerButtonColor,
+        other.dangerButtonColor,
+        t,
+      )!,
+      dangerButtonTextColor: Color.lerp(
+        dangerButtonTextColor,
+        other.dangerButtonTextColor,
+        t,
+      )!,
       linkColor: Color.lerp(linkColor, other.linkColor, t)!,
       inputFillColor: Color.lerp(inputFillColor, other.inputFillColor, t)!,
       borderColor: Color.lerp(borderColor, other.borderColor, t)!,
-      focusedBorderColor:
-          Color.lerp(focusedBorderColor, other.focusedBorderColor, t)!,
+      focusedBorderColor: Color.lerp(
+        focusedBorderColor,
+        other.focusedBorderColor,
+        t,
+      )!,
       dividerColor: Color.lerp(dividerColor, other.dividerColor, t)!,
       textColor: Color.lerp(textColor, other.textColor, t)!,
-      secondaryTextColor:
-          Color.lerp(secondaryTextColor, other.secondaryTextColor, t)!,
+      secondaryTextColor: Color.lerp(
+        secondaryTextColor,
+        other.secondaryTextColor,
+        t,
+      )!,
       hintTextColor: Color.lerp(hintTextColor, other.hintTextColor, t)!,
       iconColor: Color.lerp(iconColor, other.iconColor, t)!,
       chipColor: Color.lerp(chipColor, other.chipColor, t)!,
       chipTextColor: Color.lerp(chipTextColor, other.chipTextColor, t)!,
       badgeColor: Color.lerp(badgeColor, other.badgeColor, t)!,
       badgeTextColor: Color.lerp(badgeTextColor, other.badgeTextColor, t)!,
-      selectedItemColor:
-          Color.lerp(selectedItemColor, other.selectedItemColor, t)!,
+      selectedItemColor: Color.lerp(
+        selectedItemColor,
+        other.selectedItemColor,
+        t,
+      )!,
       hoverColor: Color.lerp(hoverColor, other.hoverColor, t)!,
       rippleColor: Color.lerp(rippleColor, other.rippleColor, t)!,
       disabledColor: Color.lerp(disabledColor, other.disabledColor, t)!,
-      disabledTextColor:
-          Color.lerp(disabledTextColor, other.disabledTextColor, t)!,
-      disabledBorderColor:
-          Color.lerp(disabledBorderColor, other.disabledBorderColor, t)!,
-      switchActiveColor:
-          Color.lerp(switchActiveColor, other.switchActiveColor, t)!,
-      switchInactiveColor:
-          Color.lerp(switchInactiveColor, other.switchInactiveColor, t)!,
+      disabledTextColor: Color.lerp(
+        disabledTextColor,
+        other.disabledTextColor,
+        t,
+      )!,
+      disabledBorderColor: Color.lerp(
+        disabledBorderColor,
+        other.disabledBorderColor,
+        t,
+      )!,
+      switchActiveColor: Color.lerp(
+        switchActiveColor,
+        other.switchActiveColor,
+        t,
+      )!,
+      switchInactiveColor: Color.lerp(
+        switchInactiveColor,
+        other.switchInactiveColor,
+        t,
+      )!,
       snackbarColor: Color.lerp(snackbarColor, other.snackbarColor, t)!,
-      snackbarTextColor:
-          Color.lerp(snackbarTextColor, other.snackbarTextColor, t)!,
+      snackbarTextColor: Color.lerp(
+        snackbarTextColor,
+        other.snackbarTextColor,
+        t,
+      )!,
       tooltipColor: Color.lerp(tooltipColor, other.tooltipColor, t)!,
-      tooltipTextColor:
-          Color.lerp(tooltipTextColor, other.tooltipTextColor, t)!,
+      tooltipTextColor: Color.lerp(
+        tooltipTextColor,
+        other.tooltipTextColor,
+        t,
+      )!,
       errorColor: Color.lerp(errorColor, other.errorColor, t)!,
-      errorBackgroundColor:
-          Color.lerp(errorBackgroundColor, other.errorBackgroundColor, t)!,
+      errorBackgroundColor: Color.lerp(
+        errorBackgroundColor,
+        other.errorBackgroundColor,
+        t,
+      )!,
       warningColor: Color.lerp(warningColor, other.warningColor, t)!,
-      warningBackgroundColor:
-          Color.lerp(warningBackgroundColor, other.warningBackgroundColor, t)!,
+      warningBackgroundColor: Color.lerp(
+        warningBackgroundColor,
+        other.warningBackgroundColor,
+        t,
+      )!,
       successColor: Color.lerp(successColor, other.successColor, t)!,
-      successBackgroundColor:
-          Color.lerp(successBackgroundColor, other.successBackgroundColor, t)!,
+      successBackgroundColor: Color.lerp(
+        successBackgroundColor,
+        other.successBackgroundColor,
+        t,
+      )!,
       infoColor: Color.lerp(infoColor, other.infoColor, t)!,
-      infoBackgroundColor:
-          Color.lerp(infoBackgroundColor, other.infoBackgroundColor, t)!,
-      shimmerBaseColor:
-          Color.lerp(shimmerBaseColor, other.shimmerBaseColor, t)!,
-      shimmerHighlightColor:
-          Color.lerp(shimmerHighlightColor, other.shimmerHighlightColor, t)!,
+      infoBackgroundColor: Color.lerp(
+        infoBackgroundColor,
+        other.infoBackgroundColor,
+        t,
+      )!,
+      shimmerBaseColor: Color.lerp(
+        shimmerBaseColor,
+        other.shimmerBaseColor,
+        t,
+      )!,
+      shimmerHighlightColor: Color.lerp(
+        shimmerHighlightColor,
+        other.shimmerHighlightColor,
+        t,
+      )!,
       overlayColor: Color.lerp(overlayColor, other.overlayColor, t)!,
       shadowColor: Color.lerp(shadowColor, other.shadowColor, t)!,
     );
@@ -1555,8 +1642,7 @@ class OmniColorPalette {
     secondaryButtonTextColor:
         secondaryButtonTextColor ?? this.secondaryButtonTextColor,
     dangerButtonColor: dangerButtonColor ?? this.dangerButtonColor,
-    dangerButtonTextColor:
-        dangerButtonTextColor ?? this.dangerButtonTextColor,
+    dangerButtonTextColor: dangerButtonTextColor ?? this.dangerButtonTextColor,
     linkColor: linkColor ?? this.linkColor,
     inputFillColor: inputFillColor ?? this.inputFillColor,
     borderColor: borderColor ?? this.borderColor,
@@ -1593,8 +1679,7 @@ class OmniColorPalette {
     infoColor: infoColor ?? this.infoColor,
     infoBackgroundColor: infoBackgroundColor ?? this.infoBackgroundColor,
     shimmerBaseColor: shimmerBaseColor ?? this.shimmerBaseColor,
-    shimmerHighlightColor:
-        shimmerHighlightColor ?? this.shimmerHighlightColor,
+    shimmerHighlightColor: shimmerHighlightColor ?? this.shimmerHighlightColor,
     overlayColor: overlayColor ?? this.overlayColor,
     shadowColor: shadowColor ?? this.shadowColor,
   );

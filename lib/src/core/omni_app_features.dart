@@ -71,7 +71,8 @@ typedef OmniInitErrorBuilder =
 
 /// Asynchronous callback executed after startup completes to pick a starting
 /// route (e.g. `'/onboarding'` vs `'/dashboard'`).
-typedef OmniInitialRouteResolver = FutureOr<String?> Function(BuildContext context);
+typedef OmniInitialRouteResolver =
+    FutureOr<String?> Function(BuildContext context);
 
 /// Mutable per-[OmniApp] session state shared between [OmniInitGate] and
 /// [OmniConfigGuard].
@@ -294,7 +295,8 @@ class OmniConfigGuard extends OmniGuard {
     final signupLoc = signupRaw == null
         ? null
         : normalizeOmniConfigPath(signupRaw);
-    final isAuthRoute = loc == loginLoc || (signupLoc != null && loc == signupLoc);
+    final isAuthRoute =
+        loc == loginLoc || (signupLoc != null && loc == signupLoc);
 
     // Entering Login/Signup marks onboarding done in local storage under
     // onceUntilLoginScreen mode—even if the user leaves before signing in.
@@ -481,7 +483,8 @@ class _OmniInitGateState extends State<OmniInitGate>
   }
 
   List<String> get _normalizedObRoutes => [
-    for (final r in widget.config.onboarding?.effectiveRoutes ?? const <String>[])
+    for (final r
+        in widget.config.onboarding?.effectiveRoutes ?? const <String>[])
       normalizeOmniConfigPath(r),
   ];
 
@@ -530,7 +533,11 @@ class _OmniInitGateState extends State<OmniInitGate>
           widget.session.onboardingPending = true;
           widget.session.onboardingRouteStep = 0;
           _stepNotifier.value = 0;
-          widget.router?.go(routes.first, animated: false, replaceHistory: true);
+          widget.router?.go(
+            routes.first,
+            animated: false,
+            replaceHistory: true,
+          );
           _phase = _StartupPhase.app;
           return;
         }
@@ -668,7 +675,10 @@ class _OmniInitGateState extends State<OmniInitGate>
       _timers.remove(timer);
       if (!completer.isCompleted) {
         completer.completeError(
-          TimeoutException('OmniSplash.onInit timed out after $timeout', timeout),
+          TimeoutException(
+            'OmniSplash.onInit timed out after $timeout',
+            timeout,
+          ),
           StackTrace.current,
         );
       }
@@ -698,10 +708,7 @@ class _OmniInitGateState extends State<OmniInitGate>
     if (widget.session.persistedMarkedKey == ob.storageKey) return;
     widget.session.persistedMarkedKey = ob.storageKey;
     widget.session.onboardingCompleted = true;
-    await OmniOnboardingStore.markDone(
-      ob.storageKey,
-      customStore: ob.storage,
-    );
+    await OmniOnboardingStore.markDone(ob.storageKey, customStore: ob.storage);
   }
 
   Future<bool> _shouldEnterOnboarding({Future<bool>? pendingDecision}) async {
@@ -869,7 +876,11 @@ class _OmniInitGateState extends State<OmniInitGate>
         widget.session.onboardingPending = true;
         widget.session.onboardingRouteStep = 0;
         _stepNotifier.value = 0;
-        widget.router?.go(obRoutes.first, animated: false, replaceHistory: true);
+        widget.router?.go(
+          obRoutes.first,
+          animated: false,
+          replaceHistory: true,
+        );
         setState(() => _phase = _StartupPhase.app);
         return;
       }
@@ -915,7 +926,8 @@ class _OmniInitGateState extends State<OmniInitGate>
       if (ob != null && ob.usesPersistence) {
         final mode = ob.effectiveMode;
         final hasAuthCheck = widget.config.auth?.isAuthenticated != null;
-        final authedNow = hasAuthCheck && widget.config.auth!.isAuthenticated!(context);
+        final authedNow =
+            hasAuthCheck && widget.config.auth!.isAuthenticated!(context);
         final shouldPersistNow = switch (mode) {
           OmniOnboardingMode.onceUntilLoginScreen ||
           OmniOnboardingMode.onceAfterComplete => true,
@@ -1131,7 +1143,10 @@ class _OmniInitGateState extends State<OmniInitGate>
     final signupLoc = normalizeOmniConfigPath(rawSignup);
     final currentFrom = router.state.queryParameters['from'];
     final target = (currentFrom != null && currentFrom.isNotEmpty)
-        ? Uri(path: signupLoc, queryParameters: {'from': currentFrom}).toString()
+        ? Uri(
+            path: signupLoc,
+            queryParameters: {'from': currentFrom},
+          ).toString()
         : signupLoc;
     router.go(target, replaceHistory: true);
     _leaveOverlayIfNeeded();
@@ -1320,10 +1335,7 @@ class _OmniInitGateState extends State<OmniInitGate>
                     const SizedBox(height: 12),
                     Text(message, textAlign: TextAlign.center),
                     const SizedBox(height: 20),
-                    FilledButton(
-                      onPressed: retry,
-                      child: const Text('Retry'),
-                    ),
+                    FilledButton(onPressed: retry, child: const Text('Retry')),
                     if (continueAnyway != null) ...[
                       const SizedBox(height: 8),
                       TextButton(

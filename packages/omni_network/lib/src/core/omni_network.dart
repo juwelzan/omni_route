@@ -327,8 +327,7 @@ final class OmniNetwork {
     bool closeDio = false,
   }) {
     final dioBase = dio.options.baseUrl;
-    final resolvedBaseUrl =
-        baseUrl ?? (dioBase.isEmpty ? null : dioBase);
+    final resolvedBaseUrl = baseUrl ?? (dioBase.isEmpty ? null : dioBase);
     final mergedHeaders = <String, String>{
       for (final e in dio.options.headers.entries)
         if (e.value != null) e.key: '${e.value}',
@@ -423,7 +422,8 @@ final class OmniNetwork {
        _provider =
            auth ?? (token == null ? OmniAuth() : BearerAuth(token: token)),
        _wsConnector = wsConnector, // ignore: prefer_initializing_formals
-       _httpClientFactory = httpClientFactory, // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _httpClientFactory = httpClientFactory,
        wsBaseUri = wsBaseUrl == null ? null : _parseWsBase(wsBaseUrl),
        interceptors = List.unmodifiable(interceptors),
        _logResponse = logResponse ?? logOptions.responseBody,
@@ -435,7 +435,8 @@ final class OmniNetwork {
        _decoders = Map.unmodifiable(decoders),
        _aiConfig = ai ?? const AiConfig(),
        _chatConfig = chatConfig, // ignore: prefer_initializing_formals
-       _chatStore = chatStore { // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _chatStore = chatStore {
     _syncLogger();
     // Bind the auth provider now so misuse (one OmniAuth for two clients)
     // fails at construction, not on the first request.
@@ -871,7 +872,8 @@ final class OmniNetwork {
         ..logResponseBody = _logResponse;
     } else if (_enableLogging && (_logInRelease || !isReleaseBuild)) {
       final targetSink =
-          _customLogSink ?? (_ownedPrettySink ??= PrettyLogSink(options: options));
+          _customLogSink ??
+          (_ownedPrettySink ??= PrettyLogSink(options: options));
       _logger = NetworkLogger(
         _TapLogSink(targetSink, (record) {
           if (!_closed && !_logController.isClosed) {
@@ -1828,8 +1830,7 @@ final class OmniNetwork {
         if (isLogging && !_realtimeLogController.isClosed) {
           final isBody = direction == 'out' || direction == 'in';
           final trimmed = summary.trimLeft();
-          final contentType =
-              trimmed.startsWith('{') || trimmed.startsWith('[')
+          final contentType = trimmed.startsWith('{') || trimmed.startsWith('[')
               ? 'application/json'
               : 'text/plain';
           _realtimeLogController.add(
@@ -1874,7 +1875,9 @@ final class OmniNetwork {
     bool closeWithClient = true,
   }) {
     if (_closed) {
-      throw ClosedFailure(uri: safeUri(_resolveUri(OmniRequest(method, pathOrUrl, query: query))));
+      throw ClosedFailure(
+        uri: safeUri(_resolveUri(OmniRequest(method, pathOrUrl, query: query))),
+      );
     }
     final conn = SseConnection(
       this,
@@ -1979,7 +1982,10 @@ final class OmniNetwork {
         final slowCb = onSlowRequest;
         if (slowCb != null) {
           try {
-            slowCb(response.requestUri ?? safeUri(_resolveUri(current)), elapsed);
+            slowCb(
+              response.requestUri ?? safeUri(_resolveUri(current)),
+              elapsed,
+            );
           } catch (_) {}
         }
       }
@@ -2661,7 +2667,11 @@ final class OmniNetwork {
       throw ArgumentError.value(raw, name, description);
     }
     if (uri.hasQuery || uri.hasFragment) {
-      throw ArgumentError.value(raw, name, 'must not contain a query or fragment');
+      throw ArgumentError.value(
+        raw,
+        name,
+        'must not contain a query or fragment',
+      );
     }
     return uri.path.endsWith('/') ? uri : uri.replace(path: '${uri.path}/');
   }

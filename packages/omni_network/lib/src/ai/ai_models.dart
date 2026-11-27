@@ -535,7 +535,10 @@ final class AiTool {
     required this.name,
     required this.description,
     required this.execute,
-    this.parameters = const {'type': 'object', 'properties': <String, Object?>{}},
+    this.parameters = const {
+      'type': 'object',
+      'properties': <String, Object?>{},
+    },
   });
 
   /// Wraps an existing `OmniNetwork` [Endpoint] so an AI model can call typed
@@ -549,7 +552,9 @@ final class AiTool {
     Object? Function(Object? result)? serialize,
   }) {
     final resolvedName =
-        name ?? endpoint.name ?? endpoint.path.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
+        name ??
+        endpoint.name ??
+        endpoint.path.replaceAll(RegExp(r'[^a-zA-Z0-9_]'), '_');
     return AiTool.function(
       name: resolvedName,
       description:
@@ -789,10 +794,7 @@ final class AiModelCost {
 final class AiUsageTracker {
   /// Creates a tracker with optional [maxSessionBudgetUsd] limit and per-model
   /// [pricing] rates.
-  AiUsageTracker({
-    this.maxSessionBudgetUsd,
-    this.pricing = const {},
-  });
+  AiUsageTracker({this.maxSessionBudgetUsd, this.pricing = const {}});
 
   /// Optional USD cap per session; throws [RequestFailure] before sending new
   /// requests once reached.
@@ -807,7 +809,8 @@ final class AiUsageTracker {
   double _totalCostUsd = 0.0;
   int _callCount = 0;
   final Map<String, AiUsage> _byModel = {};
-  final StreamController<AiUsage> _changes = StreamController<AiUsage>.broadcast();
+  final StreamController<AiUsage> _changes =
+      StreamController<AiUsage>.broadcast();
 
   /// Total input tokens recorded across all calls.
   int get totalInputTokens => _inputTokens;
@@ -887,8 +890,7 @@ final class AiUsageTracker {
       if (pricing[bare] case final m?) return m;
     }
     for (final entry in pricing.entries) {
-      if (model.startsWith('${entry.key}-') ||
-          entry.key.endsWith(':$model')) {
+      if (model.startsWith('${entry.key}-') || entry.key.endsWith(':$model')) {
         return entry.value;
       }
     }

@@ -723,8 +723,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
         final effectiveNavBar =
             systemNavigationBar ?? omniScreen?.systemNavigationBar;
         final effectiveOrientation = orientation ?? omniScreen?.orientation;
-        final effectiveOrientations =
-            orientations ?? omniScreen?.orientations;
+        final effectiveOrientations = orientations ?? omniScreen?.orientations;
         if (effectiveMode == null &&
             effectiveStatusBar == null &&
             effectiveNavBar == null &&
@@ -820,10 +819,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
       );
     }
 
-    return (
-      child: content,
-      routePath: resolvedRoutePath ?? name ?? title,
-    );
+    return (child: content, routePath: resolvedRoutePath ?? name ?? title);
   }
 }
 

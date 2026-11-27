@@ -111,14 +111,15 @@ enum OmniOrientation {
     ],
     OmniOrientation.landscapeLeft => const [DeviceOrientation.landscapeLeft],
     OmniOrientation.landscapeRight => const [DeviceOrientation.landscapeRight],
-    OmniOrientation.portraitOnMobile => device == OmniDeviceType.mobile
-        ? const [DeviceOrientation.portraitUp]
-        : const [
-            DeviceOrientation.portraitUp,
-            DeviceOrientation.portraitDown,
-            DeviceOrientation.landscapeLeft,
-            DeviceOrientation.landscapeRight,
-          ],
+    OmniOrientation.portraitOnMobile =>
+      device == OmniDeviceType.mobile
+          ? const [DeviceOrientation.portraitUp]
+          : const [
+              DeviceOrientation.portraitUp,
+              DeviceOrientation.portraitDown,
+              DeviceOrientation.landscapeLeft,
+              DeviceOrientation.landscapeRight,
+            ],
     OmniOrientation.system => const <DeviceOrientation>[],
   };
 }
@@ -325,9 +326,11 @@ class OmniSystemUiController extends ChangeNotifier {
   }
 
   /// শুধু উপরের স্ট্যাটাস বার লুকায় (বটম নেভ বার আগের মতোই থাকে)।
-  void hideStatusBar() =>
-      setStatusBar((_statusBar ?? const OmniStatusBarStyle.transparent())
-          .copyWith(visible: false));
+  void hideStatusBar() => setStatusBar(
+    (_statusBar ?? const OmniStatusBarStyle.transparent()).copyWith(
+      visible: false,
+    ),
+  );
 
   /// উপরের স্ট্যাটাস বার পুনরায় দেখায়।
   void showStatusBar() => setStatusBar(
@@ -440,14 +443,15 @@ class OmniSystemUiScope extends InheritedWidget {
 
   /// বর্তমান কার্যকর [OmniScreenMode] পড়ে (পরিবর্তন হলে এই উইজেট রি-বিল্ড হয়)।
   static OmniScreenMode screenModeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<OmniSystemUiScope>()
+      context
+          .dependOnInheritedWidgetOfExactType<OmniSystemUiScope>()
           ?.effectiveScreenMode ??
       OmniScreenMode.edgeToEdge;
 
   /// বর্তমান কার্যকর [OmniOrientation] পড়ে।
-  static OmniOrientation? orientationOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<OmniSystemUiScope>()
-          ?.effectiveOrientation;
+  static OmniOrientation? orientationOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<OmniSystemUiScope>()
+      ?.effectiveOrientation;
 
   @override
   bool updateShouldNotify(covariant OmniSystemUiScope oldWidget) =>
@@ -532,8 +536,8 @@ class _OmniSystemUiState extends State<OmniSystemUi> {
     OmniSystemUiScope? parentScope,
   })
   _resolve(BuildContext context) {
-    final parentScope =
-        context.dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
+    final parentScope = context
+        .dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
     final effectiveStatusBar =
         widget.statusBar ??
         parentScope?.effectiveStatusBar ??
@@ -720,8 +724,8 @@ class OmniFullscreenButton extends StatelessWidget {
       onPressed: !hasScope
           ? null
           : () => isFull
-              ? context.exitFullscreen()
-              : context.enterFullscreen(leanBack: leanBack),
+                ? context.exitFullscreen()
+                : context.enterFullscreen(leanBack: leanBack),
     );
   }
 }
@@ -785,12 +789,12 @@ extension OmniSystemUiContext on BuildContext {
   }
 
   /// শুধু উপরের স্ট্যাটাস বার লুকায় (বটম বার আগের মতোই খোলা থাকে)।
-  void hideStatusBar() => OmniSystemUiScope.maybeControllerOf(this)
-      ?.hideStatusBar();
+  void hideStatusBar() =>
+      OmniSystemUiScope.maybeControllerOf(this)?.hideStatusBar();
 
   /// উপরের স্ট্যাটাস বার পুনরায় দেখায়।
-  void showStatusBar() => OmniSystemUiScope.maybeControllerOf(this)
-      ?.showStatusBar();
+  void showStatusBar() =>
+      OmniSystemUiScope.maybeControllerOf(this)?.showStatusBar();
 
   /// শুধু নিচের সিস্টেম নেভিগেশন বা গেস্টচার বারের রঙ/স্টাইল পরিবর্তন করে।
   void setSystemNavigationBar(OmniSystemNavigationBarStyle style) {

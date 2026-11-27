@@ -39,8 +39,10 @@ final class OmniApiHub {
        _environments = Map.of(environments),
        _serviceConfigs = Map.of(services),
        _aiConfig = ai,
-       _transportOverride = transportOverride, // ignore: prefer_initializing_formals
-       _wsConnectorOverride = wsConnectorOverride; // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _transportOverride = transportOverride,
+       // ignore: prefer_initializing_formals
+       _wsConnectorOverride = wsConnectorOverride;
 
   /// Shared [LogSink] attached across all built service clients.
   final LogSink? logSink;
@@ -121,9 +123,9 @@ final class OmniApiHub {
         () async {
           final sw = Stopwatch()..start();
           try {
-            final res = await service(name).sendRaw(
-              OmniRequest.get(path, timeout: timeout, skipAuth: !auth),
-            );
+            final res = await service(
+              name,
+            ).sendRaw(OmniRequest.get(path, timeout: timeout, skipAuth: !auth));
             return MapEntry(
               name,
               ServiceHealth(
@@ -170,10 +172,8 @@ final class OmniApiHub {
 
   /// Unified Multi-AI engine configured on this hub (shares hub logging and
   /// test transport overrides).
-  OmniAi get ai => _ai ??= OmniAi(
-    client: _ensureSupportClient(),
-    config: _aiConfig,
-  );
+  OmniAi get ai =>
+      _ai ??= OmniAi(client: _ensureSupportClient(), config: _aiConfig);
 
   OmniNetwork _ensureSupportClient() => _aiSupportClient ??= OmniNetwork(
     transport: _transportOverride,
@@ -290,7 +290,9 @@ final class OmniApiHub {
           if (entry.value is! List) continue;
           final targets = <AiTarget>[
             for (final raw in entry.value! as List)
-              if (raw is Map && raw['provider'] is String && raw['model'] is String)
+              if (raw is Map &&
+                  raw['provider'] is String &&
+                  raw['model'] is String)
                 AiTarget(
                   raw['provider']! as String,
                   model: raw['model']! as String,
@@ -462,10 +464,12 @@ final class OmniApiHub {
       proxy: _transportOverride == null ? env?.proxy : null,
       pinnedSha256: _transportOverride == null ? effectivePins : const [],
       allowBadProxyCertificate: config.allowBadProxyCertificate,
-      clientCertificateBytes:
-          _transportOverride == null ? config.clientCertificateBytes : null,
-      clientPrivateKeyBytes:
-          _transportOverride == null ? config.clientPrivateKeyBytes : null,
+      clientCertificateBytes: _transportOverride == null
+          ? config.clientCertificateBytes
+          : null,
+      clientPrivateKeyBytes: _transportOverride == null
+          ? config.clientPrivateKeyBytes
+          : null,
       clientCertificatePassword: config.clientCertificatePassword,
       dnsOverHttps: _transportOverride == null ? config.dnsOverHttps : null,
       dnsLookup: _transportOverride == null ? config.dnsLookup : null,

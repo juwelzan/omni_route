@@ -182,7 +182,9 @@ base class OpenAiCompatibleProvider
       if (decoded is! Map) continue;
       throwIfAiErrorEnvelope(decoded);
       if (decoded['usage'] is Map) {
-        usage = _decodeOpenAiUsage(Map<String, Object?>.from(decoded['usage']! as Map));
+        usage = _decodeOpenAiUsage(
+          Map<String, Object?>.from(decoded['usage']! as Map),
+        );
       }
       final choices = decoded['choices'] as List?;
       if (choices == null || choices.isEmpty) continue;
@@ -317,11 +319,7 @@ base class OpenAiCompatibleProvider
     final json = await postAiMultipart(
       client,
       _endpoint('/audio/transcriptions'),
-      fields: {
-        'model': model,
-        'language': ?language,
-        'prompt': ?prompt,
-      },
+      fields: {'model': model, 'language': ?language, 'prompt': ?prompt},
       files: [
         UploadFile.fromBytes(
           'file',
@@ -386,12 +384,7 @@ base class OpenAiCompatibleProvider
     final json = await postAiJson(
       client,
       _endpoint('/images/generations'),
-      body: {
-        'model': model,
-        'prompt': prompt,
-        'size': size,
-        'n': n,
-      },
+      body: {'model': model, 'prompt': prompt, 'size': size, 'n': n},
       headers: await _buildHeaders(),
       skipAuth: !useClientAuth,
       cancelToken: cancelToken,
@@ -437,10 +430,7 @@ base class OpenAiCompatibleProvider
         if (systemPrompt != null || extra.isNotEmpty) {
           s.sendJson({
             'type': 'session.update',
-            'session': {
-              'instructions': ?systemPrompt,
-              ...extra,
-            },
+            'session': {'instructions': ?systemPrompt, ...extra},
           });
         }
       },
@@ -536,12 +526,7 @@ final class OpenAiProvider extends OpenAiCompatibleProvider {
     Map<String, String> headers = const {},
     super.realtimeUrl = 'wss://api.openai.com/v1/realtime',
     super.useClientAuth = false,
-  }) : super(
-         headers: {
-           ...headers,
-           'openai-organization': ?organization,
-         },
-       );
+  }) : super(headers: {...headers, 'openai-organization': ?organization});
 }
 
 /// Google Gemini (`generateContent`, `streamGenerateContent?alt=sse`,
@@ -587,9 +572,7 @@ final class GeminiProvider
   @override
   bool get supportsRealtime => true;
 
-  Future<(String url, Map<String, String> headers)> _target(
-    String path,
-  ) async {
+  Future<(String url, Map<String, String> headers)> _target(String path) async {
     final trimmed = baseUrl.endsWith('/')
         ? baseUrl.substring(0, baseUrl.length - 1)
         : baseUrl;
@@ -643,10 +626,7 @@ final class GeminiProvider
             });
           case AiImageUrlPart(:final url):
             parts.add({
-              'fileData': {
-                'mimeType': _guessImageMime(url),
-                'fileUri': url,
-              },
+              'fileData': {'mimeType': _guessImageMime(url), 'fileUri': url},
             });
           case AiToolCallPart(:final name, :final arguments):
             parts.add({
@@ -1094,7 +1074,9 @@ final class GeminiProvider
           AiToolCallPart(
             id: 'gemini_call_${tools.length}',
             name: fc['name'] as String? ?? '',
-            arguments: Map<String, Object?>.from(fc['args'] as Map? ?? const {}),
+            arguments: Map<String, Object?>.from(
+              fc['args'] as Map? ?? const {},
+            ),
           ),
         );
       }
@@ -1162,7 +1144,9 @@ final class AnthropicProvider implements AiProvider {
   String _endpoint(String path) =>
       '${baseUrl.endsWith('/') ? baseUrl.substring(0, baseUrl.length - 1) : baseUrl}$path';
 
-  Future<Map<String, String>> _buildHeaders({bool promptCaching = false}) async {
+  Future<Map<String, String>> _buildHeaders({
+    bool promptCaching = false,
+  }) async {
     final key = await apiKey?.call();
     return {
       'anthropic-version': anthropicVersion,
@@ -1784,7 +1768,8 @@ final class CustomAiProvider
        _onEmbedBatch = onEmbedBatch, // ignore: prefer_initializing_formals
        _onTranscribe = onTranscribe, // ignore: prefer_initializing_formals
        _onSpeak = onSpeak, // ignore: prefer_initializing_formals
-       _onGenerateImage = onGenerateImage; // ignore: prefer_initializing_formals
+       // ignore: prefer_initializing_formals
+       _onGenerateImage = onGenerateImage;
 
   @override
   final String id;
@@ -1934,9 +1919,19 @@ final class CustomAiProvider
   }) {
     final fn = _onTranscribe;
     if (fn == null) {
-      throw UnsupportedError('CustomAiProvider "$id" has no transcribe handler');
+      throw UnsupportedError(
+        'CustomAiProvider "$id" has no transcribe handler',
+      );
     }
-    return fn(client, audioBytes, mimeType, model, language, prompt, cancelToken);
+    return fn(
+      client,
+      audioBytes,
+      mimeType,
+      model,
+      language,
+      prompt,
+      cancelToken,
+    );
   }
 
   @override
@@ -1979,7 +1974,8 @@ final class CustomAiProvider
     required String model,
     String? systemPrompt,
     Map<String, Object?> extra = const {},
-  }) => throw UnsupportedError('CustomAiProvider "$id" has no realtime handler');
+  }) =>
+      throw UnsupportedError('CustomAiProvider "$id" has no realtime handler');
 }
 
 Map<String, Object?> _encodeOpenAiMessage(AiMessage msg) {
@@ -2111,7 +2107,8 @@ AiUsage _decodeGeminiUsage(Map<String, Object?> usage) => AiUsage(
   totalTokens: usage['totalTokenCount'] as int?,
 );
 
-AiFinishReason _mapFinishReason(String? reason) => switch (reason?.toLowerCase()) {
+AiFinishReason _mapFinishReason(String? reason) => switch (reason
+    ?.toLowerCase()) {
   null || 'stop' || 'end_turn' => AiFinishReason.stop,
   'length' || 'max_tokens' => AiFinishReason.length,
   'tool_calls' || 'tool_use' => AiFinishReason.toolCalls,
@@ -2135,7 +2132,9 @@ AiToolCallPart _parseOllamaToolCall(int idx, Map<Object?, Object?> rawCall) {
   return AiToolCallPart(
     id: 'ollama_call_$idx',
     name: fn['name'] as String? ?? '',
-    arguments: args is Map ? Map<String, Object?>.from(args) : _safeJsonMap(args),
+    arguments: args is Map
+        ? Map<String, Object?>.from(args)
+        : _safeJsonMap(args),
   );
 }
 

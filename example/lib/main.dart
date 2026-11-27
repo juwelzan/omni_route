@@ -49,8 +49,9 @@ class StudentDetailBloc extends Cubit<StudentDetailState> {
     );
   }
 
-  void rename(String name) =>
-      emit(StudentDetailState(id: state.id, name: name, hasUnsavedEdits: false));
+  void rename(String name) => emit(
+    StudentDetailState(id: state.id, name: name, hasUnsavedEdits: false),
+  );
 }
 
 class AttendanceBloc extends Cubit<bool> {
@@ -78,10 +79,7 @@ class AuthGuard extends OmniGuard {
       context.read<AuthBloc>().stream;
 
   @override
-  FutureOr<String?> redirect(
-    BuildContext context,
-    OmniRouteState state,
-  ) {
+  FutureOr<String?> redirect(BuildContext context, OmniRouteState state) {
     final loggedIn = context.read<AuthBloc>().state;
     final atLogin = state.uri.path == '/login';
     if (!loggedIn && !atLogin) {
@@ -179,9 +177,7 @@ class ExampleApp extends StatelessWidget {
           builder: (context, state, shell) => HomeShell(shell: shell),
           branches: [
             // Branch 0: Dashboard (.hosted() + OmniLifecycle + OmniState)
-            OmniBranch(
-              routes: [OmniPage.screen(const DashboardScreen())],
-            ),
+            OmniBranch(routes: [OmniPage.screen(const DashboardScreen())]),
             // Branch 1: Students (Lazy page-entry StudentBloc + OmniRouteGroup)
             OmniBranch(
               routes: [
@@ -192,13 +188,15 @@ class ExampleApp extends StatelessWidget {
                       scopeKey: (s) => s.pathParameters['id'],
                       provide: [
                         Provide.bloc(
-                          (c) => StudentDetailBloc(
-                            OmniParams.of(c).pathInt('id'),
-                          ),
+                          (c) =>
+                              StudentDetailBloc(OmniParams.of(c).pathInt('id')),
                         ),
                       ],
                       routes: [
-                        OmniPage(':id', (p) => StudentDetailScreen(id: p.pathInt('id'))),
+                        OmniPage(
+                          ':id',
+                          (p) => StudentDetailScreen(id: p.pathInt('id')),
+                        ),
                         OmniPage(
                           ':id/edit',
                           (p) => StudentEditScreen(id: p.pathInt('id')),
@@ -381,10 +379,8 @@ class HomeShell extends StatelessWidget {
       body: shell,
       bottomNavigationBar: NavigationBar(
         selectedIndex: shell.currentIndex,
-        onDestinationSelected: (index) => shell.goBranch(
-          index,
-          initialLocation: index == shell.currentIndex,
-        ),
+        onDestinationSelected: (index) =>
+            shell.goBranch(index, initialLocation: index == shell.currentIndex),
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard),
@@ -462,7 +458,8 @@ class DashboardScreen extends OmniStatefulWidget {
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycle {
+class _DashboardScreenState extends OmniState<DashboardScreen>
+    with OmniLifecycle {
   int _showCount = 0;
 
   @override
@@ -549,9 +546,7 @@ class StudentListScreen extends OmniStatefulWidget {
   String get routePath => '/students';
 
   @override
-  List<Provide> get provide => [
-    Provide.bloc((_) => StudentBloc()),
-  ];
+  List<Provide> get provide => [Provide.bloc((_) => StudentBloc())];
 
   @override
   State<StudentListScreen> createState() => _StudentListScreenState();
@@ -606,9 +601,7 @@ class StudentDetailScreen extends OmniStatelessWidget {
   String get routePath => '/students/$id';
 
   @override
-  List<Provide> get provide => [
-    Provide.bloc((_) => AttendanceBloc()),
-  ];
+  List<Provide> get provide => [Provide.bloc((_) => AttendanceBloc())];
 
   @override
   Widget build(BuildContext context) {
@@ -946,7 +939,10 @@ class _ProfileScreenState extends OmniState<ProfileScreen> {
                 OmniPhoneField(
                   countryCode: '+880',
                   initialValue: '01712345678',
-                  leadingIcon: const Icon(Icons.phone_in_talk_rounded, size: 18),
+                  leadingIcon: const Icon(
+                    Icons.phone_in_talk_rounded,
+                    size: 18,
+                  ),
                   isVerified: _phoneVerified,
                   onFullNumberChanged: (v) => _fullPhone = v,
                   onVerifyPressed: () =>
@@ -957,7 +953,8 @@ class _ProfileScreenState extends OmniState<ProfileScreen> {
                   length: 6,
                   isVerified: _otpVerified,
                   separatorBuilder: (_, i) => SizedBox(width: i == 2 ? 14 : 8),
-                  helperText: '6-digit Pinput-style OTP (supports 3, 4, 5, 6+ boxes)',
+                  helperText:
+                      '6-digit Pinput-style OTP (supports 3, 4, 5, 6+ boxes)',
                   onCompleted: (_) => safeSetState(() => _otpVerified = true),
                   onResend: () {},
                 ),
@@ -967,9 +964,7 @@ class _ProfileScreenState extends OmniState<ProfileScreen> {
                   label: 'New Password',
                 ),
                 tk.gapSm,
-                OmniPasswordField.confirm(
-                  matchController: _newPassController,
-                ),
+                OmniPasswordField.confirm(matchController: _newPassController),
                 tk.gapSm,
                 const OmniNumberField.integer(
                   label: 'Batch Year',
@@ -1156,8 +1151,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                   _sectionCard(
                     context,
                     title: 'Shared Field Theme Controls',
-                    subtitle:
-                        '1 theme controls ALL fields below while keeping each field identity & behavior distinct',
+                    subtitle: '1 theme controls ALL fields below while keeping each field identity & behavior distinct',
                     children: [
                       Wrap(
                         spacing: 8,
@@ -1216,8 +1210,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                   _sectionCard(
                     context,
                     title: '1. Name & Identity Fields',
-                    subtitle:
-                        'OmniNameField, .firstName, .lastName, .username',
+                    subtitle: 'OmniNameField, .firstName, .lastName, .username',
                     children: [
                       const OmniNameField(
                         initialValue: 'Tanvir Ahmed',
@@ -1238,17 +1231,14 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                           ),
                         ],
                       ),
-                      const OmniNameField.username(
-                        initialValue: 'tanvir_dev',
-                      ),
+                      const OmniNameField.username(initialValue: 'tanvir_dev'),
                     ],
                   ),
                   tk.gapMd,
                   _sectionCard(
                     context,
                     title: '2. Email & Gmail Verification',
-                    subtitle:
-                        'OmniEmailField (general) & OmniEmailField.gmail (@gmail.com check + quick-fill)',
+                    subtitle: 'OmniEmailField (general) & OmniEmailField.gmail (@gmail.com check + quick-fill)',
                     children: [
                       const OmniEmailField(
                         label: 'Work Email',
@@ -1257,8 +1247,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                       const OmniEmailField.gmail(
                         label: 'Gmail Verification',
                         initialValue: 'tanvir@gmail.com',
-                        helperText:
-                            'Clear & type a username to test 1-tap @gmail.com chip',
+                        helperText: 'Clear & type a username to test 1-tap @gmail.com chip',
                       ),
                     ],
                   ),
@@ -1266,8 +1255,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                   _sectionCard(
                     context,
                     title: '3. Password, Show/Hide, Strength & Match',
-                    subtitle:
-                        'OmniPasswordField, .newPassword (live strength bar) & .confirm',
+                    subtitle: 'OmniPasswordField, .newPassword (live strength bar) & .confirm',
                     children: [
                       const OmniPasswordField(
                         label: 'Current Password',
@@ -1287,8 +1275,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                   _sectionCard(
                     context,
                     title: '4. Mobile Number & Pinput-Style OTP',
-                    subtitle:
-                        'Per-country length limits & auto-masking + animated Warning / Error / Verified merge OTP',
+                    subtitle: 'Per-country length limits & auto-masking + animated Warning / Error / Verified merge OTP',
                     children: [
                       OmniPhoneField(
                         countryCode: '+880',
@@ -1387,7 +1374,9 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                                 if (replay) _otpStatus = OmniOtpStatus.idle;
                               });
                               if (replay) {
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                WidgetsBinding.instance.addPostFrameCallback((
+                                  _,
+                                ) {
                                   safeSetState(
                                     () => _otpStatus = OmniOtpStatus.verified,
                                   );
@@ -1455,8 +1444,10 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                         children: [
                           FilledButton.tonalIcon(
                             onPressed: () => safeSetState(() {
-                              _otpCompletedCode =
-                                  '123456'.substring(0, _otpLength);
+                              _otpCompletedCode = '123456'.substring(
+                                0,
+                                _otpLength,
+                              );
                               _otpController.text = _otpCompletedCode;
                               _otpStatus = OmniOtpStatus.verified;
                             }),
@@ -1545,8 +1536,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                   _sectionCard(
                     context,
                     title: '5. Numbers, Stepper & Currency Fields',
-                    subtitle:
-                        'OmniNumberField, .integer (stepper), .decimal & .currency',
+                    subtitle: 'OmniNumberField, .integer (stepper), .decimal & .currency',
                     children: [
                       const OmniNumberField(
                         label: 'Score (0-100)',
@@ -1581,8 +1571,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                   _sectionCard(
                     context,
                     title: '6. Search, URL, Multiline & Custom Text',
-                    subtitle:
-                        'OmniSearchField, OmniUrlField, OmniMultilineField & OmniTextField',
+                    subtitle: 'OmniSearchField, OmniUrlField, OmniMultilineField & OmniTextField',
                     children: [
                       OmniSearchField(
                         hint: 'Search docs, packages, routes...',
@@ -1602,8 +1591,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
                       ),
                       const OmniMultilineField(
                         label: 'Short Bio / Notes',
-                        initialValue:
-                            'Building fast, cleanly-themed Flutter apps with OmniRoute.',
+                        initialValue: 'Building fast, cleanly-themed Flutter apps with OmniRoute.',
                         maxLength: 160,
                         prefixIcon: Icon(Icons.edit_note_rounded),
                       ),

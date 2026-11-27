@@ -36,11 +36,7 @@ class OmniRequestBuilder<T> extends StatefulWidget {
 
   /// Shown on [RequestError] (unless [showPreviousOnError] is `true` and
   /// previous data exists).
-  final Widget Function(
-    BuildContext context,
-    Object error,
-    VoidCallback retry,
-  )?
+  final Widget Function(BuildContext context, Object error, VoidCallback retry)?
   errorBuilder;
 
   /// Calls `controller.load()` once if [controller] starts in [RequestIdle].

@@ -396,11 +396,7 @@ final class WsEndpoint<T> {
 @immutable
 final class SseEndpoint<T> {
   /// Creates an SSE stream endpoint spec.
-  const SseEndpoint({
-    required this.path,
-    this.decoder,
-    this.query = const {},
-  });
+  const SseEndpoint({required this.path, this.decoder, this.query = const {}});
 
   /// Relative or full SSE path.
   final String path;

@@ -146,7 +146,8 @@ class OmniBlocRegistry {
         throw OmniRouteException(
           OmniErrorCode.unsupportedConfiguration,
           '${p.type} is global; a screen must not provide it again.',
-          hint: 'Remove Provide<${p.type}>() and use context.read<${p.type}>().',
+          hint:
+              'Remove Provide<${p.type}>() and use context.read<${p.type}>().',
         );
       }
       if (_mutable && p is OmniBloc && !p.global) {
@@ -362,10 +363,6 @@ class OmniRepo<T> extends OmniRepoEntry {
     if (_create == null) {
       return RepositoryProvider<T>.value(value: _value as T);
     }
-    return RepositoryProvider<T>(
-      create: _create,
-      lazy: lazy,
-      dispose: dispose,
-    );
+    return RepositoryProvider<T>(create: _create, lazy: lazy, dispose: dispose);
   }
 }

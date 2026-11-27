@@ -58,7 +58,8 @@ final class BytesTarget extends DownloadTarget {
   Future<void> commit() async {
     final result = _b.takeBytes();
     final matcher = _matcher;
-    if (matcher != null && !matcher.matchesDigestBytes(sha256.convert(result).bytes)) {
+    if (matcher != null &&
+        !matcher.matchesDigestBytes(sha256.convert(result).bytes)) {
       throw const DecodeFailure(
         'Downloaded payload failed SHA-256 checksum verification',
       );

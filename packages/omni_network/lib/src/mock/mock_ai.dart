@@ -80,7 +80,11 @@ final class MockAiProvider
   )?
   _handler;
   final List<double> Function(String text)? _embedder;
-  final FutureOr<String> Function(Uint8List audio, String mimeType, String model)?
+  final FutureOr<String> Function(
+    Uint8List audio,
+    String mimeType,
+    String model,
+  )?
   _transcriber;
   final FutureOr<Uint8List> Function(String text, String voice, String model)?
   _speaker;
@@ -269,5 +273,6 @@ final class MockAiProvider
     required String model,
     String? systemPrompt,
     Map<String, Object?> extra = const {},
-  }) => throw UnsupportedError('MockAiProvider does not implement openRealtime');
+  }) =>
+      throw UnsupportedError('MockAiProvider does not implement openRealtime');
 }

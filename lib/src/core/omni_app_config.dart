@@ -16,7 +16,11 @@ typedef OmniOnboardingBuilder =
 /// Wraps a multi-screen Onboarding pager (`OmniOnboarding.screens`) with a
 /// shared custom overlay (e.g. step dots, Skip button, or Next bar).
 typedef OmniOnboardingOverlayBuilder =
-    Widget Function(BuildContext context, OmniFlowController flow, Widget child);
+    Widget Function(
+      BuildContext context,
+      OmniFlowController flow,
+      Widget child,
+    );
 
 /// Decides a destination route dynamically after a flow event (e.g. login,
 /// logout, or unauthenticated access).
@@ -415,10 +419,8 @@ class OmniAuthConfig {
     afterLogin: afterLogin ?? this.afterLogin,
     afterLogout: afterLogout ?? this.afterLogout,
     onUnauthenticated: onUnauthenticated ?? this.onUnauthenticated,
-    blockAuthWhenLoggedIn:
-        blockAuthWhenLoggedIn ?? this.blockAuthWhenLoggedIn,
-    preserveRedirectQuery:
-        preserveRedirectQuery ?? this.preserveRedirectQuery,
+    blockAuthWhenLoggedIn: blockAuthWhenLoggedIn ?? this.blockAuthWhenLoggedIn,
+    preserveRedirectQuery: preserveRedirectQuery ?? this.preserveRedirectQuery,
   );
 }
 
@@ -666,7 +668,9 @@ abstract interface class OmniFlowController {
 
   /// Runs optional [onLogout] cleanup and navigates cleanly to `afterLogout` or
   /// `auth.loginRoute` with history replaced.
-  Future<void> logout([FutureOr<void> Function(BuildContext context)? onLogout]);
+  Future<void> logout([
+    FutureOr<void> Function(BuildContext context)? onLogout,
+  ]);
 
   /// Immediately re-evaluates guards (e.g. after updating Auth state).
   void refresh();

@@ -4,66 +4,88 @@ import 'package:omni_route/omni_route.dart';
 
 void main() {
   group('OmniValidators unit checks', () {
-    test('email & gmail validators reject invalid domains and accept valid ones', () {
-      expect(OmniValidators.email(''), isNotNull);
-      expect(OmniValidators.email('invalid-email'), isNotNull);
-      expect(OmniValidators.email('user@yahoo.com'), isNull);
-      expect(OmniValidators.gmail('user@yahoo.com'), isNotNull);
-      expect(OmniValidators.gmail('user@gmail.com'), isNull);
-      expect(OmniValidators.gmail('USER@GOOGLEMAIL.COM'), isNull);
-      expect(
-        OmniValidators.email(
-          'dev@company.com',
-          allowedDomains: const ['company.com'],
-        ),
-        isNull,
-      );
-      expect(
-        OmniValidators.email(
-          'dev@gmail.com',
-          allowedDomains: const ['company.com'],
-        ),
-        isNotNull,
-      );
-    });
+    test(
+      'email & gmail validators reject invalid domains and accept valid ones',
+      () {
+        expect(OmniValidators.email(''), isNotNull);
+        expect(OmniValidators.email('invalid-email'), isNotNull);
+        expect(OmniValidators.email('user@yahoo.com'), isNull);
+        expect(OmniValidators.gmail('user@yahoo.com'), isNotNull);
+        expect(OmniValidators.gmail('user@gmail.com'), isNull);
+        expect(OmniValidators.gmail('USER@GOOGLEMAIL.COM'), isNull);
+        expect(
+          OmniValidators.email(
+            'dev@company.com',
+            allowedDomains: const ['company.com'],
+          ),
+          isNull,
+        );
+        expect(
+          OmniValidators.email(
+            'dev@gmail.com',
+            allowedDomains: const ['company.com'],
+          ),
+          isNotNull,
+        );
+      },
+    );
 
-    test('password, strength score, name, phone, number, otp & url validators work', () {
-      expect(OmniValidators.password('123'), isNotNull);
-      expect(OmniValidators.password('123456'), isNull);
-      expect(
-        OmniValidators.password('abcdef', requireUppercase: true),
-        isNotNull,
-      );
-      expect(OmniValidators.passwordStrengthScore('abc'), 1);
-      expect(OmniValidators.passwordStrengthScore('Abcdef12!'), 4);
+    test(
+      'password, strength score, name, phone, number, otp & url validators work',
+      () {
+        expect(OmniValidators.password('123'), isNotNull);
+        expect(OmniValidators.password('123456'), isNull);
+        expect(
+          OmniValidators.password('abcdef', requireUppercase: true),
+          isNotNull,
+        );
+        expect(OmniValidators.passwordStrengthScore('abc'), 1);
+        expect(OmniValidators.passwordStrengthScore('Abcdef12!'), 4);
 
-      expect(OmniValidators.name('A'), isNotNull);
-      expect(OmniValidators.name('Juwel123'), isNotNull);
-      expect(OmniValidators.name('Juwel Mia'), isNull);
-      expect(OmniValidators.name('dev 1', allowSpaces: false, allowDigits: true), isNotNull);
-      expect(OmniValidators.name('juwel_99', allowSpaces: false, allowDigits: true), isNull);
+        expect(OmniValidators.name('A'), isNotNull);
+        expect(OmniValidators.name('Juwel123'), isNotNull);
+        expect(OmniValidators.name('Juwel Mia'), isNull);
+        expect(
+          OmniValidators.name('dev 1', allowSpaces: false, allowDigits: true),
+          isNotNull,
+        );
+        expect(
+          OmniValidators.name(
+            'juwel_99',
+            allowSpaces: false,
+            allowDigits: true,
+          ),
+          isNull,
+        );
 
-      expect(OmniValidators.phone('01712345678', countryCode: '+880'), isNull);
-      expect(OmniValidators.phone('1712345678', countryCode: '+880'), isNull);
-      expect(OmniValidators.phone('01212345678', countryCode: '+880'), isNotNull);
-      expect(
-        OmniValidators.normalizePhone('01712345678', countryCode: '+880'),
-        '+8801712345678',
-      );
-      expect(OmniValidators.phone('2025550147', countryCode: '+1'), isNull);
-      expect(OmniValidators.phone('12345', countryCode: '+1'), isNotNull);
+        expect(
+          OmniValidators.phone('01712345678', countryCode: '+880'),
+          isNull,
+        );
+        expect(OmniValidators.phone('1712345678', countryCode: '+880'), isNull);
+        expect(
+          OmniValidators.phone('01212345678', countryCode: '+880'),
+          isNotNull,
+        );
+        expect(
+          OmniValidators.normalizePhone('01712345678', countryCode: '+880'),
+          '+8801712345678',
+        );
+        expect(OmniValidators.phone('2025550147', countryCode: '+1'), isNull);
+        expect(OmniValidators.phone('12345', countryCode: '+1'), isNotNull);
 
-      expect(OmniValidators.number('42', min: 10, max: 50), isNull);
-      expect(OmniValidators.number('5', min: 10), isNotNull);
-      expect(OmniValidators.number('12.5', allowDecimal: false), isNotNull);
-      expect(OmniValidators.number('12.5', allowDecimal: true), isNull);
+        expect(OmniValidators.number('42', min: 10, max: 50), isNull);
+        expect(OmniValidators.number('5', min: 10), isNotNull);
+        expect(OmniValidators.number('12.5', allowDecimal: false), isNotNull);
+        expect(OmniValidators.number('12.5', allowDecimal: true), isNull);
 
-      expect(OmniValidators.otp('123', length: 6), isNotNull);
-      expect(OmniValidators.otp('123456', length: 6), isNull);
+        expect(OmniValidators.otp('123', length: 6), isNotNull);
+        expect(OmniValidators.otp('123456', length: 6), isNull);
 
-      expect(OmniValidators.url('not a url'), isNotNull);
-      expect(OmniValidators.url('https://omniroute.dev/docs'), isNull);
-    });
+        expect(OmniValidators.url('not a url'), isNotNull);
+        expect(OmniValidators.url('https://omniroute.dev/docs'), isNull);
+      },
+    );
   });
 
   group('Shared OmniFieldTheme + distinct field identities & features', () {
@@ -123,11 +145,22 @@ void main() {
         expect(find.text('Full Name'), findsOneWidget);
 
         // Distinct identity cursor/accent colors preserved even under ONE shared theme:
-        final tfWidgets = t.widgetList<TextField>(find.byType(TextField)).toList();
+        final tfWidgets = t
+            .widgetList<TextField>(find.byType(TextField))
+            .toList();
         expect(tfWidgets.length, 3);
-        expect(tfWidgets[0].cursorColor, const Color(0xFF0284C7)); // email identity
-        expect(tfWidgets[1].cursorColor, const Color(0xFF7C3AED)); // password identity
-        expect(tfWidgets[2].cursorColor, isNot(const Color(0xFF0284C7))); // name default accent
+        expect(
+          tfWidgets[0].cursorColor,
+          const Color(0xFF0284C7),
+        ); // email identity
+        expect(
+          tfWidgets[1].cursorColor,
+          const Color(0xFF7C3AED),
+        ); // password identity
+        expect(
+          tfWidgets[2].cursorColor,
+          isNot(const Color(0xFF0284C7)),
+        ); // name default accent
 
         // Toggle Dark Mode -> all fields react automatically without changing field widget code:
         await t.tap(find.byType(OmniThemeModeButton));
@@ -184,7 +217,9 @@ void main() {
                             matchController: passwordCtrl,
                           ),
                           const SizedBox(height: 12),
-                          const OmniNameField.username(key: Key('username_field')),
+                          const OmniNameField.username(
+                            key: Key('username_field'),
+                          ),
                           const SizedBox(height: 12),
                           OmniPhoneField(
                             key: const Key('phone_field'),
@@ -231,12 +266,21 @@ void main() {
         expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
 
         // Reject non-gmail address in Gmail field:
-        await t.enterText(find.byKey(const Key('gmail_field')), 'juwel@yahoo.com');
+        await t.enterText(
+          find.byKey(const Key('gmail_field')),
+          'juwel@yahoo.com',
+        );
         await t.pump();
-        expect(find.text('Please enter a valid @gmail.com address'), findsOneWidget);
+        expect(
+          find.text('Please enter a valid @gmail.com address'),
+          findsOneWidget,
+        );
 
         // Restore valid Gmail:
-        await t.enterText(find.byKey(const Key('gmail_field')), 'juwel@gmail.com');
+        await t.enterText(
+          find.byKey(const Key('gmail_field')),
+          'juwel@gmail.com',
+        );
         await t.pump();
 
         // 2. Password show/hide + strength meter + confirm match:
@@ -263,7 +307,10 @@ void main() {
         await t.enterText(find.byKey(const Key('confirm_pw_field')), 'wrong');
         await t.pump();
         expect(find.text('Passwords do not match'), findsOneWidget);
-        await t.enterText(find.byKey(const Key('confirm_pw_field')), 'Abcdef1!');
+        await t.enterText(
+          find.byKey(const Key('confirm_pw_field')),
+          'Abcdef1!',
+        );
         await t.pump();
         expect(find.text('Passwords do not match'), findsNothing);
 
@@ -341,7 +388,10 @@ void main() {
                         debounceDuration: const Duration(milliseconds: 120),
                         onSearchChanged: (v) => debouncedQuery = v,
                       ),
-                      const OmniMultilineField(key: Key('bio_field'), maxLength: 100),
+                      const OmniMultilineField(
+                        key: Key('bio_field'),
+                        maxLength: 100,
+                      ),
                       const OmniUrlField(key: Key('url_field')),
                     ],
                   ),
@@ -441,7 +491,10 @@ void main() {
         await t.pump();
         expect(otpFormKey.currentState!.validate(), isFalse);
         await t.pump();
-        expect(find.text('Enter the 4-digit verification code'), findsOneWidget);
+        expect(
+          find.text('Enter the 4-digit verification code'),
+          findsOneWidget,
+        );
 
         await t.pumpWidget(const SizedBox());
       },
@@ -479,21 +532,24 @@ void main() {
                             borderRadius: BorderRadius.all(Radius.circular(12)),
                           ),
                         ),
-                        focusedPinTheme: const OmniPinTheme(
-                          width: 48,
-                          height: 52,
-                        ).copyBorderWith(
-                          border: const Border.fromBorderSide(
-                            BorderSide(color: Colors.blue, width: 2),
-                          ),
-                        ),
+                        focusedPinTheme:
+                            const OmniPinTheme(
+                              width: 48,
+                              height: 52,
+                            ).copyBorderWith(
+                              border: const Border.fromBorderSide(
+                                BorderSide(color: Colors.blue, width: 2),
+                              ),
+                            ),
                         submittedPinTheme: const OmniPinTheme(
                           width: 48,
                           height: 52,
                         ).copyDecorationWith(color: const Color(0xFFE0F2FE)),
                         separatorBuilder: count == 6
                             ? (_, i) => Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 4,
+                                ),
                                 child: Text(i == 2 ? '-' : ''),
                               )
                             : null,
@@ -667,7 +723,10 @@ void main() {
         await t.pumpAndSettle();
 
         // BD (+880) caps 01... numbers at 11 digits and formats as 01712-345678:
-        await t.enterText(find.byKey(const Key('capped_phone')), '01712345678999');
+        await t.enterText(
+          find.byKey(const Key('capped_phone')),
+          '01712345678999',
+        );
         await t.pump();
         expect(phoneCtrl.text, '01712-345678');
         expect(latestE164, '+8801712345678');
@@ -687,7 +746,10 @@ void main() {
         await t.pumpAndSettle();
         await t.tap(find.text('United States (US)'));
         await t.pumpAndSettle();
-        await t.enterText(find.byKey(const Key('capped_phone')), '2025550147888');
+        await t.enterText(
+          find.byKey(const Key('capped_phone')),
+          '2025550147888',
+        );
         await t.pump();
         expect(phoneCtrl.text, '(202) 555-0147');
         expect(latestE164, '+12025550147');
@@ -809,18 +871,12 @@ void main() {
         // 3. Test all verified animations (mergeCheck fuses boxes into center checkmark + pill):
         for (final anim in OmniOtpVerifiedAnimation.values) {
           await t.pumpWidget(
-            buildHarness(
-              status: OmniOtpStatus.idle,
-              verifiedAnim: anim,
-            ),
+            buildHarness(status: OmniOtpStatus.idle, verifiedAnim: anim),
           );
           await t.pumpAndSettle();
 
           await t.pumpWidget(
-            buildHarness(
-              status: OmniOtpStatus.verified,
-              verifiedAnim: anim,
-            ),
+            buildHarness(status: OmniOtpStatus.verified, verifiedAnim: anim),
           );
           await t.pump(const Duration(milliseconds: 520));
           await t.pumpAndSettle();

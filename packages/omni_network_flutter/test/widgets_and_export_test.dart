@@ -15,44 +15,45 @@ OmniRawResponse _json(Object body, [int status = 200]) => OmniRawResponse(
 
 void main() {
   group('OmniRequestBuilder', () {
-    testWidgets('auto-loads idle controller and renders error retry -> success', (
-      tester,
-    ) async {
-      var fail = true;
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test',
-        transport: MockTransport((_) {
-          if (fail) return _json({'err': true}, 500);
-          return _json({'name': 'Omni'});
-        }),
-      );
-      addTearDown(api.close);
+    testWidgets(
+      'auto-loads idle controller and renders error retry -> success',
+      (tester) async {
+        var fail = true;
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test',
+          transport: MockTransport((_) {
+            if (fail) return _json({'err': true}, 500);
+            return _json({'name': 'Omni'});
+          }),
+        );
+        addTearDown(api.close);
 
-      final controller = api.watch<Map<String, dynamic>>(
-        '/hello',
-        autoLoad: false,
-      );
-      addTearDown(controller.close);
+        final controller = api.watch<Map<String, dynamic>>(
+          '/hello',
+          autoLoad: false,
+        );
+        addTearDown(controller.close);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: OmniRequestBuilder<Map<String, dynamic>>(
-            controller: controller,
-            builder: (_, data, refreshing) =>
-                Text('${data['name']}${refreshing ? '...' : ''}'),
+        await tester.pumpWidget(
+          MaterialApp(
+            home: OmniRequestBuilder<Map<String, dynamic>>(
+              controller: controller,
+              builder: (_, data, refreshing) =>
+                  Text('${data['name']}${refreshing ? '...' : ''}'),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Retry'), findsOneWidget);
+        expect(find.text('Retry'), findsOneWidget);
 
-      fail = false;
-      await tester.tap(find.text('Retry'));
-      await tester.pumpAndSettle();
+        fail = false;
+        await tester.tap(find.text('Retry'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Omni'), findsOneWidget);
-    });
+        expect(find.text('Omni'), findsOneWidget);
+      },
+    );
 
     testWidgets('renders emptyBuilder on RequestEmpty', (tester) async {
       final api = OmniNetwork(
@@ -121,7 +122,8 @@ void main() {
             body: OmniPagedListView<String>(
               pager: pager,
               scrollController: scrollController,
-              itemBuilder: (_, item, _) => SizedBox(height: 80, child: Text(item)),
+              itemBuilder: (_, item, _) =>
+                  SizedBox(height: 80, child: Text(item)),
             ),
           ),
         ),
@@ -179,9 +181,7 @@ void main() {
         enableLogging: true,
         logInRelease: true,
         logSink: inspector.sink('api'),
-        transport: MockTransport(
-          (_) => _json({'hello': 'world'}, 201),
-        ),
+        transport: MockTransport((_) => _json({'hello': 'world'}, 201)),
       );
       addTearDown(api.close);
 

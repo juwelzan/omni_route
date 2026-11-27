@@ -61,16 +61,16 @@
 
 ### ধাপ ১: শুধু একটি প্লাগিন যোগ করুন (`pubspec.yaml`)
 
-`omni_route` একটি **All-in-One Flutter Plugin** (Android, iOS, macOS, Linux, Windows, Web)। শুধুমাত্র `omni_route` যোগ করলেই ভেতরে থাকা সবগুলো প্যাকেজ ও নেটিভ ফিচার **স্বয়ংক্রিয়ভাবে ইনস্টল** হয়ে যায় — আলাদা করে `flutter_bloc`, `omni_network`, `omni_network_flutter`, `shared_preferences` বা `flutter_secure_storage` যোগ করতে হয় না:
+`omni_route` যোগ করলে Routing, Bloc/Cubit (`flutter_bloc`), Onboarding + Local DB, নেটিভ `OmniNative` আর পুরো `omni_responsive` (responsive layout, theme, field, system UI, localization) সাথে আসে — আলাদা করে `flutter_bloc`, `omni_responsive` বা `shared_preferences` লিখতে হয় না। Networking (`omni_network`) আর `flutter_secure_storage` **আসে না**; দরকার হলে আলাদা যোগ করুন (README §১ ও §২১ দেখুন):
 
 ```yaml
 dependencies:
   omni_route:
     git:
       url: https://github.com/juwelzan/omni_route.git
-      ref: v0.4.0
+      ref: v0.5.0
 ```
-> তারপর শুধু `import 'package:omni_route/omni_route.dart';` লিখলেই Routing, Bloc/Cubit, Onboarding + Local DB, HTTP/WebSocket/AI Networking, Inspector ও নেটিভ `OmniNative` সব পাওয়া যাবে। (চাইলে অ্যাডভান্সড নেটওয়ার্কিংয়ের জন্য `package:omni_route/advanced.dart` ও টেস্টের জন্য `package:omni_route/testing.dart` রয়েছে।)
+> তারপর `import 'package:omni_route/omni_route.dart';` লিখলেই Routing, Bloc/Cubit, Onboarding + Local DB, Responsive/Theme ও নেটিভ `OmniNative` পাওয়া যাবে। টেস্টের helper: `package:omni_route/testing.dart`। API call-এর জন্য `omni_network` যোগ করে `package:omni_network/omni_network.dart`।
 
 ### ধাপ ২: একটি ছোট পূর্ণাঙ্গ অ্যাপ (`main.dart`)
 

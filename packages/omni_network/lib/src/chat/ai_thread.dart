@@ -207,8 +207,9 @@ final class OmniAiThread {
     yield _state;
 
     final effectiveOpts = optionsOverride ?? options;
-    final combinedTools =
-        effectiveOpts.tools.isNotEmpty ? effectiveOpts.tools : tools;
+    final combinedTools = effectiveOpts.tools.isNotEmpty
+        ? effectiveOpts.tools
+        : tools;
     final callOpts = combinedTools.isNotEmpty
         ? effectiveOpts.copyWith(tools: combinedTools)
         : effectiveOpts;

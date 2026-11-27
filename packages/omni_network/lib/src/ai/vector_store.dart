@@ -133,7 +133,8 @@ double cosineSimilarity(List<double> a, List<double> b) {
 typedef TextEmbedder = Future<List<double>> Function(String text);
 
 /// Callback turning a batch of text strings into dense embedding vectors.
-typedef BatchTextEmbedder = Future<List<List<double>>> Function(List<String> texts);
+typedef BatchTextEmbedder =
+    Future<List<List<double>>> Function(List<String> texts);
 
 /// Storage backend for vector similarity search.
 abstract interface class AiVectorStore {
@@ -282,10 +283,9 @@ List<VectorSearchHit> rankVectorDocuments(
   return hits.length <= topK ? hits : hits.sublist(0, topK);
 }
 
-Set<String> _tokenize(String s) => RegExp(r'[a-z0-9]+')
-    .allMatches(s.toLowerCase())
-    .map((m) => m.group(0)!)
-    .toSet();
+Set<String> _tokenize(String s) => RegExp(
+  r'[a-z0-9]+',
+).allMatches(s.toLowerCase()).map((m) => m.group(0)!).toSet();
 
 /// Shared hybrid vector + keyword ranking helper.
 List<VectorSearchHit> rankHybridVectorDocuments(

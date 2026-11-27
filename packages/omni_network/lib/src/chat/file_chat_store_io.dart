@@ -80,7 +80,9 @@ final class FileChatStore implements ChatStore {
         existing.add(message);
       }
     }
-    await _atomicWrite(_roomFile(roomId), [for (final m in existing) m.toJson()]);
+    await _atomicWrite(_roomFile(roomId), [
+      for (final m in existing) m.toJson(),
+    ]);
   }
 
   @override

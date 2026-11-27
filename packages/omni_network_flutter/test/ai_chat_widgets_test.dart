@@ -146,7 +146,10 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text('What is OmniRoute?'), findsOneWidget);
-        expect(find.text('[m-smart] Answer to What is OmniRoute?'), findsOneWidget);
+        expect(
+          find.text('[m-smart] Answer to What is OmniRoute?'),
+          findsOneWidget,
+        );
         expect(find.text('10 tok'), findsOneWidget);
 
         // Clear history cleanly.
@@ -160,116 +163,117 @@ void main() {
   });
 
   group('OmniChatView', () {
-    testWidgets('renders messages, typing indicator, attachment upload & sends text', (
-      tester,
-    ) async {
-      final api = OmniNetwork(
-        baseUrl: 'https://chat.test',
-        transport: MockTransport((req) {
-          if (req.uri.path == '/files/upload') {
+    testWidgets(
+      'renders messages, typing indicator, attachment upload & sends text',
+      (tester) async {
+        final api = OmniNetwork(
+          baseUrl: 'https://chat.test',
+          transport: MockTransport((req) {
+            if (req.uri.path == '/files/upload') {
+              return OmniRawResponse(
+                statusCode: 200,
+                headers: const {'content-type': 'application/json'},
+                bodyBytes: utf8.encode(
+                  jsonEncode({'url': 'https://cdn.test/notes.txt'}),
+                ),
+              );
+            }
             return OmniRawResponse(
               statusCode: 200,
               headers: const {'content-type': 'application/json'},
-              bodyBytes: utf8.encode(
-                jsonEncode({'url': 'https://cdn.test/notes.txt'}),
-              ),
+              bodyBytes: utf8.encode(jsonEncode({'ok': true})),
             );
-          }
-          return OmniRawResponse(
-            statusCode: 200,
-            headers: const {'content-type': 'application/json'},
-            bodyBytes: utf8.encode(jsonEncode({'ok': true})),
-          );
-        }),
-        chatConfig: const ChatConfig(
-          currentUserId: 'me',
-          currentUserName: 'Me',
-        ),
-      );
-      addTearDown(api.close);
+          }),
+          chatConfig: const ChatConfig(
+            currentUserId: 'me',
+            currentUserName: 'Me',
+          ),
+        );
+        addTearDown(api.close);
 
-      final room = api.chat.room('lobby');
-      addTearDown(room.close);
+        final room = api.chat.room('lobby');
+        addTearDown(room.close);
 
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: OmniChatView(
-              room: room,
-              onPickAttachment: () async => UploadFile.fromBytes(
-                'doc',
-                [1, 2, 3],
-                filename: 'notes.txt',
-                contentType: 'text/plain',
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: OmniChatView(
+                room: room,
+                onPickAttachment: () async => UploadFile.fromBytes(
+                  'doc',
+                  [1, 2, 3],
+                  filename: 'notes.txt',
+                  contentType: 'text/plain',
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('No messages yet'), findsOneWidget);
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('No messages yet'), findsOneWidget);
 
-      // Deliver an incoming message + typing indicator from remote participant.
-      room.handleInboundEvent(
-        ChatMessageReceived(
-          ChatMessage.text(
-            id: 'srv_1',
-            roomId: 'lobby',
-            senderId: 'ana',
-            senderName: 'Ana',
-            text: 'Welcome aboard',
-            createdAt: DateTime.utc(2026, 1, 1),
+        // Deliver an incoming message + typing indicator from remote participant.
+        room.handleInboundEvent(
+          ChatMessageReceived(
+            ChatMessage.text(
+              id: 'srv_1',
+              roomId: 'lobby',
+              senderId: 'ana',
+              senderName: 'Ana',
+              text: 'Welcome aboard',
+              createdAt: DateTime.utc(2026, 1, 1),
+            ),
           ),
-        ),
-      );
-      room.handleInboundEvent(
-        ChatTypingEvent(
-          TypingIndicator(
-            roomId: 'lobby',
-            userId: 'ana',
-            userName: 'Ana',
-            isTyping: true,
-            updatedAt: DateTime.utc(2026, 1, 1),
+        );
+        room.handleInboundEvent(
+          ChatTypingEvent(
+            TypingIndicator(
+              roomId: 'lobby',
+              userId: 'ana',
+              userName: 'Ana',
+              isTyping: true,
+              updatedAt: DateTime.utc(2026, 1, 1),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      expect(find.text('Welcome aboard'), findsOneWidget);
-      expect(find.text('Ana is typing…'), findsOneWidget);
+        expect(find.text('Welcome aboard'), findsOneWidget);
+        expect(find.text('Ana is typing…'), findsOneWidget);
 
-      // Stop typing before unmount so FakeAsync doesn't keep any timer pending.
-      room.handleInboundEvent(
-        ChatTypingEvent(
-          TypingIndicator(
-            roomId: 'lobby',
-            userId: 'ana',
-            userName: 'Ana',
-            isTyping: false,
-            updatedAt: DateTime.utc(2026, 1, 1),
+        // Stop typing before unmount so FakeAsync doesn't keep any timer pending.
+        room.handleInboundEvent(
+          ChatTypingEvent(
+            TypingIndicator(
+              roomId: 'lobby',
+              userId: 'ana',
+              userName: 'Ana',
+              isTyping: false,
+              updatedAt: DateTime.utc(2026, 1, 1),
+            ),
           ),
-        ),
-      );
-      await tester.pump();
+        );
+        await tester.pump();
 
-      // Upload attachment via attachment icon.
-      await tester.tap(find.byTooltip('Attach file'));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('notes.txt'), findsOneWidget);
+        // Upload attachment via attachment icon.
+        await tester.tap(find.byTooltip('Attach file'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('notes.txt'), findsOneWidget);
 
-      // Send outgoing text through composer.
-      await tester.enterText(find.byType(TextField), 'Thanks Ana!');
-      await tester.pump();
-      await tester.tap(find.byTooltip('Send message'));
-      await tester.pumpAndSettle();
+        // Send outgoing text through composer.
+        await tester.enterText(find.byType(TextField), 'Thanks Ana!');
+        await tester.pump();
+        await tester.tap(find.byTooltip('Send message'));
+        await tester.pumpAndSettle();
 
-      expect(find.text('Thanks Ana!'), findsOneWidget);
+        expect(find.text('Thanks Ana!'), findsOneWidget);
 
-      await tester.pumpWidget(const SizedBox());
-      await tester.runAsync(() async {
-        await room.close();
-        await api.close();
-      });
-    });
+        await tester.pumpWidget(const SizedBox());
+        await tester.runAsync(() async {
+          await room.close();
+          await api.close();
+        });
+      },
+    );
   });
 }

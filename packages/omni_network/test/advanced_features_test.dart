@@ -7,9 +7,8 @@ import 'package:omni_network/testing.dart';
 import 'package:test/test.dart';
 
 String _makeJwt(Map<String, Object?> payload) {
-  String b64(Object value) => base64Url
-      .encode(utf8.encode(jsonEncode(value)))
-      .replaceAll('=', '');
+  String b64(Object value) =>
+      base64Url.encode(utf8.encode(jsonEncode(value))).replaceAll('=', '');
   return '${b64({'alg': 'HS256', 'typ': 'JWT'})}.${b64(payload)}.sig';
 }
 
@@ -28,7 +27,8 @@ OmniRawResponse _jsonResponse(
 void main() {
   group('Tokens.fromJwt', () {
     test('extracts UTC exp claim and ignores malformed or missing exp', () {
-      final expSec = DateTime.utc(2030, 5, 1, 12, 0).millisecondsSinceEpoch ~/ 1000;
+      final expSec =
+          DateTime.utc(2030, 5, 1, 12, 0).millisecondsSinceEpoch ~/ 1000;
       final jwt = _makeJwt({'sub': 'u1', 'exp': expSec});
       final tokens = Tokens.fromJwt(jwt, refresh: 'r1');
       expect(tokens.access, jwt);
@@ -40,45 +40,48 @@ void main() {
       expect(Tokens.jwtExpiration('a.!!!.c'), isNull);
     });
 
-    test('triggers proactive OmniAuth refresh when JWT is nearly expired', () async {
-      var now = DateTime.utc(2026, 1, 1, 12, 0, 0);
-      final soonExp =
-          now.add(const Duration(seconds: 10)).millisecondsSinceEpoch ~/ 1000;
-      final laterExp =
-          now.add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
+    test(
+      'triggers proactive OmniAuth refresh when JWT is nearly expired',
+      () async {
+        var now = DateTime.utc(2026, 1, 1, 12, 0, 0);
+        final soonExp =
+            now.add(const Duration(seconds: 10)).millisecondsSinceEpoch ~/ 1000;
+        final laterExp =
+            now.add(const Duration(hours: 1)).millisecondsSinceEpoch ~/ 1000;
 
-      final storage = MemoryTokenStorage(
-        Tokens.fromJwt(_makeJwt({'exp': soonExp}), refresh: 'r1'),
-      );
-      var refreshCalls = 0;
-      final seenAuth = <String?>[];
-      final mock = MockTransport((req) {
-        seenAuth.add(req.headers['authorization']);
-        return _jsonResponse({'ok': true});
-      });
+        final storage = MemoryTokenStorage(
+          Tokens.fromJwt(_makeJwt({'exp': soonExp}), refresh: 'r1'),
+        );
+        var refreshCalls = 0;
+        final seenAuth = <String?>[];
+        final mock = MockTransport((req) {
+          seenAuth.add(req.headers['authorization']);
+          return _jsonResponse({'ok': true});
+        });
 
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test',
-        transport: mock,
-        auth: OmniAuth(
-          storage: storage,
-          refreshBefore: const Duration(seconds: 30),
-          now: () => now,
-          refresh: (tokens, client) async {
-            refreshCalls++;
-            expect(tokens.refresh, 'r1');
-            return Tokens.fromJwt(_makeJwt({'exp': laterExp}), refresh: 'r2');
-          },
-        ),
-      );
-      addTearDown(api.close);
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test',
+          transport: mock,
+          auth: OmniAuth(
+            storage: storage,
+            refreshBefore: const Duration(seconds: 30),
+            now: () => now,
+            refresh: (tokens, client) async {
+              refreshCalls++;
+              expect(tokens.refresh, 'r1');
+              return Tokens.fromJwt(_makeJwt({'exp': laterExp}), refresh: 'r2');
+            },
+          ),
+        );
+        addTearDown(api.close);
 
-      await api.get<Map<String, dynamic>>('/profile');
-      expect(refreshCalls, 1);
-      expect(seenAuth, hasLength(1));
-      expect(seenAuth.single, startsWith('Bearer '));
-      expect(storage.read()?.refresh, 'r2');
-    });
+        await api.get<Map<String, dynamic>>('/profile');
+        expect(refreshCalls, 1);
+        expect(seenAuth, hasLength(1));
+        expect(seenAuth.single, startsWith('Bearer '));
+        expect(storage.read()?.refresh, 'r2');
+      },
+    );
   });
 
   group('Auth providers (ApiKeyAuth, BasicAuth, HmacSignerAuth)', () {
@@ -121,21 +124,24 @@ void main() {
       expect(uris[1].queryParameters['key'], 'override');
     });
 
-    test('BasicAuth encodes username:password in Authorization header', () async {
-      String? header;
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test',
-        transport: MockTransport((req) {
-          header = req.headers['authorization'];
-          return _jsonResponse({'ok': true});
-        }),
-        auth: BasicAuth(username: 'alice', password: 'pw'),
-      );
-      addTearDown(api.close);
+    test(
+      'BasicAuth encodes username:password in Authorization header',
+      () async {
+        String? header;
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test',
+          transport: MockTransport((req) {
+            header = req.headers['authorization'];
+            return _jsonResponse({'ok': true});
+          }),
+          auth: BasicAuth(username: 'alice', password: 'pw'),
+        );
+        addTearDown(api.close);
 
-      await api.get<Object?>('/me');
-      expect(header, 'Basic ${base64Encode(utf8.encode('alice:pw'))}');
-    });
+        await api.get<Object?>('/me');
+        expect(header, 'Basic ${base64Encode(utf8.encode('alice:pw'))}');
+      },
+    );
 
     test('HmacSignerAuth signs canonical request string', () async {
       final fixed = DateTime.utc(2026, 2, 1, 0, 0, 5);
@@ -174,8 +180,7 @@ void main() {
       final api = OmniNetwork(
         baseUrl: 'https://api.test',
         transport: MockTransport((req) {
-          sentBody = jsonDecode(utf8.decode(req.body!))
-              as Map<String, Object?>;
+          sentBody = jsonDecode(utf8.decode(req.body!)) as Map<String, Object?>;
           return _jsonResponse({
             'data': {
               'user': {'name': 'Ada'},
@@ -231,56 +236,62 @@ void main() {
   });
 
   group('Metrics, slow request callback, logStream & MultiLogSink', () {
-    test('tracks requests, cache hits, revalidations and resets cleanly', () async {
-      var call = 0;
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test',
-        cache: OmniCache(),
-        transport: MockTransport((req) {
-          call++;
-          if (req.uri.path == '/fail') {
-            return _jsonResponse({'err': true}, status: 500);
-          }
-          if (call == 1) {
-            return _jsonResponse(
-              {'v': 1},
-              headers: {'etag': '"v1"', 'cache-control': 'max-age=60'},
-            );
-          }
-          if (req.headers['if-none-match'] == '"v1"') {
-            return OmniRawResponse(statusCode: 304);
-          }
-          return _jsonResponse({'v': 2});
-        }),
-      );
-      addTearDown(api.close);
+    test(
+      'tracks requests, cache hits, revalidations and resets cleanly',
+      () async {
+        var call = 0;
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test',
+          cache: OmniCache(),
+          transport: MockTransport((req) {
+            call++;
+            if (req.uri.path == '/fail') {
+              return _jsonResponse({'err': true}, status: 500);
+            }
+            if (call == 1) {
+              return _jsonResponse(
+                {'v': 1},
+                headers: {'etag': '"v1"', 'cache-control': 'max-age=60'},
+              );
+            }
+            if (req.headers['if-none-match'] == '"v1"') {
+              return OmniRawResponse(statusCode: 304);
+            }
+            return _jsonResponse({'v': 2});
+          }),
+        );
+        addTearDown(api.close);
 
-      // 1. Network fetch (caches with ETag).
-      await api.get<Object?>('/item');
-      // 2. Cache hit (cacheFirst / maxAge still valid).
-      await api.get<Object?>('/item', cache: CachePolicy.cacheFirst);
-      // 3. Revalidation (304 Not Modified via CachePolicy.refresh).
-      await api.get<Object?>('/item', cache: CachePolicy.refresh);
-      // 4. Failure (HTTP 500).
-      await expectLater(api.get<Object?>('/fail'), throwsA(isA<HttpFailure>()));
+        // 1. Network fetch (caches with ETag).
+        await api.get<Object?>('/item');
+        // 2. Cache hit (cacheFirst / maxAge still valid).
+        await api.get<Object?>('/item', cache: CachePolicy.cacheFirst);
+        // 3. Revalidation (304 Not Modified via CachePolicy.refresh).
+        await api.get<Object?>('/item', cache: CachePolicy.refresh);
+        // 4. Failure (HTTP 500).
+        await expectLater(
+          api.get<Object?>('/fail'),
+          throwsA(isA<HttpFailure>()),
+        );
 
-      final m = api.metrics;
-      expect(m.totalRequests, 4);
-      expect(m.successCount, 3);
-      expect(m.failureCount, 1);
-      expect(m.cacheHits, 1);
-      expect(m.revalidatedCount, 1);
-      expect(m.activeRequests, 0);
-      expect(m.cacheHitRate, closeTo(0.5, 0.001));
-      expect(m.lastLatency, isNotNull);
+        final m = api.metrics;
+        expect(m.totalRequests, 4);
+        expect(m.successCount, 3);
+        expect(m.failureCount, 1);
+        expect(m.cacheHits, 1);
+        expect(m.revalidatedCount, 1);
+        expect(m.activeRequests, 0);
+        expect(m.cacheHitRate, closeTo(0.5, 0.001));
+        expect(m.lastLatency, isNotNull);
 
-      api.resetMetrics();
-      final reset = api.metrics;
-      expect(reset.totalRequests, 0);
-      expect(reset.successCount, 0);
-      expect(reset.failureCount, 0);
-      expect(reset.cacheHits, 0);
-    });
+        api.resetMetrics();
+        final reset = api.metrics;
+        expect(reset.totalRequests, 0);
+        expect(reset.successCount, 0);
+        expect(reset.failureCount, 0);
+        expect(reset.cacheHits, 0);
+      },
+    );
 
     test('onSlowRequest fires when elapsed >= slowRequestThreshold', () async {
       final slowCalls = <(Uri, Duration)>[];
@@ -305,40 +316,46 @@ void main() {
 
       expect(slowCalls, hasLength(1));
       expect(slowCalls.single.$1.path, '/slow');
-      expect(slowCalls.single.$2, greaterThanOrEqualTo(const Duration(milliseconds: 15)));
-    });
-
-    test('logStream and MultiLogSink isolate exceptions and deliver records', () async {
-      final sinkA = <NetworkLogRecord>[];
-      final sinkB = <NetworkLogRecord>[];
-      final streamRecords = <NetworkLogRecord>[];
-
-      final multi = MultiLogSink([
-        _FnSink((r) {
-          sinkA.add(r);
-          throw StateError('boom');
-        }),
-        _FnSink(sinkB.add),
-      ]);
-
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test',
-        enableLogging: true,
-        logInRelease: true,
-        logSink: multi,
-        transport: MockTransport((_) => _jsonResponse({'ok': true})),
+      expect(
+        slowCalls.single.$2,
+        greaterThanOrEqualTo(const Duration(milliseconds: 15)),
       );
-      final sub = api.logStream.listen(streamRecords.add);
-
-      await api.get<Object?>('/ping');
-      await Future<void>.delayed(Duration.zero);
-      await api.close();
-      await sub.cancel();
-
-      expect(sinkA.length, 2); // request + response
-      expect(sinkB.length, 2);
-      expect(streamRecords.length, 2);
     });
+
+    test(
+      'logStream and MultiLogSink isolate exceptions and deliver records',
+      () async {
+        final sinkA = <NetworkLogRecord>[];
+        final sinkB = <NetworkLogRecord>[];
+        final streamRecords = <NetworkLogRecord>[];
+
+        final multi = MultiLogSink([
+          _FnSink((r) {
+            sinkA.add(r);
+            throw StateError('boom');
+          }),
+          _FnSink(sinkB.add),
+        ]);
+
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test',
+          enableLogging: true,
+          logInRelease: true,
+          logSink: multi,
+          transport: MockTransport((_) => _jsonResponse({'ok': true})),
+        );
+        final sub = api.logStream.listen(streamRecords.add);
+
+        await api.get<Object?>('/ping');
+        await Future<void>.delayed(Duration.zero);
+        await api.close();
+        await sub.cancel();
+
+        expect(sinkA.length, 2); // request + response
+        expect(sinkB.length, 2);
+        expect(streamRecords.length, 2);
+      },
+    );
   });
 
   group('OmniPager.changes stream', () {
@@ -348,7 +365,13 @@ void main() {
         baseUrl: 'https://api.test',
         transport: MockTransport((_) {
           page++;
-          return _jsonResponse(page == 1 ? [{'id': 1}] : <Object>[]);
+          return _jsonResponse(
+            page == 1
+                ? [
+                    {'id': 1},
+                  ]
+                : <Object>[],
+          );
         }),
       );
       addTearDown(api.close);
@@ -377,7 +400,9 @@ void main() {
     test('records redacted fixtures and replays offline from JSON', () async {
       final inner = MockTransport((req) {
         return _jsonResponse(
-          {'items': [1, 2]},
+          {
+            'items': [1, 2],
+          },
           headers: {'set-cookie': 'session=secret', 'x-ok': 'yes'},
         );
       });
@@ -393,7 +418,8 @@ void main() {
       expect(recorded.headers['set-cookie'], '***');
       expect(recorded.headers['x-ok'], 'yes');
 
-      final exported = jsonDecode(jsonEncode(recorder.toJson())) as List<Object?>;
+      final exported =
+          jsonDecode(jsonEncode(recorder.toJson())) as List<Object?>;
       final replayApi = OmniNetwork(
         baseUrl: 'https://api.test',
         transport: RecordingTransport.replayJson(exported),
@@ -438,31 +464,34 @@ void main() {
       expect(fetches, 3);
     });
 
-    test('downloadBytes verifies expectedSha256 and throws on mismatch', () async {
-      final payload = utf8.encode('verified-binary-content');
-      final digestHex = sha256.convert(payload).toString();
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test',
-        transport: MockTransport(
-          (_) => OmniRawResponse(
-            statusCode: 200,
-            bodyBytes: Uint8List.fromList(payload),
+    test(
+      'downloadBytes verifies expectedSha256 and throws on mismatch',
+      () async {
+        final payload = utf8.encode('verified-binary-content');
+        final digestHex = sha256.convert(payload).toString();
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test',
+          transport: MockTransport(
+            (_) => OmniRawResponse(
+              statusCode: 200,
+              bodyBytes: Uint8List.fromList(payload),
+            ),
           ),
-        ),
-      );
-      addTearDown(api.close);
+        );
+        addTearDown(api.close);
 
-      final ok = await api.downloadBytes(
-        '/file.bin',
-        expectedSha256: 'sha256:${digestHex.toUpperCase()}',
-      );
-      expect(ok, payload);
+        final ok = await api.downloadBytes(
+          '/file.bin',
+          expectedSha256: 'sha256:${digestHex.toUpperCase()}',
+        );
+        expect(ok, payload);
 
-      await expectLater(
-        api.downloadBytes('/file.bin', expectedSha256: '0' * 64),
-        throwsA(isA<DecodeFailure>()),
-      );
-    });
+        await expectLater(
+          api.downloadBytes('/file.bin', expectedSha256: '0' * 64),
+          throwsA(isA<DecodeFailure>()),
+        );
+      },
+    );
   });
 }
 

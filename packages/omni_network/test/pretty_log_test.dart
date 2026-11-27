@@ -322,37 +322,58 @@ void main() {
       },
     );
 
-    test('summary: true prints instant outcome badge, speed & JSON shape', () async {
-      final summaryOut = <String>[];
-      final summaryMock = OmniMock(basePath: '/v1')
-        ..get('/users/1', (_) => MockResponse.json({'id': 1, 'name': 'Ana'}))
-        ..get('/posts', (_) => MockResponse.json([1, 2, 3]))
-        ..get('/missing', (_) => MockResponse.json({'error': 'none'}, status: 404))
-        ..get('/crash', (_) => MockResponse.json({'err': 'down'}, status: 503));
-      final api = OmniNetwork(
-        baseUrl: 'https://api.test/v1',
-        transport: summaryMock,
-        enableLogging: true,
-        logSink: PrettyLogSink(
-          options: const LogOptions(summary: true, colors: true),
-          printer: summaryOut.add,
-        ),
-      );
-      addTearDown(api.close);
+    test(
+      'summary: true prints instant outcome badge, speed & JSON shape',
+      () async {
+        final summaryOut = <String>[];
+        final summaryMock = OmniMock(basePath: '/v1')
+          ..get('/users/1', (_) => MockResponse.json({'id': 1, 'name': 'Ana'}))
+          ..get('/posts', (_) => MockResponse.json([1, 2, 3]))
+          ..get(
+            '/missing',
+            (_) => MockResponse.json({'error': 'none'}, status: 404),
+          )
+          ..get(
+            '/crash',
+            (_) => MockResponse.json({'err': 'down'}, status: 503),
+          );
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test/v1',
+          transport: summaryMock,
+          enableLogging: true,
+          logSink: PrettyLogSink(
+            options: const LogOptions(summary: true, colors: true),
+            printer: summaryOut.add,
+          ),
+        );
+        addTearDown(api.close);
 
-      await api.get<void>('/users/1');
-      await api.get<void>('/posts');
-      await api.get<void>('/missing').asResult();
-      await api.get<void>('/crash').asResult();
+        await api.get<void>('/users/1');
+        await api.get<void>('/posts');
+        await api.get<void>('/missing').asResult();
+        await api.get<void>('/crash').asResult();
 
-      expect(plain(summaryOut[0]), contains('🟢 ✔ 200 OK · SUCCESS · ⚡ FAST'));
-      expect(plain(summaryOut[0]), contains('📦 Body: JSON Object (2 keys: id, name)'));
-      expect(plain(summaryOut[1]), contains('📋 Body: JSON Array (3 items)'));
-      expect(plain(summaryOut[2]), contains('🟠 ⚠ 404 Not Found · CLIENT WARNING'));
-      expect(summaryOut[2], contains('\x1B[38;5;214m'));
-      expect(plain(summaryOut[3]), contains('🔴 ✖ 503 Service Unavailable · SERVER ERROR'));
-      expect(summaryOut[3], contains('\x1B[38;5;196m'));
-    });
+        expect(
+          plain(summaryOut[0]),
+          contains('🟢 ✔ 200 OK · SUCCESS · ⚡ FAST'),
+        );
+        expect(
+          plain(summaryOut[0]),
+          contains('📦 Body: JSON Object (2 keys: id, name)'),
+        );
+        expect(plain(summaryOut[1]), contains('📋 Body: JSON Array (3 items)'));
+        expect(
+          plain(summaryOut[2]),
+          contains('🟠 ⚠ 404 Not Found · CLIENT WARNING'),
+        );
+        expect(summaryOut[2], contains('\x1B[38;5;214m'));
+        expect(
+          plain(summaryOut[3]),
+          contains('🔴 ✖ 503 Service Unavailable · SERVER ERROR'),
+        );
+        expect(summaryOut[3], contains('\x1B[38;5;196m'));
+      },
+    );
 
     test(
       'separate: true emits distinct colored request, response & status-matched JSON boxes',
@@ -397,7 +418,10 @@ void main() {
 
         // 2. Separate green 200 OK header box & green-matched JSON body box.
         expect(blocks[1], contains('\x1B[38;5;40m'));
-        expect(plain(blocks[1]), contains('💡 http-response · 200 OK · SUCCESS'));
+        expect(
+          plain(blocks[1]),
+          contains('💡 http-response · 200 OK · SUCCESS'),
+        );
         expect(plain(blocks[1]), contains('📦 Body: JSON Object'));
         expect(blocks[2], contains('\x1B[38;5;40m┌'));
         expect(plain(blocks[2]), contains('"id": 1'));
@@ -414,7 +438,10 @@ void main() {
         // 4. Separate red 503 error box (with white-on-red banner) + red JSON body box.
         expect(blocks[6], contains('\x1B[38;5;171m'));
         expect(blocks[7], contains('\x1B[1;38;5;15;48;5;196m'));
-        expect(plain(blocks[7]), contains('⛔ http-error · 503 Service Unavailable'));
+        expect(
+          plain(blocks[7]),
+          contains('⛔ http-error · 503 Service Unavailable'),
+        );
         expect(blocks[8], contains('\x1B[38;5;196m┌'));
         expect(plain(blocks[8]), contains('"error": "down"'));
       },

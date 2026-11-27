@@ -329,9 +329,8 @@ void main() {
                 global: true,
               ),
             ],
-            themeModeBuilder: (c) => c.watch<SessionBloc>().state
-                ? ThemeMode.dark
-                : ThemeMode.light,
+            themeModeBuilder: (c) =>
+                c.watch<SessionBloc>().state ? ThemeMode.dark : ThemeMode.light,
             overlayBuilder: (_, child) => Stack(
               textDirection: TextDirection.ltr,
               children: [
@@ -363,7 +362,10 @@ void main() {
         OmniApp.cupertino(
           title: 'Cupertino App',
           routes: [
-            OmniPage('/', (_) => const CupertinoPageScaffold(child: Text('cu'))),
+            OmniPage(
+              '/',
+              (_) => const CupertinoPageScaffold(child: Text('cu')),
+            ),
           ],
         ),
       );
@@ -387,10 +389,7 @@ void main() {
             resolveInitialRoute: (_) async => '/onboarding',
             onInitError: (_, err, _, retry) => Directionality(
               textDirection: TextDirection.ltr,
-              child: TextButton(
-                onPressed: retry,
-                child: Text('Retry: $err'),
-              ),
+              child: TextButton(onPressed: retry, child: Text('Retry: $err')),
             ),
             routes: [
               OmniPage('/', (_) => const S('home')),
@@ -400,7 +399,10 @@ void main() {
         );
         await t.pumpAndSettle();
 
-        expect(find.textContaining('Retry: Bad state: network down'), findsOneWidget);
+        expect(
+          find.textContaining('Retry: Bad state: network down'),
+          findsOneWidget,
+        );
         await t.tap(find.byType(TextButton));
         await t.pumpAndSettle();
         expect(find.text('onboarding'), findsOneWidget);
@@ -453,7 +455,10 @@ void main() {
             ),
           ],
           routes: brokenRoutes
-              ? [OmniPage('/dup', (_) => const S('a')), OmniPage('/dup', (_) => const S('b'))]
+              ? [
+                  OmniPage('/dup', (_) => const S('a')),
+                  OmniPage('/dup', (_) => const S('b')),
+                ]
               : [
                   OmniPage('/', (_) => const S('home')),
                   OmniPage('/login', (_) => const S('login')),
@@ -502,22 +507,25 @@ void main() {
       },
     );
 
-    test('OmniApp.validateRoutes catches duplicates and lists canonical paths', () {
-      expect(
-        OmniApp.validateRoutes([
-          OmniPage('/', (_) => const S('home')),
-          OmniPage('/users/:id', (_) => const S('user')),
-        ]),
-        ['/', '/users/:id'],
-      );
-      expect(
-        () => OmniApp.validateRoutes([
-          OmniPage('/a', (_) => const S('a1')),
-          OmniPage('/a', (_) => const S('a2')),
-        ]),
-        throwsA(isA<OmniRouteException>()),
-      );
-    });
+    test(
+      'OmniApp.validateRoutes catches duplicates and lists canonical paths',
+      () {
+        expect(
+          OmniApp.validateRoutes([
+            OmniPage('/', (_) => const S('home')),
+            OmniPage('/users/:id', (_) => const S('user')),
+          ]),
+          ['/', '/users/:id'],
+        );
+        expect(
+          () => OmniApp.validateRoutes([
+            OmniPage('/a', (_) => const S('a1')),
+            OmniPage('/a', (_) => const S('a2')),
+          ]),
+          throwsA(isA<OmniRouteException>()),
+        );
+      },
+    );
   });
 
   group('OmniConfig: Splash, Multi-Screen Onboarding, Auth & Public Screens', () {
@@ -598,7 +606,9 @@ void main() {
                 overlayBuilder: (ctx, flow, child) => Scaffold(
                   body: Column(
                     children: [
-                      Text('Step ${flow.onboardingStep + 1}/${flow.onboardingCount}'),
+                      Text(
+                        'Step ${flow.onboardingStep + 1}/${flow.onboardingCount}',
+                      ),
                       Expanded(child: child),
                       TextButton(
                         onPressed: () => flow.skipOnboarding(),
@@ -993,9 +1003,7 @@ void main() {
                   ),
                 ),
               ),
-              publicScreens: const {
-                '/guest': S('GuestLand'),
-              },
+              publicScreens: const {'/guest': S('GuestLand')},
             ),
             routes: [OmniPage('/', (_) => const S('BuilderHome'))],
             builder: (_, router) => MaterialApp.router(routerConfig: router),
@@ -1053,7 +1061,8 @@ void main() {
                     children: [
                       const Text('AutoLoginScreen'),
                       TextButton(
-                        onPressed: () => ctx.flow?.resetOnboarding(replay: true),
+                        onPressed: () =>
+                            ctx.flow?.resetOnboarding(replay: true),
                         child: const Text('ResetOB'),
                       ),
                     ],

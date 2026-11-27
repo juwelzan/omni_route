@@ -106,7 +106,8 @@ class OmniAdaptiveShellScaffold extends StatelessWidget {
       );
     }
 
-    final extended = extendedDesktopRail &&
+    final extended =
+        extendedDesktopRail &&
         (device == OmniDeviceType.desktop ||
             device == OmniDeviceType.largeDesktop);
 

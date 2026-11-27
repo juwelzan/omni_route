@@ -449,10 +449,17 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
     _pushLog(
       InspectorLogEntry(
         id: _nextId++,
-        kind: record.error != null ? InspectorLogKind.error : InspectorLogKind.ai,
+        kind: record.error != null
+            ? InspectorLogKind.error
+            : InspectorLogKind.ai,
         tag: record.error != null ? 'ai-error' : 'ai-response',
-        title: '${record.providerId}:${record.model} · ${record.usage.totalTokens} tok',
-        subtitle: record.error ?? record.responsePreview ?? record.promptPreview ?? '',
+        title:
+            '${record.providerId}:${record.model} · ${record.usage.totalTokens} tok',
+        subtitle:
+            record.error ??
+            record.responsePreview ??
+            record.promptPreview ??
+            '',
         timestamp: DateTime.now(),
         duration: record.latency,
         copyText:

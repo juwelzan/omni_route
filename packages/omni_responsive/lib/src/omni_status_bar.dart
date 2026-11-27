@@ -127,8 +127,9 @@ class OmniStatusBarStyle {
       statusBarColor: resolved ?? Colors.transparent,
       statusBarIconBrightness: icons,
       // iOS-এ statusBarBrightness ব্যাকগ্রাউন্ডের উজ্জ্বলতা বোঝায় (আইকনের বিপরীত)।
-      statusBarBrightness:
-          icons == Brightness.dark ? Brightness.light : Brightness.dark,
+      statusBarBrightness: icons == Brightness.dark
+          ? Brightness.light
+          : Brightness.dark,
       systemStatusBarContrastEnforced: contrastEnforced,
     );
   }

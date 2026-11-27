@@ -144,14 +144,18 @@ final class OmniChatRoom {
             (isAi == null || m.isAi == isAi) &&
             (hasAttachments == null ||
                 hasAttachments ==
-                    m.parts.any((p) => p is ChatMediaPart || p is ChatFilePart)) &&
+                    m.parts.any(
+                      (p) => p is ChatMediaPart || p is ChatFilePart,
+                    )) &&
             (q.isEmpty ||
                 m.text.toLowerCase().contains(q) ||
                 (m.senderName?.toLowerCase().contains(q) ?? false) ||
                 m.parts.any(
                   (p) => switch (p) {
                     ChatFilePart(:final name) => name.toLowerCase().contains(q),
-                    ChatMediaPart(:final name?) => name.toLowerCase().contains(q),
+                    ChatMediaPart(:final name?) => name.toLowerCase().contains(
+                      q,
+                    ),
                     _ => false,
                   },
                 )))
@@ -279,7 +283,10 @@ final class OmniChatRoom {
       ),
     );
     if (isTyping) {
-      _myTypingTimer = Timer(const Duration(seconds: 3), () => setTyping(false));
+      _myTypingTimer = Timer(
+        const Duration(seconds: 3),
+        () => setTyping(false),
+      );
     }
   }
 
@@ -317,7 +324,12 @@ final class OmniChatRoom {
       _emitMessages();
     }
     await chatClient.transmitFrame(
-      protocol.encodeReaction(roomId, targetId, emoji, chatClient.currentUserId),
+      protocol.encodeReaction(
+        roomId,
+        targetId,
+        emoji,
+        chatClient.currentUserId,
+      ),
     );
   }
 
@@ -385,10 +397,7 @@ final class OmniChatRoom {
   /// Connects an [OmniAiThread] into this room: whenever a human participant
   /// sends a message starting with [triggerPrefix] (e.g. `'@ai'`), the AI
   /// answers and posts the response back into this room.
-  void attachAiAssistant(
-    OmniAiThread thread, {
-    String triggerPrefix = '@ai',
-  }) {
+  void attachAiAssistant(OmniAiThread thread, {String triggerPrefix = '@ai'}) {
     _aiSub?.cancel();
     final handledIds = <String>{};
     _aiSub = messagesStream.listen((list) {
@@ -439,7 +448,12 @@ final class OmniChatRoom {
           _unreadCount++;
         }
         _persist(message);
-      case ChatMessageAcked(:final localId, :final serverId, :final status, :final createdAt):
+      case ChatMessageAcked(
+        :final localId,
+        :final serverId,
+        :final status,
+        :final createdAt,
+      ):
         final idx = _messages.indexWhere(
           (m) => m.localId == localId || m.id == localId,
         );
@@ -504,13 +518,19 @@ final class OmniChatRoom {
           _persist(updated);
           _emitMessages();
         }
-      case ChatReactionToggled(:final messageId, :final emoji, :final userId, :final added):
+      case ChatReactionToggled(
+        :final messageId,
+        :final emoji,
+        :final userId,
+        :final added,
+      ):
         final idx = _messages.indexWhere(
           (m) => m.id == messageId || m.localId == messageId,
         );
         if (idx >= 0) {
           final next = {
-            for (final e in _messages[idx].reactions.entries) e.key: [...e.value],
+            for (final e in _messages[idx].reactions.entries)
+              e.key: [...e.value],
           };
           final list = next.putIfAbsent(emoji, () => []);
           if (added) {
@@ -591,7 +611,8 @@ final class OmniChatRoom {
       final idx = _messages.indexWhere(
         (e) =>
             e.id == m.id ||
-            (m.localId != null && (e.localId == m.localId || e.id == m.localId)),
+            (m.localId != null &&
+                (e.localId == m.localId || e.id == m.localId)),
       );
       if (idx >= 0) {
         _messages[idx] = m;
@@ -608,7 +629,10 @@ final class OmniChatRoom {
     if (cipher == null || m.parts.every((p) => p is! ChatTextPart)) return m;
     final nextParts = <ChatPart>[
       for (final p in m.parts)
-        if (p is ChatTextPart) ChatTextPart(await cipher.encrypt(p.text)) else p,
+        if (p is ChatTextPart)
+          ChatTextPart(await cipher.encrypt(p.text))
+        else
+          p,
     ];
     return m.copyWith(
       parts: nextParts,
@@ -621,7 +645,10 @@ final class OmniChatRoom {
     if (cipher == null || m.metadata['_e2ee'] != true) return m;
     final nextParts = <ChatPart>[
       for (final p in m.parts)
-        if (p is ChatTextPart) ChatTextPart(await cipher.decrypt(p.text)) else p,
+        if (p is ChatTextPart)
+          ChatTextPart(await cipher.decrypt(p.text))
+        else
+          p,
     ];
     final nextMeta = Map<String, Object?>.of(m.metadata)..remove('_e2ee');
     return m.copyWith(parts: nextParts, metadata: nextMeta);

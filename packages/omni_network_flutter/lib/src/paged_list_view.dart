@@ -46,22 +46,14 @@ class OmniPagedListView<T> extends StatefulWidget {
   final WidgetBuilder? emptyBuilder;
 
   /// Shown when loading fails and zero items are loaded yet.
-  final Widget Function(
-    BuildContext context,
-    Object error,
-    VoidCallback retry,
-  )?
+  final Widget Function(BuildContext context, Object error, VoidCallback retry)?
   errorBuilder;
 
   /// Footer indicator while subsequent pages are loading.
   final WidgetBuilder? footerLoadingBuilder;
 
   /// Footer shown when loading a subsequent page fails.
-  final Widget Function(
-    BuildContext context,
-    Object error,
-    VoidCallback retry,
-  )?
+  final Widget Function(BuildContext context, Object error, VoidCallback retry)?
   footerErrorBuilder;
 
   /// Optional widget rendered above the first item.
@@ -184,7 +176,8 @@ class _OmniPagedListViewState<T> extends State<OmniPagedListView<T>> {
             shrinkWrap: widget.shrinkWrap,
             itemCount: totalCount,
             separatorBuilder: (context, index) {
-              if (index < headerOffset || index >= headerOffset + items.length - 1) {
+              if (index < headerOffset ||
+                  index >= headerOffset + items.length - 1) {
                 return const SizedBox.shrink();
               }
               return widget.separatorBuilder!(context, index - headerOffset);
@@ -208,10 +201,7 @@ class _OmniPagedListViewState<T> extends State<OmniPagedListView<T>> {
         );
 
         if (!widget.enableRefresh) return list;
-        return RefreshIndicator(
-          onRefresh: p.refresh,
-          child: list,
-        );
+        return RefreshIndicator(onRefresh: p.refresh, child: list);
       },
     );
   }

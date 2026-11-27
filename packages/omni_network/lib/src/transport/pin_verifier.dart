@@ -140,10 +140,7 @@ Uint8List? extractSpkiFromX509Der(Uint8List certDer) {
   return Uint8List.sublistView(certDer, pos, spki.next);
 }
 
-({int tag, int contentStart, int next})? _readTlv(
-  Uint8List data,
-  int offset,
-) {
+({int tag, int contentStart, int next})? _readTlv(Uint8List data, int offset) {
   if (offset < 0 || offset + 2 > data.length) return null;
   final tag = data[offset];
   // Low-tag-number check: all standard X.509 structural tags fit in 1 octet.

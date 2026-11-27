@@ -1336,7 +1336,7 @@ OmniNetwork হলো এই repo-র **আলাদা** networking package —
 |---|---|---|
 | `omni_network` | HTTP client — get/post, typed model, auth, retry, cache, upload/download, pagination | সবসময় |
 | `omni_network_flutter` | token নিরাপদে সংরক্ষণ (Keychain/Keystore), অ্যাপের ভিতরে network inspector | Flutter অ্যাপে |
-| `omni_network_ws` | WebSocket আর Server-Sent Events (live data) | real-time দরকার হলে |
+| `omni_network_ws` | শুধু পুরোনো import-এর জন্য — WebSocket/SSE এখন `omni_network`-এর ভিতরেই আছে | নতুন প্রজেক্টে লাগবে না |
 | `omni_network_openapi` | OpenAPI/Swagger থেকে model আর endpoint তৈরির CLI | backend-এর OpenAPI spec থাকলে |
 
 > অবস্থা: pub.dev-এ publish হয়নি — নিচের মতো `git` দিয়ে যোগ করুন।
@@ -1352,7 +1352,7 @@ dependencies:
       ref: v0.5.0
 ```
 
-Flutter extras (secure token storage, inspector) বা WebSocket/SSE লাগলে `omni_network` আলাদা করে লিখবেন **না** — এগুলোর সাথেই আসে:
+WebSocket/SSE (`api.ws(...)`, `api.sse(...)`) `omni_network`-এর ভিতরেই আছে — আলাদা কিছু লাগবে না। Flutter extras (secure token storage, inspector) লাগলে `omni_network` আলাদা করে লিখবেন **না** — `omni_network_flutter`-এর সাথেই আসে:
 
 ```yaml
 dependencies:
@@ -1360,11 +1360,6 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_flutter
-      ref: v0.5.0
-  omni_network_ws:               # WebSocket / SSE (ঐচ্ছিক)
-    git:
-      url: https://github.com/juwelzan/omni_route.git
-      path: packages/omni_network_ws
       ref: v0.5.0
 dev_dependencies:
   omni_network_openapi:          # code generator (ঐচ্ছিক)
@@ -1376,7 +1371,7 @@ dev_dependencies:
 
 > **`git:` install-এর দুটো নিয়ম** (pub.dev-এ publish হওয়ার আগ পর্যন্ত):
 > 1. এই repo-র সব package-এ **একই `ref`** দিন। আলাদা tag দিলে `pub get` "version solving failed" দেয়, কারণ `omni_network`-এর দুটো আলাদা কপি চলে আসে।
-> 2. `omni_network_flutter` / `omni_network_ws` থাকলে `omni_network` নিজে লিখবেন না, আর `omni_route` থাকলে `omni_responsive` লিখবেন না। এগুলো সাথেই আসে, আর নিজে লিখলে একই কারণে conflict হয়।
+> 2. `omni_network_flutter` থাকলে `omni_network` নিজে লিখবেন না, আর `omni_route` থাকলে `omni_responsive` লিখবেন না। এগুলো সাথেই আসে, আর নিজে লিখলে একই কারণে conflict হয়।
 
 ```dart
 import 'package:omni_network/omni_network.dart';          // সাধারণ ব্যবহার
@@ -1410,7 +1405,7 @@ import 'package:omni_network/testing.dart';               // OmniMock (test-এ)
 | metrics ও slow request ট্র্যাক | `api.metrics`, `slowRequestThreshold:` + `onSlowRequest:`, `api.logStream` |
 | backend ছাড়াই test / record & replay | `OmniMock`, `RecordingTransport` (testing) |
 | অ্যাপের ভিতরে সব call দেখা ও HAR export | `OmniInspector` + **"Copy HAR"** / `toHarJson()` (`omni_network_flutter`) |
-| live data | `OmniWebSocket`, `SseConnection` (omni_network_ws) |
+| live data | `OmniWebSocket`, `SseConnection`, `api.ws(...)`, `api.sse(...)` |
 
 ### ২১.২ Client তৈরি — একবারই (এক লাইনে প্রো-কনফিগসহ)
 
@@ -1910,10 +1905,10 @@ final md = inspector.toMarkdownReport();
 - **প্রতি কার্ডে ১-ক্লিক কপি**: প্রতিটি লগ/API কার্ড থেকেই ১ ট্যাপে পুরো API JSON রেসপন্স কপি করা যায়; ডিটেইল ভিউতে সিনট্যাক্স-হাইলাইটেড JSON, **`Copy Full Response`**, **`Copy Full Log`**, **`Copy as cURL`**, **`Copy HAR`** ও AppBar-এ **`Copy all logs`** রয়েছে।
 - inspector শুধু লুকানো (redacted) data পায় — token কখনো UI, HAR বা clipboard-এ যায় না।
 
-### ২১.২০ Live data — WebSocket আর SSE (`omni_network_ws`)
+### ২১.২০ Live data — WebSocket আর SSE (`omni_network`-এর ভিতরেই)
 
 ```dart
-import 'package:omni_network_ws/omni_network_ws.dart';
+import 'package:omni_network/omni_network.dart'; // আলাদা package লাগে না
 
 // Server-Sent Events — normal request-এর মতোই auth, log, refresh চলে
 final sse = SseConnection(api, '/events');
@@ -1932,7 +1927,7 @@ await ws.close();
 
 > Browser-এ WebSocket handshake header পাঠানো যায় না (browser-এর নিয়ম) —
 > `OmniWebSocket.supportsHandshakeHeaders` অথবা `api.ws(..., wsWebAuthMode: WsWebAuthMode.queryParam())` ব্যবহার করুন।
-> সরাসরি `package:omni_network/omni_network.dart` থেকেই এখন `api.ws(...)` আর `api.sse(...)` ব্যবহার করা যায় (`omni_network_ws` backward compatibility-র জন্য re-export করে)।
+> `api.ws(...)` আর `api.sse(...)`-ও আছে। পুরোনো কোডে `package:omni_network_ws/...` import থাকলে সেটাও চলবে (একই type re-export করে), তবে নতুন কোডে দরকার নেই।
 
 ### ২১.২০ক OmniApiHub, Multi-AI ও Unified Chat
 

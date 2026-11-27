@@ -62,9 +62,7 @@ void main() {
         await socket.states.firstWhere((s) => s == WebSocketState.open);
         expect(seenAuthHeader, 'Bearer SUPER-SECRET-TOKEN');
 
-        final welcomed = socket
-            .on<Map<String, dynamic>>('welcome')
-            .first;
+        final welcomed = socket.on<Map<String, dynamic>>('welcome').first;
         socket.emit('hello', {'user': 'ana'});
         final welcomePayload = await welcomed;
         expect(welcomePayload['ok'], isTrue);
@@ -89,7 +87,9 @@ void main() {
         final q = resolveWsAuthForPlatform(
           uri: Uri.parse('wss://chat.example.com/ws'),
           headers: const {'authorization': 'Bearer JWT-123'},
-          webAuthMode: const WsWebAuthMode.queryParam(paramName: 'access_token'),
+          webAuthMode: const WsWebAuthMode.queryParam(
+            paramName: 'access_token',
+          ),
           supportsHandshakeHeaders: false,
           bearerOrToken: null,
         );
@@ -302,14 +302,29 @@ void main() {
           callNo++;
           expect(req.headers['authorization'], 'Bearer sk-test');
           if (req.uri.path.endsWith('/chat/completions')) {
-            final body = jsonDecode(utf8.decode(req.body!)) as Map<String, Object?>;
+            final body =
+                jsonDecode(utf8.decode(req.body!)) as Map<String, Object?>;
             if (body['stream'] == true) {
               return OmniRawResponse(
                 statusCode: 200,
                 headers: const {'content-type': 'text/event-stream'},
                 bodyBytes: utf8.encode(
-                  'data: ${jsonEncode({'choices': [{'delta': {'content': 'Hello '}}]})}\n\n'
-                  'data: ${jsonEncode({'choices': [{'delta': {'content': 'world'}, 'finish_reason': 'stop'}], 'usage': {'prompt_tokens': 3, 'completion_tokens': 2, 'total_tokens': 5}})}\n\n'
+                  'data: ${jsonEncode({
+                    'choices': [
+                      {
+                        'delta': {'content': 'Hello '},
+                      },
+                    ],
+                  })}\n\n'
+                  'data: ${jsonEncode({
+                    'choices': [
+                      {
+                        'delta': {'content': 'world'},
+                        'finish_reason': 'stop',
+                      },
+                    ],
+                    'usage': {'prompt_tokens': 3, 'completion_tokens': 2, 'total_tokens': 5},
+                  })}\n\n'
                   'data: [DONE]\n\n',
                 ),
               );
@@ -365,9 +380,7 @@ void main() {
           return OmniRawResponse(statusCode: 404);
         }, chunkSize: 16),
         ai: AiConfig(
-          providers: {
-            'openai': OpenAiProvider(apiKey: () => 'sk-test'),
-          },
+          providers: {'openai': OpenAiProvider(apiKey: () => 'sk-test')},
         ),
       );
       addTearDown(api.close);
@@ -396,90 +409,149 @@ void main() {
       expect(completed.response.usage.totalTokens, 5);
     });
 
-    test('GeminiProvider, AnthropicProvider & OllamaProvider parse wire responses', () async {
-      final api = OmniNetwork(
-        transport: MockTransport((req) {
-          final p = req.uri.path;
-          if (p.contains(':streamGenerateContent')) {
-            return OmniRawResponse(
-              statusCode: 200,
-              headers: const {'content-type': 'text/event-stream'},
-              bodyBytes: utf8.encode(
-                'data: ${jsonEncode({'candidates': [{'content': {'parts': [{'thought': true, 'text': 'plan '}, {'text': 'Gem'}]}}]})}\n\n'
-                'data: ${jsonEncode({'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': 'ini'}]}}], 'usageMetadata': {'promptTokenCount': 2, 'candidatesTokenCount': 3, 'totalTokenCount': 5}})}\n\n',
-              ),
-            );
-          }
-          if (p.contains(':embedContent')) {
-            return OmniRawResponse(
-              statusCode: 200,
-              headers: const {'content-type': 'application/json'},
-              bodyBytes: utf8.encode(
-                jsonEncode({
-                  'embedding': {'values': [0.6, 0.8]},
-                }),
-              ),
-            );
-          }
-          if (p.endsWith('/messages')) {
-            expect(req.headers['x-api-key'], 'ant-key');
-            return OmniRawResponse(
-              statusCode: 200,
-              headers: const {'content-type': 'text/event-stream'},
-              bodyBytes: utf8.encode(
-                'data: ${jsonEncode({'type': 'message_start', 'message': {'usage': {'input_tokens': 4}}})}\n\n'
-                'data: ${jsonEncode({'type': 'content_block_delta', 'index': 0, 'delta': {'type': 'thinking_delta', 'thinking': 'think '}})}\n\n'
-                'data: ${jsonEncode({'type': 'content_block_delta', 'index': 1, 'delta': {'type': 'text_delta', 'text': 'Claude OK'}})}\n\n'
-                'data: ${jsonEncode({'type': 'message_delta', 'delta': {'stop_reason': 'end_turn'}, 'usage': {'output_tokens': 2}})}\n\n',
-              ),
-            );
-          }
-          if (p.endsWith('/api/chat')) {
-            return OmniRawResponse(
-              statusCode: 200,
-              headers: const {'content-type': 'application/x-ndjson'},
-              bodyBytes: utf8.encode(
-                '${jsonEncode({'message': {'content': 'Local '}, 'done': false})}\n'
-                '${jsonEncode({'message': {'content': 'Llama'}, 'done': true, 'prompt_eval_count': 3, 'eval_count': 2})}\n',
-              ),
-            );
-          }
-          return OmniRawResponse(statusCode: 404);
-        }, chunkSize: 16),
-        ai: AiConfig(
-          providers: {
-            'gemini': GeminiProvider(apiKey: () => 'gem-key'),
-            'claude': AnthropicProvider(apiKey: () => 'ant-key'),
-            'ollama': OllamaProvider(baseUrl: 'http://127.0.0.1:11434'),
-          },
-        ),
-      );
-      addTearDown(api.close);
+    test(
+      'GeminiProvider, AnthropicProvider & OllamaProvider parse wire responses',
+      () async {
+        final api = OmniNetwork(
+          transport: MockTransport((req) {
+            final p = req.uri.path;
+            if (p.contains(':streamGenerateContent')) {
+              return OmniRawResponse(
+                statusCode: 200,
+                headers: const {'content-type': 'text/event-stream'},
+                bodyBytes: utf8.encode(
+                  'data: ${jsonEncode({
+                    'candidates': [
+                      {
+                        'content': {
+                          'parts': [
+                            {'thought': true, 'text': 'plan '},
+                            {'text': 'Gem'},
+                          ],
+                        },
+                      },
+                    ],
+                  })}\n\n'
+                  'data: ${jsonEncode({
+                    'candidates': [
+                      {
+                        'finishReason': 'STOP',
+                        'content': {
+                          'parts': [
+                            {'text': 'ini'},
+                          ],
+                        },
+                      },
+                    ],
+                    'usageMetadata': {'promptTokenCount': 2, 'candidatesTokenCount': 3, 'totalTokenCount': 5},
+                  })}\n\n',
+                ),
+              );
+            }
+            if (p.contains(':embedContent')) {
+              return OmniRawResponse(
+                statusCode: 200,
+                headers: const {'content-type': 'application/json'},
+                bodyBytes: utf8.encode(
+                  jsonEncode({
+                    'embedding': {
+                      'values': [0.6, 0.8],
+                    },
+                  }),
+                ),
+              );
+            }
+            if (p.endsWith('/messages')) {
+              expect(req.headers['x-api-key'], 'ant-key');
+              return OmniRawResponse(
+                statusCode: 200,
+                headers: const {'content-type': 'text/event-stream'},
+                bodyBytes: utf8.encode(
+                  'data: ${jsonEncode({
+                    'type': 'message_start',
+                    'message': {
+                      'usage': {'input_tokens': 4},
+                    },
+                  })}\n\n'
+                  'data: ${jsonEncode({
+                    'type': 'content_block_delta',
+                    'index': 0,
+                    'delta': {'type': 'thinking_delta', 'thinking': 'think '},
+                  })}\n\n'
+                  'data: ${jsonEncode({
+                    'type': 'content_block_delta',
+                    'index': 1,
+                    'delta': {'type': 'text_delta', 'text': 'Claude OK'},
+                  })}\n\n'
+                  'data: ${jsonEncode({
+                    'type': 'message_delta',
+                    'delta': {'stop_reason': 'end_turn'},
+                    'usage': {'output_tokens': 2},
+                  })}\n\n',
+                ),
+              );
+            }
+            if (p.endsWith('/api/chat')) {
+              return OmniRawResponse(
+                statusCode: 200,
+                headers: const {'content-type': 'application/x-ndjson'},
+                bodyBytes: utf8.encode(
+                  '${jsonEncode({
+                    'message': {'content': 'Local '},
+                    'done': false,
+                  })}\n'
+                  '${jsonEncode({
+                    'message': {'content': 'Llama'},
+                    'done': true,
+                    'prompt_eval_count': 3,
+                    'eval_count': 2,
+                  })}\n',
+                ),
+              );
+            }
+            return OmniRawResponse(statusCode: 404);
+          }, chunkSize: 16),
+          ai: AiConfig(
+            providers: {
+              'gemini': GeminiProvider(apiKey: () => 'gem-key'),
+              'claude': AnthropicProvider(apiKey: () => 'ant-key'),
+              'ollama': OllamaProvider(baseUrl: 'http://127.0.0.1:11434'),
+            },
+          ),
+        );
+        addTearDown(api.close);
 
-      final gemEvents = await api.ai
-          .stream('hi', model: 'gemini:gemini-2.5-flash')
-          .toList();
-      expect(gemEvents.whereType<AiThinkingDelta>().single.text, 'plan ');
-      expect(gemEvents.whereType<AiCompleted>().single.response.text, 'Gemini');
+        final gemEvents = await api.ai
+            .stream('hi', model: 'gemini:gemini-2.5-flash')
+            .toList();
+        expect(gemEvents.whereType<AiThinkingDelta>().single.text, 'plan ');
+        expect(
+          gemEvents.whereType<AiCompleted>().single.response.text,
+          'Gemini',
+        );
 
-      final vec = await api.ai.embed('doc', model: 'gemini:text-embedding-004');
-      expect(vec, [0.6, 0.8]);
+        final vec = await api.ai.embed(
+          'doc',
+          model: 'gemini:text-embedding-004',
+        );
+        expect(vec, [0.6, 0.8]);
 
-      final claudeDone = (await api.ai
-              .stream('hi', model: 'claude:claude-3-7-sonnet-latest')
-              .toList())
-          .whereType<AiCompleted>()
-          .single;
-      expect(claudeDone.response.thinking, 'think ');
-      expect(claudeDone.response.text, 'Claude OK');
+        final claudeDone =
+            (await api.ai
+                    .stream('hi', model: 'claude:claude-3-7-sonnet-latest')
+                    .toList())
+                .whereType<AiCompleted>()
+                .single;
+        expect(claudeDone.response.thinking, 'think ');
+        expect(claudeDone.response.text, 'Claude OK');
 
-      final ollamaDone = (await api.ai
-              .stream('hi', model: 'ollama:llama3.2')
-              .toList())
-          .whereType<AiCompleted>()
-          .single;
-      expect(ollamaDone.response.text, 'Local Llama');
-    });
+        final ollamaDone =
+            (await api.ai.stream('hi', model: 'ollama:llama3.2').toList())
+                .whereType<AiCompleted>()
+                .single;
+        expect(ollamaDone.response.text, 'Local Llama');
+      },
+    );
   });
 
   group('OmniAi routing, failover, RAG, structured output & budget', () {
@@ -521,9 +593,8 @@ void main() {
             providers: {
               'down': MockAiProvider(
                 id: 'down',
-                handler: (_, _, _) => throw HttpFailure(
-                  OmniRawResponse(statusCode: 503),
-                ),
+                handler: (_, _, _) =>
+                    throw HttpFailure(OmniRawResponse(statusCode: 503)),
               ),
               'backup': MockAiProvider(
                 id: 'backup',
@@ -551,8 +622,12 @@ void main() {
                       .toList();
                   if (toolResults.isNotEmpty) {
                     return MockAiReply(
-                      text: 'Answer with ${jsonEncode(toolResults.first.result)}',
-                      usage: const AiUsage(inputTokens: 1000, outputTokens: 1000),
+                      text:
+                          'Answer with ${jsonEncode(toolResults.first.result)}',
+                      usage: const AiUsage(
+                        inputTokens: 1000,
+                        outputTokens: 1000,
+                      ),
                     );
                   }
                   return MockAiReply(
@@ -560,9 +635,8 @@ void main() {
                     usage: const AiUsage(inputTokens: 1000, outputTokens: 1000),
                   );
                 },
-                embedder: (text) => text.contains('Dhaka')
-                    ? [1.0, 0.0]
-                    : [0.0, 1.0],
+                embedder: (text) =>
+                    text.contains('Dhaka') ? [1.0, 0.0] : [0.0, 1.0],
               ),
             },
             routes: const {
@@ -627,17 +701,17 @@ void main() {
           'Compare test',
           models: ['backup:m-backup'],
         );
-        expect(comparison['backup:m-backup']!.usage.estimatedCostUsd, greaterThan(0));
+        expect(
+          comparison['backup:m-backup']!.usage.estimatedCostUsd,
+          greaterThan(0),
+        );
 
         // After enough priced calls, budget cap throws RequestFailure.
-        await expectLater(
-          () async {
-            for (var i = 0; i < 10; i++) {
-              await api.ai.ask('burn', model: 'backup:m-backup');
-            }
-          }(),
-          throwsA(isA<RequestFailure>()),
-        );
+        await expectLater(() async {
+          for (var i = 0; i < 10; i++) {
+            await api.ai.ask('burn', model: 'backup:m-backup');
+          }
+        }(), throwsA(isA<RequestFailure>()));
       },
     );
   });
@@ -690,7 +764,10 @@ void main() {
         final msg1 = await thread.sendAndWait('Hello one');
         expect(msg1.text, 'Reply from fast');
         expect(msg1.thinking, 'Reason step');
-        expect(states.any((s) => s.isStreaming && s.streamingText.isNotEmpty), isTrue);
+        expect(
+          states.any((s) => s.isStreaming && s.streamingText.isNotEmpty),
+          isTrue,
+        );
 
         thread.switchModel('mock:smart');
         expect(thread.model, 'mock:smart');
@@ -836,7 +913,9 @@ void main() {
         addTearDown(api.close);
 
         api.chat.connect();
-        await api.chat.socket!.states.firstWhere((s) => s == WebSocketState.open);
+        await api.chat.socket!.states.firstWhere(
+          (s) => s == WebSocketState.open,
+        );
 
         final room = api.chat.room('room_1', historyEndpoint: '/history');
         final botThread = api.aiThread('room_bot');
@@ -886,7 +965,10 @@ void main() {
           ),
           caption: 'Look!',
         );
-        expect(fileMsg.parts.whereType<ChatMediaPart>().single.url, contains('photo.png'));
+        expect(
+          fileMsg.parts.whereType<ChatMediaPart>().single.url,
+          contains('photo.png'),
+        );
 
         // Toggle reaction + remote reaction update.
         final reactFuture = room.messagesStream.firstWhere(

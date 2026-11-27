@@ -71,11 +71,14 @@ lower for the network packages means replacing private named parameters.
 - `main` is the only long-lived branch and always holds the latest release
   or work toward the next one. Feature work happens on short branches
   merged into `main` through a PR (CI must be green).
-- Every `omni_route` release is tagged `vX.Y.Z` (e.g. `v0.3.0`); every
-  sub-package release is tagged `<package>-vX.Y.Z` (e.g.
-  `omni_network-v0.1.0`). Users depend on these tags with `git:` + `ref:`
-  (and `path: packages/<package>` for sub-packages), so a tag is never moved
-  or deleted once pushed.
+- Every release of the repository is tagged `vX.Y.Z` (e.g. `v0.5.0`), and
+  install snippets for **every** package use that one tag with `git:` +
+  `ref:` (plus `path: packages/<package>` for sub-packages). Packages that
+  share a dependency (`omni_network` under `omni_network_flutter`, or
+  `omni_responsive` under `omni_route`) only resolve when every `git:`
+  dependency points at the same ref, so never document a per-package tag as
+  the install ref. Older `<package>-vX.Y.Z` tags stay for history. A tag is
+  never moved or deleted once pushed.
 - The repository is a pub workspace: one `flutter pub get` at the root
   resolves the root package and `packages/*`.
 
@@ -83,8 +86,9 @@ lower for the network packages means replacing private named parameters.
 
 1. On `main`, bump `version:` in the package's `pubspec.yaml` and add the
    CHANGELOG entry (same style as the previous ones).
-2. Update install snippets in README if the tag changes (`ref: vX.Y.Z`,
-   `ref: <package>-vX.Y.Z`).
+2. Update every install snippet (README, `doc/guide.bn.md`,
+   `packages/*/README.md`, `packages/omni_network/doc/guide.bn.md`) to the
+   new `ref: vX.Y.Z`.
 3. Run the same checks as CI, from the root:
    ```bash
    flutter pub get

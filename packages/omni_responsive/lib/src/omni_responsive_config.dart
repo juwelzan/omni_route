@@ -445,11 +445,21 @@ class OmniResponsiveTokens {
       horizontalPadding: horizontalPadding ?? this.horizontalPadding,
       cardPadding: cardPadding ?? this.cardPadding,
       sectionPadding: sectionPadding ?? this.sectionPadding,
-      gapXs: nextSpaceXs == this.spaceXs ? gapXs : SizedBox(height: nextSpaceXs),
-      gapSm: nextSpaceSm == this.spaceSm ? gapSm : SizedBox(height: nextSpaceSm),
-      gapMd: nextSpaceMd == this.spaceMd ? gapMd : SizedBox(height: nextSpaceMd),
-      gapLg: nextSpaceLg == this.spaceLg ? gapLg : SizedBox(height: nextSpaceLg),
-      gapXl: nextSpaceXl == this.spaceXl ? gapXl : SizedBox(height: nextSpaceXl),
+      gapXs: nextSpaceXs == this.spaceXs
+          ? gapXs
+          : SizedBox(height: nextSpaceXs),
+      gapSm: nextSpaceSm == this.spaceSm
+          ? gapSm
+          : SizedBox(height: nextSpaceSm),
+      gapMd: nextSpaceMd == this.spaceMd
+          ? gapMd
+          : SizedBox(height: nextSpaceMd),
+      gapLg: nextSpaceLg == this.spaceLg
+          ? gapLg
+          : SizedBox(height: nextSpaceLg),
+      gapXl: nextSpaceXl == this.spaceXl
+          ? gapXl
+          : SizedBox(height: nextSpaceXl),
       gapWidthSm: nextSpaceSm == this.spaceSm
           ? gapWidthSm
           : SizedBox(width: nextSpaceSm),

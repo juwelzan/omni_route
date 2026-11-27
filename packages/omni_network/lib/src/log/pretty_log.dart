@@ -226,7 +226,9 @@ final class PrettyLogSink implements LogSink {
     final out = <String>[paintBorder('┌$rule')];
     if (headerTimestamp != null) {
       out
-        ..add('${paintBorder('│')} ${_paintRow([(headerTimestamp, null)], borderColor)}')
+        ..add(
+          '${paintBorder('│')} ${_paintRow([(headerTimestamp, null)], borderColor)}',
+        )
         ..add(paintBorder('├$divider'));
     }
     for (final row in rows) {
@@ -287,12 +289,16 @@ final class PrettyLogSink implements LogSink {
           final reason = httpReasonPhrase(status);
           final ms = record.duration?.inMilliseconds ?? 0;
           final speed = status < 400
-              ? (ms < 300 ? '⚡ FAST ($took)' : ms >= 1200 ? '🐢 SLOW ($took)' : took)
+              ? (ms < 300
+                    ? '⚡ FAST ($took)'
+                    : ms >= 1200
+                    ? '🐢 SLOW ($took)'
+                    : took)
               : took;
           final sourceTag =
               record.source != null && record.source != ResponseSource.network
-                  ? '⚡ ${record.source!.name.toUpperCase()}'
-                  : 'NETWORK';
+              ? '⚡ ${record.source!.name.toUpperCase()}'
+              : 'NETWORK';
           final badge = status >= 500
               ? ' ⛔ http-error · $status${reason == null ? '' : ' $reason'} · SERVER ERROR '
               : status >= 400
@@ -305,13 +311,7 @@ final class PrettyLogSink implements LogSink {
           final headerRows = <List<_Span>?>[
             [(badge, badgeStyle)],
             [
-              (
-                [
-                  method,
-                  url,
-                ].join('  '),
-                null,
-              ),
+              ([method, url].join('  '), null),
             ],
             [
               (
@@ -331,9 +331,7 @@ final class PrettyLogSink implements LogSink {
                     : null)
               : _payloadSummary(record.body);
           if (shape != null) {
-            headerRows.add([
-              (shape, status >= 400 ? color : _note),
-            ]);
+            headerRows.add([(shape, status >= 400 ? color : _note)]);
           }
           if (options.headers && record.headers.isNotEmpty) {
             headerRows
@@ -382,7 +380,8 @@ final class PrettyLogSink implements LogSink {
   static const _dim = '38;5;244'; // labels, header values
   static const _note = '38;5;45'; // retry / token notes
   static const _bold = '1';
-  static const _errorBanner = '1;38;5;15;48;5;196'; // bold white on red background
+  static const _errorBanner =
+      '1;38;5;15;48;5;196'; // bold white on red background
 
   static String _methodColor(String method) => switch (method.trim()) {
     'GET' => '$_bold;$_blue',
@@ -545,9 +544,14 @@ final class PrettyLogSink implements LogSink {
             : '🟢 ✔ $status${reason == null ? '' : ' $reason'} · SUCCESS';
         final ms = result.duration?.inMilliseconds ?? 0;
         final speed = status < 400
-            ? (ms < 300 ? '⚡ FAST ($took)' : ms >= 1200 ? '🐢 SLOW ($took)' : took)
+            ? (ms < 300
+                  ? '⚡ FAST ($took)'
+                  : ms >= 1200
+                  ? '🐢 SLOW ($took)'
+                  : took)
             : took;
-        final sourceTag = result.source != null && result.source != ResponseSource.network
+        final sourceTag =
+            result.source != null && result.source != ResponseSource.network
             ? '⚡ ${result.source!.name.toUpperCase()}'
             : 'NETWORK';
         out.add([

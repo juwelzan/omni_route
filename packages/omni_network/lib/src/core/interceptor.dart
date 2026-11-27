@@ -51,11 +51,7 @@ abstract class OmniInterceptor {
 }
 
 final class _InlineInterceptor extends OmniInterceptor {
-  const _InlineInterceptor({
-    this._onRequest,
-    this._onResponse,
-    this._onError,
-  });
+  const _InlineInterceptor({this._onRequest, this._onResponse, this._onError});
 
   final FutureOr<OmniRequest> Function(OmniRequest request)? _onRequest;
   final FutureOr<OmniRawResponse> Function(
@@ -63,7 +59,10 @@ final class _InlineInterceptor extends OmniInterceptor {
     OmniRawResponse response,
   )?
   _onResponse;
-  final FutureOr<void> Function(OmniRequest request, OmniNetworkException error)?
+  final FutureOr<void> Function(
+    OmniRequest request,
+    OmniNetworkException error,
+  )?
   _onError;
 
   @override

@@ -69,18 +69,19 @@ final class ChatParticipant {
   };
 
   /// Restores from JSON.
-  factory ChatParticipant.fromJson(Map<String, Object?> json) => ChatParticipant(
-    id: json['id']! as String,
-    name: json['name'] as String?,
-    avatarUrl: json['avatarUrl'] as String?,
-    kind: ChatParticipantKind.values.byName(
-      json['kind'] as String? ?? 'user',
-    ),
-    isOnline: json['isOnline'] as bool? ?? false,
-    lastSeen: json['lastSeen'] == null
-        ? null
-        : DateTime.parse(json['lastSeen']! as String),
-  );
+  factory ChatParticipant.fromJson(Map<String, Object?> json) =>
+      ChatParticipant(
+        id: json['id']! as String,
+        name: json['name'] as String?,
+        avatarUrl: json['avatarUrl'] as String?,
+        kind: ChatParticipantKind.values.byName(
+          json['kind'] as String? ?? 'user',
+        ),
+        isOnline: json['isOnline'] as bool? ?? false,
+        lastSeen: json['lastSeen'] == null
+            ? null
+            : DateTime.parse(json['lastSeen']! as String),
+      );
 }
 
 /// Lifecycle state of an outgoing [ChatMessage].
@@ -291,7 +292,11 @@ final class ChatCustomPart extends ChatPart {
   final Map<String, Object?> data;
 
   @override
-  Map<String, Object?> toJson() => {'kind': 'custom', 'type': type, 'data': data};
+  Map<String, Object?> toJson() => {
+    'kind': 'custom',
+    'type': type,
+    'data': data,
+  };
 }
 
 /// Unified chat message model supporting realtime user rooms and AI threads.
@@ -517,9 +522,7 @@ final class ChatMessage {
       thinking: json['thinking'] as String?,
       model: json['model'] as String?,
       usage: parsedUsage,
-      metadata: Map<String, Object?>.from(
-        json['metadata'] as Map? ?? const {},
-      ),
+      metadata: Map<String, Object?>.from(json['metadata'] as Map? ?? const {}),
     );
   }
 

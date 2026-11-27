@@ -169,10 +169,9 @@ abstract final class OmniRoute {
   static String exportDiagnostics({Object? error, StackTrace? stackTrace}) {
     final r = _router;
     if (r == null) {
-      return OmniBreadcrumbRecorder(maxEntries: 0).export(
-        error: error,
-        stackTrace: stackTrace,
-      );
+      return OmniBreadcrumbRecorder(
+        maxEntries: 0,
+      ).export(error: error, stackTrace: stackTrace);
     }
     final ctx = r.navigatorKey.currentContext;
     final device = ctx != null ? OmniResponsiveScope.read(ctx).device : null;

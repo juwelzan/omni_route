@@ -63,11 +63,9 @@ final class FileCacheStore implements CacheStore {
     return run;
   }
 
-  String _fileName(String key) =>
-      '${sha256.convert(utf8.encode(key))}$_ext';
+  String _fileName(String key) => '${sha256.convert(utf8.encode(key))}$_ext';
 
-  File _file(String name) =>
-      File('${_dir.path}${Platform.pathSeparator}$name');
+  File _file(String name) => File('${_dir.path}${Platform.pathSeparator}$name');
 
   Future<void> _ensureIndex() => _loading ??= _loadIndex();
 
@@ -92,7 +90,12 @@ final class FileCacheStore implements CacheStore {
           await _deleteQuietly(entity);
           continue;
         }
-        entries.add((name: name, url: url, size: stat.size, used: stat.modified));
+        entries.add((
+          name: name,
+          url: url,
+          size: stat.size,
+          used: stat.modified,
+        ));
       } catch (_) {
         await _deleteQuietly(entity);
       }
@@ -165,10 +168,9 @@ final class FileCacheStore implements CacheStore {
       _touch(name);
       // Persist LRU order across restarts without blocking the caller.
       unawaited(
-        file.setLastModified(DateTime.now()).then<void>(
-          (_) {},
-          onError: (Object _) {},
-        ),
+        file
+            .setLastModified(DateTime.now())
+            .then<void>((_) {}, onError: (Object _) {}),
       );
       return entry;
     } catch (_) {
@@ -190,9 +192,7 @@ final class FileCacheStore implements CacheStore {
     await _locked(() async {
       await _dir.create(recursive: true);
       final target = _file(name);
-      final temp = File(
-        '${target.path}.tmp.${pid}_${identityHashCode(entry)}',
-      );
+      final temp = File('${target.path}.tmp.${pid}_${identityHashCode(entry)}');
       try {
         await temp.writeAsBytes(bytes, flush: true);
         // rename() replaces the target atomically on every IO platform.

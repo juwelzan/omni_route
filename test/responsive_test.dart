@@ -4,71 +4,72 @@ import 'package:omni_route/omni_route.dart';
 
 void main() {
   group('OmniResponsiveConfig & Scope', () {
-    testWidgets('resolves mobile, smallPhone, tablet, desktop, and largeDesktop', (
-      t,
-    ) async {
-      late OmniResponsiveData captured;
+    testWidgets(
+      'resolves mobile, smallPhone, tablet, desktop, and largeDesktop',
+      (t) async {
+        late OmniResponsiveData captured;
 
-      Future<void> pumpAt(Size logicalSize) async {
-        t.view.devicePixelRatio = 1.0;
-        t.view.physicalSize = logicalSize;
-        addTearDown(t.view.reset);
+        Future<void> pumpAt(Size logicalSize) async {
+          t.view.devicePixelRatio = 1.0;
+          t.view.physicalSize = logicalSize;
+          addTearDown(t.view.reset);
 
-        await t.pumpWidget(
-          OmniApp.material(
-            routes: [
-              OmniPage(
-                '/',
-                (p) => Builder(
-                  builder: (context) {
-                    captured = context.responsive;
-                    return Scaffold(
-                      body: Text('device:${captured.device.name}'),
-                    );
-                  },
+          await t.pumpWidget(
+            OmniApp.material(
+              routes: [
+                OmniPage(
+                  '/',
+                  (p) => Builder(
+                    builder: (context) {
+                      captured = context.responsive;
+                      return Scaffold(
+                        body: Text('device:${captured.device.name}'),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-        );
-        await t.pumpAndSettle();
-      }
+              ],
+            ),
+          );
+          await t.pumpAndSettle();
+        }
 
-      await pumpAt(const Size(320, 640));
-      expect(captured.device, OmniDeviceType.mobile);
-      expect(captured.isSmallPhone, isTrue);
-      expect(captured.windowSize, OmniWindowSize.compact);
-      expect(captured.tokens.gridColumns, 2);
-      expect(captured.tokens.textScale, 0.94);
+        await pumpAt(const Size(320, 640));
+        expect(captured.device, OmniDeviceType.mobile);
+        expect(captured.isSmallPhone, isTrue);
+        expect(captured.windowSize, OmniWindowSize.compact);
+        expect(captured.tokens.gridColumns, 2);
+        expect(captured.tokens.textScale, 0.94);
 
-      await pumpAt(const Size(390, 844));
-      expect(captured.device, OmniDeviceType.mobile);
-      expect(captured.isSmallPhone, isFalse);
-      expect(captured.windowSize, OmniWindowSize.compact);
-      expect(captured.tokens.textScale, 1.0);
+        await pumpAt(const Size(390, 844));
+        expect(captured.device, OmniDeviceType.mobile);
+        expect(captured.isSmallPhone, isFalse);
+        expect(captured.windowSize, OmniWindowSize.compact);
+        expect(captured.tokens.textScale, 1.0);
 
-      await pumpAt(const Size(768, 1024));
-      expect(captured.device, OmniDeviceType.tablet);
-      expect(captured.windowSize, OmniWindowSize.medium);
-      expect(captured.tokens.gridColumns, 3);
-      expect(captured.isTabletOrLarger, isTrue);
+        await pumpAt(const Size(768, 1024));
+        expect(captured.device, OmniDeviceType.tablet);
+        expect(captured.windowSize, OmniWindowSize.medium);
+        expect(captured.tokens.gridColumns, 3);
+        expect(captured.isTabletOrLarger, isTrue);
 
-      await pumpAt(const Size(900, 900));
-      expect(captured.device, OmniDeviceType.tablet);
-      expect(captured.windowSize, OmniWindowSize.expanded);
+        await pumpAt(const Size(900, 900));
+        expect(captured.device, OmniDeviceType.tablet);
+        expect(captured.windowSize, OmniWindowSize.expanded);
 
-      await pumpAt(const Size(1280, 800));
-      expect(captured.device, OmniDeviceType.desktop);
-      expect(captured.windowSize, OmniWindowSize.large);
-      expect(captured.tokens.gridColumns, 4);
-      expect(captured.tokens.textScale, 1.05);
+        await pumpAt(const Size(1280, 800));
+        expect(captured.device, OmniDeviceType.desktop);
+        expect(captured.windowSize, OmniWindowSize.large);
+        expect(captured.tokens.gridColumns, 4);
+        expect(captured.tokens.textScale, 1.05);
 
-      await pumpAt(const Size(1680, 1050));
-      expect(captured.device, OmniDeviceType.largeDesktop);
-      expect(captured.windowSize, OmniWindowSize.extraLarge);
-      expect(captured.tokens.gridColumns, 5);
-      expect(captured.tokens.textScale, 1.08);
-    });
+        await pumpAt(const Size(1680, 1050));
+        expect(captured.device, OmniDeviceType.largeDesktop);
+        expect(captured.windowSize, OmniWindowSize.extraLarge);
+        expect(captured.tokens.gridColumns, 5);
+        expect(captured.tokens.textScale, 1.08);
+      },
+    );
 
     testWidgets(
       'ZERO rebuilds inside same breakpoint and on keyboard open/close',
@@ -527,9 +528,7 @@ void main() {
                       OmniResponsiveBuilder(
                         builder: (c, device, tokens) {
                           builderCalls++;
-                          return Text(
-                            'b:${device.name}:${tokens.gridColumns}',
-                          );
+                          return Text('b:${device.name}:${tokens.gridColumns}');
                         },
                       ),
                       Expanded(
@@ -614,7 +613,10 @@ void main() {
                   OmniAdaptiveDestination(icon: Icon(Icons.map), label: 'T2'),
                   OmniAdaptiveDestination(icon: Icon(Icons.chat), label: 'T3'),
                   OmniAdaptiveDestination(icon: Icon(Icons.bolt), label: 'T4'),
-                  OmniAdaptiveDestination(icon: Icon(Icons.settings), label: 'T5'),
+                  OmniAdaptiveDestination(
+                    icon: Icon(Icons.settings),
+                    label: 'T5',
+                  ),
                 ],
                 branches: [
                   OmniBranch(
@@ -801,7 +803,10 @@ void main() {
         const phoneCfg = OmniResponsiveConfig.phoneFriendly();
         expect(phoneCfg.deviceFor(const Size(844, 390)), OmniDeviceType.mobile);
         const denseCfg = OmniResponsiveConfig.desktopDense();
-        expect(denseCfg.deviceFor(const Size(920, 700)), OmniDeviceType.desktop);
+        expect(
+          denseCfg.deviceFor(const Size(920, 700)),
+          OmniDeviceType.desktop,
+        );
 
         await t.pumpWidget(const SizedBox());
         await t.pumpWidget(
@@ -824,10 +829,14 @@ void main() {
         );
         await t.pumpAndSettle();
         // On a 600dp viewport, 340 > 50% so masterWidth caps cleanly at 270dp, leaving 329dp for detail!
-        final masterBox = t.getSize(find.ancestor(
-          of: find.text('master-pane'),
-          matching: find.byType(SizedBox),
-        ).first);
+        final masterBox = t.getSize(
+          find
+              .ancestor(
+                of: find.text('master-pane'),
+                matching: find.byType(SizedBox),
+              )
+              .first,
+        );
         expect(masterBox.width, closeTo(270, 0.1));
 
         await t.pumpWidget(const SizedBox());

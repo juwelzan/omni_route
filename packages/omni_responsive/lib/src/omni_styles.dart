@@ -647,11 +647,11 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
           OmniInputVariant.underlined => UnderlineInputBorder(
             borderSide: makeSide(color, width),
           ),
-          OmniInputVariant.filled || OmniInputVariant.outlined =>
-            OutlineInputBorder(
-              borderRadius: buttonRadius,
-              borderSide: makeSide(color, width),
-            ),
+          OmniInputVariant.filled ||
+          OmniInputVariant.outlined => OutlineInputBorder(
+            borderRadius: buttonRadius,
+            borderSide: makeSide(color, width),
+          ),
         };
 
     final inputTheme = InputDecorationTheme(
@@ -793,24 +793,25 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         minimumSize: minSize,
         shape: buttonShape,
       ),
-      outlineButton: OutlinedButton.styleFrom(
-        foregroundColor: colors.primaryColor,
-        disabledForegroundColor: colors.disabledTextColor,
-        textStyle: textStyles.button,
-        minimumSize: minSize,
-        shape: buttonShape,
-      ).copyWith(
-        side: WidgetStateProperty.resolveWith<BorderSide>(
-          (states) => BorderSide(
-            color: states.contains(WidgetState.disabled)
-                ? colors.disabledBorderColor
-                : states.contains(WidgetState.focused)
+      outlineButton:
+          OutlinedButton.styleFrom(
+            foregroundColor: colors.primaryColor,
+            disabledForegroundColor: colors.disabledTextColor,
+            textStyle: textStyles.button,
+            minimumSize: minSize,
+            shape: buttonShape,
+          ).copyWith(
+            side: WidgetStateProperty.resolveWith<BorderSide>(
+              (states) => BorderSide(
+                color: states.contains(WidgetState.disabled)
+                    ? colors.disabledBorderColor
+                    : states.contains(WidgetState.focused)
                     ? colors.focusedBorderColor
                     : colors.borderColor,
-            width: borderWidth > 0 ? borderWidth : 1.0,
+                width: borderWidth > 0 ? borderWidth : 1.0,
+              ),
+            ),
           ),
-        ),
-      ),
       linkButton: TextButton.styleFrom(
         foregroundColor: colors.linkColor,
         disabledForegroundColor: colors.disabledTextColor,
@@ -929,8 +930,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     selectedCardDecoration:
         selectedCardDecoration ?? this.selectedCardDecoration,
     subtleBoxDecoration: subtleBoxDecoration ?? this.subtleBoxDecoration,
-    disabledBoxDecoration:
-        disabledBoxDecoration ?? this.disabledBoxDecoration,
+    disabledBoxDecoration: disabledBoxDecoration ?? this.disabledBoxDecoration,
     errorBoxDecoration: errorBoxDecoration ?? this.errorBoxDecoration,
     warningBoxDecoration: warningBoxDecoration ?? this.warningBoxDecoration,
     successBoxDecoration: successBoxDecoration ?? this.successBoxDecoration,
@@ -950,8 +950,9 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     return OmniStyles(
       colors: colors.lerp(other.colors, t),
       textStyles: textStyles.lerp(other.textStyles, t),
-      inputDecorationTheme:
-          t < 0.5 ? inputDecorationTheme : other.inputDecorationTheme,
+      inputDecorationTheme: t < 0.5
+          ? inputDecorationTheme
+          : other.inputDecorationTheme,
       inputRadius: BorderRadius.lerp(inputRadius, other.inputRadius, t)!,
       cardDecoration: BoxDecoration.lerp(
         cardDecoration,
@@ -1098,8 +1099,7 @@ class OmniUiTheme {
 
   /// ডেস্কটপ বা বড় মনিটর স্ক্রিন কি না।
   bool get isDesktop =>
-      device == OmniDeviceType.desktop ||
-      device == OmniDeviceType.largeDesktop;
+      device == OmniDeviceType.desktop || device == OmniDeviceType.largeDesktop;
 }
 
 /// যেকোনো `BuildContext` থেকে সহজে প্রি-ক্যাশড [OmniTextStyles], [OmniStyles]
@@ -1132,11 +1132,14 @@ extension OmniStylesContext on BuildContext {
   OmniUiTheme get ui {
     final theme = Theme.of(this);
     final isDark = theme.brightness == Brightness.dark;
-    final c = theme.extension<OmniColors>() ??
+    final c =
+        theme.extension<OmniColors>() ??
         (isDark ? OmniColors.darkDefault : OmniColors.lightDefault);
-    final ts = theme.extension<OmniTextStyles>() ??
+    final ts =
+        theme.extension<OmniTextStyles>() ??
         (isDark ? OmniTextStyles.darkDefault : OmniTextStyles.lightDefault);
-    final s = theme.extension<OmniStyles>() ??
+    final s =
+        theme.extension<OmniStyles>() ??
         (isDark ? OmniStyles.darkDefault : OmniStyles.lightDefault);
     final tokens = OmniResponsiveScope.tokensOf(this);
     final device = OmniResponsiveScope.deviceOf(this);

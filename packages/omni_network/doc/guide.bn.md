@@ -56,7 +56,7 @@ dependencies:
       ref: v0.5.0
 ```
 
-Flutter অ্যাপে secure token storage / inspector বা WebSocket লাগলে `omni_network` আলাদা লিখবেন না — এগুলোর সাথেই আসে:
+WebSocket আর Server-Sent Events `omni_network`-এর ভিতরেই আছে, আলাদা package লাগে না। Flutter অ্যাপে secure token storage / inspector লাগলে `omni_network` আলাদা লিখবেন না — `omni_network_flutter`-এর সাথেই আসে:
 
 ```yaml
 dependencies:
@@ -64,11 +64,6 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_flutter
-      ref: v0.5.0
-  omni_network_ws:               # WebSocket / Server-Sent Events (ঐচ্ছিক)
-    git:
-      url: https://github.com/juwelzan/omni_route.git
-      path: packages/omni_network_ws
       ref: v0.5.0
 
 dev_dependencies:
@@ -1390,7 +1385,7 @@ redact করা data পায়, তাই token কখনো UI, HAR বা 
 
 ## ২৩. Live data: WebSocket আর SSE
 
-`omni_network_ws` থেকে।
+`omni_network`-এর ভিতরেই (`package:omni_network/omni_network.dart`)। পুরোনো `omni_network_ws` import-ও চলে, কারণ সেটা একই type re-export করে।
 
 ### Server-Sent Events
 

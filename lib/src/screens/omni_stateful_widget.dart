@@ -166,9 +166,8 @@ abstract class OmniState<T extends OmniStatefulWidget> extends State<T> {
   ///
   /// Safe inside `initState` (reads without subscribing) and reactive inside
   /// `build` / `didChangeDependencies`.
-  OmniRouteState get routeState => _depsReady
-      ? OmniRouteState.of(context)
-      : OmniRouteState.readOf(context);
+  OmniRouteState get routeState =>
+      _depsReady ? OmniRouteState.of(context) : OmniRouteState.readOf(context);
 
   /// Route state of the enclosing [OmniPage], or `null` when embedded outside
   /// a route.

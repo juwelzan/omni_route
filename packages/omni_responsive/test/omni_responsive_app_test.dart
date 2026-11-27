@@ -20,9 +20,7 @@ Widget _app({
     themeAnimationCurve: ui.themeAnimationCurve,
     locale: ui.locale,
     localizationsDelegates: ui.localizationsDelegates,
-    supportedLocales: ui.supportedLocales.isEmpty
-        ? const [Locale('en')]
-        : ui.supportedLocales,
+    supportedLocales: ui.supportedLocales,
     builder: ui.builder,
     home: Builder(builder: home),
   ),

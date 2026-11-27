@@ -36,8 +36,7 @@ sealed class WsWebAuthMode {
 
   /// Append the resolved credential/token as query parameter [paramName] when
   /// handshake headers are unsupported (`Web`).
-  const factory WsWebAuthMode.queryParam({String paramName}) =
-      _WsQueryAuthMode;
+  const factory WsWebAuthMode.queryParam({String paramName}) = _WsQueryAuthMode;
 
   /// Connect first, then send `{typeKey: event, tokenKey: token}` as the first
   /// text frame when handshake headers are unsupported (`Web`).
@@ -146,18 +145,12 @@ final class DefaultWsProtocol implements WsProtocol {
   final String? pongEvent;
 
   @override
-  Object encodeEvent(String event, Object? data) => jsonEncode({
-    eventKey: event,
-    dataKey: ?data,
-  });
+  Object encodeEvent(String event, Object? data) =>
+      jsonEncode({eventKey: event, dataKey: ?data});
 
   @override
   Object encodeRequest(String requestId, String event, Object? data) =>
-      jsonEncode({
-        idKey: requestId,
-        eventKey: event,
-        dataKey: ?data,
-      });
+      jsonEncode({idKey: requestId, eventKey: event, dataKey: ?data});
 
   @override
   Object? encodePing() =>
@@ -179,7 +172,9 @@ final class DefaultWsProtocol implements WsProtocol {
         data: data,
         requestId: requestId,
         isError: isError,
-        errorMessage: err is Map ? (err['message']?.toString() ?? '$err') : err?.toString(),
+        errorMessage: err is Map
+            ? (err['message']?.toString() ?? '$err')
+            : err?.toString(),
       );
     } on FormatException {
       return null;
@@ -218,7 +213,9 @@ final class DefaultWsProtocol implements WsProtocol {
           ? tokenValue.substring(7)
           : tokenValue;
       return (
-        uri.replace(queryParameters: {...uri.queryParameters, paramName: clean}),
+        uri.replace(
+          queryParameters: {...uri.queryParameters, paramName: clean},
+        ),
         strippedHeaders,
         null,
       );

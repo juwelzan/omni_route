@@ -14,11 +14,8 @@ class _TestAuthLang extends OmniLang {
     byCountry: const {OmniCountryCode.gb: 'Log On'},
   );
 
-  String greet(String name) => pick(
-    en: 'Hello, $name!',
-    bn: 'হ্যালো, $name!',
-    ar: 'مرحباً يا $name!',
-  );
+  String greet(String name) =>
+      pick(en: 'Hello, $name!', bn: 'হ্যালো, $name!', ar: 'مرحباً يا $name!');
 }
 
 void main() {
@@ -46,7 +43,10 @@ void main() {
         expect(OmniLanguage.ar.isRtl, isTrue);
         expect(OmniLanguage.ur.isRtl, isTrue);
         expect(OmniLanguage.bn.isRtl, isFalse);
-        expect(OmniLanguage.fromLocale(const Locale('pt', 'BR')), OmniLanguage.ptBR);
+        expect(
+          OmniLanguage.fromLocale(const Locale('pt', 'BR')),
+          OmniLanguage.ptBR,
+        );
         expect(OmniLanguage.tryParse('bn_BD'), OmniLanguage.bn);
         expect(OmniLanguage.tryParse('en_GB'), OmniLanguage.enGB);
       },
@@ -93,24 +93,15 @@ void main() {
     test(
       'OmniValidators automatically localize validation messages with active language',
       () {
-        expect(
-          OmniValidators.email(''),
-          'Please enter an email address',
-        );
+        expect(OmniValidators.email(''), 'Please enter an email address');
         OmniText.setLanguage(OmniLanguage.bn);
-        expect(
-          OmniValidators.email(''),
-          'অনুগ্রহ করে ইমেইল ঠিকানা দিন',
-        );
+        expect(OmniValidators.email(''), 'অনুগ্রহ করে ইমেইল ঠিকানা দিন');
         expect(
           OmniValidators.otp('12', length: 6),
           '6-ডিজিটের ভেরিফিকেশন কোড দিন',
         );
         OmniText.setLanguage(OmniLanguage.ar);
-        expect(
-          OmniValidators.password(''),
-          'الرجاء إدخال كلمة المرور',
-        );
+        expect(OmniValidators.password(''), 'الرجاء إدخال كلمة المرور');
       },
     );
 
@@ -132,7 +123,11 @@ void main() {
                   builder: (ctx) => Scaffold(
                     appBar: AppBar(
                       title: Text(
-                        ctx.l10n(en: 'Home Screen', bn: 'হোম স্ক্রিন', ar: 'الرئيسية'),
+                        ctx.l10n(
+                          en: 'Home Screen',
+                          bn: 'হোম স্ক্রিন',
+                          ar: 'الرئيسية',
+                        ),
                       ),
                     ),
                     body: ListView(
@@ -151,7 +146,11 @@ void main() {
                           onVerifyPressed: _noop,
                         ),
                         const OmniLanguagePicker(
-                          languages: [OmniLanguage.en, OmniLanguage.bn, OmniLanguage.ar],
+                          languages: [
+                            OmniLanguage.en,
+                            OmniLanguage.bn,
+                            OmniLanguage.ar,
+                          ],
                         ),
                         ElevatedButton(
                           onPressed: () => ctx.push('/second'),
@@ -166,12 +165,14 @@ void main() {
                 '/second',
                 (_) => Builder(
                   builder: (ctx) => Scaffold(
-                    appBar: AppBar(
-                      title: Text(_TestAuthLang(ctx).signIn),
-                    ),
+                    appBar: AppBar(title: Text(_TestAuthLang(ctx).signIn)),
                     body: Center(
                       child: Text(
-                        ctx.l10n(en: 'Second Page', bn: 'দ্বিতীয় পেজ', ar: 'الصفحة الثانية'),
+                        ctx.l10n(
+                          en: 'Second Page',
+                          bn: 'দ্বিতীয় পেজ',
+                          ar: 'الصفحة الثانية',
+                        ),
                       ),
                     ),
                   ),
@@ -237,10 +238,7 @@ void main() {
         await t.pumpWidget(
           const MaterialApp(
             home: Scaffold(
-              body: OmniText(
-                en: 'Plain App Text',
-                bn: 'সাধারণ অ্যাপ টেক্সট',
-              ),
+              body: OmniText(en: 'Plain App Text', bn: 'সাধারণ অ্যাপ টেক্সট'),
             ),
           ),
         );

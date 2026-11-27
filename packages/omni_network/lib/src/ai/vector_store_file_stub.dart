@@ -12,8 +12,7 @@ final class FileVectorStore implements AiVectorStore {
   final MemoryVectorStore _inner = MemoryVectorStore();
 
   @override
-  Future<void> upsert(VectorDocument document) async =>
-      _inner.upsert(document);
+  Future<void> upsert(VectorDocument document) async => _inner.upsert(document);
 
   @override
   Future<void> upsertAll(List<VectorDocument> documents) async =>

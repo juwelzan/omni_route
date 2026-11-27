@@ -893,7 +893,8 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
     }
 
     final boundary =
-        _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+        _boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
     if (boundary != null && _canCapture(boundary)) {
       final snap = _tryCapture(boundary);
       if (snap != null) {
@@ -932,7 +933,8 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
         widget.resolveDuration?.call(prev, next) ?? widget.animation.duration;
 
     final boundary =
-        _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+        _boundaryKey.currentContext?.findRenderObject()
+            as RenderRepaintBoundary?;
     ui.Image? snap;
     if (boundary != null && _canCapture(boundary)) {
       snap = _tryCapture(boundary);
@@ -1000,10 +1002,22 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
         TileMode.clamp,
         TileMode.clamp,
         Float64List.fromList(<double>[
-          sx, 0, 0, 0,
-          0, sy, 0, 0,
-          0, 0, 1, 0,
-          0, 0, 0, 1,
+          sx,
+          0,
+          0,
+          0,
+          0,
+          sy,
+          0,
+          0,
+          0,
+          0,
+          1,
+          0,
+          0,
+          0,
+          0,
+          1,
         ]),
         filterQuality: FilterQuality.low,
       );
@@ -1018,9 +1032,11 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
     _activeDirection = dir;
 
     final rect = Offset.zero & size;
-    final explicit = widget.takeExplicitOrigin?.call() ?? widget.animation.origin;
-    final autoTap =
-        (widget.animation.autoTapOrigin && !_pointerDragged) ? _lastTapOrigin : null;
+    final explicit =
+        widget.takeExplicitOrigin?.call() ?? widget.animation.origin;
+    final autoTap = (widget.animation.autoTapOrigin && !_pointerDragged)
+        ? _lastTapOrigin
+        : null;
     _lastTapOrigin = null;
 
     final globalOrigin = explicit ?? autoTap;
@@ -1031,7 +1047,9 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
         local.dy.clamp(0.0, size.height),
       );
     } else {
-      _activeOrigin = widget.animation.fallbackOrigin.resolve(dir).withinRect(rect);
+      _activeOrigin = widget.animation.fallbackOrigin
+          .resolve(dir)
+          .withinRect(rect);
     }
 
     _activeGlowColor =
@@ -1483,7 +1501,12 @@ class _OmniThemeTransitionPainter extends CustomPainter {
             imagePaint,
           );
         }
-        _strokeGlowLine(canvas, Offset(0, topY), Offset(size.width, topY), envelope);
+        _strokeGlowLine(
+          canvas,
+          Offset(0, topY),
+          Offset(size.width, topY),
+          envelope,
+        );
         _strokeGlowLine(
           canvas,
           Offset(0, bottomY),

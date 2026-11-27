@@ -88,7 +88,9 @@ class OmniSystemNavigationBarStyle {
 
   /// প্রদত্ত [brightness] অনুযায়ী উপরের ডিভাইডার লাইনের রঙ দেয়।
   Color? resolveDividerColor(Brightness brightness) =>
-      brightness == Brightness.dark ? (darkDividerColor ?? dividerColor) : dividerColor;
+      brightness == Brightness.dark
+      ? (darkDividerColor ?? dividerColor)
+      : dividerColor;
 
   /// প্রদত্ত [brightness] ও [fallbackBackground] অনুযায়ী আইকন ব্রাইটনেস নির্ণয় করে।
   Brightness resolveIconBrightness(

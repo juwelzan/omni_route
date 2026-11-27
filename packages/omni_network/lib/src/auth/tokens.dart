@@ -18,8 +18,11 @@ final class Tokens {
   /// Creates [Tokens] from a JWT [access] string, automatically extracting its
   /// `exp` claim into [expiresAt] when present so `OmniAuth` can refresh
   /// proactively before expiry without waiting for a 401 round-trip.
-  factory Tokens.fromJwt(String access, {String? refresh}) =>
-      Tokens(access: access, refresh: refresh, expiresAt: jwtExpiration(access));
+  factory Tokens.fromJwt(String access, {String? refresh}) => Tokens(
+    access: access,
+    refresh: refresh,
+    expiresAt: jwtExpiration(access),
+  );
 
   /// Extracts the `exp` UTC timestamp from a JWT string, or `null` if invalid
   /// or absent.

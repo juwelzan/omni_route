@@ -83,9 +83,8 @@ final class OmniNetworkMetrics {
   final Map<String, EndpointMetrics> byEndpoint;
 
   /// Ratio of cache hits + revalidations to [totalRequests] (`0.0`..`1.0`).
-  double get cacheHitRate => totalRequests == 0
-      ? 0.0
-      : (cacheHits + revalidatedCount) / totalRequests;
+  double get cacheHitRate =>
+      totalRequests == 0 ? 0.0 : (cacheHits + revalidatedCount) / totalRequests;
 
   @override
   String toString() =>

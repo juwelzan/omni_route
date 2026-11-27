@@ -79,8 +79,11 @@ final class BasicAuth implements AuthProvider {
   final String _encoded;
 
   @override
-  BearerAuth bearerFor(OmniNetwork client) =>
-      BearerAuth(token: () => _encoded, scheme: 'Basic', headerName: headerName);
+  BearerAuth bearerFor(OmniNetwork client) => BearerAuth(
+    token: () => _encoded,
+    scheme: 'Basic',
+    headerName: headerName,
+  );
 }
 
 /// Signs every outgoing request using HMAC-SHA256 (`timestamp\nMETHOD\npath\nbody`).
@@ -120,7 +123,8 @@ final class HmacSignerAuth implements AuthProvider {
         Map() || List() || num() || bool() => jsonEncode(request.body),
         _ => '${request.body}',
       };
-      final canonical = '$ts\n${request.method.verb}\n${request.path}\n$bodyStr';
+      final canonical =
+          '$ts\n${request.method.verb}\n${request.path}\n$bodyStr';
       final mac = Hmac(sha256, utf8.encode(secret));
       final digest = mac.convert(utf8.encode(canonical)).toString();
       return request.copyWith(

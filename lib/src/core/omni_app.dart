@@ -245,13 +245,16 @@ class OmniApp extends StatefulWidget {
                  prev.dark != next.dark,
              resolveMode: (prev, next) => themeAnimation.effectiveModeFor(
                brightnessChanged: prev.brightness != next.brightness,
-               paletteChanged: prev.light != next.light || prev.dark != next.dark,
+               paletteChanged:
+                   prev.light != next.light || prev.dark != next.dark,
                styleChanged: false,
              ),
-             resolveDuration: (prev, next) => themeAnimation.effectiveDurationFor(
-               brightnessChanged: prev.brightness != next.brightness,
-               paletteChanged: prev.light != next.light || prev.dark != next.dark,
-             ),
+             resolveDuration: (prev, next) =>
+                 themeAnimation.effectiveDurationFor(
+                   brightnessChanged: prev.brightness != next.brightness,
+                   paletteChanged:
+                       prev.light != next.light || prev.dark != next.dark,
+                 ),
              resolveGlowColor: (next) =>
                  themeAnimation.edgeGlowColor ??
                  (next.brightness == Brightness.dark
@@ -421,10 +424,11 @@ class OmniApp extends StatefulWidget {
     return (context, child) {
       var current = child;
       if (syncMaterialBarTheme && current != null) {
-        final scope =
-            context.dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
+        final scope = context
+            .dependOnInheritedWidgetOfExactType<OmniSystemUiScope>();
         if (scope != null &&
-            (scope.effectiveStatusBar != const OmniStatusBarStyle.transparent() ||
+            (scope.effectiveStatusBar !=
+                    const OmniStatusBarStyle.transparent() ||
                 scope.effectiveSystemNavigationBar !=
                     const OmniSystemNavigationBarStyle.transparent() ||
                 scope.effectiveScreenMode != OmniScreenMode.edgeToEdge)) {
@@ -811,10 +815,7 @@ class _OmniAppState extends State<OmniApp> {
 
     final router = _router!;
     if (widget.maxBreadcrumbs != oldWidget.maxBreadcrumbs) {
-      OmniRoute.configureRuntime(
-        router,
-        maxBreadcrumbs: widget.maxBreadcrumbs,
-      );
+      OmniRoute.configureRuntime(router, maxBreadcrumbs: widget.maxBreadcrumbs);
     }
     _syncNavListener();
 
@@ -916,7 +917,10 @@ class _OmniAppState extends State<OmniApp> {
           ),
         );
       }
-      widget.onError?.call(details.exception, details.stack ?? StackTrace.empty);
+      widget.onError?.call(
+        details.exception,
+        details.stack ?? StackTrace.empty,
+      );
       _prevFlutterOnError?.call(details);
     };
     final dispatcher = PlatformDispatcher.instance;
@@ -1064,12 +1068,12 @@ class _OmniAppState extends State<OmniApp> {
                 systemNavigationBar: effectiveNavBar,
               )
             : (effectiveStatusBar != null || effectiveNavBar != null
-                ? resolveEffectiveOmniScreenMode(
-                    OmniScreenMode.edgeToEdge,
-                    statusBar: effectiveStatusBar,
-                    systemNavigationBar: effectiveNavBar,
-                  )
-                : null);
+                  ? resolveEffectiveOmniScreenMode(
+                      OmniScreenMode.edgeToEdge,
+                      statusBar: effectiveStatusBar,
+                      systemNavigationBar: effectiveNavBar,
+                    )
+                  : null);
         final hasRuntimeOrient =
             _systemUiController.orientations != null ||
             _systemUiController.orientation != null;
@@ -1096,7 +1100,8 @@ class _OmniAppState extends State<OmniApp> {
           screenMode: hasThemeHost ? null : effectiveScreenMode,
           statusBar: hasThemeHost ? null : effectiveStatusBar,
           systemNavigationBar: hasThemeHost ? null : effectiveNavBar,
-          brightness: !hasThemeHost &&
+          brightness:
+              !hasThemeHost &&
                   (effectiveStatusBar != null ||
                       effectiveNavBar != null ||
                       effectiveScreenMode != null)
@@ -1150,7 +1155,9 @@ class _OmniAppState extends State<OmniApp> {
         widget.initTimeout != null ||
         widget.splash != null ||
         widget.onInitError != null;
-    if (base == null && !hasSplashDirect && widget.resolveInitialRoute == null) {
+    if (base == null &&
+        !hasSplashDirect &&
+        widget.resolveInitialRoute == null) {
       return null;
     }
     final nextSplash = hasSplashDirect

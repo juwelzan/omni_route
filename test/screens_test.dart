@@ -154,8 +154,7 @@ class _SettingsParentScreen extends OmniStatelessWidget {
   Widget build(BuildContext context) => const Text('settings-parent');
 }
 
-class _UnhostedLifecycleScreen extends OmniStatelessWidget
-    with OmniLifecycle {
+class _UnhostedLifecycleScreen extends OmniStatelessWidget with OmniLifecycle {
   const _UnhostedLifecycleScreen({required this.log});
   final List<String> log;
 
@@ -163,9 +162,7 @@ class _UnhostedLifecycleScreen extends OmniStatelessWidget
   String get routePath => '/unhosted-feed';
 
   @override
-  List<Provide> get provide => [
-    Provide.bloc((_) => GlobalSessionCubit()),
-  ];
+  List<Provide> get provide => [Provide.bloc((_) => GlobalSessionCubit())];
 
   @override
   void onScreenVisible(BuildContext context) {
@@ -178,7 +175,8 @@ class _UnhostedLifecycleScreen extends OmniStatelessWidget
   }
 
   @override
-  Widget build(BuildContext context) => Text('feed:${context.bloc<GlobalSessionCubit>().state}');
+  Widget build(BuildContext context) =>
+      Text('feed:${context.bloc<GlobalSessionCubit>().state}');
 }
 
 class _StatefulUpgradesScreen extends OmniStatefulWidget {
@@ -190,11 +188,13 @@ class _StatefulUpgradesScreen extends OmniStatefulWidget {
 
   @override
   List<Provide> get provide => [
-    Provide.bloc((c) => LazyPageCubit(
-      OmniParams.of(c).pathInt('id'),
-      onCreate: () => log.add('cubit:create'),
-      onClose: () => log.add('cubit:close'),
-    )),
+    Provide.bloc(
+      (c) => LazyPageCubit(
+        OmniParams.of(c).pathInt('id'),
+        onCreate: () => log.add('cubit:create'),
+        onClose: () => log.add('cubit:close'),
+      ),
+    ),
   ];
 
   @override
@@ -211,7 +211,9 @@ class _StatefulUpgradesState extends OmniState<_StatefulUpgradesScreen> {
     // Both routeState and params must work safely inside initState!
     initRoutePath = routeState.routePath ?? 'missing';
     initParamId = params.path('id');
-    widget.log.add('init:$initRoutePath:$initParamId:${readBloc<LazyPageCubit>().state}');
+    widget.log.add(
+      'init:$initRoutePath:$initParamId:${readBloc<LazyPageCubit>().state}',
+    );
   }
 
   @override
@@ -238,10 +240,7 @@ class _StatefulUpgradesState extends OmniState<_StatefulUpgradesScreen> {
           onPressed: () => readBloc<LazyPageCubit>().inc(),
           child: const Text('inc'),
         ),
-        TextButton(
-          onPressed: () => pop('done'),
-          child: const Text('close'),
-        ),
+        TextButton(onPressed: () => pop('done'), child: const Text('close')),
       ],
     );
   }
@@ -335,14 +334,15 @@ void main() {
       expect(d.metadata.type, DashboardScreen);
     });
 
-    testWidgets('follows Flutter State lifecycle and maybeRouteState outside route', (
-      t,
-    ) async {
-      await t.pumpWidget(const DashboardScreen(label: 'a'));
-      await t.pumpWidget(const DashboardScreen(label: 'b'));
-      await t.pumpWidget(const SizedBox());
-      expect(events, ['init:/dashboard', 'deps', 'update:a->b', 'dispose']);
-    });
+    testWidgets(
+      'follows Flutter State lifecycle and maybeRouteState outside route',
+      (t) async {
+        await t.pumpWidget(const DashboardScreen(label: 'a'));
+        await t.pumpWidget(const DashboardScreen(label: 'b'));
+        await t.pumpWidget(const SizedBox());
+        expect(events, ['init:/dashboard', 'deps', 'update:a->b', 'dispose']);
+      },
+    );
 
     testWidgets(
       'OmniState provides initState-safe params/routeState, onReady, onRouteChanged, bloc & safeSetState',
@@ -491,9 +491,7 @@ void main() {
         await t.pumpWidget(
           OmniApp(
             routes: [
-              OmniPage.screen(
-                _HomeRootScreen(onRegistryCheck: (r) => reg = r),
-              ),
+              OmniPage.screen(_HomeRootScreen(onRegistryCheck: (r) => reg = r)),
               OmniPage(
                 '/page-bloc',
                 (_) => Builder(
@@ -540,7 +538,8 @@ void main() {
               OmniPage(
                 '/',
                 (_) => Builder(
-                  builder: (c) => Text('sess:${c.bloc<GlobalSessionCubit>().state}'),
+                  builder: (c) =>
+                      Text('sess:${c.bloc<GlobalSessionCubit>().state}'),
                 ),
               ),
             ],

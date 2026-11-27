@@ -2071,6 +2071,19 @@ class _OmniRouterHostState extends State<_OmniRouterHost>
   }
 
   @override
+  void didUpdateWidget(_OmniRouterHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.router, widget.router)) return;
+    // A different router (hot reload, or one built in a parent's build):
+    // follow the new one instead of rendering a stale stack.
+    oldWidget.router.removeListener(_onRouterChanged);
+    widget.router
+      ..addListener(_onRouterChanged)
+      .._attachHost(context)
+      .._runInitialGuardsIfNeeded();
+  }
+
+  @override
   void restoreState(RestorationBucket? oldBucket, bool initialRestore) {
     registerForRestoration(_savedStack, '_omni_router_stack');
     if (!_restored) {

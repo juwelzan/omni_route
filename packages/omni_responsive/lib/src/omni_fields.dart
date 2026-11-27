@@ -803,7 +803,10 @@ class OmniFieldTheme extends ThemeExtension<OmniFieldTheme> {
   );
 
   @override
-  OmniFieldTheme lerp(covariant ThemeExtension<OmniFieldTheme>? other, double t) {
+  OmniFieldTheme lerp(
+    covariant ThemeExtension<OmniFieldTheme>? other,
+    double t,
+  ) {
     if (other is! OmniFieldTheme) return this;
     return OmniFieldTheme(
       variant: t < 0.5 ? variant : other.variant,
@@ -811,16 +814,23 @@ class OmniFieldTheme extends ThemeExtension<OmniFieldTheme> {
       labelSpacing: labelSpacing + (other.labelSpacing - labelSpacing) * t,
       borderRadius: t < 0.5 ? borderRadius : other.borderRadius,
       borderWidth: t < 0.5 ? borderWidth : other.borderWidth,
-      focusedBorderWidth:
-          t < 0.5 ? focusedBorderWidth : other.focusedBorderWidth,
+      focusedBorderWidth: t < 0.5
+          ? focusedBorderWidth
+          : other.focusedBorderWidth,
       fillColor: Color.lerp(fillColor, other.fillColor, t),
       darkFillColor: Color.lerp(darkFillColor, other.darkFillColor, t),
       borderColor: Color.lerp(borderColor, other.borderColor, t),
       darkBorderColor: Color.lerp(darkBorderColor, other.darkBorderColor, t),
-      focusedBorderColor:
-          Color.lerp(focusedBorderColor, other.focusedBorderColor, t),
-      darkFocusedBorderColor:
-          Color.lerp(darkFocusedBorderColor, other.darkFocusedBorderColor, t),
+      focusedBorderColor: Color.lerp(
+        focusedBorderColor,
+        other.focusedBorderColor,
+        t,
+      ),
+      darkFocusedBorderColor: Color.lerp(
+        darkFocusedBorderColor,
+        other.darkFocusedBorderColor,
+        t,
+      ),
       errorColor: Color.lerp(errorColor, other.errorColor, t),
       successColor: Color.lerp(successColor, other.successColor, t),
       labelColor: Color.lerp(labelColor, other.labelColor, t),
@@ -836,8 +846,9 @@ class OmniFieldTheme extends ThemeExtension<OmniFieldTheme> {
       ),
       isDense: t < 0.5 ? isDense : other.isDense,
       showClearButton: t < 0.5 ? showClearButton : other.showClearButton,
-      showValidationIcons:
-          t < 0.5 ? showValidationIcons : other.showValidationIcons,
+      showValidationIcons: t < 0.5
+          ? showValidationIcons
+          : other.showValidationIcons,
       autovalidateMode: t < 0.5 ? autovalidateMode : other.autovalidateMode,
       otpBoxStyle: t < 0.5 ? otpBoxStyle : other.otpBoxStyle,
       otpBoxWidth: otpBoxWidth + (other.otpBoxWidth - otpBoxWidth) * t,
@@ -949,72 +960,333 @@ class OmniFieldThemeScope extends InheritedWidget {
 }
 
 const Map<String, OmniText> _omniFieldBuiltInTexts = <String, OmniText>{
-  'Email': OmniText(en: 'Email', bn: 'ইমেইল', ar: 'البريد الإلكتروني', hi: 'ईमेल'),
+  'Email': OmniText(
+    en: 'Email',
+    bn: 'ইমেইল',
+    ar: 'البريد الإلكتروني',
+    hi: 'ईमेल',
+  ),
   'Gmail': OmniText(en: 'Gmail', bn: 'জিমেইল', ar: 'جيميل', hi: 'जीमेल'),
-  'Password': OmniText(en: 'Password', bn: 'পাসওয়ার্ড', ar: 'كلمة المرور', hi: 'पासवर्ड'),
-  'New Password': OmniText(en: 'New Password', bn: 'নতুন পাসওয়ার্ড', ar: 'كلمة مرور جديدة', hi: 'नया पासवर्ड'),
-  'Confirm Password': OmniText(en: 'Confirm Password', bn: 'পাসওয়ার্ড নিশ্চিত করুন', ar: 'تأكيد كلمة المرور', hi: 'पासवर्ड की पुष्टि करें'),
-  'Full Name': OmniText(en: 'Full Name', bn: 'পূর্ণ নাম', ar: 'الاسم الكامل', hi: 'पूरा नाम'),
-  'First Name': OmniText(en: 'First Name', bn: 'নামের প্রথম অংশ', ar: 'الاسم الأول', hi: 'पहला नाम'),
-  'Last Name': OmniText(en: 'Last Name', bn: 'নামের শেষ অংশ', ar: 'اسم العائلة', hi: 'अंतिम नाम'),
-  'Username': OmniText(en: 'Username', bn: 'ইউজারনেম', ar: 'اسم المستخدم', hi: 'यूज़रनेम'),
-  'Mobile Number': OmniText(en: 'Mobile Number', bn: 'মোবাইল নাম্বার', ar: 'رقم الجوال', hi: 'मोबाइल नंबर'),
-  'Phone Number': OmniText(en: 'Phone Number', bn: 'ফোন নাম্বার', ar: 'رقم الهاتف', hi: 'फ़ोन नंबर'),
+  'Password': OmniText(
+    en: 'Password',
+    bn: 'পাসওয়ার্ড',
+    ar: 'كلمة المرور',
+    hi: 'पासवर्ड',
+  ),
+  'New Password': OmniText(
+    en: 'New Password',
+    bn: 'নতুন পাসওয়ার্ড',
+    ar: 'كلمة مرور جديدة',
+    hi: 'नया पासवर्ड',
+  ),
+  'Confirm Password': OmniText(
+    en: 'Confirm Password',
+    bn: 'পাসওয়ার্ড নিশ্চিত করুন',
+    ar: 'تأكيد كلمة المرور',
+    hi: 'पासवर्ड की पुष्टि करें',
+  ),
+  'Full Name': OmniText(
+    en: 'Full Name',
+    bn: 'পূর্ণ নাম',
+    ar: 'الاسم الكامل',
+    hi: 'पूरा नाम',
+  ),
+  'First Name': OmniText(
+    en: 'First Name',
+    bn: 'নামের প্রথম অংশ',
+    ar: 'الاسم الأول',
+    hi: 'पहला नाम',
+  ),
+  'Last Name': OmniText(
+    en: 'Last Name',
+    bn: 'নামের শেষ অংশ',
+    ar: 'اسم العائلة',
+    hi: 'अंतिम नाम',
+  ),
+  'Username': OmniText(
+    en: 'Username',
+    bn: 'ইউজারনেম',
+    ar: 'اسم المستخدم',
+    hi: 'यूज़रनेम',
+  ),
+  'Mobile Number': OmniText(
+    en: 'Mobile Number',
+    bn: 'মোবাইল নাম্বার',
+    ar: 'رقم الجوال',
+    hi: 'मोबाइल नंबर',
+  ),
+  'Phone Number': OmniText(
+    en: 'Phone Number',
+    bn: 'ফোন নাম্বার',
+    ar: 'رقم الهاتف',
+    hi: 'फ़ोन नंबर',
+  ),
   'Number': OmniText(en: 'Number', bn: 'সংখ্যা', ar: 'رقم', hi: 'संख्या'),
-  'Quantity': OmniText(en: 'Quantity', bn: 'পরিমাণ', ar: 'الكمية', hi: 'मात्रा'),
-  'Decimal Value': OmniText(en: 'Decimal Value', bn: 'দশমিক মান', ar: 'قيمة عشرية', hi: 'दशमलव मान'),
-  'Amount': OmniText(en: 'Amount', bn: 'টাকার পরিমাণ', ar: 'المبلغ', hi: 'राशि'),
-  'Verification Code': OmniText(en: 'Verification Code', bn: 'ভেরিফিকেশন কোড', ar: 'رمز التحقق', hi: 'सत्यापन कोड'),
+  'Quantity': OmniText(
+    en: 'Quantity',
+    bn: 'পরিমাণ',
+    ar: 'الكمية',
+    hi: 'मात्रा',
+  ),
+  'Decimal Value': OmniText(
+    en: 'Decimal Value',
+    bn: 'দশমিক মান',
+    ar: 'قيمة عشرية',
+    hi: 'दशमलव मान',
+  ),
+  'Amount': OmniText(
+    en: 'Amount',
+    bn: 'টাকার পরিমাণ',
+    ar: 'المبلغ',
+    hi: 'राशि',
+  ),
+  'Verification Code': OmniText(
+    en: 'Verification Code',
+    bn: 'ভেরিফিকেশন কোড',
+    ar: 'رمز التحقق',
+    hi: 'सत्यापन कोड',
+  ),
   'Search': OmniText(en: 'Search', bn: 'খুঁজুন', ar: 'بحث', hi: 'खोजें'),
   'Notes': OmniText(en: 'Notes', bn: 'নোটস', ar: 'ملاحظات', hi: 'नोट्स'),
-  'Website URL': OmniText(en: 'Website URL', bn: 'ওয়েবসাইট লিংক', ar: 'رابط الموقع', hi: 'वेबसाइट लिंक'),
+  'Website URL': OmniText(
+    en: 'Website URL',
+    bn: 'ওয়েবসাইট লিংক',
+    ar: 'رابط الموقع',
+    hi: 'वेबसाइट लिंक',
+  ),
   'Text': OmniText(en: 'Text', bn: 'টেক্সট', ar: 'نص', hi: 'टेक्स्ट'),
-  'Enter password': OmniText(en: 'Enter password', bn: 'পাসওয়ার্ড দিন', ar: 'أدخل كلمة المرور', hi: 'पासवर्ड दर्ज करें'),
-  'Create a strong password': OmniText(en: 'Create a strong password', bn: 'শক্তিশালী পাসওয়ার্ড তৈরি করুন', ar: 'أنشئ كلمة مرور قوية', hi: 'मजबूत पासवर्ड बनाएं'),
-  'Re-enter password': OmniText(en: 'Re-enter password', bn: 'পুনরায় পাসওয়ার্ড দিন', ar: 'أعد إدخال كلمة المرور', hi: 'पासवर्ड दोबारा दर्ज करें'),
-  'Enter your name': OmniText(en: 'Enter your name', bn: 'আপনার নাম লিখুন', ar: 'أدخل اسمك', hi: 'अपना नाम दर्ज करें'),
-  'Enter text': OmniText(en: 'Enter text', bn: 'টেক্সট লিখুন', ar: 'أدخل النص', hi: 'टेक्स्ट दर्ज करें'),
-  'Search...': OmniText(en: 'Search...', bn: 'খুঁজুন...', ar: 'ابحث...', hi: 'खोजें...'),
-  'Write here...': OmniText(en: 'Write here...', bn: 'এখানে লিখুন...', ar: 'اكتب هنا...', hi: 'यहाँ लिखें...'),
-  'Verify': OmniText(en: 'Verify', bn: 'যাচাই করুন', ar: 'تحقق', hi: 'सत्यापित करें'),
-  'Verified': OmniText(en: 'Verified', bn: 'যাচাইকৃত', ar: 'تم التحقق', hi: 'सत्यापित'),
-  'OTP Verified': OmniText(en: 'OTP Verified', bn: 'OTP যাচাই সম্পন্ন', ar: 'تم التحقق من الرمز', hi: 'OTP सत्यापित'),
-  'Verifying...': OmniText(en: 'Verifying...', bn: 'যাচাই হচ্ছে...', ar: 'جاري التحقق...', hi: 'सत्यापन हो रहा है...'),
-  'Resend Code': OmniText(en: 'Resend Code', bn: 'পুনরায় কোড পাঠান', ar: 'إعادة إرسال الرمز', hi: 'कोड पुनः भेजें'),
-  'Select Country Code': OmniText(en: 'Select Country Code', bn: 'দেশের কোড বাছাই করুন', ar: 'اختر رمز الدولة', hi: 'देश कोड चुनें'),
+  'Enter password': OmniText(
+    en: 'Enter password',
+    bn: 'পাসওয়ার্ড দিন',
+    ar: 'أدخل كلمة المرور',
+    hi: 'पासवर्ड दर्ज करें',
+  ),
+  'Create a strong password': OmniText(
+    en: 'Create a strong password',
+    bn: 'শক্তিশালী পাসওয়ার্ড তৈরি করুন',
+    ar: 'أنشئ كلمة مرور قوية',
+    hi: 'मजबूत पासवर्ड बनाएं',
+  ),
+  'Re-enter password': OmniText(
+    en: 'Re-enter password',
+    bn: 'পুনরায় পাসওয়ার্ড দিন',
+    ar: 'أعد إدخال كلمة المرور',
+    hi: 'पासवर्ड दोबारा दर्ज करें',
+  ),
+  'Enter your name': OmniText(
+    en: 'Enter your name',
+    bn: 'আপনার নাম লিখুন',
+    ar: 'أدخل اسمك',
+    hi: 'अपना नाम दर्ज करें',
+  ),
+  'Enter text': OmniText(
+    en: 'Enter text',
+    bn: 'টেক্সট লিখুন',
+    ar: 'أدخل النص',
+    hi: 'टेक्स्ट दर्ज करें',
+  ),
+  'Search...': OmniText(
+    en: 'Search...',
+    bn: 'খুঁজুন...',
+    ar: 'ابحث...',
+    hi: 'खोजें...',
+  ),
+  'Write here...': OmniText(
+    en: 'Write here...',
+    bn: 'এখানে লিখুন...',
+    ar: 'اكتب هنا...',
+    hi: 'यहाँ लिखें...',
+  ),
+  'Verify': OmniText(
+    en: 'Verify',
+    bn: 'যাচাই করুন',
+    ar: 'تحقق',
+    hi: 'सत्यापित करें',
+  ),
+  'Verified': OmniText(
+    en: 'Verified',
+    bn: 'যাচাইকৃত',
+    ar: 'تم التحقق',
+    hi: 'सत्यापित',
+  ),
+  'OTP Verified': OmniText(
+    en: 'OTP Verified',
+    bn: 'OTP যাচাই সম্পন্ন',
+    ar: 'تم التحقق من الرمز',
+    hi: 'OTP सत्यापित',
+  ),
+  'Verifying...': OmniText(
+    en: 'Verifying...',
+    bn: 'যাচাই হচ্ছে...',
+    ar: 'جاري التحقق...',
+    hi: 'सत्यापन हो रहा है...',
+  ),
+  'Resend Code': OmniText(
+    en: 'Resend Code',
+    bn: 'পুনরায় কোড পাঠান',
+    ar: 'إعادة إرسال الرمز',
+    hi: 'कोड पुनः भेजें',
+  ),
+  'Select Country Code': OmniText(
+    en: 'Select Country Code',
+    bn: 'দেশের কোড বাছাই করুন',
+    ar: 'اختر رمز الدولة',
+    hi: 'देश कोड चुनें',
+  ),
   'Weak': OmniText(en: 'Weak', bn: 'দুর্বল', ar: 'ضعيف', hi: 'कमज़ोर'),
   'Fair': OmniText(en: 'Fair', bn: 'মোটামুটি', ar: 'مقبول', hi: 'ठीक'),
   'Good': OmniText(en: 'Good', bn: 'ভালো', ar: 'جيد', hi: 'अच्छा'),
   'Strong': OmniText(en: 'Strong', bn: 'শক্তিশালী', ar: 'قوي', hi: 'मज़बूत'),
-  'This field is required': OmniText(en: 'This field is required', bn: 'এই ঘরটি পূরণ করা আবশ্যক', ar: 'هذا الحقل مطلوب', hi: 'यह फ़ील्ड आवश्यक है'),
-  'Please enter an email address': OmniText(en: 'Please enter an email address', bn: 'অনুগ্রহ করে ইমেইল ঠিকানা দিন', ar: 'الرجاء إدخال البريد الإلكتروني', hi: 'कृपया ईमेल पता दर्ज करें'),
-  'Please enter a valid email address': OmniText(en: 'Please enter a valid email address', bn: 'সঠিক ইমেইল ঠিকানা দিন', ar: 'الرجاء إدخال بريد إلكتروني صحيح', hi: 'कृपया सही ईमेल पता दर्ज करें'),
-  'Please enter a valid Gmail address (@gmail.com)': OmniText(en: 'Please enter a valid Gmail address (@gmail.com)', bn: 'সঠিক জিমেইল ঠিকানা (@gmail.com) দিন', ar: 'الرجاء إدخال عنوان Gmail صحيح', hi: 'कृपया सही Gmail पता (@gmail.com) दर्ज करें'),
-  'Please enter your Gmail address': OmniText(en: 'Please enter your Gmail address', bn: 'আপনার জিমেইল ঠিকানা দিন', ar: 'الرجاء إدخال بريدك على Gmail', hi: 'कृपया अपना Gmail पता दर्ज करें'),
-  'Please enter a valid @gmail.com address': OmniText(en: 'Please enter a valid @gmail.com address', bn: 'সঠিক @gmail.com ঠিকানা দিন', ar: 'الرجاء إدخال عنوان @gmail.com صحيح', hi: 'कृपया सही @gmail.com पता दर्ज करें'),
-  'Please enter a password': OmniText(en: 'Please enter a password', bn: 'অনুগ্রহ করে পাসওয়ার্ড দিন', ar: 'الرجاء إدخال كلمة المرور', hi: 'कृपया पासवर्ड दर्ज करें'),
-  'Please confirm your password': OmniText(en: 'Please confirm your password', bn: 'পাসওয়ার্ডটি পুনরায় নিশ্চিত করুন', ar: 'يرجى تأكيد كلمة المرور', hi: 'कृपया पासवर्ड की पुष्टि करें'),
-  'Passwords do not match': OmniText(en: 'Passwords do not match', bn: 'পাসওয়ার্ড দুটি মেলেনি', ar: 'كلمتا المرور غير متطابقتين', hi: 'पासवर्ड मेल नहीं खाते'),
-  'Include at least 1 uppercase letter': OmniText(en: 'Include at least 1 uppercase letter', bn: 'কমপক্ষে ১টি বড় হাতের অক্ষর (A-Z) দিন', ar: 'أضف حرفاً كبيراً واحداً على الأقل', hi: 'कम से कम 1 बड़ा अक्षर शामिल करें'),
-  'Include at least 1 lowercase letter': OmniText(en: 'Include at least 1 lowercase letter', bn: 'কমপক্ষে ১টি ছোট হাতের অক্ষর (a-z) দিন', ar: 'أضف حرفاً صغيراً واحداً على الأقل', hi: 'कम से कम 1 छोटा अक्षर शामिल करें'),
-  'Include at least 1 number': OmniText(en: 'Include at least 1 number', bn: 'কমপক্ষে ১টি সংখ্যা (0-9) দিন', ar: 'أضف رقماً واحداً على الأقل', hi: 'कम से कम 1 संख्या शामिल करें'),
-  'Include at least 1 special character': OmniText(en: 'Include at least 1 special character', bn: 'কমপক্ষে ১টি বিশেষ চিহ্ন (!@#) দিন', ar: 'أضف رمزاً خاصاً واحداً على الأقل', hi: 'कम से कम 1 विशेष चिह्न शामिल करें'),
-  'Please enter a name': OmniText(en: 'Please enter a name', bn: 'অনুগ্রহ করে নাম লিখুন', ar: 'الرجاء إدخال الاسم', hi: 'कृपया नाम दर्ज करें'),
-  'Spaces are not allowed': OmniText(en: 'Spaces are not allowed', bn: 'স্পেস ব্যবহার করা যাবে না', ar: 'غير مسموح بالمسافات', hi: 'स्पेस की अनुमति नहीं है'),
-  'Numbers are not allowed in name': OmniText(en: 'Numbers are not allowed in name', bn: 'নামে কোনো সংখ্যা দেওয়া যাবে না', ar: 'الأرقام غير مسموح بها في الاسم', hi: 'नाम में संख्या की अनुमति नहीं है'),
-  'Please enter a phone number': OmniText(en: 'Please enter a phone number', bn: 'মোবাইল নাম্বার দিন', ar: 'الرجاء إدخال رقم الهاتف', hi: 'कृपया फ़ोन नंबर दर्ज करें'),
-  'Enter a valid Bangladesh number (e.g. 01712-345678)': OmniText(en: 'Enter a valid Bangladesh number (e.g. 01712-345678)', bn: 'সঠিক বাংলাদেশি নাম্বার দিন (যেমন ০১৭১২-৩৪৫৬৭৮)', ar: 'أدخل رقم بنغلاديش صحيحاً', hi: 'सही बांग्लादेश नंबर दर्ज करें'),
-  'Verification code must contain only digits': OmniText(en: 'Verification code must contain only digits', bn: 'কোডে শুধুমাত্র সংখ্যা (0-9) থাকতে হবে', ar: 'يجب أن يحتوي الرمز على أرقام فقط', hi: 'सत्यापन कोड में केवल अंक होने चाहिए'),
-  'Please enter a number': OmniText(en: 'Please enter a number', bn: 'একটি সংখ্যা দিন', ar: 'الرجاء إدخال رقم', hi: 'कृपया संख्या दर्ज करें'),
-  'Please enter a valid number': OmniText(en: 'Please enter a valid number', bn: 'সঠিক সংখ্যা দিন', ar: 'الرجاء إدخال رقم صحيح', hi: 'कृपया सही संख्या दर्ज करें'),
-  'Negative values are not allowed': OmniText(en: 'Negative values are not allowed', bn: 'ঋণাত্মক সংখ্যা নেওয়া যাবে না', ar: 'القيم السالبة غير مسموح بها', hi: 'ऋणात्मक मान अनुमत नहीं हैं'),
-  'Please enter a URL': OmniText(en: 'Please enter a URL', bn: 'ওয়েবসাইট লিংক দিন', ar: 'الرجاء إدخال الرابط', hi: 'कृपया URL दर्ज करें'),
-  'Please enter a valid URL (e.g. https://site.com)': OmniText(en: 'Please enter a valid URL (e.g. https://site.com)', bn: 'সঠিক URL লিংক দিন (যেমন https://site.com)', ar: 'الرجاء إدخال رابط صحيح', hi: 'कृपया सही URL दर्ज करें'),
+  'This field is required': OmniText(
+    en: 'This field is required',
+    bn: 'এই ঘরটি পূরণ করা আবশ্যক',
+    ar: 'هذا الحقل مطلوب',
+    hi: 'यह फ़ील्ड आवश्यक है',
+  ),
+  'Please enter an email address': OmniText(
+    en: 'Please enter an email address',
+    bn: 'অনুগ্রহ করে ইমেইল ঠিকানা দিন',
+    ar: 'الرجاء إدخال البريد الإلكتروني',
+    hi: 'कृपया ईमेल पता दर्ज करें',
+  ),
+  'Please enter a valid email address': OmniText(
+    en: 'Please enter a valid email address',
+    bn: 'সঠিক ইমেইল ঠিকানা দিন',
+    ar: 'الرجاء إدخال بريد إلكتروني صحيح',
+    hi: 'कृपया सही ईमेल पता दर्ज करें',
+  ),
+  'Please enter a valid Gmail address (@gmail.com)': OmniText(
+    en: 'Please enter a valid Gmail address (@gmail.com)',
+    bn: 'সঠিক জিমেইল ঠিকানা (@gmail.com) দিন',
+    ar: 'الرجاء إدخال عنوان Gmail صحيح',
+    hi: 'कृपया सही Gmail पता (@gmail.com) दर्ज करें',
+  ),
+  'Please enter your Gmail address': OmniText(
+    en: 'Please enter your Gmail address',
+    bn: 'আপনার জিমেইল ঠিকানা দিন',
+    ar: 'الرجاء إدخال بريدك على Gmail',
+    hi: 'कृपया अपना Gmail पता दर्ज करें',
+  ),
+  'Please enter a valid @gmail.com address': OmniText(
+    en: 'Please enter a valid @gmail.com address',
+    bn: 'সঠিক @gmail.com ঠিকানা দিন',
+    ar: 'الرجاء إدخال عنوان @gmail.com صحيح',
+    hi: 'कृपया सही @gmail.com पता दर्ज करें',
+  ),
+  'Please enter a password': OmniText(
+    en: 'Please enter a password',
+    bn: 'অনুগ্রহ করে পাসওয়ার্ড দিন',
+    ar: 'الرجاء إدخال كلمة المرور',
+    hi: 'कृपया पासवर्ड दर्ज करें',
+  ),
+  'Please confirm your password': OmniText(
+    en: 'Please confirm your password',
+    bn: 'পাসওয়ার্ডটি পুনরায় নিশ্চিত করুন',
+    ar: 'يرجى تأكيد كلمة المرور',
+    hi: 'कृपया पासवर्ड की पुष्टि करें',
+  ),
+  'Passwords do not match': OmniText(
+    en: 'Passwords do not match',
+    bn: 'পাসওয়ার্ড দুটি মেলেনি',
+    ar: 'كلمتا المرور غير متطابقتين',
+    hi: 'पासवर्ड मेल नहीं खाते',
+  ),
+  'Include at least 1 uppercase letter': OmniText(
+    en: 'Include at least 1 uppercase letter',
+    bn: 'কমপক্ষে ১টি বড় হাতের অক্ষর (A-Z) দিন',
+    ar: 'أضف حرفاً كبيراً واحداً على الأقل',
+    hi: 'कम से कम 1 बड़ा अक्षर शामिल करें',
+  ),
+  'Include at least 1 lowercase letter': OmniText(
+    en: 'Include at least 1 lowercase letter',
+    bn: 'কমপক্ষে ১টি ছোট হাতের অক্ষর (a-z) দিন',
+    ar: 'أضف حرفاً صغيراً واحداً على الأقل',
+    hi: 'कम से कम 1 छोटा अक्षर शामिल करें',
+  ),
+  'Include at least 1 number': OmniText(
+    en: 'Include at least 1 number',
+    bn: 'কমপক্ষে ১টি সংখ্যা (0-9) দিন',
+    ar: 'أضف رقماً واحداً على الأقل',
+    hi: 'कम से कम 1 संख्या शामिल करें',
+  ),
+  'Include at least 1 special character': OmniText(
+    en: 'Include at least 1 special character',
+    bn: 'কমপক্ষে ১টি বিশেষ চিহ্ন (!@#) দিন',
+    ar: 'أضف رمزاً خاصاً واحداً على الأقل',
+    hi: 'कम से कम 1 विशेष चिह्न शामिल करें',
+  ),
+  'Please enter a name': OmniText(
+    en: 'Please enter a name',
+    bn: 'অনুগ্রহ করে নাম লিখুন',
+    ar: 'الرجاء إدخال الاسم',
+    hi: 'कृपया नाम दर्ज करें',
+  ),
+  'Spaces are not allowed': OmniText(
+    en: 'Spaces are not allowed',
+    bn: 'স্পেস ব্যবহার করা যাবে না',
+    ar: 'غير مسموح بالمسافات',
+    hi: 'स्पेस की अनुमति नहीं है',
+  ),
+  'Numbers are not allowed in name': OmniText(
+    en: 'Numbers are not allowed in name',
+    bn: 'নামে কোনো সংখ্যা দেওয়া যাবে না',
+    ar: 'الأرقام غير مسموح بها في الاسم',
+    hi: 'नाम में संख्या की अनुमति नहीं है',
+  ),
+  'Please enter a phone number': OmniText(
+    en: 'Please enter a phone number',
+    bn: 'মোবাইল নাম্বার দিন',
+    ar: 'الرجاء إدخال رقم الهاتف',
+    hi: 'कृपया फ़ोन नंबर दर्ज करें',
+  ),
+  'Enter a valid Bangladesh number (e.g. 01712-345678)': OmniText(
+    en: 'Enter a valid Bangladesh number (e.g. 01712-345678)',
+    bn: 'সঠিক বাংলাদেশি নাম্বার দিন (যেমন ০১৭১২-৩৪৫৬৭৮)',
+    ar: 'أدخل رقم بنغلاديش صحيحاً',
+    hi: 'सही बांग्लादेश नंबर दर्ज करें',
+  ),
+  'Verification code must contain only digits': OmniText(
+    en: 'Verification code must contain only digits',
+    bn: 'কোডে শুধুমাত্র সংখ্যা (0-9) থাকতে হবে',
+    ar: 'يجب أن يحتوي الرمز على أرقام فقط',
+    hi: 'सत्यापन कोड में केवल अंक होने चाहिए',
+  ),
+  'Please enter a number': OmniText(
+    en: 'Please enter a number',
+    bn: 'একটি সংখ্যা দিন',
+    ar: 'الرجاء إدخال رقم',
+    hi: 'कृपया संख्या दर्ज करें',
+  ),
+  'Please enter a valid number': OmniText(
+    en: 'Please enter a valid number',
+    bn: 'সঠিক সংখ্যা দিন',
+    ar: 'الرجاء إدخال رقم صحيح',
+    hi: 'कृपया सही संख्या दर्ज करें',
+  ),
+  'Negative values are not allowed': OmniText(
+    en: 'Negative values are not allowed',
+    bn: 'ঋণাত্মক সংখ্যা নেওয়া যাবে না',
+    ar: 'القيم السالبة غير مسموح بها',
+    hi: 'ऋणात्मक मान अनुमत नहीं हैं',
+  ),
+  'Please enter a URL': OmniText(
+    en: 'Please enter a URL',
+    bn: 'ওয়েবসাইট লিংক দিন',
+    ar: 'الرجاء إدخال الرابط',
+    hi: 'कृपया URL दर्ज करें',
+  ),
+  'Please enter a valid URL (e.g. https://site.com)': OmniText(
+    en: 'Please enter a valid URL (e.g. https://site.com)',
+    bn: 'সঠিক URL লিংক দিন (যেমন https://site.com)',
+    ar: 'الرجاء إدخال رابط صحيح',
+    hi: 'कृपया सही URL दर्ज करें',
+  ),
 };
 
 String _trField(String raw, [OmniLocaleState? state]) {
   final effectiveState = state ?? OmniText.state;
-  if (effectiveState.language.languageCode == 'en' && !effectiveState.useLocaleDigits) {
+  if (effectiveState.language.languageCode == 'en' &&
+      !effectiveState.useLocaleDigits) {
     return raw;
   }
   final entry = _omniFieldBuiltInTexts[raw];
@@ -1029,13 +1301,7 @@ String _trDynamic({
   required String bn,
   String? ar,
   String? hi,
-}) => OmniText.resolveTextFor(
-  OmniText.state,
-  en: en,
-  bn: bn,
-  ar: ar,
-  hi: hi,
-);
+}) => OmniText.resolveTextFor(OmniText.state, en: en, bn: bn, ar: ar, hi: hi);
 
 /// প্রি-ডিফাইনড ফিল্ডগুলোর কমন স্ট্যান্ড-অ্যালোন ভ্যালিডেশন ও পার্সিং ইউটিলিটি।
 abstract final class OmniValidators {
@@ -1062,7 +1328,8 @@ abstract final class OmniValidators {
     List<String>? allowedDomains,
     String requiredMessage = 'Please enter an email address',
     String invalidEmailMessage = 'Please enter a valid email address',
-    String invalidGmailMessage = 'Please enter a valid Gmail address (@gmail.com)',
+    String invalidGmailMessage =
+        'Please enter a valid Gmail address (@gmail.com)',
   }) {
     final trimmed = value?.trim() ?? '';
     if (trimmed.isEmpty) return required ? _trField(requiredMessage) : null;
@@ -1073,7 +1340,9 @@ abstract final class OmniValidators {
     }
     if (allowedDomains != null && allowedDomains.isNotEmpty) {
       final atIdx = trimmed.lastIndexOf('@');
-      final domain = atIdx >= 0 ? trimmed.substring(atIdx + 1).toLowerCase() : '';
+      final domain = atIdx >= 0
+          ? trimmed.substring(atIdx + 1).toLowerCase()
+          : '';
       final matched = allowedDomains.any(
         (d) => d.trim().toLowerCase().replaceFirst('@', '') == domain,
       );
@@ -1146,8 +1415,7 @@ abstract final class OmniValidators {
     if (password.isEmpty) return 0;
     var score = 0;
     if (password.length >= minLength) score++;
-    if (_reLower.hasMatch(password) &&
-        _reUpper.hasMatch(password)) {
+    if (_reLower.hasMatch(password) && _reUpper.hasMatch(password)) {
       score++;
     }
     if (_reDigit.hasMatch(password)) score++;
@@ -1406,7 +1674,11 @@ class OmniCountryDialCode {
 
     final buf = StringBuffer();
     var dIdx = 0;
-    for (var mIdx = 0; mIdx < activeMask.length && dIdx < digits.length; mIdx++) {
+    for (
+      var mIdx = 0;
+      mIdx < activeMask.length && dIdx < digits.length;
+      mIdx++
+    ) {
       final ch = activeMask[mIdx];
       if (ch == '#') {
         buf.write(digits[dIdx]);
@@ -1600,7 +1872,8 @@ class _ResolvedFieldConfig {
     final variant =
         local?.variant ?? idStyle?.variant ?? shared.variant ?? defaultVariant;
 
-    final rawRadius = local?.borderRadius ?? idStyle?.borderRadius ?? shared.borderRadius;
+    final rawRadius =
+        local?.borderRadius ?? idStyle?.borderRadius ?? shared.borderRadius;
     final borderRadius = rawRadius != null
         ? BorderRadius.all(Radius.circular(rawRadius))
         : ui.styles.inputRadius;
@@ -1644,7 +1917,10 @@ class _ResolvedFieldConfig {
 
     final focusedBorderColor =
         pickMode(local?.focusedBorderColor, local?.darkFocusedBorderColor) ??
-        pickMode(idStyle?.focusedBorderColor, idStyle?.darkFocusedBorderColor) ??
+        pickMode(
+          idStyle?.focusedBorderColor,
+          idStyle?.darkFocusedBorderColor,
+        ) ??
         pickMode(local?.accentColor, local?.darkAccentColor) ??
         pickMode(idStyle?.accentColor, idStyle?.darkAccentColor) ??
         pickMode(shared.focusedBorderColor, shared.darkFocusedBorderColor) ??
@@ -1677,8 +1953,7 @@ class _ResolvedFieldConfig {
         idStyle?.hintStyle ??
         ui.text.hint.copyWith(color: resolvedHintColor);
 
-    final textStyle =
-        local?.textStyle ?? idStyle?.textStyle ?? ui.text.body;
+    final textStyle = local?.textStyle ?? idStyle?.textStyle ?? ui.text.body;
 
     final iconBaseColor =
         pickMode(shared.iconColor, shared.darkIconColor) ?? ui.colors.iconColor;
@@ -2172,7 +2447,9 @@ class _OmniTextFieldState extends State<OmniTextField>
   void didUpdateWidget(covariant OmniTextField oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller != widget.controller) {
-      (oldWidget.controller ?? _ownedController)?.removeListener(_onTextChanged);
+      (oldWidget.controller ?? _ownedController)?.removeListener(
+        _onTextChanged,
+      );
       if (widget.controller == null) {
         _ownedController ??= TextEditingController(
           text: oldWidget.controller?.text ?? widget.initialValue ?? '',
@@ -2309,7 +2586,8 @@ class OmniEmailField extends StatefulWidget {
     this.required = true,
     this.requiredMessage = 'Please enter an email address',
     this.invalidEmailMessage = 'Please enter a valid email address',
-    this.invalidGmailMessage = 'Please enter a valid Gmail address (@gmail.com)',
+    this.invalidGmailMessage =
+        'Please enter a valid Gmail address (@gmail.com)',
     this.showValidBadge = true,
     this.showClearButton = true,
     this.showGmailQuickFill,
@@ -3119,7 +3397,9 @@ class _OmniPasswordFieldState extends State<OmniPasswordField>
                       height: 4,
                       margin: EdgeInsets.only(right: i < 3 ? 4 : 0),
                       decoration: BoxDecoration(
-                        color: filled ? barColor : config.ui.colors.dividerColor,
+                        color: filled
+                            ? barColor
+                            : config.ui.colors.dividerColor,
                         borderRadius: BorderRadius.circular(99),
                       ),
                     ),
@@ -4163,7 +4443,9 @@ class _OmniPhoneFieldState extends State<OmniPhoneField>
         Padding(
           padding: const EdgeInsets.only(right: 4),
           child: TextButton(
-            onPressed: widget.enabled && isValid ? widget.onVerifyPressed : null,
+            onPressed: widget.enabled && isValid
+                ? widget.onVerifyPressed
+                : null,
             child: Text(_trField(widget.verifyLabel, config.localeState)),
           ),
         )
@@ -4212,8 +4494,9 @@ class _OmniPhoneFieldState extends State<OmniPhoneField>
       if (widget.autoFormat)
         _CountryPhoneMaskFormatter(
           country: _selectedCountry,
-          maxDigitsOverride:
-              widget.enforceCountryLength ? widget.maxDigits : null,
+          maxDigitsOverride: widget.enforceCountryLength
+              ? widget.maxDigits
+              : null,
         )
       else ...[
         FilteringTextInputFormatter.digitsOnly,
@@ -4606,9 +4889,7 @@ class _OmniNumberFieldState extends State<OmniNumberField>
   num? _parse(String text) {
     final clean = text.trim();
     if (clean.isEmpty) return null;
-    return widget.allowDecimal
-        ? double.tryParse(clean)
-        : int.tryParse(clean);
+    return widget.allowDecimal ? double.tryParse(clean) : int.tryParse(clean);
   }
 
   void _applyDelta(num delta) {
@@ -4835,17 +5116,11 @@ class OmniOtpField extends FormField<String> {
          autovalidateMode: autovalidateMode ?? AutovalidateMode.disabled,
          validator:
              validator ??
-             (v) => OmniValidators.otp(
-               v,
-               length: length,
-               digitsOnly: digitsOnly,
-             ),
+             (v) =>
+                 OmniValidators.otp(v, length: length, digitsOnly: digitsOnly),
          builder: (state) {
            final widget = state.widget as OmniOtpField;
-           return _OmniOtpBoxes(
-             field: widget,
-             formState: state,
-           );
+           return _OmniOtpBoxes(field: widget, formState: state);
          },
        );
 
@@ -5007,10 +5282,7 @@ class OmniOtpField extends FormField<String> {
 }
 
 class _OmniOtpBoxes extends StatefulWidget {
-  const _OmniOtpBoxes({
-    required this.field,
-    required this.formState,
-  });
+  const _OmniOtpBoxes({required this.field, required this.formState});
 
   final OmniOtpField field;
   final FormFieldState<String> formState;
@@ -5354,7 +5626,10 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
       return BoxDecoration(
         color: Colors.transparent,
         border: Border(
-          bottom: BorderSide(color: borderColor, width: math.max(borderWidth, 1.5)),
+          bottom: BorderSide(
+            color: borderColor,
+            width: math.max(borderWidth, 1.5),
+          ),
         ),
       );
     }
@@ -5540,8 +5815,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
         ? widget.field.length - 1
         : code.length;
 
-    final labelLeadingIcon =
-        widget.field.showLabelIcon && config.showPrefixIcon
+    final labelLeadingIcon = widget.field.showLabelIcon && config.showPrefixIcon
         ? config.resolvePrefixIcon(
             widget.field.prefixIcon,
             OmniFieldIdentity.otp.defaultIcon,
@@ -5921,8 +6195,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                                   : 1.0,
                               child: _buildAnimatedChar(code[i], style),
                             );
-                          } else if (isFocusedCell &&
-                              widget.field.showCursor) {
+                          } else if (isFocusedCell && widget.field.showCursor) {
                             cellContent =
                                 widget.field.cursor ??
                                 Container(
@@ -6161,7 +6434,9 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                         width: boxH,
                         height: boxH,
                         decoration: BoxDecoration(
-                          shape: isShield ? BoxShape.rectangle : BoxShape.circle,
+                          shape: isShield
+                              ? BoxShape.rectangle
+                              : BoxShape.circle,
                           borderRadius: isShield
                               ? BorderRadius.circular(boxH * 0.28)
                               : null,
@@ -6325,7 +6600,9 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
               Flexible(
                 child: Text(
                   _trField(effectiveError!, config.localeState),
-                  style: config.ui.text.error.copyWith(color: config.errorColor),
+                  style: config.ui.text.error.copyWith(
+                    color: config.errorColor,
+                  ),
                 ),
               ),
             ],
@@ -6388,24 +6665,21 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                 ),
               ] else if (widget.field.onResend != null) ...[
                 if (_remainingSeconds > 0)
-                  Text(
-                    () {
-                      final sec = _remainingSeconds.toString().padLeft(2, '0');
-                      final raw = _trDynamic(
-                        en: 'Resend code in 00:$sec',
-                        bn: 'পুনরায় পাঠানো যাবে 00:$sec সেকেন্ডে',
-                        ar: 'إعادة الإرسال خلال 00:$sec',
-                        hi: '00:$sec में कोड पुनः भेजें',
-                      );
-                      return config.localeState.useLocaleDigits
-                          ? OmniText.formatDigits(
-                              raw,
-                              language: config.localeState.language,
-                            )
-                          : raw;
-                    }(),
-                    style: config.ui.text.caption,
-                  )
+                  Text(() {
+                    final sec = _remainingSeconds.toString().padLeft(2, '0');
+                    final raw = _trDynamic(
+                      en: 'Resend code in 00:$sec',
+                      bn: 'পুনরায় পাঠানো যাবে 00:$sec সেকেন্ডে',
+                      ar: 'إعادة الإرسال خلال 00:$sec',
+                      hi: '00:$sec में कोड पुनः भेजें',
+                    );
+                    return config.localeState.useLocaleDigits
+                        ? OmniText.formatDigits(
+                            raw,
+                            language: config.localeState.language,
+                          )
+                        : raw;
+                  }(), style: config.ui.text.caption)
                 else
                   TextButton.icon(
                     onPressed: widget.field.enabled
@@ -7005,8 +7279,7 @@ class _OtpBurstPainter extends CustomPainter {
       for (var i = 0; i < count; i++) {
         final angle = -math.pi + (i / (count - 1)) * math.pi;
         final spread = 42.0 + (i % 4) * 16.0;
-        final startX =
-            size.width * ((i + 0.5) / count).clamp(0.1, 0.9);
+        final startX = size.width * ((i + 0.5) / count).clamp(0.1, 0.9);
         final dx = math.cos(angle) * spread * t;
         final dy =
             math.sin(angle) * spread * t + 26.0 * t * t; // হালকা গ্র্যাভিটি
