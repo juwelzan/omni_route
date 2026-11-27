@@ -153,12 +153,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Hello @ai'), findsOneWidget);
 
-      // Settings -> Dark mode -> Nested `/settings/profile`.
+      // Settings -> System/Light/Dark mode & 1-click Color Palette -> Nested `/settings/profile`.
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Dark mode'));
+      await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Profile'));
+      expect(
+        tester.widget<MaterialApp>(find.byType(MaterialApp)).themeMode,
+        ThemeMode.dark,
+      );
+      await tester.tap(find.text('Emerald'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.element(find.byType(SettingsScreen)).colors.primaryColor,
+        OmniTheme.emerald.seedColor,
+      );
+      await tester.tap(find.text('System'));
+      await tester.pumpAndSettle();
+      final settingsScroll = find
+          .descendant(
+            of: find.byType(SettingsScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      final profileTile = find.text('Profile');
+      await tester.scrollUntilVisible(
+        profileTile,
+        150,
+        scrollable: settingsScroll,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(profileTile);
       await tester.pumpAndSettle();
       expect(OmniRoute.routePath, '/settings/profile');
 

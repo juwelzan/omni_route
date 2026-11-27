@@ -109,11 +109,6 @@ class AuthBloc extends Cubit<bool> {
   void logOut() => emit(false);
 }
 
-class ThemeBloc extends Cubit<bool> {
-  ThemeBloc() : super(false);
-  void toggle() => emit(!state);
-}
-
 class StudentBloc extends Cubit<List<int>> {
   StudentBloc() : super(const [101, 102, 103]);
 }
@@ -217,10 +212,14 @@ class _ExampleAppState extends State<ExampleApp> {
   Widget build(BuildContext context) {
     return OmniApp.material(
       title: 'OmniRoute & OmniNetwork Example',
-      theme: ThemeData.light(useMaterial3: true),
-      darkTheme: ThemeData.dark(useMaterial3: true),
-      themeModeBuilder: (c) =>
-          c.watch<ThemeBloc>().state ? ThemeMode.dark : ThemeMode.light,
+      omniTheme: const OmniTheme(
+        id: 'ocean',
+        name: 'Ocean',
+        seedColor: Color(0xFF2563EB),
+        secondaryColor: Color(0xFF0EA5E9),
+        persistMode: true,
+      ),
+      themes: OmniTheme.presets,
       initialRoute: '/dashboard',
       transition: OmniPages.fadeSlide,
       guards: const [AuthGuard()],
@@ -256,7 +255,6 @@ class _ExampleAppState extends State<ExampleApp> {
       },
       blocs: [
         OmniBloc((_) => AuthBloc(), global: true),
-        OmniBloc((_) => ThemeBloc(), global: true),
         OmniBloc(
           (_) => ApiLabCubit(useLiveNetwork: widget.useLiveNetwork),
           global: true,
@@ -723,21 +721,39 @@ class SettingsScreen extends OmniStatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final dark = context.watch<ThemeBloc>().state;
+    final tk = context.tokens;
+    final ui = context.ui;
     return Scaffold(
-      appBar: AppBar(title: Text('$title ($routePath)')),
+      appBar: AppBar(
+        title: Text('$title ($routePath)'),
+        actions: const [
+          OmniThemeButton(),
+          OmniThemeModeButton(allowSystemMode: true),
+        ],
+      ),
       body: ListView(
+        padding: tk.pagePadding,
         children: [
-          SwitchListTile(
-            title: const Text('Dark mode'),
-            value: dark,
-            onChanged: (_) => context.read<ThemeBloc>().toggle(),
+          const OmniThemePanel(
+            modeTitle: 'Theme Mode',
+            themeTitle: 'Color Palette',
+            showStylePicker: true,
           ),
-          ListTile(
-            title: const Text('Profile'),
-            subtitle: const Text('Opens nested /settings/profile'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.to<ProfileScreen>(),
+          tk.gapMd,
+          Card(
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                const OmniThemeSettingsTile(),
+                Divider(height: 1, color: ui.colors.dividerColor),
+                ListTile(
+                  title: const Text('Profile'),
+                  subtitle: const Text('Opens nested /settings/profile'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.to<ProfileScreen>(),
+                ),
+              ],
+            ),
           ),
         ],
       ),

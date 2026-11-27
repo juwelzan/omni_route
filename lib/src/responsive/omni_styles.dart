@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'omni_colors.dart';
 import 'omni_responsive_config.dart';
+import 'omni_responsive_scope.dart';
 
 /// পুরো অ্যাপের সব `TextField` / `TextFormField`-এর ডিফল্ট ইনপুট স্টাইল ধরন।
 enum OmniInputVariant {
@@ -13,6 +14,106 @@ enum OmniInputVariant {
 
   /// কেবল নিচে একটি পরিচ্ছন্ন লাইন বর্ডার (মিনিমাল ফর্মের জন্য)।
   underlined,
+}
+
+/// ডেভেলপারদের জন্য ১-লাইনের রেডিমেড UI ডিজাইন স্টাইল প্রিসেট (`OmniTheme(style: ...)`
+/// অথবা সেটিংস থেকে `context.setThemeStyle(...)`)।
+///
+/// আলাদা আলাদা `borderRadius`, `inputVariant`, `cardBorderWidth`, `cardElevation`
+/// মনে না রেখেও মাত্র ১টি প্রিসেটে পুরো অ্যাপের লুক বদলে দেওয়া যায়।
+enum OmniThemeStyle {
+  /// আধুনিক ফ্ল্যাট কার্ড (`1dp` বর্ডার), ব্যালেন্সড রেডিয়াস ও `.filled` ইনপুট (ডিফল্ট)।
+  modern(
+    label: 'Modern',
+    inputVariant: OmniInputVariant.filled,
+    borderWidth: 1.0,
+    focusedBorderWidth: 1.8,
+    cardBorderWidth: 1.0,
+    cardElevation: 0.0,
+  ),
+
+  /// পরিষ্কার চারপাশের আউটলাইন কার্ড ও `.outlined` ইনপুট ফিল্ড (ফর্ম ও SaaS অ্যাপের আদর্শ)।
+  outlined(
+    label: 'Outlined',
+    inputVariant: OmniInputVariant.outlined,
+    borderWidth: 1.2,
+    focusedBorderWidth: 2.0,
+    cardBorderWidth: 1.2,
+    cardElevation: 0.0,
+  ),
+
+  /// গোল `20dp` পিল কর্নার ও বর্ডার-মুক্ত সফট কনজিউমার অ্যাপ স্টাইল।
+  soft(
+    label: 'Soft',
+    inputVariant: OmniInputVariant.filled,
+    borderWidth: 1.0,
+    focusedBorderWidth: 1.8,
+    cardBorderWidth: 0.0,
+    cardElevation: 0.0,
+    borderRadius: 20.0,
+  ),
+
+  /// হালকা শ্যাডো (`2dp`) যুক্ত এলিভেটেড কার্ড ও `.filled` ইনপুট।
+  elevated(
+    label: 'Elevated',
+    inputVariant: OmniInputVariant.filled,
+    borderWidth: 1.0,
+    focusedBorderWidth: 1.8,
+    cardBorderWidth: 0.0,
+    cardElevation: 2.0,
+  ),
+
+  /// শুধু নিচে লাইনওয়ালা মিনিমাল `.underlined` ইনপুট ও সূক্ষ্ম বর্ডার।
+  minimal(
+    label: 'Minimal',
+    inputVariant: OmniInputVariant.underlined,
+    borderWidth: 1.0,
+    focusedBorderWidth: 1.8,
+    cardBorderWidth: 0.8,
+    cardElevation: 0.0,
+  ),
+
+  /// তীক্ষ্ণ `8dp` কর্নার ও `.outlined` ইনপুটসহ ড্যাশবোর্ড/অ্যাডমিন কম্প্যাক্ট স্টাইল।
+  compact(
+    label: 'Compact',
+    inputVariant: OmniInputVariant.outlined,
+    borderWidth: 1.0,
+    focusedBorderWidth: 1.6,
+    cardBorderWidth: 1.0,
+    cardElevation: 0.0,
+    borderRadius: 8.0,
+  );
+
+  const OmniThemeStyle({
+    required this.label,
+    required this.inputVariant,
+    required this.borderWidth,
+    required this.focusedBorderWidth,
+    required this.cardBorderWidth,
+    required this.cardElevation,
+    this.borderRadius,
+  });
+
+  /// UI পিকারে দেখানোর সহজ নাম।
+  final String label;
+
+  /// এই স্টাইলের ডিফল্ট ইনপুট ভ্যারিয়েন্ট।
+  final OmniInputVariant inputVariant;
+
+  /// সাধারণ অবস্থায় ইনপুট, চিপ ও আউটলাইন বর্ডারের পুরুত্ব।
+  final double borderWidth;
+
+  /// ফোকাস বা এরর অবস্থায় বর্ডারের পুরুত্ব।
+  final double focusedBorderWidth;
+
+  /// কার্ডের চারদিকের বর্ডারের পুরুত্ব।
+  final double cardBorderWidth;
+
+  /// কার্ডের শ্যাডো উচ্চতা।
+  final double cardElevation;
+
+  /// ঐচ্ছিক নির্দিষ্ট কর্নার রেডিয়াস (`null` হলে টিয়ার অনুযায়ী অটো)।
+  final double? borderRadius;
 }
 
 /// প্রি-ক্যাশড, রেসপন্সিভ ও পিওর নামের টেক্সট স্টাইল সেট (`context.textStyles`)।
@@ -374,6 +475,8 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     required this.cardDecoration,
     required this.elevatedCardDecoration,
     required this.selectedCardDecoration,
+    required this.subtleBoxDecoration,
+    required this.disabledBoxDecoration,
     required this.errorBoxDecoration,
     required this.warningBoxDecoration,
     required this.successBoxDecoration,
@@ -414,6 +517,14 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
   /// **কোথায় ব্যবহার হয়:** পেমেন্ট মেথড, প্ল্যান কার্ড বা সিলেক্টেড লিস্ট টাইল।
   final BoxDecoration selectedCardDecoration;
 
+  /// সেকশন হেডার, কোড ব্লক বা হালকা আলাদা প্যানেলের `BoxDecoration`
+  /// (`secondaryBackgroundColor` + `dividerColor`)।
+  final BoxDecoration subtleBoxDecoration;
+
+  /// নিষ্ক্রিয় (disabled) কার্ড বা রিড-অনলি ব্লকের `BoxDecoration`
+  /// (`disabledColor` + `disabledBorderColor`)।
+  final BoxDecoration disabledBoxDecoration;
+
   /// এরর অ্যালার্ট বক্সের রেডি `BoxDecoration` (`errorBackgroundColor` + `errorColor` বর্ডার)।
   final BoxDecoration errorBoxDecoration;
 
@@ -443,7 +554,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
   /// উদাহরণ: `FilledButton(style: context.styles.dangerButton, onPressed: ..., child: const Text('মুছে ফেলুন'))`।
   final ButtonStyle dangerButton;
 
-  /// আউটলাইন বর্ডারওয়ালা বাটন স্টাইল (`borderColor` + `primaryColor`)।
+  /// আউটলাইন বর্ডারওয়ালা বাটন স্টাইল (`borderColor` + `disabledBorderColor` + `primaryColor`)।
   final ButtonStyle outlineButton;
 
   /// লিংক বা `TextButton`-এর স্টাইল (`linkColor`)।
@@ -500,7 +611,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         colors.errorColor,
         focusedBorderWidth,
       ),
-      disabledBorder: makeInputBorder(colors.dividerColor, borderWidth),
+      disabledBorder: makeInputBorder(colors.disabledBorderColor, borderWidth),
     );
 
     final minSize = Size(0, tokens.minTapTarget);
@@ -537,6 +648,16 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
           color: colors.focusedBorderColor,
           width: focusedBorderWidth,
         ),
+      ),
+      subtleBoxDecoration: BoxDecoration(
+        color: colors.secondaryBackgroundColor,
+        borderRadius: cardRadius,
+        border: Border.all(color: colors.dividerColor),
+      ),
+      disabledBoxDecoration: BoxDecoration(
+        color: colors.disabledColor,
+        borderRadius: cardRadius,
+        border: Border.all(color: colors.disabledBorderColor, width: borderWidth),
       ),
       errorBoxDecoration: BoxDecoration(
         color: colors.errorBackgroundColor,
@@ -596,10 +717,20 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
       outlineButton: OutlinedButton.styleFrom(
         foregroundColor: colors.primaryColor,
         disabledForegroundColor: colors.disabledTextColor,
-        side: BorderSide(color: colors.borderColor, width: borderWidth),
         textStyle: textStyles.button,
         minimumSize: minSize,
         shape: buttonShape,
+      ).copyWith(
+        side: WidgetStateProperty.resolveWith<BorderSide>(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.disabled)
+                ? colors.disabledBorderColor
+                : states.contains(WidgetState.focused)
+                    ? colors.focusedBorderColor
+                    : colors.borderColor,
+            width: borderWidth,
+          ),
+        ),
       ),
       linkButton: TextButton.styleFrom(
         foregroundColor: colors.linkColor,
@@ -620,6 +751,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     String? error,
     Widget? prefixIcon,
     Widget? suffixIcon,
+    bool enabled = true,
   }) => InputDecoration(
     labelText: label,
     hintText: hint,
@@ -627,6 +759,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     errorText: error,
     prefixIcon: prefixIcon,
     suffixIcon: suffixIcon,
+    enabled: enabled,
   );
 
   /// পিল-আকৃতির সার্চ বারের জন্য রেডি `InputDecoration`।
@@ -651,6 +784,10 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     focusedBorder: OutlineInputBorder(
       borderRadius: const BorderRadius.all(Radius.circular(999)),
       borderSide: BorderSide(color: colors.focusedBorderColor, width: 1.8),
+    ),
+    disabledBorder: OutlineInputBorder(
+      borderRadius: const BorderRadius.all(Radius.circular(999)),
+      borderSide: BorderSide(color: colors.disabledBorderColor),
     ),
   );
 
@@ -689,6 +826,8 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     BoxDecoration? cardDecoration,
     BoxDecoration? elevatedCardDecoration,
     BoxDecoration? selectedCardDecoration,
+    BoxDecoration? subtleBoxDecoration,
+    BoxDecoration? disabledBoxDecoration,
     BoxDecoration? errorBoxDecoration,
     BoxDecoration? warningBoxDecoration,
     BoxDecoration? successBoxDecoration,
@@ -710,6 +849,9 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         elevatedCardDecoration ?? this.elevatedCardDecoration,
     selectedCardDecoration:
         selectedCardDecoration ?? this.selectedCardDecoration,
+    subtleBoxDecoration: subtleBoxDecoration ?? this.subtleBoxDecoration,
+    disabledBoxDecoration:
+        disabledBoxDecoration ?? this.disabledBoxDecoration,
     errorBoxDecoration: errorBoxDecoration ?? this.errorBoxDecoration,
     warningBoxDecoration: warningBoxDecoration ?? this.warningBoxDecoration,
     successBoxDecoration: successBoxDecoration ?? this.successBoxDecoration,
@@ -745,6 +887,16 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
       selectedCardDecoration: BoxDecoration.lerp(
         selectedCardDecoration,
         other.selectedCardDecoration,
+        t,
+      )!,
+      subtleBoxDecoration: BoxDecoration.lerp(
+        subtleBoxDecoration,
+        other.subtleBoxDecoration,
+        t,
+      )!,
+      disabledBoxDecoration: BoxDecoration.lerp(
+        disabledBoxDecoration,
+        other.disabledBoxDecoration,
         t,
       )!,
       errorBoxDecoration: BoxDecoration.lerp(
@@ -798,6 +950,8 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
           cardDecoration == other.cardDecoration &&
           elevatedCardDecoration == other.elevatedCardDecoration &&
           selectedCardDecoration == other.selectedCardDecoration &&
+          subtleBoxDecoration == other.subtleBoxDecoration &&
+          disabledBoxDecoration == other.disabledBoxDecoration &&
           errorBoxDecoration == other.errorBoxDecoration &&
           warningBoxDecoration == other.warningBoxDecoration &&
           successBoxDecoration == other.successBoxDecoration &&
@@ -810,6 +964,8 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     cardDecoration,
     elevatedCardDecoration,
     selectedCardDecoration,
+    subtleBoxDecoration,
+    disabledBoxDecoration,
     errorBoxDecoration,
     warningBoxDecoration,
     successBoxDecoration,
@@ -817,8 +973,58 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
   );
 }
 
-/// যেকোনো `BuildContext` থেকে সহজে প্রি-ক্যাশড [OmniTextStyles] ও [OmniStyles]
-/// পড়ার শর্টকাট (`context.textStyles`, `context.styles`)।
+/// ডেভেলপারদের জন্য ১-লাইনের সমন্বিত থিম অ্যাক্সেস ফ্যাসাড (`final ui = context.ui`)।
+///
+/// আলাদা আলাদা `context.colors`, `context.textStyles`, `context.styles`,
+/// `context.tokens` কল করার বদলে `ui.colors`, `ui.text`, `ui.styles`,
+/// `ui.tokens`, `ui.isDark`, `ui.device` সব এক জায়গায় পান।
+@immutable
+class OmniUiTheme {
+  /// [colors], [text], [styles], [tokens], [device], [brightness] দিয়ে [OmniUiTheme] তৈরি করে।
+  const OmniUiTheme({
+    required this.colors,
+    required this.text,
+    required this.styles,
+    required this.tokens,
+    required this.device,
+    required this.brightness,
+  });
+
+  /// ৫৩টি পিওর সেমান্টিক কালার।
+  final OmniColors colors;
+
+  /// ১৫টি প্রি-ক্যাশড রেসপন্সিভ টেক্সট স্টাইল।
+  final OmniTextStyles text;
+
+  /// প্রি-ক্যাশড কার্ড, বক্স, বাটন ও ইনপুট স্টাইল।
+  final OmniStyles styles;
+
+  /// বর্তমান ডিভাইস টিয়ার অনুযায়ী স্পেসিং, রেডিয়াস ও ট্যাপ টার্গেট টোকেন।
+  final OmniResponsiveTokens tokens;
+
+  /// বর্তমান রেসপন্সিভ ডিভাইস টিয়ার।
+  final OmniDeviceType device;
+
+  /// বর্তমান ডার্ক/লাইট ব্রাইটনেস।
+  final Brightness brightness;
+
+  /// বর্তমানে ডার্ক মোড চলছে কি না।
+  bool get isDark => brightness == Brightness.dark;
+
+  /// সাধারণ মোবাইল স্ক্রিন কি না।
+  bool get isMobile => device == OmniDeviceType.mobile;
+
+  /// ট্যাবলেট স্ক্রিন কি না।
+  bool get isTablet => device == OmniDeviceType.tablet;
+
+  /// ডেস্কটপ বা বড় মনিটর স্ক্রিন কি না।
+  bool get isDesktop =>
+      device == OmniDeviceType.desktop ||
+      device == OmniDeviceType.largeDesktop;
+}
+
+/// যেকোনো `BuildContext` থেকে সহজে প্রি-ক্যাশড [OmniTextStyles], [OmniStyles]
+/// ও [OmniUiTheme] পড়ার শর্টকাট (`context.textStyles`, `context.styles`, `context.ui`)।
 extension OmniStylesContext on BuildContext {
   /// পিওর নামের রেসপন্সিভ টেক্সট স্টাইল (`display`, `heading`, `title`,
   /// `body`, `label`, `caption`, `link`, `error`, `warning`, `success`, `code`)।
@@ -840,5 +1046,28 @@ extension OmniStylesContext on BuildContext {
     return theme.brightness == Brightness.dark
         ? OmniStyles.darkDefault
         : OmniStyles.lightDefault;
+  }
+
+  /// ১ লাইনে কালার (`ui.colors`), টেক্সট (`ui.text`), স্টাইল (`ui.styles`),
+  /// টোকেন (`ui.tokens`), ও `ui.isDark` পাওয়ার সহজ শর্টকাট।
+  OmniUiTheme get ui {
+    final theme = Theme.of(this);
+    final isDark = theme.brightness == Brightness.dark;
+    final c = theme.extension<OmniColors>() ??
+        (isDark ? OmniColors.darkDefault : OmniColors.lightDefault);
+    final ts = theme.extension<OmniTextStyles>() ??
+        (isDark ? OmniTextStyles.darkDefault : OmniTextStyles.lightDefault);
+    final s = theme.extension<OmniStyles>() ??
+        (isDark ? OmniStyles.darkDefault : OmniStyles.lightDefault);
+    final tokens = OmniResponsiveScope.tokensOf(this);
+    final device = OmniResponsiveScope.deviceOf(this);
+    return OmniUiTheme(
+      colors: c,
+      text: ts,
+      styles: s,
+      tokens: tokens,
+      device: device,
+      brightness: theme.brightness,
+    );
   }
 }

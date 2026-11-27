@@ -709,8 +709,9 @@ void main() {
           shadowColor: Color(0x330F172A),
         );
 
-        await t.binding.setSurfaceSize(const Size(390, 844));
-        addTearDown(() => t.binding.setSurfaceSize(null));
+        t.view.devicePixelRatio = 1.0;
+        t.view.physicalSize = const Size(390, 844);
+        addTearDown(t.view.reset);
 
         late OmniColors lightColors;
         late OmniTextStyles lightTextStyles;
@@ -852,7 +853,7 @@ void main() {
         );
 
         // 4. Resizing within same mobile tier reuses exact memoized OmniStyles:
-        await t.binding.setSurfaceSize(const Size(420, 844));
+        t.view.physicalSize = const Size(420, 844);
         await t.pumpAndSettle();
         final ctx = t.element(find.byType(Scaffold));
         final scopeStyles2 = OmniThemeScope.maybeThemesOf(
@@ -898,6 +899,158 @@ void main() {
           ),
           findsOneWidget,
         );
+      },
+    );
+
+    testWidgets(
+      'OmniThemeStyle, context.ui, 53 colors, 8 presets & Settings 1-click Color Palette + Mode sheet',
+      (t) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        expect(OmniTheme.presets.length, 8);
+        expect(OmniTheme.findPreset('violet')?.name, 'Violet');
+        expect(OmniTheme.findPreset('teal')?.name, 'Teal');
+        expect(OmniTheme.findPreset('amber')?.name, 'Amber');
+
+        const themed = OmniTheme(
+          id: 'brand',
+          name: 'Brand',
+          seedColor: Colors.indigo,
+          style: OmniThemeStyle.outlined,
+          secondaryBackgroundColor: Color(0xFFEAF0F6),
+          disabledBorderColor: Color(0xFF94A3B8),
+          rippleColor: Color(0x1F4F46E5),
+          snackbarColor: Color(0xFF111827),
+          snackbarTextColor: Color(0xFFF9FAFB),
+          switchActiveColor: Color(0xFF059669),
+          switchInactiveColor: Color(0xFF6B7280),
+          tooltipColor: Color(0xFF1F2937),
+          tooltipTextColor: Color(0xFFFFFFFF),
+        );
+
+        t.view.devicePixelRatio = 1.0;
+        t.view.physicalSize = const Size(390, 844);
+        addTearDown(t.view.reset);
+
+        late OmniUiTheme capturedUi;
+        late ThemeData capturedThemeData;
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: themed,
+            themes: OmniTheme.presets,
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (c) {
+                    capturedUi = c.ui;
+                    capturedThemeData = Theme.of(c);
+                    return Scaffold(
+                      appBar: AppBar(title: const Text('Settings Demo')),
+                      body: ListView(
+                        padding: capturedUi.tokens.pagePadding,
+                        children: [
+                          const OmniThemeSettingsTile(),
+                          Container(
+                            decoration: capturedUi.styles.subtleBoxDecoration,
+                            child: Text('Subtle', style: capturedUi.text.body),
+                          ),
+                          Container(
+                            decoration: capturedUi.styles.disabledBoxDecoration,
+                            child: Text(
+                              'Disabled',
+                              style: capturedUi.text.bodyMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        // 1. All 9 new pure semantic colors & ThemeData wiring:
+        expect(capturedUi.colors.secondaryBackgroundColor, const Color(0xFFEAF0F6));
+        expect(capturedUi.colors.disabledBorderColor, const Color(0xFF94A3B8));
+        expect(capturedUi.colors.rippleColor, const Color(0x1F4F46E5));
+        expect(capturedUi.colors.snackbarColor, const Color(0xFF111827));
+        expect(capturedUi.colors.snackbarTextColor, const Color(0xFFF9FAFB));
+        expect(capturedUi.colors.switchActiveColor, const Color(0xFF059669));
+        expect(capturedUi.colors.switchInactiveColor, const Color(0xFF6B7280));
+        expect(capturedUi.colors.tooltipColor, const Color(0xFF1F2937));
+        expect(capturedUi.colors.tooltipTextColor, const Color(0xFFFFFFFF));
+
+        expect(capturedThemeData.splashColor, const Color(0x1F4F46E5));
+        expect(
+          capturedThemeData.snackBarTheme.backgroundColor,
+          const Color(0xFF111827),
+        );
+        expect(capturedThemeData.tooltipTheme.textStyle?.color, Colors.white);
+        expect(
+          capturedThemeData.inputDecorationTheme.filled,
+          isFalse,
+          reason: 'OmniThemeStyle.outlined uses outlined non-filled input',
+        );
+        expect(
+          (capturedUi.styles.subtleBoxDecoration.color),
+          const Color(0xFFEAF0F6),
+        );
+        expect(
+          (capturedUi.styles.disabledBoxDecoration.border! as Border).top.color,
+          const Color(0xFF94A3B8),
+        );
+        expect(capturedUi.isMobile, isTrue);
+        expect(capturedUi.isDark, isFalse);
+
+        // 2. Open Settings Theme & Color Palette bottom sheet -> 1-click Palette + Mode + Style!
+        expect(find.text('Brand · System · Outlined'), findsOneWidget);
+        await t.tap(find.byType(OmniThemeSettingsTile));
+        await t.pumpAndSettle();
+
+        // Tap Violet palette card:
+        await t.tap(find.text('Violet'));
+        await t.pumpAndSettle();
+        // Tap Dark mode segment:
+        await t.tap(find.text('Dark'));
+        await t.pumpAndSettle();
+        // Tap Elevated style chip:
+        await t.tap(find.text('Elevated'));
+        await t.pumpAndSettle();
+
+        // Close sheet:
+        await t.tap(find.byTooltip('Close'));
+        await t.pumpAndSettle();
+
+        expect(find.text('Violet · Dark · Elevated'), findsOneWidget);
+        final ctx = t.element(find.byType(Scaffold));
+        expect(ctx.activeThemeId, 'violet');
+        expect(ctx.activeThemeStyle, OmniThemeStyle.elevated);
+        expect(Theme.of(ctx).cardTheme.elevation, 2.0);
+        expect(ctx.isDarkMode, isTrue);
+
+        // Verify persistence across cold restart!
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(
+          OmniApp.material(
+            themes: OmniTheme.presets,
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (c) => Text(
+                    'restored:${c.activeThemeId}:${c.themeMode.name}:${c.activeThemeStyle.name}',
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('restored:violet:dark:elevated'), findsOneWidget);
       },
     );
   });

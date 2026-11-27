@@ -17,13 +17,14 @@ typedef OmniThemeCustomizer = ThemeData Function(
   OmniResponsiveTokens tokens,
 );
 
-/// বর্তমান সক্রিয় থিম আইডি ও লাইট/ডার্ক/সিস্টেম মোডের স্ন্যাপশট।
+/// বর্তমান সক্রিয় থিম আইডি, লাইট/ডার্ক/সিস্টেম মোড ও থিম স্টাইলের স্ন্যাপশট।
 @immutable
 class OmniThemeSelection {
-  /// [mode] এবং [themeId] নিয়ে স্ন্যাপশট তৈরি করে।
+  /// [mode], [themeId] এবং ঐচ্ছিক [style] নিয়ে স্ন্যাপশট তৈরি করে।
   const OmniThemeSelection({
     required this.mode,
     required this.themeId,
+    this.style,
   });
 
   /// বর্তমান `ThemeMode` (`light`, `dark`, বা `system`)।
@@ -32,47 +33,62 @@ class OmniThemeSelection {
   /// বর্তমান সক্রিয় `OmniTheme.id` (যেমন `'default'`, `'ocean'`, `'emerald'`)।
   final String themeId;
 
+  /// রানটাইমে বদলানো ঐচ্ছিক [OmniThemeStyle] ওভাররাইড (`null` মানে থিমের নিজস্ব স্টাইল)।
+  final OmniThemeStyle? style;
+
   /// নির্বাচিত ক্ষেত্র পরিবর্তন করে নতুন কপি তৈরি করে।
-  OmniThemeSelection copyWith({ThemeMode? mode, String? themeId}) =>
-      OmniThemeSelection(
-        mode: mode ?? this.mode,
-        themeId: themeId ?? this.themeId,
-      );
+  OmniThemeSelection copyWith({
+    ThemeMode? mode,
+    String? themeId,
+    OmniThemeStyle? style,
+    bool clearStyle = false,
+  }) => OmniThemeSelection(
+    mode: mode ?? this.mode,
+    themeId: themeId ?? this.themeId,
+    style: clearStyle ? null : (style ?? this.style),
+  );
 
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is OmniThemeSelection &&
           mode == other.mode &&
-          themeId == other.themeId;
+          themeId == other.themeId &&
+          style == other.style;
 
   @override
-  int get hashCode => Object.hash(mode, themeId);
+  int get hashCode => Object.hash(mode, themeId, style);
 }
 
-/// পুরো অ্যাপের সক্রিয় থিম (`themeId`) ও `ThemeMode` (`light`/`dark`/`system`)
-/// নিয়ন্ত্রণের কন্ট্রোলার।
+/// পুরো অ্যাপের সক্রিয় কালার প্যালেট (`themeId`), `ThemeMode` (`light`/`dark`/`system`)
+/// ও [OmniThemeStyle] নিয়ন্ত্রণের কন্ট্রোলার।
 ///
 /// পরিবর্তন করলেই `shared_preferences`-এ অটো-সেভ হয় (যদি [persist] = `true`)
 /// এবং কেবল থিম-নির্ভর উপাদানগুলোই শূন্য-ল্যাগে আপডেট হয়।
 class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
-  /// [initialMode] এবং [initialThemeId] নিয়ে থিম কন্ট্রোলার তৈরি করে।
+  /// [initialMode], [initialThemeId] এবং ঐচ্ছিক [initialStyle] নিয়ে থিম কন্ট্রোলার তৈরি করে।
   OmniThemeController({
     ThemeMode initialMode = ThemeMode.system,
     String initialThemeId = 'default',
+    OmniThemeStyle? initialStyle,
     this.persist = true,
     this.storageKey = 'default',
   }) : _initialSelection = OmniThemeSelection(
          mode: initialMode,
          themeId: initialThemeId,
+         style: initialStyle,
        ),
        super(
-         OmniThemeSelection(mode: initialMode, themeId: initialThemeId),
+         OmniThemeSelection(
+           mode: initialMode,
+           themeId: initialThemeId,
+           style: initialStyle,
+         ),
        );
 
   final OmniThemeSelection _initialSelection;
 
-  /// মোড ও থিম নির্বাচন `SharedPreferences`-এ সেভ থাকবে কি না।
+  /// মোড, কালার প্যালেট ও স্টাইল নির্বাচন `SharedPreferences`-এ সেভ থাকবে কি না।
   final bool persist;
 
   /// একাধিক অ্যাপ বা প্রোফাইলের সেভ ডেটা আলাদা রাখার কী।
@@ -87,14 +103,20 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   /// সেভ করা অ্যাক্টিভ থিম আইডির কী।
   String get themeIdPrefKey => 'omni_route.theme.$storageKey.themeId';
 
+  /// সেভ করা অ্যাক্টিভ থিম স্টাইলের কী।
+  String get stylePrefKey => 'omni_route.theme.$storageKey.style';
+
   /// বর্তমান `ThemeMode` (`light`, `dark`, বা `system`)।
   ThemeMode get mode => value.mode;
 
   /// বর্তমান সক্রিয় থিমের `id`।
   String get themeId => value.themeId;
 
+  /// রানটাইমে নির্বাচিত [OmniThemeStyle] (অথবা `null`)।
+  OmniThemeStyle? get style => value.style;
+
   /// স্টার্টআপে প্রথম ফ্রেম ব্লক না করে `SharedPreferences` থেকে সেভ করা
-  /// থিম ও মোড লোড করে।
+  /// থিম, মোড ও স্টাইল লোড করে।
   Future<void> hydrate() async {
     if (!persist || _hydrated || _disposed) return;
     _hydrated = true;
@@ -109,11 +131,22 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
         _ => null,
       };
       final restoredId = prefs.getString(themeIdPrefKey);
+      final rawStyle = prefs.getString(stylePrefKey);
+      OmniThemeStyle? restoredStyle;
+      if (rawStyle != null) {
+        for (final s in OmniThemeStyle.values) {
+          if (s.name == rawStyle) {
+            restoredStyle = s;
+            break;
+          }
+        }
+      }
       final next = OmniThemeSelection(
         mode: restoredMode ?? value.mode,
         themeId: (restoredId != null && restoredId.isNotEmpty)
             ? restoredId
             : value.themeId,
+        style: restoredStyle ?? value.style,
       );
       if (next != value) {
         value = next;
@@ -123,7 +156,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     }
   }
 
-  /// ১ ক্লিকে পুরো অ্যাপের রঙ/থিম ভ্যারিয়েন্ট ([themeId]) পরিবর্তন করে।
+  /// ১ ক্লিকে পুরো অ্যাপের কালার প্যালেট ([themeId]) পরিবর্তন করে।
   void setTheme(String themeId) {
     if (_disposed) return;
     if (value.themeId != themeId) {
@@ -131,6 +164,17 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     }
     if (persist) {
       unawaited(_saveString(themeIdPrefKey, themeId));
+    }
+  }
+
+  /// ১ ক্লিকে পুরো অ্যাপের ডিজাইন স্টাইল ([OmniThemeStyle]) পরিবর্তন করে।
+  void setStyle(OmniThemeStyle style) {
+    if (_disposed) return;
+    if (value.style != style) {
+      value = value.copyWith(style: style);
+    }
+    if (persist) {
+      unawaited(_saveString(stylePrefKey, style.name));
     }
   }
 
@@ -178,7 +222,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     ThemeMode.dark => ThemeMode.system,
   });
 
-  /// সেভ করা থিম ও মোড মুছে ডিফল্টে ফিরে আসে।
+  /// সেভ করা থিম, মোড ও স্টাইল মুছে ডিফল্টে ফিরে আসে।
   Future<void> resetSavedMode() async {
     if (!_disposed && value != _initialSelection) {
       value = _initialSelection;
@@ -187,6 +231,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(prefKey);
       await prefs.remove(themeIdPrefKey);
+      await prefs.remove(stylePrefKey);
     } catch (_) {
       // প্ল্যাটফর্ম স্টোরেজ না থাকলে নিরাপদ ইগনোর।
     }
@@ -208,26 +253,24 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   }
 }
 
-/// জিরো-বয়লারপ্লেট রেসপন্সিভ থিমিং, কালার, টেক্সট স্টাইল ও মাল্টি-থিম সিস্টেম।
+/// জিরো-বয়লারপ্লেট রেসপন্সিভ থিমিং, কালার প্যালেট, টেক্সট স্টাইল ও মাল্টি-থিম সিস্টেম।
 ///
-/// ১ লাইনে পুরো অ্যাপে [OmniColors] (`surfaceColor`, `cardColor`, `buttonColor`,
-/// `secondaryButtonColor`, `dangerButtonColor`, `navBarColor`, `chipColor`,
-/// `badgeColor`, `errorColor`, `warningColor`, `successColor`, `infoColor` সহ ৪৪+ রঙ),
-/// [OmniTextStyles] (`context.textStyles`), [OmniStyles] (`context.styles`)
-/// এবং ডার্ক/লাইট মোড ও একাধিক থিমের মধ্যে ১-ক্লিক সুইচিং দেয়:
+/// ১ লাইনে পুরো অ্যাপে [OmniColors] (৫৩টি পিওর সেমান্টিক রঙ), [OmniTextStyles]
+/// (`context.textStyles`), [OmniStyles] (`context.styles`), [OmniUiTheme] (`context.ui`)
+/// এবং ডার্ক/লাইট/সিস্টেম মোড ও একাধিক কালার প্যালেটের মধ্যে ১-ক্লিক সুইচিং দেয়:
 /// ```dart
 /// OmniApp.material(
 ///   omniTheme: const OmniTheme(
 ///     seedColor: Colors.indigo,
-///     inputVariant: OmniInputVariant.outlined,
+///     style: OmniThemeStyle.outlined,
 ///   ),
-///   themes: OmniTheme.presets, // অথবা নিজের কাস্টম থিম লিস্ট!
+///   themes: OmniTheme.presets, // ৮টি রেডি কালার প্যালেট বা নিজের কাস্টম লিস্ট!
 ///   routes: [...],
 /// )
 /// ```
 @immutable
 class OmniTheme {
-  /// [seedColor], ঐচ্ছিক সেমান্টিক কালার এবং ইনপুট/কার্ড স্টাইল দিয়ে একটি থিম তৈরি করে।
+  /// [seedColor], ঐচ্ছিক [style] প্রিসেট ও সেমান্টিক কালার দিয়ে একটি থিম তৈরি করে।
   const OmniTheme({
     required this.seedColor,
     this.id = 'default',
@@ -238,16 +281,19 @@ class OmniTheme {
     this.storageKey = 'default',
     this.controller,
     this.secondaryColor,
+    this.style = OmniThemeStyle.modern,
     this.useMaterial3 = true,
     this.fontFamily,
     this.headingWeight = FontWeight.w700,
     this.borderRadius,
-    this.inputVariant = OmniInputVariant.filled,
-    this.borderWidth = 1.0,
-    this.focusedBorderWidth = 1.8,
-    this.cardBorderWidth = 1.0,
+    this.inputVariant,
+    this.borderWidth,
+    this.focusedBorderWidth,
+    this.cardBorderWidth,
     this.surfaceColor,
     this.darkSurfaceColor,
+    this.secondaryBackgroundColor,
+    this.darkSecondaryBackgroundColor,
     this.scaffoldBackgroundColor,
     this.darkScaffoldBackgroundColor,
     this.cardColor,
@@ -278,8 +324,16 @@ class OmniTheme {
     this.badgeTextColor,
     this.selectedItemColor,
     this.hoverColor,
+    this.rippleColor,
     this.disabledColor,
     this.disabledTextColor,
+    this.disabledBorderColor,
+    this.switchActiveColor,
+    this.switchInactiveColor,
+    this.snackbarColor,
+    this.snackbarTextColor,
+    this.tooltipColor,
+    this.tooltipTextColor,
     this.errorColor,
     this.warningColor,
     this.successColor,
@@ -290,7 +344,7 @@ class OmniTheme {
     this.shadowColor,
     this.lightColors,
     this.darkColors,
-    this.cardElevation = 0,
+    this.cardElevation,
     this.appBarCenterTitle,
     this.customizer,
   });
@@ -306,6 +360,7 @@ class OmniTheme {
     this.storageKey = 'default',
     this.controller,
     this.secondaryColor,
+    this.style = OmniThemeStyle.compact,
     this.useMaterial3 = true,
     this.fontFamily,
     this.headingWeight = FontWeight.w700,
@@ -316,6 +371,8 @@ class OmniTheme {
     this.cardBorderWidth = 1.0,
     this.surfaceColor,
     this.darkSurfaceColor,
+    this.secondaryBackgroundColor,
+    this.darkSecondaryBackgroundColor,
     this.scaffoldBackgroundColor,
     this.darkScaffoldBackgroundColor,
     this.cardColor,
@@ -346,8 +403,16 @@ class OmniTheme {
     this.badgeTextColor,
     this.selectedItemColor,
     this.hoverColor,
+    this.rippleColor,
     this.disabledColor,
     this.disabledTextColor,
+    this.disabledBorderColor,
+    this.switchActiveColor,
+    this.switchInactiveColor,
+    this.snackbarColor,
+    this.snackbarTextColor,
+    this.tooltipColor,
+    this.tooltipTextColor,
     this.errorColor,
     this.warningColor,
     this.successColor,
@@ -374,6 +439,7 @@ class OmniTheme {
     this.storageKey = 'default',
     this.controller,
     this.secondaryColor,
+    this.style = OmniThemeStyle.soft,
     this.useMaterial3 = true,
     this.fontFamily,
     this.headingWeight = FontWeight.w700,
@@ -384,6 +450,8 @@ class OmniTheme {
     this.cardBorderWidth = 1.0,
     this.surfaceColor,
     this.darkSurfaceColor,
+    this.secondaryBackgroundColor,
+    this.darkSecondaryBackgroundColor,
     this.scaffoldBackgroundColor,
     this.darkScaffoldBackgroundColor,
     this.cardColor,
@@ -414,8 +482,16 @@ class OmniTheme {
     this.badgeTextColor,
     this.selectedItemColor,
     this.hoverColor,
+    this.rippleColor,
     this.disabledColor,
     this.disabledTextColor,
+    this.disabledBorderColor,
+    this.switchActiveColor,
+    this.switchInactiveColor,
+    this.snackbarColor,
+    this.snackbarTextColor,
+    this.tooltipColor,
+    this.tooltipTextColor,
     this.errorColor,
     this.warningColor,
     this.successColor,
@@ -434,7 +510,7 @@ class OmniTheme {
   /// এই থিমটিকে `OmniThemePicker`-এ চেনার জন্য ইউনিক আইডি (যেমন `'ocean'`)।
   final String id;
 
-  /// থিম বাছাই করার UI-তে প্রদর্শিত নাম (যেমন `'সমুদ্র নীল'`)।
+  /// থিম বাছাই করার UI-তে প্রদর্শিত নাম (যেমন `'Ocean'`)।
   final String name;
 
   /// পিকার বাটনে দেখানোর রঙ ডট (না দিলে [seedColor] ব্যবহার হয়)।
@@ -446,7 +522,7 @@ class OmniTheme {
   /// প্রাথমিক লাইট/ডার্ক/সিস্টেম মোড।
   final ThemeMode mode;
 
-  /// ইউজারের বাছাই করা থিম ও মোড লোকাল স্টোরেজে অটো সেভ রাখবে কি না।
+  /// ইউজারের বাছাই করা থিম, মোড ও স্টাইল লোকাল স্টোরেজে অটো সেভ রাখবে কি না।
   final bool persistMode;
 
   /// সেভ ডেটা আলাদা রাখার কী।
@@ -458,6 +534,9 @@ class OmniTheme {
   /// সেকেন্ডারি অ্যাকসেন্ট কালার (`OmniColors.secondaryColor`)।
   final Color? secondaryColor;
 
+  /// ১-লাইনের ডিজাইন স্টাইল প্রিসেট (`modern`, `outlined`, `soft`, `elevated`, `minimal`, `compact`)।
+  final OmniThemeStyle style;
+
   /// Material 3 চালু রাখে (ডিফল্ট `true`)।
   final bool useMaterial3;
 
@@ -467,29 +546,32 @@ class OmniTheme {
   /// ডিসপ্লে, হেডিং ও কার্ড টাইটেলের ডিফল্ট ফন্ট ওয়েট (ডিফল্ট `FontWeight.w700`)।
   final FontWeight headingWeight;
 
-  /// সব বাটন, কার্ড ও ইনপুটের কর্নার রেডিয়াস (ডিফল্ট টিয়ার অনুযায়ী অটো)।
+  /// সব বাটন, কার্ড ও ইনপুটের কর্নার রেডিয়াস (`null` হলে [style] বা টিয়ার অনুযায়ী অটো)।
   final double? borderRadius;
 
-  /// সব `TextField` / `TextFormField`-এর গ্লোবাল স্টাইল ভ্যারিয়েন্ট:
-  /// - [OmniInputVariant.filled] (ডিফল্ট হালকা ফিল ও বর্ডার)
-  /// - [OmniInputVariant.outlined] (চারদিকে পরিষ্কার আউটলাইন বর্ডার)
-  /// - [OmniInputVariant.underlined] (শুধু নিচে বর্ডার, ক্লিন/মিনিমাল ফর্ম)
-  final OmniInputVariant inputVariant;
+  /// সব `TextField` / `TextFormField`-এর গ্লোবাল স্টাইল ভ্যারিয়েন্ট (না দিলে [style] অনুযায়ী)।
+  final OmniInputVariant? inputVariant;
 
-  /// সাধারণ অবস্থায় ইনপুট ফিল্ড, চিপ ও আউটলাইন বাটনের বর্ডারের পুরুত্ব (ডিফল্ট `1.0`)।
-  final double borderWidth;
+  /// সাধারণ অবস্থায় ইনপুট ফিল্ড, চিপ ও আউটলাইন বাটনের বর্ডারের পুরুত্ব (না দিলে [style] অনুযায়ী)।
+  final double? borderWidth;
 
-  /// ইনপুট ফিল্ড ফোকাস বা এরর অবস্থায় বর্ডারের পুরুত্ব (ডিফল্ট `1.8`)।
-  final double focusedBorderWidth;
+  /// ইনপুট ফিল্ড ফোকাস বা এরর অবস্থায় বর্ডারের পুরুত্ব (না দিলে [style] অনুযায়ী)।
+  final double? focusedBorderWidth;
 
-  /// কার্ডের চারদিকের বর্ডারের পুরুত্ব (`0` দিলে বর্ডার ছাড়া কার্ড হয়; ডিফল্ট `1.0`)।
-  final double cardBorderWidth;
+  /// কার্ডের চারদিকের বর্ডারের পুরুত্ব (`0` দিলে বর্ডার ছাড়া কার্ড হয়; না দিলে [style] অনুযায়ী)।
+  final double? cardBorderWidth;
 
   /// লাইট মোডে `Scaffold` / পেজের মূল ব্যাকগ্রাউন্ড কালার (`OmniColors.surfaceColor`)।
   final Color? surfaceColor;
 
   /// ডার্ক মোডে `Scaffold` / পেজের মূল ব্যাকগ্রাউন্ড কালার।
   final Color? darkSurfaceColor;
+
+  /// লাইট মোডে সেকশন/কোড বক্স/অল্টারনেটিং রো-এর দ্বিতীয় ব্যাকগ্রাউন্ড কালার (`OmniColors.secondaryBackgroundColor`)।
+  final Color? secondaryBackgroundColor;
+
+  /// ডার্ক মোডে সেকশন/কোড বক্সের দ্বিতীয় ব্যাকগ্রাউন্ড কালার।
+  final Color? darkSecondaryBackgroundColor;
 
   /// [surfaceColor]-এর পুরোনো বিকল্প নাম (Scaffold ব্যাকগ্রাউন্ড ওভাররাইড)।
   final Color? scaffoldBackgroundColor;
@@ -524,13 +606,13 @@ class OmniTheme {
   /// প্রাইমারি বাটনের ভেতরের টেক্সট কালার (`OmniColors.buttonTextColor`)।
   final Color? buttonTextColor;
 
-  /// সেকেন্ডারি বাটনের (যেমন "Cancel", "Back", "Skip") ব্যাকগ্রাউন্ড কালার (`OmniColors.secondaryButtonColor`)।
+  /// সেকেন্ডারি বাটনের ("Cancel", "Back", "Skip") ব্যাকগ্রাউন্ড কালার (`OmniColors.secondaryButtonColor`)।
   final Color? secondaryButtonColor;
 
   /// সেকেন্ডারি বাটনের ভেতরের টেক্সট ও আইকন কালার (`OmniColors.secondaryButtonTextColor`)।
   final Color? secondaryButtonTextColor;
 
-  /// ডেঞ্জার/ডিলিট বাটনের (যেমন "Delete", "Remove", "Logout") ব্যাকগ্রাউন্ড কালার (`OmniColors.dangerButtonColor`)।
+  /// ডেঞ্জার/ডিলিট বাটনের ("Delete", "Remove", "Logout") ব্যাকগ্রাউন্ড কালার (`OmniColors.dangerButtonColor`)।
   final Color? dangerButtonColor;
 
   /// ডেঞ্জার/ডিলিট বাটনের ভেতরের টেক্সট ও আইকন কালার (`OmniColors.dangerButtonTextColor`)।
@@ -581,11 +663,35 @@ class OmniTheme {
   /// ডেস্কটপ/ওয়েবে মাউস হোভার বা প্রেস হাইলাইট রঙ (`OmniColors.hoverColor`)।
   final Color? hoverColor;
 
+  /// বাটন বা কার্ডে ট্যাপ করলে ছড়িয়ে পড়া রিপল/স্প্ল্যাশ কালার (`OmniColors.rippleColor`)।
+  final Color? rippleColor;
+
   /// নিষ্ক্রিয় (disabled) বাটন/ইনপুটের ব্যাকগ্রাউন্ড কালার (`OmniColors.disabledColor`)।
   final Color? disabledColor;
 
   /// নিষ্ক্রিয় (disabled) বাটন/ইনপুটের টেক্সট কালার (`OmniColors.disabledTextColor`)।
   final Color? disabledTextColor;
+
+  /// নিষ্ক্রিয় (disabled) ইনপুট বা আউটলাইন বাটনের বর্ডার কালার (`OmniColors.disabledBorderColor`)।
+  final Color? disabledBorderColor;
+
+  /// `Switch`, `Checkbox`, ও `Radio` চালু অবস্থার রঙ (`OmniColors.switchActiveColor`)।
+  final Color? switchActiveColor;
+
+  /// `Switch`, `Checkbox`, ও স্লাইডার বন্ধ অবস্থার রঙ (`OmniColors.switchInactiveColor`)।
+  final Color? switchInactiveColor;
+
+  /// `SnackBar` / টোস্টের ব্যাকগ্রাউন্ড কালার (`OmniColors.snackbarColor`)।
+  final Color? snackbarColor;
+
+  /// `SnackBar` / টোস্টের ভেতরের লেখার কালার (`OmniColors.snackbarTextColor`)।
+  final Color? snackbarTextColor;
+
+  /// `Tooltip` পপআপ বক্সের ব্যাকগ্রাউন্ড কালার (`OmniColors.tooltipColor`)।
+  final Color? tooltipColor;
+
+  /// `Tooltip` পপআপের ভেতরের লেখার কালার (`OmniColors.tooltipTextColor`)।
+  final Color? tooltipTextColor;
 
   /// এরর ও ভুল ভ্যালিডেশনের লাল কালার (`OmniColors.errorColor`)।
   final Color? errorColor;
@@ -617,8 +723,8 @@ class OmniTheme {
   /// ডার্ক মোডের জন্য সম্পূর্ণ কাস্টম [OmniColors] প্যালেট (ঐচ্ছিক)।
   final OmniColors? darkColors;
 
-  /// কার্ডের শ্যাডো উচ্চতা (`0` = আধুনিক ফ্ল্যাট)।
-  final double cardElevation;
+  /// কার্ডের শ্যাডো উচ্চতা (না দিলে [style] অনুযায়ী অটো)।
+  final double? cardElevation;
 
   /// সব `AppBar`-এ টাইটেল সেন্টারে রাখবে কি না।
   final bool? appBarCenterTitle;
@@ -629,9 +735,37 @@ class OmniTheme {
   /// পিকারের জন্য রঙের স্যাম্পল রিটার্ন করে।
   Color get swatchColor => previewColor ?? seedColor;
 
-  // ── রেডিমেড মাল্টি-থিম প্রিসেট (১-ক্লিকে থিম বদলানোর জন্য) ──────────────────
+  /// [OmniTheme] ও ঐচ্ছিক রানটাইম [styleOverride] মিলিয়ে কার্যকর ইনপুট ভ্যারিয়েন্ট।
+  OmniInputVariant effectiveInputVariant([OmniThemeStyle? styleOverride]) =>
+      styleOverride?.inputVariant ?? inputVariant ?? style.inputVariant;
 
-  /// সমুদ্র নীল প্রিসেট থিম (`id: 'ocean'`)।
+  /// কার্যকর বর্ডার পুরুত্ব।
+  double effectiveBorderWidth([OmniThemeStyle? styleOverride]) =>
+      styleOverride?.borderWidth ?? borderWidth ?? style.borderWidth;
+
+  /// কার্যকর ফোকাস বর্ডার পুরুত্ব।
+  double effectiveFocusedBorderWidth([OmniThemeStyle? styleOverride]) =>
+      styleOverride?.focusedBorderWidth ??
+      focusedBorderWidth ??
+      style.focusedBorderWidth;
+
+  /// কার্যকর কার্ড বর্ডার পুরুত্ব।
+  double effectiveCardBorderWidth([OmniThemeStyle? styleOverride]) =>
+      styleOverride?.cardBorderWidth ?? cardBorderWidth ?? style.cardBorderWidth;
+
+  /// কার্যকর কার্ড এলিভেশন।
+  double effectiveCardElevation([OmniThemeStyle? styleOverride]) =>
+      styleOverride?.cardElevation ?? cardElevation ?? style.cardElevation;
+
+  /// কার্যকর কর্নার রেডিয়াস (`null` হলে ডিভাইস টিয়ার অনুযায়ী অটো)।
+  double? effectiveBorderRadius([OmniThemeStyle? styleOverride]) =>
+      styleOverride != null
+          ? (styleOverride.borderRadius ?? borderRadius)
+          : (borderRadius ?? style.borderRadius);
+
+  // ── রেডিমেড মাল্টি-প্যালেট প্রিসেট (১-ক্লিকে পুরো অ্যাপের কালার প্যালেট বদলানোর জন্য) ──
+
+  /// সমুদ্র নীল প্রিসেট প্যালেট (`id: 'ocean'`)।
   static const ocean = OmniTheme(
     id: 'ocean',
     name: 'Ocean',
@@ -639,7 +773,7 @@ class OmniTheme {
     secondaryColor: Color(0xFF0EA5E9),
   );
 
-  /// সবুজ প্রকৃতি প্রিসেট থিম (`id: 'emerald'`)।
+  /// সবুজ প্রকৃতি প্রিসেট প্যালেট (`id: 'emerald'`)।
   static const emerald = OmniTheme(
     id: 'emerald',
     name: 'Emerald',
@@ -647,7 +781,15 @@ class OmniTheme {
     secondaryColor: Color(0xFF14B8A6),
   );
 
-  /// সোনালি কমলা প্রিসেট থিম (`id: 'sunset'`)।
+  /// রাজকীয় বেগুনি প্রিসেট প্যালেট (`id: 'violet'`)।
+  static const violet = OmniTheme(
+    id: 'violet',
+    name: 'Violet',
+    seedColor: Color(0xFF7C3AED),
+    secondaryColor: Color(0xFFA855F7),
+  );
+
+  /// সোনালি কমলা প্রিসেট প্যালেট (`id: 'sunset'`)।
   static const sunset = OmniTheme(
     id: 'sunset',
     name: 'Sunset',
@@ -655,7 +797,7 @@ class OmniTheme {
     secondaryColor: Color(0xFFF59E0B),
   );
 
-  /// গোলাপি বেরি প্রিসেট থিম (`id: 'rose'`)।
+  /// গোলাপি বেরি প্রিসেট প্যালেট (`id: 'rose'`)।
   static const rose = OmniTheme(
     id: 'rose',
     name: 'Rose',
@@ -663,7 +805,23 @@ class OmniTheme {
     secondaryColor: Color(0xFFEC4899),
   );
 
-  /// কর্পোরেট স্লেট-ইন্ডিগো প্রিসেট থিম (`id: 'slate'`)।
+  /// নীলচে-সবুজ টিল প্রিসেট প্যালেট (`id: 'teal'`)।
+  static const teal = OmniTheme(
+    id: 'teal',
+    name: 'Teal',
+    seedColor: Color(0xFF0D9488),
+    secondaryColor: Color(0xFF06B6D4),
+  );
+
+  /// উষ্ণ সোনালি অ্যাম্বার প্রিসেট প্যালেট (`id: 'amber'`)।
+  static const amber = OmniTheme(
+    id: 'amber',
+    name: 'Amber',
+    seedColor: Color(0xFFD97706),
+    secondaryColor: Color(0xFFEA580C),
+  );
+
+  /// কর্পোরেট স্লেট-ইন্ডিগো প্রিসেট প্যালেট (`id: 'slate'`)।
   static const slate = OmniTheme(
     id: 'slate',
     name: 'Slate',
@@ -671,8 +829,25 @@ class OmniTheme {
     secondaryColor: Color(0xFF6366F1),
   );
 
-  /// ৫টি রেডিমেড প্রোডাকশন থিমের বান্ডিল (`OmniApp.material(themes: OmniTheme.presets)`)।
-  static const List<OmniTheme> presets = [ocean, emerald, sunset, rose, slate];
+  /// ৮টি রেডিমেড প্রোডাকশন কালার প্যালেটের বান্ডিল (`OmniApp.material(themes: OmniTheme.presets)`)।
+  static const List<OmniTheme> presets = [
+    ocean,
+    emerald,
+    violet,
+    sunset,
+    rose,
+    teal,
+    amber,
+    slate,
+  ];
+
+  /// [id] দিয়ে রেডিমেড [presets] থেকে প্যালেট খুঁজে বের করে (না পেলে `null`)।
+  static OmniTheme? findPreset(String id) {
+    for (final preset in presets) {
+      if (preset.id == id) return preset;
+    }
+    return null;
+  }
 
   /// নির্দিষ্ট প্রোপার্টি বদলে নতুন [OmniTheme] কপি দেয়।
   OmniTheme copyWith({
@@ -685,6 +860,7 @@ class OmniTheme {
     String? storageKey,
     OmniThemeController? controller,
     Color? secondaryColor,
+    OmniThemeStyle? style,
     bool? useMaterial3,
     String? fontFamily,
     FontWeight? headingWeight,
@@ -695,6 +871,8 @@ class OmniTheme {
     double? cardBorderWidth,
     Color? surfaceColor,
     Color? darkSurfaceColor,
+    Color? secondaryBackgroundColor,
+    Color? darkSecondaryBackgroundColor,
     Color? scaffoldBackgroundColor,
     Color? darkScaffoldBackgroundColor,
     Color? cardColor,
@@ -725,8 +903,16 @@ class OmniTheme {
     Color? badgeTextColor,
     Color? selectedItemColor,
     Color? hoverColor,
+    Color? rippleColor,
     Color? disabledColor,
     Color? disabledTextColor,
+    Color? disabledBorderColor,
+    Color? switchActiveColor,
+    Color? switchInactiveColor,
+    Color? snackbarColor,
+    Color? snackbarTextColor,
+    Color? tooltipColor,
+    Color? tooltipTextColor,
     Color? errorColor,
     Color? warningColor,
     Color? successColor,
@@ -750,6 +936,7 @@ class OmniTheme {
     storageKey: storageKey ?? this.storageKey,
     controller: controller ?? this.controller,
     secondaryColor: secondaryColor ?? this.secondaryColor,
+    style: style ?? this.style,
     useMaterial3: useMaterial3 ?? this.useMaterial3,
     fontFamily: fontFamily ?? this.fontFamily,
     headingWeight: headingWeight ?? this.headingWeight,
@@ -760,6 +947,10 @@ class OmniTheme {
     cardBorderWidth: cardBorderWidth ?? this.cardBorderWidth,
     surfaceColor: surfaceColor ?? this.surfaceColor,
     darkSurfaceColor: darkSurfaceColor ?? this.darkSurfaceColor,
+    secondaryBackgroundColor:
+        secondaryBackgroundColor ?? this.secondaryBackgroundColor,
+    darkSecondaryBackgroundColor:
+        darkSecondaryBackgroundColor ?? this.darkSecondaryBackgroundColor,
     scaffoldBackgroundColor:
         scaffoldBackgroundColor ?? this.scaffoldBackgroundColor,
     darkScaffoldBackgroundColor:
@@ -794,8 +985,16 @@ class OmniTheme {
     badgeTextColor: badgeTextColor ?? this.badgeTextColor,
     selectedItemColor: selectedItemColor ?? this.selectedItemColor,
     hoverColor: hoverColor ?? this.hoverColor,
+    rippleColor: rippleColor ?? this.rippleColor,
     disabledColor: disabledColor ?? this.disabledColor,
     disabledTextColor: disabledTextColor ?? this.disabledTextColor,
+    disabledBorderColor: disabledBorderColor ?? this.disabledBorderColor,
+    switchActiveColor: switchActiveColor ?? this.switchActiveColor,
+    switchInactiveColor: switchInactiveColor ?? this.switchInactiveColor,
+    snackbarColor: snackbarColor ?? this.snackbarColor,
+    snackbarTextColor: snackbarTextColor ?? this.snackbarTextColor,
+    tooltipColor: tooltipColor ?? this.tooltipColor,
+    tooltipTextColor: tooltipTextColor ?? this.tooltipTextColor,
     errorColor: errorColor ?? this.errorColor,
     warningColor: warningColor ?? this.warningColor,
     successColor: successColor ?? this.successColor,
@@ -825,6 +1024,9 @@ class OmniTheme {
       surfaceColor: isDark
           ? (darkSurfaceColor ?? darkScaffoldBackgroundColor)
           : (surfaceColor ?? scaffoldBackgroundColor),
+      secondaryBackgroundColor: isDark
+          ? darkSecondaryBackgroundColor
+          : secondaryBackgroundColor,
       cardColor: isDark ? darkCardColor : cardColor,
       appBarColor: appBarColor,
       appBarTextColor: appBarTextColor,
@@ -852,8 +1054,16 @@ class OmniTheme {
       badgeTextColor: badgeTextColor,
       selectedItemColor: selectedItemColor,
       hoverColor: hoverColor,
+      rippleColor: rippleColor,
       disabledColor: disabledColor,
       disabledTextColor: disabledTextColor,
+      disabledBorderColor: disabledBorderColor,
+      switchActiveColor: switchActiveColor,
+      switchInactiveColor: switchInactiveColor,
+      snackbarColor: snackbarColor,
+      snackbarTextColor: snackbarTextColor,
+      tooltipColor: tooltipColor,
+      tooltipTextColor: tooltipTextColor,
       errorColor: errorColor,
       warningColor: warningColor,
       successColor: successColor,
@@ -865,13 +1075,15 @@ class OmniTheme {
     );
   }
 
-  /// [device], [tokens], এবং [brightness] অনুযায়ী সম্পূর্ণ Material [ThemeData]
-  /// তৈরি করে (`Scaffold`, `Button`, `TextField`, `Card`, `Dialog`, `NavigationBar`,
-  /// [OmniColors], [OmniTextStyles] এবং [OmniStyles]সহ)।
+  /// [device], [tokens], [brightness] এবং ঐচ্ছিক [styleOverride] অনুযায়ী সম্পূর্ণ
+  /// Material [ThemeData] তৈরি করে (`Scaffold`, `Button`, `TextField`, `Card`, `Dialog`,
+  /// `NavigationBar`, `Switch`, `Checkbox`, `Tooltip`, `SnackBar`, [OmniColors],
+  /// [OmniTextStyles] এবং [OmniStyles]সহ)।
   ThemeData resolve({
     required OmniDeviceType device,
     required OmniResponsiveTokens tokens,
     required Brightness brightness,
+    OmniThemeStyle? styleOverride,
   }) {
     final colors = resolveColors(brightness);
     final isDark = brightness == Brightness.dark;
@@ -893,14 +1105,21 @@ class OmniTheme {
         device == OmniDeviceType.desktop ||
         device == OmniDeviceType.largeDesktop;
 
-    final cardRadius = borderRadius != null
-        ? BorderRadius.all(Radius.circular(borderRadius!))
+    final effRadius = effectiveBorderRadius(styleOverride);
+    final effInputVariant = effectiveInputVariant(styleOverride);
+    final effBorderWidth = effectiveBorderWidth(styleOverride);
+    final effFocusedBorderWidth = effectiveFocusedBorderWidth(styleOverride);
+    final effCardBorderWidth = effectiveCardBorderWidth(styleOverride);
+    final effCardElevation = effectiveCardElevation(styleOverride);
+
+    final cardRadius = effRadius != null
+        ? BorderRadius.all(Radius.circular(effRadius))
         : tokens.cardBorderRadius;
-    final buttonRadius = borderRadius != null
-        ? BorderRadius.all(Radius.circular(borderRadius!))
+    final buttonRadius = effRadius != null
+        ? BorderRadius.all(Radius.circular(effRadius))
         : tokens.buttonBorderRadius;
-    final dialogRadius = borderRadius != null
-        ? BorderRadius.all(Radius.circular(borderRadius! + 2))
+    final dialogRadius = effRadius != null
+        ? BorderRadius.all(Radius.circular(effRadius + 2))
         : tokens.dialogBorderRadius;
 
     final textStyles = OmniTextStyles.fromTheme(
@@ -915,10 +1134,10 @@ class OmniTheme {
       tokens: tokens,
       cardRadius: cardRadius,
       buttonRadius: buttonRadius,
-      inputVariant: inputVariant,
-      borderWidth: borderWidth,
-      focusedBorderWidth: focusedBorderWidth,
-      cardBorderWidth: cardBorderWidth,
+      inputVariant: effInputVariant,
+      borderWidth: effBorderWidth,
+      focusedBorderWidth: effFocusedBorderWidth,
+      cardBorderWidth: effCardBorderWidth,
     );
 
     final baseTheme = ThemeData(
@@ -929,6 +1148,8 @@ class OmniTheme {
       scaffoldBackgroundColor: colors.surfaceColor,
       dividerColor: colors.dividerColor,
       hoverColor: colors.hoverColor,
+      splashColor: colors.rippleColor,
+      highlightColor: colors.hoverColor,
       disabledColor: colors.disabledColor,
       shadowColor: colors.shadowColor,
       iconTheme: IconThemeData(color: colors.iconColor),
@@ -946,15 +1167,21 @@ class OmniTheme {
         elevation: 0,
         centerTitle: appBarCenterTitle,
       ),
+      listTileTheme: ListTileThemeData(
+        selectedTileColor: colors.selectedItemColor,
+        selectedColor: colors.primaryColor,
+        iconColor: colors.iconColor,
+        textColor: colors.textColor,
+      ),
       cardTheme: CardThemeData(
         color: colors.cardColor,
         shadowColor: colors.shadowColor,
         surfaceTintColor: Colors.transparent,
-        elevation: cardElevation,
+        elevation: effCardElevation,
         shape: RoundedRectangleBorder(
           borderRadius: cardRadius,
-          side: cardBorderWidth > 0
-              ? BorderSide(color: colors.borderColor, width: cardBorderWidth)
+          side: effCardBorderWidth > 0
+              ? BorderSide(color: colors.borderColor, width: effCardBorderWidth)
               : BorderSide.none,
         ),
         margin: EdgeInsets.zero,
@@ -1017,17 +1244,64 @@ class OmniTheme {
         secondaryLabelStyle: textStyles.label.copyWith(
           color: colors.primaryColor,
         ),
-        side: BorderSide(color: colors.borderColor, width: borderWidth),
+        side: BorderSide(color: colors.borderColor, width: effBorderWidth),
         shape: RoundedRectangleBorder(borderRadius: buttonRadius),
       ),
-      snackBarTheme: SnackBarThemeData(
-        backgroundColor: isDark ? colors.cardColor : colors.textColor,
-        contentTextStyle: textStyles.body.copyWith(
-          color: isDark ? colors.textColor : colors.surfaceColor,
+      switchTheme: SwitchThemeData(
+        thumbColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colors.disabledTextColor
+              : states.contains(WidgetState.selected)
+                  ? colors.buttonTextColor
+                  : colors.switchInactiveColor,
         ),
-        actionTextColor: colors.primaryColor,
+        trackColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colors.disabledColor
+              : states.contains(WidgetState.selected)
+                  ? colors.switchActiveColor
+                  : colors.secondaryBackgroundColor,
+        ),
+        trackOutlineColor: WidgetStatePropertyAll(colors.borderColor),
+      ),
+      checkboxTheme: CheckboxThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colors.disabledColor
+              : states.contains(WidgetState.selected)
+                  ? colors.switchActiveColor
+                  : Colors.transparent,
+        ),
+        checkColor: WidgetStatePropertyAll(colors.buttonTextColor),
+        side: BorderSide(color: colors.borderColor, width: effBorderWidth),
+      ),
+      radioTheme: RadioThemeData(
+        fillColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colors.disabledTextColor
+              : states.contains(WidgetState.selected)
+                  ? colors.switchActiveColor
+                  : colors.switchInactiveColor,
+        ),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: colors.snackbarColor,
+        contentTextStyle: textStyles.body.copyWith(
+          color: colors.snackbarTextColor,
+        ),
+        actionTextColor:
+            isDark ? colors.primaryColor : colors.secondaryColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+      ),
+      tooltipTheme: TooltipThemeData(
+        decoration: BoxDecoration(
+          color: colors.tooltipColor,
+          borderRadius: BorderRadius.all(
+            Radius.circular(((effRadius ?? tokens.buttonRadius) / 2).clamp(4, 12)),
+          ),
+        ),
+        textStyle: textStyles.caption.copyWith(color: colors.tooltipTextColor),
       ),
       inputDecorationTheme: styles.inputDecorationTheme,
       filledButtonTheme: FilledButtonThemeData(style: styles.primaryButton),
@@ -1082,6 +1356,7 @@ class OmniTheme {
           storageKey == other.storageKey &&
           identical(controller, other.controller) &&
           secondaryColor == other.secondaryColor &&
+          style == other.style &&
           useMaterial3 == other.useMaterial3 &&
           fontFamily == other.fontFamily &&
           headingWeight == other.headingWeight &&
@@ -1092,6 +1367,8 @@ class OmniTheme {
           cardBorderWidth == other.cardBorderWidth &&
           surfaceColor == other.surfaceColor &&
           darkSurfaceColor == other.darkSurfaceColor &&
+          secondaryBackgroundColor == other.secondaryBackgroundColor &&
+          darkSecondaryBackgroundColor == other.darkSecondaryBackgroundColor &&
           scaffoldBackgroundColor == other.scaffoldBackgroundColor &&
           darkScaffoldBackgroundColor == other.darkScaffoldBackgroundColor &&
           cardColor == other.cardColor &&
@@ -1122,8 +1399,16 @@ class OmniTheme {
           badgeTextColor == other.badgeTextColor &&
           selectedItemColor == other.selectedItemColor &&
           hoverColor == other.hoverColor &&
+          rippleColor == other.rippleColor &&
           disabledColor == other.disabledColor &&
           disabledTextColor == other.disabledTextColor &&
+          disabledBorderColor == other.disabledBorderColor &&
+          switchActiveColor == other.switchActiveColor &&
+          switchInactiveColor == other.switchInactiveColor &&
+          snackbarColor == other.snackbarColor &&
+          snackbarTextColor == other.snackbarTextColor &&
+          tooltipColor == other.tooltipColor &&
+          tooltipTextColor == other.tooltipTextColor &&
           errorColor == other.errorColor &&
           warningColor == other.warningColor &&
           successColor == other.successColor &&
@@ -1149,6 +1434,7 @@ class OmniTheme {
     storageKey,
     controller,
     secondaryColor,
+    style,
     useMaterial3,
     fontFamily,
     headingWeight,
@@ -1159,6 +1445,8 @@ class OmniTheme {
     cardBorderWidth,
     surfaceColor,
     darkSurfaceColor,
+    secondaryBackgroundColor,
+    darkSecondaryBackgroundColor,
     scaffoldBackgroundColor,
     darkScaffoldBackgroundColor,
     cardColor,
@@ -1189,8 +1477,16 @@ class OmniTheme {
     badgeTextColor,
     selectedItemColor,
     hoverColor,
+    rippleColor,
     disabledColor,
     disabledTextColor,
+    disabledBorderColor,
+    switchActiveColor,
+    switchInactiveColor,
+    snackbarColor,
+    snackbarTextColor,
+    tooltipColor,
+    tooltipTextColor,
     errorColor,
     warningColor,
     successColor,
@@ -1207,10 +1503,10 @@ class OmniTheme {
   ]);
 }
 
-enum _OmniThemeAspect { mode, activeTheme, themes, catalog }
+enum _OmniThemeAspect { mode, activeTheme, style, themes, catalog }
 
 /// অ্যাস্পেক্ট-স্প্লিট `InheritedModel` যা পুরো অ্যাপে [OmniThemeController],
-/// সক্রিয় থিম তালিকা এবং মেমোইজড `lightTheme`/`darkTheme` পৌঁছে দেয়।
+/// সক্রিয় থিম তালিকা, স্টাইল এবং মেমোইজড `lightTheme`/`darkTheme` পৌঁছে দেয়।
 class OmniThemeScope extends InheritedModel<Object> {
   /// [OmniThemeScope] তৈরি করে।
   const OmniThemeScope({
@@ -1218,28 +1514,32 @@ class OmniThemeScope extends InheritedModel<Object> {
     required this.controller,
     required this.selection,
     required this.activeTheme,
+    required this.activeStyle,
     required this.availableThemes,
     required this.lightTheme,
     required this.darkTheme,
     required super.child,
   });
 
-  /// থিম ও মোড পরিবর্তনকারী কন্ট্রোলার।
+  /// থিম, মোড ও স্টাইল পরিবর্তনকারী কন্ট্রোলার।
   final OmniThemeController controller;
 
-  /// বর্তমান `ThemeMode` এবং `themeId`।
+  /// বর্তমান `ThemeMode`, `themeId` এবং `style`।
   final OmniThemeSelection selection;
 
   /// বর্তমান সক্রিয় [OmniTheme]।
   final OmniTheme activeTheme;
 
+  /// বর্তমান কার্যকর [OmniThemeStyle]।
+  final OmniThemeStyle activeStyle;
+
   /// অ্যাপে রেজিস্ট্রিকৃত সব [OmniTheme]।
   final List<OmniTheme> availableThemes;
 
-  /// বর্তমান ডিভাইস টিয়ার ও সক্রিয় থিমের মেমোইজড লাইট থিম।
+  /// বর্তমান ডিভাইস টিয়ার, সক্রিয় প্যালেট ও স্টাইলের মেমোইজড লাইট থিম।
   final ThemeData lightTheme;
 
-  /// বর্তমান ডিভাইস টিয়ার ও সক্রিয় থিমের মেমোইজড ডার্ক থিম।
+  /// বর্তমান ডিভাইস টিয়ার, সক্রিয় প্যালেট ও স্টাইলের মেমোইজড ডার্ক থিম।
   final ThemeData darkTheme;
 
   /// নন-লিসেনিং O(1) লুকআপ (`onPressed` ও কলব্যাকে নিরাপদ)।
@@ -1268,6 +1568,14 @@ class OmniThemeScope extends InheritedModel<Object> {
         context,
         aspect: _OmniThemeAspect.activeTheme,
       )?.activeTheme;
+
+  /// কেবল সক্রিয় ডিজাইন স্টাইল ([OmniThemeStyle]) বদলালেই রি-বিল্ড হয়।
+  static OmniThemeStyle activeStyleOf(BuildContext context) =>
+      InheritedModel.inheritFrom<OmniThemeScope>(
+        context,
+        aspect: _OmniThemeAspect.style,
+      )?.activeStyle ??
+      OmniThemeStyle.modern;
 
   /// অ্যাপের সব উপলব্ধ থিম রিটার্ন করে।
   static List<OmniTheme> availableThemesOf(BuildContext context) =>
@@ -1302,6 +1610,7 @@ class OmniThemeScope extends InheritedModel<Object> {
       !identical(oldWidget.controller, controller) ||
       oldWidget.selection != selection ||
       oldWidget.activeTheme != activeTheme ||
+      oldWidget.activeStyle != activeStyle ||
       !identical(oldWidget.availableThemes, availableThemes) ||
       !identical(oldWidget.lightTheme, lightTheme) ||
       !identical(oldWidget.darkTheme, darkTheme);
@@ -1319,6 +1628,10 @@ class OmniThemeScope extends InheritedModel<Object> {
         oldWidget.activeTheme != activeTheme) {
       return true;
     }
+    if (dependencies.contains(_OmniThemeAspect.style) &&
+        oldWidget.activeStyle != activeStyle) {
+      return true;
+    }
     if (dependencies.contains(_OmniThemeAspect.catalog) &&
         !identical(oldWidget.availableThemes, availableThemes)) {
       return true;
@@ -1332,9 +1645,9 @@ class OmniThemeScope extends InheritedModel<Object> {
   }
 }
 
-/// প্রতিটি `(themeId, device, tokens)` কম্বিনেশনের `ThemeData` ক্যাশ করে রাখে
-/// যাতে এক থিম থেকে অন্য থিমে বা লাইট ↔ ডার্কে ফিরে এলে পুনরায় `ThemeData`
-/// অ্যালোকেট না হয়।
+/// প্রতিটি `(themeId, style, device, tokens)` কম্বিনেশনের `ThemeData` ক্যাশ করে রাখে
+/// যাতে এক থিম থেকে অন্য থিমে, স্টাইলে বা লাইট ↔ ডার্কে ফিরে এলে পুনরায়
+/// `ThemeData` অ্যালোকেট না হয়।
 class OmniResponsiveThemeHost extends StatefulWidget {
   /// [omniTheme] এবং/অথবা [themes] সহ থিম হোস্ট তৈরি করে।
   const OmniResponsiveThemeHost({
@@ -1363,7 +1676,15 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
   late List<OmniTheme> _catalog;
   OmniDeviceType? _cacheDevice;
   OmniResponsiveTokens? _cacheTokens;
-  final Map<String, ({OmniTheme source, ThemeData light, ThemeData dark})>
+  final Map<
+    String,
+    ({
+      OmniTheme source,
+      OmniThemeStyle? styleOverride,
+      ThemeData light,
+      ThemeData dark,
+    })
+  >
   _resolvedCache = {};
 
   OmniTheme get _primaryTheme => widget.omniTheme ?? widget.themes.first;
@@ -1443,6 +1764,7 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
 
   ({ThemeData light, ThemeData dark}) _resolveFor(
     OmniTheme theme,
+    OmniThemeStyle? styleOverride,
     OmniDeviceType device,
     OmniResponsiveTokens tokens,
   ) {
@@ -1451,24 +1773,30 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
       _cacheDevice = device;
       _cacheTokens = tokens;
     }
-    final existing = _resolvedCache[theme.id];
-    if (existing != null && existing.source == theme) {
+    final cacheKey = '${theme.id}|${styleOverride?.name ?? ''}';
+    final existing = _resolvedCache[cacheKey];
+    if (existing != null &&
+        existing.source == theme &&
+        existing.styleOverride == styleOverride) {
       return (light: existing.light, dark: existing.dark);
     }
     final built = (
       source: theme,
+      styleOverride: styleOverride,
       light: theme.resolve(
         device: device,
         tokens: tokens,
         brightness: Brightness.light,
+        styleOverride: styleOverride,
       ),
       dark: theme.resolve(
         device: device,
         tokens: tokens,
         brightness: Brightness.dark,
+        styleOverride: styleOverride,
       ),
     );
-    _resolvedCache[theme.id] = built;
+    _resolvedCache[cacheKey] = built;
     return (light: built.light, dark: built.dark);
   }
 
@@ -1483,11 +1811,18 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
       child: widget.child,
       builder: (_, selection, child) {
         final activeTheme = _findTheme(selection.themeId);
-        final resolved = _resolveFor(activeTheme, device, tokens);
+        final activeStyle = selection.style ?? activeTheme.style;
+        final resolved = _resolveFor(
+          activeTheme,
+          selection.style,
+          device,
+          tokens,
+        );
         return OmniThemeScope(
           controller: controller,
           selection: selection,
           activeTheme: activeTheme,
+          activeStyle: activeStyle,
           availableThemes: _catalog,
           lightTheme: resolved.light,
           darkTheme: resolved.dark,
@@ -1498,7 +1833,7 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
   }
 }
 
-/// যেকোনো `BuildContext` থেকে থিম ও মোড নিয়ন্ত্রণের সহজ শর্টকাট।
+/// যেকোনো `BuildContext` থেকে থিম, কালার প্যালেট, স্টাইল ও মোড নিয়ন্ত্রণের সহজ শর্টকাট।
 extension OmniThemeContext on BuildContext {
   /// নন-লিসেনিং কন্ট্রোলার (`onPressed` ও কলব্যাকে নিরাপদ)।
   OmniThemeController get themeController => OmniThemeScope.controllerOf(this);
@@ -1508,6 +1843,9 @@ extension OmniThemeContext on BuildContext {
 
   /// বর্তমান সক্রিয় [OmniTheme]।
   OmniTheme? get activeTheme => OmniThemeScope.activeThemeOf(this);
+
+  /// বর্তমান সক্রিয় [OmniThemeStyle]।
+  OmniThemeStyle get activeThemeStyle => OmniThemeScope.activeStyleOf(this);
 
   /// বর্তমান সক্রিয় থিমের `id`।
   String get activeThemeId => activeTheme?.id ?? 'default';
@@ -1522,7 +1860,10 @@ extension OmniThemeContext on BuildContext {
   /// ১ ক্লিকে নির্দিষ্ট `themeId` (যেমন `'emerald'`) পুরো অ্যাপে চালু করে।
   void setTheme(String themeId) => themeController.setTheme(themeId);
 
-  /// ১ ক্লিকে পরবর্তী কালার থিমে চলে যায়।
+  /// ১ ক্লিকে পুরো অ্যাপের [OmniThemeStyle] (`modern`, `outlined`, `soft`...) বদলায়।
+  void setThemeStyle(OmniThemeStyle style) => themeController.setStyle(style);
+
+  /// ১ ক্লিকে পরবর্তী কালার প্যালেটে চলে যায়।
   void nextTheme() {
     final list =
         getInheritedWidgetOfExactType<OmniThemeScope>()?.availableThemes ??
@@ -1540,6 +1881,28 @@ extension OmniThemeContext on BuildContext {
 
   /// `system -> light -> dark -> system` ঘোরায়।
   void cycleThemeMode() => themeController.cycle();
+
+  /// Settings বা যেকোনো স্ক্রিন থেকে ১-ট্যাপে থিম ও কালার প্যালেট সেটিংস শিট খোলে।
+  Future<void> openThemeSettings({
+    String title = 'Theme & Appearance',
+    String modeTitle = 'Appearance Mode',
+    String themeTitle = 'Color Palette',
+    String styleTitle = 'Theme Style',
+    String systemLabel = 'System',
+    String lightLabel = 'Light',
+    String darkLabel = 'Dark',
+    bool showStylePicker = true,
+  }) => showOmniThemeSheet(
+    this,
+    title: title,
+    modeTitle: modeTitle,
+    themeTitle: themeTitle,
+    styleTitle: styleTitle,
+    systemLabel: systemLabel,
+    lightLabel: lightLabel,
+    darkLabel: darkLabel,
+    showStylePicker: showStylePicker,
+  );
 }
 
 /// ১-ট্যাপে লাইট ↔ ডার্ক মোড বদলানোর আইকন বাটন (`AppBar.actions`-এর জন্য আদর্শ)।
@@ -1589,16 +1952,18 @@ class OmniThemeModeButton extends StatelessWidget {
               ? 'Theme: ${mode.name}'
               : (isDark ? 'Light mode' : 'Dark mode')),
       icon: icon,
-      onPressed: allowSystemMode
-          ? () => context.cycleThemeMode()
-          : () => context.toggleTheme(),
+      onPressed: OmniThemeScope.maybeControllerOf(context) == null
+          ? null
+          : allowSystemMode
+              ? () => context.cycleThemeMode()
+              : () => context.toggleTheme(),
     );
   }
 }
 
-/// ১-ট্যাপে পরবর্তী থিম ভ্যারিয়েন্টে (`ocean -> emerald -> sunset ...`) যাওয়ার বাটন।
+/// ১-ট্যাপে পরবর্তী কালার প্যালেটে (`ocean -> emerald -> violet ...`) যাওয়ার বাটন।
 class OmniThemeButton extends StatelessWidget {
-  /// `AppBar` বা টুলবারে ১-ক্লিক থিম বদলানোর বাটন তৈরি করে।
+  /// `AppBar` বা টুলবারে ১-ক্লিক প্যালেট বদলানোর বাটন তৈরি করে।
   const OmniThemeButton({
     super.key,
     this.icon = const Icon(Icons.palette_outlined),
@@ -1615,9 +1980,12 @@ class OmniThemeButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final current = OmniThemeScope.activeThemeOf(context);
     return IconButton(
-      tooltip: tooltip ?? (current != null ? 'Theme: ${current.name}' : 'Next theme'),
+      tooltip:
+          tooltip ?? (current != null ? 'Palette: ${current.name}' : 'Next palette'),
       icon: icon,
-      onPressed: () => context.nextTheme(),
+      onPressed: OmniThemeScope.maybeControllerOf(context) == null
+          ? null
+          : () => context.nextTheme(),
     );
   }
 }
@@ -1648,6 +2016,7 @@ class OmniThemeModeSwitch extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mode = OmniThemeScope.modeOf(context);
+    final hasScope = OmniThemeScope.maybeControllerOf(context) != null;
     return SegmentedButton<ThemeMode>(
       segments: [
         ButtonSegment<ThemeMode>(
@@ -1667,97 +2036,280 @@ class OmniThemeModeSwitch extends StatelessWidget {
         ),
       ],
       selected: {mode},
-      onSelectionChanged: (selection) {
-        if (selection.isNotEmpty) {
-          context.setThemeMode(selection.first);
-        }
-      },
+      onSelectionChanged: !hasScope
+          ? null
+          : (selection) {
+              if (selection.isNotEmpty) {
+                context.setThemeMode(selection.first);
+              }
+            },
     );
   }
 }
 
-/// ১ ক্লিকে থিম পছন্দ করার কালার-সওয়াচ পিকার (`themes:` লিস্ট থেকে স্বয়ংক্রিয়ভাবে
-/// রঙ ও নাম দেখায়)।
+/// [OmniThemePicker] দেখানোর ভিজ্যুয়াল ধরন।
+enum OmniThemePickerLayout {
+  /// ছোট পিল চিপ + সিঙ্গেল কালার ডট (কম্প্যাক্ট জায়গার জন্য)।
+  chips,
+
+  /// একাধিক সওয়াচ ডট (Primary + Secondary + Surface) ও নামসহ কালার প্যালেট কার্ড।
+  paletteCards,
+}
+
+/// ১ ক্লিকে কালার প্যালেট পছন্দ করার সেটিংস-বান্ধব পিকার (`themes:` লিস্ট থেকে
+/// স্বয়ংক্রিয়ভাবে প্যালেট রঙ ও নাম দেখায়)।
 class OmniThemePicker extends StatelessWidget {
-  /// সব উপলব্ধ থিম দেখিয়ে ১-ক্লিক পিকার তৈরি করে।
+  /// সব উপলব্ধ কালার প্যালেট দেখিয়ে ১-ক্লিক পিকার তৈরি করে।
   const OmniThemePicker({
     super.key,
     this.themes,
     this.showNames = true,
     this.spacing = 10,
+    this.layout = OmniThemePickerLayout.paletteCards,
   });
 
   /// ঐচ্ছিক থিম তালিকা (না দিলে `OmniApp` থেকে অটো পায়)।
   final List<OmniTheme>? themes;
 
-  /// রঙ ডটের পাশে থিমের নাম দেখাবে কি না।
+  /// রঙ সওয়াচের পাশে প্যালেটের নাম দেখাবে কি না।
   final bool showNames;
 
-  /// দুটি থিম চিপের মাঝখানের ফাঁকা জায়গা।
+  /// দুটি প্যালেটের মাঝখানের ফাঁকা জায়গা।
   final double spacing;
+
+  /// প্রদর্শনের ধরন (`paletteCards` অথবা `chips`)।
+  final OmniThemePickerLayout layout;
 
   @override
   Widget build(BuildContext context) {
-    final items = themes ?? OmniThemeScope.availableThemesOf(context);
+    final scoped = OmniThemeScope.availableThemesOf(context);
+    final items = themes ?? (scoped.isNotEmpty ? scoped : OmniTheme.presets);
     final activeId = OmniThemeScope.activeThemeOf(context)?.id ?? '';
+    final hasController = OmniThemeScope.maybeControllerOf(context) != null;
     final c = context.colors;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Wrap(
       spacing: spacing,
       runSpacing: spacing,
       children: [
         for (final t in items)
-          InkWell(
+          _PaletteOptionItem(
+            theme: t,
+            selected: t.id == activeId,
+            showName: showNames,
+            layout: layout,
+            isDark: isDark,
+            colors: c,
+            onTap: hasController ? () => context.setTheme(t.id) : null,
+          ),
+      ],
+    );
+  }
+}
+
+class _PaletteOptionItem extends StatelessWidget {
+  const _PaletteOptionItem({
+    required this.theme,
+    required this.selected,
+    required this.showName,
+    required this.layout,
+    required this.isDark,
+    required this.colors,
+    required this.onTap,
+  });
+
+  final OmniTheme theme;
+  final bool selected;
+  final bool showName;
+  final OmniThemePickerLayout layout;
+  final bool isDark;
+  final OmniColors colors;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = theme.swatchColor;
+    final secondary = theme.secondaryColor ?? primary;
+    final surfaceSwatch = isDark
+        ? (theme.darkCardColor ?? const Color(0xFF131C31))
+        : (theme.cardColor ?? Colors.white);
+
+    if (layout == OmniThemePickerLayout.chips) {
+      return InkWell(
+        borderRadius: BorderRadius.circular(24),
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 160),
+          padding: EdgeInsets.symmetric(
+            horizontal: showName ? 12 : 8,
+            vertical: 8,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? primary.withValues(alpha: 0.14)
+                : colors.cardColor,
             borderRadius: BorderRadius.circular(24),
-            onTap: () => context.setTheme(t.id),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 160),
-              padding: EdgeInsets.symmetric(
-                horizontal: showNames ? 12 : 8,
-                vertical: 8,
+            border: Border.all(
+              color: selected ? primary : colors.borderColor,
+              width: selected ? 1.8 : 1,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 18,
+                height: 18,
+                decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+                child: selected
+                    ? const Icon(Icons.check, size: 12, color: Colors.white)
+                    : null,
               ),
-              decoration: BoxDecoration(
-                color: t.id == activeId
-                    ? t.swatchColor.withValues(alpha: 0.14)
-                    : c.cardColor,
-                borderRadius: BorderRadius.circular(24),
-                border: Border.all(
-                  color: t.id == activeId ? t.swatchColor : c.borderColor,
-                  width: t.id == activeId ? 1.8 : 1,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 18,
-                    height: 18,
-                    decoration: BoxDecoration(
-                      color: t.swatchColor,
-                      shape: BoxShape.circle,
-                    ),
-                    child: t.id == activeId
-                        ? const Icon(
-                            Icons.check,
-                            size: 12,
-                            color: Colors.white,
-                          )
-                        : null,
+              if (showName) ...[
+                const SizedBox(width: 8),
+                Text(
+                  theme.name,
+                  style: TextStyle(
+                    color: colors.textColor,
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
                   ),
-                  if (showNames) ...[
-                    const SizedBox(width: 8),
-                    Text(
-                      t.name,
-                      style: TextStyle(
-                        color: c.textColor,
-                        fontWeight: t.id == activeId
-                            ? FontWeight.w600
-                            : FontWeight.normal,
-                      ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        padding: EdgeInsets.symmetric(
+          horizontal: showName ? 12 : 10,
+          vertical: 10,
+        ),
+        decoration: BoxDecoration(
+          color: selected
+              ? primary.withValues(alpha: isDark ? 0.18 : 0.10)
+              : colors.secondaryBackgroundColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: selected ? primary : colors.borderColor,
+            width: selected ? 2.0 : 1.0,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 38,
+              height: 20,
+              child: Stack(
+                children: [
+                  Positioned(
+                    left: 0,
+                    child: _SwatchDot(color: primary, border: colors.cardColor),
+                  ),
+                  Positioned(
+                    left: 10,
+                    child: _SwatchDot(color: secondary, border: colors.cardColor),
+                  ),
+                  Positioned(
+                    left: 20,
+                    child: _SwatchDot(
+                      color: surfaceSwatch,
+                      border: colors.borderColor,
                     ),
-                  ],
+                  ),
                 ],
               ),
+            ),
+            if (showName) ...[
+              const SizedBox(width: 8),
+              Text(
+                theme.name,
+                style: TextStyle(
+                  color: colors.textColor,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
+            if (selected) ...[
+              const SizedBox(width: 6),
+              Icon(Icons.check_circle, size: 16, color: primary),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SwatchDot extends StatelessWidget {
+  const _SwatchDot({required this.color, required this.border});
+
+  final Color color;
+  final Color border;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 18,
+      height: 18,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: border, width: 1.5),
+      ),
+    );
+  }
+}
+
+/// ১ ক্লিকে অ্যাপের ডিজাইন স্টাইল ([OmniThemeStyle]: `Modern`, `Outlined`,
+/// `Soft`, `Elevated`, `Minimal`, `Compact`) বদলানোর সেটিংস পিকার।
+class OmniThemeStylePicker extends StatelessWidget {
+  /// [styles] অপশনগুলো সহ ১-ক্লিক থিম স্টাইল পিকার তৈরি করে।
+  const OmniThemeStylePicker({
+    super.key,
+    this.styles = OmniThemeStyle.values,
+    this.spacing = 8,
+  });
+
+  /// দেখানোর জন্য [OmniThemeStyle] তালিকা।
+  final List<OmniThemeStyle> styles;
+
+  /// চিপগুলোর মাঝখানের ফাঁকা জায়গা।
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeStyle = OmniThemeScope.activeStyleOf(context);
+    final hasController = OmniThemeScope.maybeControllerOf(context) != null;
+    final c = context.colors;
+
+    return Wrap(
+      spacing: spacing,
+      runSpacing: spacing,
+      children: [
+        for (final style in styles)
+          ChoiceChip(
+            label: Text(style.label),
+            selected: style == activeStyle,
+            onSelected: !hasController
+                ? null
+                : (_) => context.setThemeStyle(style),
+            backgroundColor: c.secondaryBackgroundColor,
+            selectedColor: c.selectedItemColor,
+            labelStyle: TextStyle(
+              color: style == activeStyle ? c.primaryColor : c.textColor,
+              fontWeight:
+                  style == activeStyle ? FontWeight.w600 : FontWeight.normal,
+            ),
+            side: BorderSide(
+              color: style == activeStyle ? c.primaryColor : c.borderColor,
             ),
           ),
       ],
@@ -1765,24 +2317,34 @@ class OmniThemePicker extends StatelessWidget {
   }
 }
 
-/// Settings পেজের জন্য অল-ইন-ওয়ান থিম কার্ড (`OmniThemeModeSwitch` +
-/// `OmniThemePicker` একসাথে)।
+/// Settings পেজের জন্য অল-ইন-ওয়ান থিম কার্ড (`System/Light/Dark` মোড,
+/// ১-ক্লিক কালার প্যালেট পিকার, লাইভ প্রিভিউ স্ট্রিপ ও ঐচ্ছিক `OmniThemeStylePicker`)।
 class OmniThemePanel extends StatelessWidget {
-  /// সম্পূর্ণ থিম সেটিংস প্যানেল তৈরি করে।
+  /// সম্পূর্ণ থিম ও কালার প্যালেট সেটিংস প্যানেল তৈরি করে।
   const OmniThemePanel({
     super.key,
     this.modeTitle = 'Appearance Mode',
-    this.themeTitle = 'App Theme',
+    this.themeTitle = 'Color Palette',
+    this.styleTitle = 'Theme Style',
     this.systemLabel = 'System',
     this.lightLabel = 'Light',
     this.darkLabel = 'Dark',
+    this.themes,
+    this.pickerLayout = OmniThemePickerLayout.paletteCards,
+    this.showModeSwitch = true,
+    this.showPalettePicker = true,
+    this.showStylePicker = false,
+    this.showPalettePreview = true,
   });
 
   /// মোড সেকশনের শিরোনাম।
   final String modeTitle;
 
-  /// কালার থিম সেকশনের শিরোনাম।
+  /// কালার প্যালেট সেকশনের শিরোনাম।
   final String themeTitle;
+
+  /// ডিজাইন স্টাইল সেকশনের শিরোনাম।
+  final String styleTitle;
 
   /// সিস্টেম মোডের লেবেল।
   final String systemLabel;
@@ -1793,10 +2355,31 @@ class OmniThemePanel extends StatelessWidget {
   /// ডার্ক মোডের লেবেল।
   final String darkLabel;
 
+  /// ঐচ্ছিক কাস্টম থিম তালিকা (না দিলে `OmniApp(themes: ...)` থেকে নেয়)।
+  final List<OmniTheme>? themes;
+
+  /// প্যালেট অপশন দেখানোর ধরন।
+  final OmniThemePickerLayout pickerLayout;
+
+  /// লাইট/ডার্ক/সিস্টেম মোড সুইচ দেখাবে কি না।
+  final bool showModeSwitch;
+
+  /// ১-ক্লিক কালার প্যালেট পিকার দেখাবে কি না।
+  final bool showPalettePicker;
+
+  /// ১-ক্লিক ডিজাইন স্টাইল পিকার দেখাবে কি না।
+  final bool showStylePicker;
+
+  /// বর্তমান প্যালেটের প্রধান কালারগুলোর লাইভ ডট প্রিভিউ দেখাবে কি না।
+  final bool showPalettePreview;
+
   @override
   Widget build(BuildContext context) {
     final t = OmniResponsiveScope.tokensOf(context);
-    final themes = OmniThemeScope.availableThemesOf(context);
+    final c = context.colors;
+    final available = themes ?? OmniThemeScope.availableThemesOf(context);
+    final showPalettes = showPalettePicker && available.length > 1;
+
     return Card(
       child: Padding(
         padding: t.cardPadding,
@@ -1804,22 +2387,253 @@ class OmniThemePanel extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(modeTitle, style: Theme.of(context).textTheme.titleMedium),
-            t.gapSm,
-            OmniThemeModeSwitch(
-              systemLabel: systemLabel,
-              lightLabel: lightLabel,
-              darkLabel: darkLabel,
-            ),
-            if (themes.length > 1) ...[
-              t.gapMd,
-              Text(themeTitle, style: Theme.of(context).textTheme.titleMedium),
+            if (showModeSwitch) ...[
+              Text(modeTitle, style: context.textStyles.title),
               t.gapSm,
-              const OmniThemePicker(),
+              OmniThemeModeSwitch(
+                systemLabel: systemLabel,
+                lightLabel: lightLabel,
+                darkLabel: darkLabel,
+              ),
+            ],
+            if (showPalettes) ...[
+              if (showModeSwitch) t.gapMd,
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(themeTitle, style: context.textStyles.title),
+                  ),
+                  if (showPalettePreview) _ActivePaletteStrip(colors: c),
+                ],
+              ),
+              t.gapSm,
+              OmniThemePicker(
+                themes: themes,
+                layout: pickerLayout,
+              ),
+            ],
+            if (showStylePicker) ...[
+              if (showModeSwitch || showPalettes) t.gapMd,
+              Text(styleTitle, style: context.textStyles.title),
+              t.gapSm,
+              const OmniThemeStylePicker(),
             ],
           ],
         ),
       ),
     );
   }
+}
+
+class _ActivePaletteStrip extends StatelessWidget {
+  const _ActivePaletteStrip({required this.colors});
+
+  final OmniColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: colors.secondaryBackgroundColor,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: colors.dividerColor),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StripDot(colors.primaryColor),
+          const SizedBox(width: 4),
+          _StripDot(colors.secondaryButtonColor),
+          const SizedBox(width: 4),
+          _StripDot(colors.successColor),
+          const SizedBox(width: 4),
+          _StripDot(colors.warningColor),
+          const SizedBox(width: 4),
+          _StripDot(colors.errorColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _StripDot extends StatelessWidget {
+  const _StripDot(this.color);
+
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 10,
+      height: 10,
+      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+    );
+  }
+}
+
+/// Settings স্ক্রিনের `ListView`-তে ১ লাইনে বসানোর রেডি `ListTile`!
+///
+/// ট্যাপ করলেই রেসপন্সিভ বটমশিট বা ডায়ালগে [showOmniThemeSheet] খুলে দেয় —
+/// সেখান থেকে ১ ক্লিকে পুরো অ্যাপের কালার প্যালেট, থিম মোড (`Dark/Light/System`)
+/// ও ডিজাইন স্টাইল বদলানো যায়।
+class OmniThemeSettingsTile extends StatelessWidget {
+  /// সেটিংস মেনুর জন্য রেডি থিম ও কালার প্যালেট রো তৈরি করে।
+  const OmniThemeSettingsTile({
+    super.key,
+    this.title = 'Theme & Color Palette',
+    this.sheetTitle = 'Theme & Appearance',
+    this.modeTitle = 'Appearance Mode',
+    this.themeTitle = 'Color Palette',
+    this.styleTitle = 'Theme Style',
+    this.systemLabel = 'System',
+    this.lightLabel = 'Light',
+    this.darkLabel = 'Dark',
+    this.showStylePicker = true,
+  });
+
+  /// সেটিংস রো-এর শিরোনাম।
+  final String title;
+
+  /// ওপেন হওয়া শিটের শিরোনাম।
+  final String sheetTitle;
+
+  /// মোড সেকশনের শিরোনাম।
+  final String modeTitle;
+
+  /// কালার প্যালেট সেকশনের শিরোনাম।
+  final String themeTitle;
+
+  /// স্টাইল সেকশনের শিরোনাম।
+  final String styleTitle;
+
+  /// সিস্টেম মোড লেবেল।
+  final String systemLabel;
+
+  /// লাইট মোড লেবেল।
+  final String lightLabel;
+
+  /// ডার্ক মোড লেবেল।
+  final String darkLabel;
+
+  /// শিটের ভেতর থিম স্টাইল পিকার দেখাবে কি না।
+  final bool showStylePicker;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final activeTheme = OmniThemeScope.activeThemeOf(context);
+    final mode = OmniThemeScope.modeOf(context);
+    final style = OmniThemeScope.activeStyleOf(context);
+    final modeLabel = switch (mode) {
+      ThemeMode.system => systemLabel,
+      ThemeMode.light => lightLabel,
+      ThemeMode.dark => darkLabel,
+    };
+    final paletteName = activeTheme?.name ?? 'Default';
+
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: c.selectedItemColor,
+        child: Icon(Icons.palette_outlined, color: c.primaryColor),
+      ),
+      title: Text(title, style: context.textStyles.subtitle),
+      subtitle: Text(
+        '$paletteName · $modeLabel · ${style.label}',
+        style: context.textStyles.caption,
+      ),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StripDot(c.primaryColor),
+          const SizedBox(width: 4),
+          _StripDot(c.secondaryColor),
+          const SizedBox(width: 8),
+          Icon(Icons.chevron_right, color: c.iconColor),
+        ],
+      ),
+      onTap: () => showOmniThemeSheet(
+        context,
+        title: sheetTitle,
+        modeTitle: modeTitle,
+        themeTitle: themeTitle,
+        styleTitle: styleTitle,
+        systemLabel: systemLabel,
+        lightLabel: lightLabel,
+        darkLabel: darkLabel,
+        showStylePicker: showStylePicker,
+      ),
+    );
+  }
+}
+
+/// মোবাইলে `BottomSheet` এবং ট্যাবলেট/ডেস্কটপে `Dialog` হিসেবে ১-ক্লিক থিম,
+/// কালার প্যালেট ও মোড কন্ট্রোল শিট খুলে দেয়।
+Future<T?> showOmniThemeSheet<T>(
+  BuildContext context, {
+  String title = 'Theme & Appearance',
+  String modeTitle = 'Appearance Mode',
+  String themeTitle = 'Color Palette',
+  String styleTitle = 'Theme Style',
+  String systemLabel = 'System',
+  String lightLabel = 'Light',
+  String darkLabel = 'Dark',
+  bool showStylePicker = true,
+}) {
+  final device = OmniResponsiveScope.deviceOf(context);
+  final isCompact = device == OmniDeviceType.mobile;
+
+  Widget buildContent(BuildContext ctx) {
+    final tk = OmniResponsiveScope.tokensOf(ctx);
+    return Padding(
+      padding: tk.pagePadding,
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text(title, style: ctx.textStyles.heading)),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(ctx).maybePop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+            tk.gapSm,
+            OmniThemePanel(
+              modeTitle: modeTitle,
+              themeTitle: themeTitle,
+              styleTitle: styleTitle,
+              systemLabel: systemLabel,
+              lightLabel: lightLabel,
+              darkLabel: darkLabel,
+              showStylePicker: showStylePicker,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  if (isCompact) {
+    return showModalBottomSheet<T>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: buildContent,
+    );
+  }
+
+  return showDialog<T>(
+    context: context,
+    builder: (ctx) => Dialog(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560, maxHeight: 680),
+        child: buildContent(ctx),
+      ),
+    ),
+  );
 }

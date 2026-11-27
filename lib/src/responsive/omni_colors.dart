@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৪৪টি সেমান্টিক কালার প্যালেট (`context.colors`)।
+/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৫৩টি সেমান্টিক কালার প্যালেট (`context.colors`)।
 ///
 /// Material-এর জটিল নাম (`onPrimaryContainer`, `surfaceContainerHigh`,
 /// `outlineVariant`) মুখস্থ করার বদলে সরাসরি অর্থপূর্ণ নামে সব রঙ ব্যবহার করুন।
@@ -16,6 +16,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
     required this.primaryColor,
     required this.secondaryColor,
     required this.surfaceColor,
+    required this.secondaryBackgroundColor,
     required this.cardColor,
     required this.appBarColor,
     required this.appBarTextColor,
@@ -43,8 +44,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
     required this.badgeTextColor,
     required this.selectedItemColor,
     required this.hoverColor,
+    required this.rippleColor,
     required this.disabledColor,
     required this.disabledTextColor,
+    required this.disabledBorderColor,
+    required this.switchActiveColor,
+    required this.switchInactiveColor,
+    required this.snackbarColor,
+    required this.snackbarTextColor,
+    required this.tooltipColor,
+    required this.tooltipTextColor,
     required this.errorColor,
     required this.errorBackgroundColor,
     required this.warningColor,
@@ -78,6 +87,12 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// স্ক্রিনের বেস ক্যানভাস।
   /// **কী কাজে লাগে:** লাইট ও ডার্ক মোডে চোখের আরামদায়ক মূল পেজ ব্যাকগ্রাউন্ড দিতে।
   final Color surfaceColor;
+
+  /// সেকশন হেডার, কোড ব্লক, টেবিলের বিকল্প রো ও ইনফো প্যানেলের দ্বিতীয় ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** গ্রুপড সেটিংস সেকশন, সামারি স্ট্রিপ, `subtleBoxDecoration`।
+  /// **কী কাজে লাগে:** মূল [surfaceColor] ও [cardColor]-এর মাঝে হালকা লেয়ার আলাদা করতে।
+  final Color secondaryBackgroundColor;
 
   /// কার্ড, কন্টেইনার, ডায়ালগ ও মোডাল শিটের ব্যাকগ্রাউন্ড কালার।
   ///
@@ -251,6 +266,12 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// **কী কাজে লাগে:** মাউস পয়েন্টারে ইন্টার‍্যাক্টিভ ফিডব্যাক দিতে।
   final Color hoverColor;
 
+  /// বাটন, কার্ড বা `ListTile`-এ ট্যাপ করলে যে রিপল/স্প্ল্যাশ ঢেউ ছড়িয়ে পড়ে তার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `InkWell.splashColor`, বাটন ট্যাপ ফিডব্যাক ও রিপল ইফেক্ট।
+  /// **কী কাজে লাগে:** টাচ বা ক্লিকের তাৎক্ষণিক ভিজ্যুয়াল সাড়া প্যালেট অনুযায়ী দিতে।
+  final Color rippleColor;
+
   /// নিষ্ক্রিয় বা ডিজেবল অবস্থার বাটন ও ইনপুটের ব্যাকগ্রাউন্ড কালার।
   ///
   /// **কোথায় ব্যবহার হয়:** `onPressed: null` বাটন ও `enabled: false` ফিল্ড।
@@ -262,6 +283,48 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// **কোথায় ব্যবহার হয়:** ডিজেবল বাটনের টেক্সট ও রিড-অনলি ফিল্ডের লেখা।
   /// **কী কাজে লাগে:** নিষ্ক্রিয় অবস্থা পরিষ্কারভাবে প্রকাশ করতে।
   final Color disabledTextColor;
+
+  /// নিষ্ক্রিয় (disabled) `TextField`, ড্রপডাউন বা `OutlinedButton`-এর বর্ডার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** নিষ্ক্রিয় ইনপুটের চারপাশের বর্ডার, `disabledBoxDecoration`।
+  /// **কী কাজে লাগে:** সক্রিয় ইনপুট বর্ডার থেকে ডিজেবল ফিল্ড সহজে আলাদা করতে।
+  final Color disabledBorderColor;
+
+  /// `Switch`, `Checkbox`, ও `Radio` বাটন চালু/সিলেক্টেড (active) অবস্থার রঙ।
+  ///
+  /// **কোথায় ব্যবহার হয়:** সেটিংস `Switch`, ফর্ম `Checkbox` ও `Radio`।
+  /// **কী কাজে লাগে:** কোনো অপশন চালু আছে তা প্যালেট রঙের সাথে মিলিয়ে দেখাতে।
+  final Color switchActiveColor;
+
+  /// `Switch`, `Checkbox`, ও স্লাইডার ট্র্যাকের বন্ধ/আনচেকড (inactive) অবস্থার রঙ।
+  ///
+  /// **কোথায় ব্যবহার হয়:** বন্ধ অবস্থার `Switch` নাব/ট্র্যাক এবং আনসিলেক্টেড `Radio`।
+  /// **কী কাজে লাগে:** চালু বনাম বন্ধ অবস্থার মধ্যে পরিষ্কার পার্থক্য তৈরি করতে।
+  final Color switchInactiveColor;
+
+  /// `SnackBar` বা নিচের টোস্ট নোটিফিকেশনের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `ScaffoldMessenger.showSnackBar`, স্ট্যাটাস টোস্ট।
+  /// **কী কাজে লাগে:** লাইট ও ডার্ক দুই মোডেই চোখে পড়ার মতো নোটিফিকেশন বার দেখাতে।
+  final Color snackbarColor;
+
+  /// `SnackBar` বা টোস্টের ভেতরের লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** স্ন্যাকবার মেসেজ টেক্সট।
+  /// **কী কাজে লাগে:** [snackbarColor]-এর ওপর স্পষ্ট পঠনযোগ্য লেখা নিশ্চিত করতে।
+  final Color snackbarTextColor;
+
+  /// হোভার বা লং-প্রেস `Tooltip` বক্সের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** আইকন বাটন হোভার হিন্ট ও `Tooltip`।
+  /// **কী কাজে লাগে:** ছোট সহায়ক টিপস মূল কনটেন্ট থেকে আলাদা দেখাতে।
+  final Color tooltipColor;
+
+  /// `Tooltip` বক্সের ভেতরের লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** টুলটিপ হিন্ট টেক্সট।
+  /// **কী কাজে লাগে:** [tooltipColor]-এর ওপর উচ্চ-কনট্রাস্ট পরিষ্কার লেখা দিতে।
+  final Color tooltipTextColor;
 
   /// ভুল, ফর্ম এরর বা কানেকশন ব্যর্থতার মূল লাল কালার।
   ///
@@ -335,13 +398,14 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// **কী কাজে লাগে:** লাইট মোডে হালকা ও ডার্ক মোডে গভীর এলিভেশন তৈরি করতে।
   final Color shadowColor;
 
-  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৪৪টি কালার
+  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৫৩টি কালার
   /// তৈরি করে; চাইলে যেকোনো রঙ আলাদা করে ওভাররাইডও করা যায়।
   factory OmniColors.fromSeed({
     required Color primaryColor,
     required Brightness brightness,
     Color? secondaryColor,
     Color? surfaceColor,
+    Color? secondaryBackgroundColor,
     Color? cardColor,
     Color? appBarColor,
     Color? appBarTextColor,
@@ -369,8 +433,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? badgeTextColor,
     Color? selectedItemColor,
     Color? hoverColor,
+    Color? rippleColor,
     Color? disabledColor,
     Color? disabledTextColor,
+    Color? disabledBorderColor,
+    Color? switchActiveColor,
+    Color? switchInactiveColor,
+    Color? snackbarColor,
+    Color? snackbarTextColor,
+    Color? tooltipColor,
+    Color? tooltipTextColor,
     Color? errorColor,
     Color? errorBackgroundColor,
     Color? warningColor,
@@ -393,6 +465,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
 
     final resolvedSurface = surfaceColor ??
         (isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC));
+    final resolvedSecondaryBg = secondaryBackgroundColor ??
+        (isDark ? const Color(0xFF162033) : const Color(0xFFF1F5F9));
     final resolvedCard = cardColor ??
         (isDark ? const Color(0xFF131C31) : Colors.white);
     final resolvedPrimary = primaryColor;
@@ -426,6 +500,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
       primaryColor: resolvedPrimary,
       secondaryColor: secondaryColor ?? scheme.secondary,
       surfaceColor: resolvedSurface,
+      secondaryBackgroundColor: resolvedSecondaryBg,
       cardColor: resolvedCard,
       appBarColor: appBarColor ?? resolvedCard,
       appBarTextColor: appBarTextColor ?? resolvedText,
@@ -460,10 +535,24 @@ class OmniColors extends ThemeExtension<OmniColors> {
           resolvedPrimary.withValues(alpha: isDark ? 0.16 : 0.08),
       hoverColor: hoverColor ??
           resolvedText.withValues(alpha: isDark ? 0.06 : 0.04),
+      rippleColor: rippleColor ??
+          resolvedPrimary.withValues(alpha: isDark ? 0.22 : 0.12),
       disabledColor: disabledColor ??
           (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
       disabledTextColor: disabledTextColor ??
           (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+      disabledBorderColor: disabledBorderColor ??
+          (isDark ? const Color(0xFF283548) : const Color(0xFFCBD5E1)),
+      switchActiveColor: switchActiveColor ?? resolvedPrimary,
+      switchInactiveColor: switchInactiveColor ??
+          (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+      snackbarColor: snackbarColor ??
+          (isDark ? const Color(0xFF1E293B) : const Color(0xFF0F172A)),
+      snackbarTextColor: snackbarTextColor ?? const Color(0xFFF8FAFC),
+      tooltipColor: tooltipColor ??
+          (isDark ? const Color(0xFFE2E8F0) : const Color(0xFF1E293B)),
+      tooltipTextColor: tooltipTextColor ??
+          (isDark ? const Color(0xFF0F172A) : Colors.white),
       errorColor: resolvedError,
       errorBackgroundColor: errorBackgroundColor ??
           resolvedError.withValues(alpha: isDark ? 0.16 : 0.10),
@@ -505,6 +594,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? primaryColor,
     Color? secondaryColor,
     Color? surfaceColor,
+    Color? secondaryBackgroundColor,
     Color? cardColor,
     Color? appBarColor,
     Color? appBarTextColor,
@@ -532,8 +622,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? badgeTextColor,
     Color? selectedItemColor,
     Color? hoverColor,
+    Color? rippleColor,
     Color? disabledColor,
     Color? disabledTextColor,
+    Color? disabledBorderColor,
+    Color? switchActiveColor,
+    Color? switchInactiveColor,
+    Color? snackbarColor,
+    Color? snackbarTextColor,
+    Color? tooltipColor,
+    Color? tooltipTextColor,
     Color? errorColor,
     Color? errorBackgroundColor,
     Color? warningColor,
@@ -550,6 +648,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
     primaryColor: primaryColor ?? this.primaryColor,
     secondaryColor: secondaryColor ?? this.secondaryColor,
     surfaceColor: surfaceColor ?? this.surfaceColor,
+    secondaryBackgroundColor:
+        secondaryBackgroundColor ?? this.secondaryBackgroundColor,
     cardColor: cardColor ?? this.cardColor,
     appBarColor: appBarColor ?? this.appBarColor,
     appBarTextColor: appBarTextColor ?? this.appBarTextColor,
@@ -579,8 +679,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
     badgeTextColor: badgeTextColor ?? this.badgeTextColor,
     selectedItemColor: selectedItemColor ?? this.selectedItemColor,
     hoverColor: hoverColor ?? this.hoverColor,
+    rippleColor: rippleColor ?? this.rippleColor,
     disabledColor: disabledColor ?? this.disabledColor,
     disabledTextColor: disabledTextColor ?? this.disabledTextColor,
+    disabledBorderColor: disabledBorderColor ?? this.disabledBorderColor,
+    switchActiveColor: switchActiveColor ?? this.switchActiveColor,
+    switchInactiveColor: switchInactiveColor ?? this.switchInactiveColor,
+    snackbarColor: snackbarColor ?? this.snackbarColor,
+    snackbarTextColor: snackbarTextColor ?? this.snackbarTextColor,
+    tooltipColor: tooltipColor ?? this.tooltipColor,
+    tooltipTextColor: tooltipTextColor ?? this.tooltipTextColor,
     errorColor: errorColor ?? this.errorColor,
     errorBackgroundColor: errorBackgroundColor ?? this.errorBackgroundColor,
     warningColor: warningColor ?? this.warningColor,
@@ -605,6 +713,11 @@ class OmniColors extends ThemeExtension<OmniColors> {
       primaryColor: Color.lerp(primaryColor, other.primaryColor, t)!,
       secondaryColor: Color.lerp(secondaryColor, other.secondaryColor, t)!,
       surfaceColor: Color.lerp(surfaceColor, other.surfaceColor, t)!,
+      secondaryBackgroundColor: Color.lerp(
+        secondaryBackgroundColor,
+        other.secondaryBackgroundColor,
+        t,
+      )!,
       cardColor: Color.lerp(cardColor, other.cardColor, t)!,
       appBarColor: Color.lerp(appBarColor, other.appBarColor, t)!,
       appBarTextColor: Color.lerp(appBarTextColor, other.appBarTextColor, t)!,
@@ -644,9 +757,22 @@ class OmniColors extends ThemeExtension<OmniColors> {
       selectedItemColor:
           Color.lerp(selectedItemColor, other.selectedItemColor, t)!,
       hoverColor: Color.lerp(hoverColor, other.hoverColor, t)!,
+      rippleColor: Color.lerp(rippleColor, other.rippleColor, t)!,
       disabledColor: Color.lerp(disabledColor, other.disabledColor, t)!,
       disabledTextColor:
           Color.lerp(disabledTextColor, other.disabledTextColor, t)!,
+      disabledBorderColor:
+          Color.lerp(disabledBorderColor, other.disabledBorderColor, t)!,
+      switchActiveColor:
+          Color.lerp(switchActiveColor, other.switchActiveColor, t)!,
+      switchInactiveColor:
+          Color.lerp(switchInactiveColor, other.switchInactiveColor, t)!,
+      snackbarColor: Color.lerp(snackbarColor, other.snackbarColor, t)!,
+      snackbarTextColor:
+          Color.lerp(snackbarTextColor, other.snackbarTextColor, t)!,
+      tooltipColor: Color.lerp(tooltipColor, other.tooltipColor, t)!,
+      tooltipTextColor:
+          Color.lerp(tooltipTextColor, other.tooltipTextColor, t)!,
       errorColor: Color.lerp(errorColor, other.errorColor, t)!,
       errorBackgroundColor:
           Color.lerp(errorBackgroundColor, other.errorBackgroundColor, t)!,
@@ -675,6 +801,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
           primaryColor == other.primaryColor &&
           secondaryColor == other.secondaryColor &&
           surfaceColor == other.surfaceColor &&
+          secondaryBackgroundColor == other.secondaryBackgroundColor &&
           cardColor == other.cardColor &&
           appBarColor == other.appBarColor &&
           appBarTextColor == other.appBarTextColor &&
@@ -702,8 +829,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
           badgeTextColor == other.badgeTextColor &&
           selectedItemColor == other.selectedItemColor &&
           hoverColor == other.hoverColor &&
+          rippleColor == other.rippleColor &&
           disabledColor == other.disabledColor &&
           disabledTextColor == other.disabledTextColor &&
+          disabledBorderColor == other.disabledBorderColor &&
+          switchActiveColor == other.switchActiveColor &&
+          switchInactiveColor == other.switchInactiveColor &&
+          snackbarColor == other.snackbarColor &&
+          snackbarTextColor == other.snackbarTextColor &&
+          tooltipColor == other.tooltipColor &&
+          tooltipTextColor == other.tooltipTextColor &&
           errorColor == other.errorColor &&
           errorBackgroundColor == other.errorBackgroundColor &&
           warningColor == other.warningColor &&
@@ -722,6 +857,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
     primaryColor,
     secondaryColor,
     surfaceColor,
+    secondaryBackgroundColor,
     cardColor,
     appBarColor,
     appBarTextColor,
@@ -749,8 +885,16 @@ class OmniColors extends ThemeExtension<OmniColors> {
     badgeTextColor,
     selectedItemColor,
     hoverColor,
+    rippleColor,
     disabledColor,
     disabledTextColor,
+    disabledBorderColor,
+    switchActiveColor,
+    switchInactiveColor,
+    snackbarColor,
+    snackbarTextColor,
+    tooltipColor,
+    tooltipTextColor,
     errorColor,
     errorBackgroundColor,
     warningColor,

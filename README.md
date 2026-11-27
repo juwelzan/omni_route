@@ -2016,23 +2016,21 @@ model (`fromJson`/`toJson`), enum আর typed `Endpoint` তৈরি হয়
 
 ## ২৩. Theming Mode — ১-ক্লিক মাল্টি-থিম, পিওর কালার, টেক্সট স্টাইল ও উইজেট স্টাইল (`OmniTheme` + `OmniColors` + `OmniTextStyles` + `OmniStyles`)
 
-আলাদা `ThemeBloc`, `ChangeNotifier` বা `SharedPreferences` বয়লারপ্লেট ছাড়াই মাত্র **১ লাইনে** পুরো অ্যাপে একাধিক কালার থিম (`themes:`), লাইট/ডার্ক/সিস্টেম মোড, রিস্টার্টের পর অটো-সেভ এবং **`context.colors`** (৪৪টি পিওর সেমান্টিক কালার), **`context.textStyles`** (১৫টি রেসপন্সিভ টেক্সট স্টাইল), **`context.styles`** (রেডি কার্ড ডেকোরেশন, অ্যালার্ট বক্স, বাটন স্টাইল ও ইনপুট ভ্যারিয়েন্ট) ব্যবহার করা যায়:
+আলাদা `ThemeBloc`, `ChangeNotifier` বা `SharedPreferences` বয়লারপ্লেট ছাড়াই মাত্র **১ লাইনে** পুরো অ্যাপে **৮টি কালার প্যালেট (`OmniTheme.presets`)**, **ডার্ক/লাইট/সিস্টেম মোড**, **৬টি ডিজাইন স্টাইল (`OmniThemeStyle`)**, **Settings ১-ক্লিক UI (`OmniThemePanel`, `OmniThemeSettingsTile`, `showOmniThemeSheet`)**, এবং **`context.ui` / `context.colors` (৫৩টি পিওর কালার)**, **`context.textStyles` (১৫টি টেক্সট স্টাইল)**, **`context.styles`** ব্যবহার করা যায়:
 
 ```dart
 OmniApp.material(
-  // নিজস্ব কাস্টম থিম + রেডিমেড প্রিসেট (`Ocean`, `Emerald`, `Sunset`, `Rose`, `Slate`):
+  // নিজস্ব কাস্টম থিম + রেডিমেড ৮টি প্যালেট (`Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate`):
   omniTheme: const OmniTheme(
     id: 'brand',
     name: 'My Brand',
     seedColor: Colors.indigo,
-    inputVariant: OmniInputVariant.outlined, // .filled / .outlined / .underlined
-    surfaceColor: Color(0xFFF8FAFC), // Scaffold ব্যাকগ্রাউন্ড
-    buttonColor: Colors.indigo,
-    dangerButtonColor: Color(0xFFDC2626),
-    borderColor: Color(0xFFCBD5E1),
+    style: OmniThemeStyle.outlined, // .modern / .outlined / .soft / .elevated / .minimal / .compact
+    secondaryButtonColor: Color(0xFFE2E8F0),
+    disabledColor: Color(0xFFF1F5F9),
     errorColor: Color(0xFFDC2626),
     warningColor: Color(0xFFD97706),
-    mode: ThemeMode.system,
+    mode: ThemeMode.system, // System / Light / Dark
     persistMode: true,
   ),
   themes: OmniTheme.presets,
@@ -2043,31 +2041,31 @@ OmniApp.material(
         appBar: AppBar(
           title: const Text('My App'),
           actions: const [
-            OmniThemeButton(),     // ১ ক্লিকে পুরো অ্যাপের থিম (কালার) বদলায়!
-            OmniThemeModeButton(), // ১ ক্লিকে Light <-> Dark বদলায়!
+            OmniThemeButton(),                          // ১ ক্লিকে কালার প্যালেট বদলায়!
+            OmniThemeModeButton(allowSystemMode: true), // ১ ক্লিকে System/Light/Dark!
           ],
         ),
         body: Builder(
           builder: (ctx) {
-            final t = ctx.textStyles; // আগে থেকেই রেডি টেক্সট স্টাইল!
-            final s = ctx.styles;     // আগে থেকেই প্রি-ক্যাশড কার্ড, বাটন ও ইনপুট স্টাইল!
-            return Column(
-              mainAxisSize: MainAxisSize.min,
+            final ui = ctx.ui; // ১ লাইনে colors, text, styles ও tokens সব একসাথে!
+            return ListView(
+              padding: ui.tokens.pagePadding,
               children: [
-                const OmniThemePanel(), // Dark/Light সুইচ + সব কালার থিম পিকার!
-                const SizedBox(height: 16),
+                const OmniThemePanel(showStylePicker: true), // Settings মোড + কালার প্যালেট + স্টাইল কার্ড!
+                const OmniThemeSettingsTile(),               // অথবা Settings ListTile (ট্যাপে শিট খোলে)!
+                ui.tokens.gapMd,
                 Container(
-                  padding: ctx.tokens.cardPadding,
-                  decoration: s.warningBoxDecoration, // তৈরি বক্স ডেকোরেশন!
-                  child: Text('সতর্কতা মেসেজ', style: t.warning),
+                  padding: ui.tokens.cardPadding,
+                  decoration: ui.styles.warningBoxDecoration,
+                  child: Text('সতর্কতা মেসেজ', style: ui.text.warning),
                 ),
-                const SizedBox(height: 12),
-                TextField(decoration: s.inputDecoration(label: 'ইমেইল')),
-                const SizedBox(height: 12),
+                ui.tokens.gapSm,
+                TextField(decoration: ui.styles.inputDecoration(label: 'ইমেইল')),
+                ui.tokens.gapSm,
                 FilledButton(
-                  style: s.dangerButton, // ডিলিট/রিমুভ বাটন স্টাইল!
+                  style: ui.styles.secondaryButton,
                   onPressed: () {},
-                  child: const Text('অ্যাকাউন্ট মুছুন'),
+                  child: const Text('বাতিল'),
                 ),
               ],
             );
@@ -2080,14 +2078,15 @@ OmniApp.material(
 ```
 
 ### যা যা পাচ্ছেন একদম সহজভাবে:
-- **১-ক্লিক মাল্টি-থিম ও মোড সুইচিং:** `OmniThemeButton()`, `OmniThemePicker()`, `OmniThemePanel()`, `OmniThemeModeButton()`, `OmniThemeModeSwitch()`, এবং কোড থেকে `context.setTheme('emerald')`, `context.nextTheme()`, `context.toggleTheme()`, `context.setThemeMode(ThemeMode.dark)`, `context.isDarkMode`।
-- **৪৪টি পিওর কালার নাম (`context.colors`):** `surfaceColor`, `cardColor`, `appBarColor`, `navBarColor`, `navSelectedColor`, `buttonColor`, `secondaryButtonColor`, `dangerButtonColor`, `linkColor`, `chipColor`, `badgeColor`, `selectedItemColor`, `hoverColor`, `shimmerBaseColor`, `shimmerHighlightColor`, `overlayColor`, `shadowColor`, `errorColor`, `warningColor`, `successColor`, `infoColor` ইত্যাদি — IDE-তে হোভার করলেই প্রতিটি কালারের আসল ব্যবহার দেখা যায়।
+- **Settings ১-ক্লিক কালার প্যালেট ও মোড সিস্টেম:** `OmniThemePanel`, `OmniThemePicker` (`paletteCards` / `chips`), `OmniThemeSettingsTile`, `showOmniThemeSheet(context)` (`context.openThemeSettings()`), `OmniThemeStylePicker`, `OmniThemeModeSwitch` (`System` / `Light` / `Dark`), `OmniThemeButton()`, `OmniThemeModeButton()`, এবং কোড থেকে `context.setTheme('emerald')`, `context.nextTheme()`, `context.setThemeMode(ThemeMode.dark)`, `context.setThemeStyle(OmniThemeStyle.elevated)`, `context.toggleTheme()`, `context.cycleThemeMode()`।
+- **৮টি রেডি কালার প্যালেট (`OmniTheme.presets`):** `Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate` — ও প্রতিটি পরিবর্তনে স্বয়ংক্রিয় `SharedPreferences` অটো-সেভ।
+- **৫৩টি পিওর কালার নাম (`context.colors`):** `surfaceColor`, `secondaryBackgroundColor`, `cardColor`, `appBarColor`, `navBarColor`, `buttonColor`, `secondaryButtonColor`, `secondaryButtonTextColor`, `dangerButtonColor`, `disabledColor`, `disabledTextColor`, `disabledBorderColor`, `switchActiveColor`, `switchInactiveColor`, `snackbarColor`, `tooltipColor`, `rippleColor`, `errorColor`, `warningColor`, `successColor`, `infoColor` ইত্যাদি — IDE-তে হোভার করলেই প্রতিটি কালারের আসল ব্যবহার দেখা যায়।
 - **১৫টি টেক্সট স্টাইল (`context.textStyles`):** `display`, `heading`, `title`, `subtitle`, `body`, `bodyMuted`, `label`, `caption`, `hint`, `button`, `link`, `error`, `warning`, `success`, `code`।
-- **প্রি-ক্যাশড উইজেট স্টাইল (`context.styles`) ও `OmniInputVariant`:** `filled` / `outlined` / `underlined` ইনপুট মোড, `cardDecoration`, `elevatedCardDecoration`, `errorBoxDecoration`, `warningBoxDecoration`, `successBoxDecoration`, `infoBoxDecoration`, `primaryButton`, `secondaryButton`, `dangerButton`, `outlineButton`, `linkButton`, `inputDecoration(...)`, `searchDecoration(...)`।
-- **শূন্য মেমরি ও রি-বিল্ড খরচ:** প্রতিটি থিমের `ThemeData`, `OmniColors`, `OmniTextStyles` এবং `OmniStyles` একবার তৈরি হয়ে মেমোইজড থাকে; থিম বা মোড পাল্টালে অপ্রাসঙ্গিক `const` উইজেট রি-বিল্ড হয় না এবং `Splash`/`Onboarding`-ও একই থিম পায়।
+- **সহজ থিম স্টাইল ও প্রি-ক্যাশড UI ডেকোরেশন (`context.ui` / `context.styles` / `OmniThemeStyle`):** ৬টি ডিজাইন স্টাইল (`modern`, `outlined`, `soft`, `elevated`, `minimal`, `compact`), ৩টি ইনপুট ধরন (`OmniInputVariant`), `subtleBoxDecoration`, `disabledBoxDecoration`, `cardDecoration`, `secondaryButton`, `dangerButton`, `inputDecoration(...)`, `searchDecoration(...)`।
+- **শূন্য মেমরি ও রি-বিল্ড খরচ:** প্রতিটি `(themeId, style)` কম্বিনেশনের `lightTheme` ও `darkTheme` একবার তৈরি হয়ে মেমোইজড থাকে (`identical`); থিম বা মোড পাল্টালে অপ্রাসঙ্গিক `const` উইজেট রি-বিল্ড হয় না এবং `Splash`/`Onboarding`-ও একই থিম পায়।
 - **কাস্টম কন্ট্রোলার (ঐচ্ছিক):** অ্যাপের বাইরে বা Bloc থেকে নিয়ন্ত্রণ চাইলে `OmniThemeController()` পাস করা যায়।
 
-> **সম্পূর্ণ থিমিং গাইড (৪৪+ কালার, `TextStyles`, `Styles`, `TextField`, `Button`, `Card`, `customizer` ও সব প্রিসেট উদাহরণসহ):** [doc/theming.bn.md](doc/theming.bn.md)
+> **সম্পূর্ণ থিমিং গাইড (৫৩টি কালার, ৮টি প্যালেট, ৬টি স্টাইল, Settings শিট, `TextField`, `Button`, `Card` উদাহরণসহ):** [doc/theming.bn.md](doc/theming.bn.md)
 
 ---
 

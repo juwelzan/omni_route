@@ -108,7 +108,13 @@ export 'src/responsive/omni_split_view.dart'
         OmniMasterDetailController;
 export 'src/responsive/omni_colors.dart' show OmniColors, OmniColorsContext;
 export 'src/responsive/omni_styles.dart'
-    show OmniInputVariant, OmniStyles, OmniStylesContext, OmniTextStyles;
+    show
+        OmniInputVariant,
+        OmniStyles,
+        OmniStylesContext,
+        OmniTextStyles,
+        OmniThemeStyle,
+        OmniUiTheme;
 export 'src/responsive/omni_theme.dart'
     show
         OmniResponsiveThemeHost,
@@ -121,5 +127,9 @@ export 'src/responsive/omni_theme.dart'
         OmniThemeModeSwitch,
         OmniThemePanel,
         OmniThemePicker,
+        OmniThemePickerLayout,
         OmniThemeScope,
-        OmniThemeSelection;
+        OmniThemeSelection,
+        OmniThemeSettingsTile,
+        OmniThemeStylePicker,
+        showOmniThemeSheet;
