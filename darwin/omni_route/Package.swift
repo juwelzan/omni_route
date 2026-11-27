@@ -11,11 +11,15 @@ let package = Package(
   products: [
     .library(name: "omni-route", targets: ["omni_route"])
   ],
-  dependencies: [],
+  dependencies: [
+    .package(name: "FlutterFramework", path: "../FlutterFramework")
+  ],
   targets: [
     .target(
       name: "omni_route",
-      dependencies: [],
+      dependencies: [
+        .product(name: "FlutterFramework", package: "FlutterFramework")
+      ],
       resources: [
         .process("Resources")
       ]
