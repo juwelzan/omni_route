@@ -82,6 +82,72 @@ enum OmniThemeStyle {
     cardBorderWidth: 1.0,
     cardElevation: 0.0,
     borderRadius: 8.0,
+  ),
+
+  /// গোল `24dp` পিল-শেপ কর্নার ও `.filled` ইনপুটসহ ফ্রেন্ডলি কনজিউমার স্টাইল।
+  pill(
+    label: 'Pill',
+    inputVariant: OmniInputVariant.filled,
+    borderWidth: 0.8,
+    focusedBorderWidth: 1.8,
+    cardBorderWidth: 0.8,
+    cardElevation: 0.0,
+    borderRadius: 24.0,
+  ),
+
+  /// তীক্ষ্ণ `4dp` জিওমেট্রিক কর্নার ও `.outlined` ইনপুটসহ এডিটোরিয়াল/ডাটা স্টাইল।
+  sharp(
+    label: 'Sharp',
+    inputVariant: OmniInputVariant.outlined,
+    borderWidth: 1.2,
+    focusedBorderWidth: 2.0,
+    cardBorderWidth: 1.2,
+    cardElevation: 0.0,
+    borderRadius: 4.0,
+  ),
+
+  /// বর্ডারহীন `16dp` কার্ডে উঁচু `6.0dp` শ্যাডোসহ ফ্লোটিং এলিভেটেড স্টাইল।
+  floating(
+    label: 'Floating',
+    inputVariant: OmniInputVariant.filled,
+    borderWidth: 0.0,
+    focusedBorderWidth: 1.6,
+    cardBorderWidth: 0.0,
+    cardElevation: 6.0,
+    borderRadius: 16.0,
+  ),
+
+  /// মোটা `2.2dp` বর্ডার ও ৬dp কর্নারসহ আধুনিক নিও-ব্রুটালিস্ট/হাই-কনট্রাস্ট স্টাইল।
+  brutal(
+    label: 'Bold Edge',
+    inputVariant: OmniInputVariant.outlined,
+    borderWidth: 2.2,
+    focusedBorderWidth: 3.0,
+    cardBorderWidth: 2.2,
+    cardElevation: 0.0,
+    borderRadius: 6.0,
+  ),
+
+  /// কোনো কার্ড বা ইনপুট বর্ডার/শ্যাডো ছাড়া টোনাল সারফেস-ভিত্তিক ক্লিন ফ্ল্যাট স্টাইল।
+  flat(
+    label: 'Flat',
+    inputVariant: OmniInputVariant.filled,
+    borderWidth: 0.0,
+    focusedBorderWidth: 1.6,
+    cardBorderWidth: 0.0,
+    cardElevation: 0.0,
+    borderRadius: 12.0,
+  ),
+
+  /// পাতলা `0.7dp` বর্ডার, `1.0dp` লিফট ও `18dp` কর্নারসহ হালকা এয়ারি স্টাইল।
+  glassy(
+    label: 'Airy',
+    inputVariant: OmniInputVariant.outlined,
+    borderWidth: 0.7,
+    focusedBorderWidth: 1.5,
+    cardBorderWidth: 0.7,
+    cardElevation: 1.0,
+    borderRadius: 18.0,
   );
 
   const OmniThemeStyle({
@@ -573,15 +639,18 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     required double focusedBorderWidth,
     required double cardBorderWidth,
   }) {
+    BorderSide makeSide(Color color, double width) =>
+        width <= 0 ? BorderSide.none : BorderSide(color: color, width: width);
+
     InputBorder makeInputBorder(Color color, double width) =>
         switch (inputVariant) {
           OmniInputVariant.underlined => UnderlineInputBorder(
-            borderSide: BorderSide(color: color, width: width),
+            borderSide: makeSide(color, width),
           ),
           OmniInputVariant.filled || OmniInputVariant.outlined =>
             OutlineInputBorder(
               borderRadius: buttonRadius,
-              borderSide: BorderSide(color: color, width: width),
+              borderSide: makeSide(color, width),
             ),
         };
 
@@ -657,27 +726,37 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
       disabledBoxDecoration: BoxDecoration(
         color: colors.disabledColor,
         borderRadius: cardRadius,
-        border: Border.all(color: colors.disabledBorderColor, width: borderWidth),
+        border: borderWidth > 0
+            ? Border.all(color: colors.disabledBorderColor, width: borderWidth)
+            : null,
       ),
       errorBoxDecoration: BoxDecoration(
         color: colors.errorBackgroundColor,
         borderRadius: cardRadius,
-        border: Border.all(color: colors.errorColor, width: borderWidth),
+        border: borderWidth > 0
+            ? Border.all(color: colors.errorColor, width: borderWidth)
+            : null,
       ),
       warningBoxDecoration: BoxDecoration(
         color: colors.warningBackgroundColor,
         borderRadius: cardRadius,
-        border: Border.all(color: colors.warningColor, width: borderWidth),
+        border: borderWidth > 0
+            ? Border.all(color: colors.warningColor, width: borderWidth)
+            : null,
       ),
       successBoxDecoration: BoxDecoration(
         color: colors.successBackgroundColor,
         borderRadius: cardRadius,
-        border: Border.all(color: colors.successColor, width: borderWidth),
+        border: borderWidth > 0
+            ? Border.all(color: colors.successColor, width: borderWidth)
+            : null,
       ),
       infoBoxDecoration: BoxDecoration(
         color: colors.infoBackgroundColor,
         borderRadius: cardRadius,
-        border: Border.all(color: colors.infoColor, width: borderWidth),
+        border: borderWidth > 0
+            ? Border.all(color: colors.infoColor, width: borderWidth)
+            : null,
       ),
       chipDecoration: BoxDecoration(
         color: colors.chipColor,
@@ -728,7 +807,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
                 : states.contains(WidgetState.focused)
                     ? colors.focusedBorderColor
                     : colors.borderColor,
-            width: borderWidth,
+            width: borderWidth > 0 ? borderWidth : 1.0,
           ),
         ),
       ),

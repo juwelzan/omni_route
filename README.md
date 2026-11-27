@@ -1299,21 +1299,19 @@ Observer লাগলে: `OmniApp(observers:)` (root), `OmniShell(observers:)`,
 
 ## ২০. সম্পূর্ণ উদাহরণ
 
-[`example/lib/main.dart`](example/lib/main.dart) ও [`example/bin/demo.dart`](example/bin/demo.dart)-এ একটি সম্পূর্ণ রিয়েল-এপিআই ও রাউটিং অ্যাপ আছে:
+[`example/lib/main.dart`](example/lib/main.dart)-এ একটি দ্রুত, জিরো-নেটওয়ার্ক ওভারহেড রাউটিং, Bloc ও থিম অ্যানিমেশন অ্যাপ আছে:
 
-- `OmniApp.material` + `themeModeBuilder` + `appBuilder` (`OmniInspectorLauncher`) + `onNavigate` (`nav.kind`)
-- Login + Auth guard (login-এর পর আগের পেজে ফেরে)
-- Bottom tab (`OmniStatefulShell`) — Dashboard, Students, API & AI (`OmniShell`), Settings
-- Dashboard: `OmniStatefulWidget` + `OmniLifecycle` + `.hosted()` `OmniStatelessWidget`
-- Student list → detail → edit (`OmniRouteGroup`, `onExit` কনফার্মেশন ও `slideUp`)
-- রিয়েল পাবলিক API তুলনা (`Normal` বনাম `Modified` Endpoint + Decoder + `Result`), `OmniApiHub` (JSONPlaceholder, DummyJSON, Open-Meteo, PokéAPI), লাইভ Postman WebSocket Echo RPC, ও Multi-Model AI
-- `404 Warning` ও `500 Error` সহ আলাদা কালার্ড টার্মিনাল বক্স এবং ইন-অ্যাপ ১-ক্লিক কপি ও Talker-স্টাইল লগ ইনস্পেক্টর
+- `OmniApp.material` + `OmniTheme` (১৬টি ডুয়াল-মোড কালার প্যালেট, ১২টি ডিজাইন স্টাইল ও ১৬টি স্মুথ স্ক্রিন ট্রানজিশন অ্যানিমেশন)
+- Login + Auth guard (login-এর পর আগের পেজে ফেরে) ও Confirm Logout ডায়ালগ
+- Bottom tab (`OmniStatefulShell`) — Dashboard, Students, Settings
+- Dashboard: `OmniStatefulWidget` + `OmniLifecycle` + `.hosted()` `OmniStatelessWidget` + Classic Named Route (`pushNamed`)
+- Student list → detail → edit (`Provide.bloc`, `OmniRouteGroup`, `onExit` কনফার্মেশন ও `slideUp`)
+- Settings: `OmniThemePanel` (Dark/Light/System মোড + কালার প্যালেট + স্টাইল + অ্যানিমেশন পিকার) ও নেস্টেড `/settings/profile`
 
 ```bash
 cd example
 flutter run -d macos    # বা chrome, iOS simulator, Android
-dart run bin/demo.dart  # টার্মিনালে রিয়েল পাবলিক API ও আলাদা কালার্ড লগ ডেমো
-flutter test            # পুরো UI + API ফ্লো টেস্ট
+flutter test            # পুরো example অ্যাপ UI ফ্লো টেস্ট
 ```
 
 ---
@@ -2017,18 +2015,18 @@ model (`fromJson`/`toJson`), enum আর typed `Endpoint` তৈরি হয়
 
 ## ২৩. Theming Mode — ১-ক্লিক মাল্টি-থিম, পিওর কালার, টেক্সট স্টাইল ও উইজেট স্টাইল (`OmniTheme` + `OmniColors` + `OmniTextStyles` + `OmniStyles`)
 
-আলাদা `ThemeBloc`, `ChangeNotifier` বা `SharedPreferences` বয়লারপ্লেট ছাড়াই মাত্র **১ লাইনে** পুরো অ্যাপে **৮টি কালার প্যালেট (`OmniTheme.presets`)**, **ডার্ক/লাইট/সিস্টেম মোড**, **৬টি ডিজাইন স্টাইল (`OmniThemeStyle`)**, **এজ-টু-এজ সিস্টেম/গেস্টচার বার ও ফুলস্ক্রিন মোড (`OmniScreenMode`, `OmniOrientation`)**, **Settings ১-ক্লিক UI (`OmniThemePanel`, `OmniThemeSettingsTile`, `showOmniThemeSheet`)**, এবং **`context.ui` / `context.colors` (৫৫টি পিওর কালার)**, **`context.textStyles` (১৫টি টেক্সট স্টাইল)**, **`context.styles`** ব্যবহার করা যায়:
+আলাদা `ThemeBloc`, `ChangeNotifier` বা `SharedPreferences` বয়লারপ্লেট ছাড়াই মাত্র **১ লাইনে** পুরো অ্যাপে **১৬টি কালার প্যালেট (`OmniTheme.presets`)**, **ডার্ক/লাইট/সিস্টেম মোড**, **১২টি ডিজাইন স্টাইল (`OmniThemeStyle`)**, **১৬টি স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`)**, **এজ-টু-এজ সিস্টেম/গেস্টচার বার ও ফুলস্ক্রিন মোড (`OmniScreenMode`, `OmniOrientation`)**, **Settings ১-ক্লিক UI (`OmniThemePanel`, `OmniThemeSettingsTile`, `showOmniThemeSheet`)**, এবং **`context.ui` / `context.colors` (৫৫টি পিওর কালার)**, **`context.textStyles` (১৫টি টেক্সট স্টাইল)**, **`context.styles`** ব্যবহার করা যায়:
 
 ```dart
 OmniApp.material(
   screenMode: OmniScreenMode.edgeToEdge,        // নিচের গেস্টচার বারের কালো এরিয়া অটো রিমুভ!
   orientation: OmniOrientation.portraitOnMobile, // ফোনে portrait লক, ট্যাবলেটে অটো-রোটেট!
-  // নিজস্ব কাস্টম থিম + রেডিমেড ৮টি প্যালেট (`Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate`):
+  // নিজস্ব কাস্টম থিম + রেডিমেড ১৬টি প্যালেট (`Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate`, `Indigo`, `Crimson`, `Neon Cyber`, `Forest`, `Espresso`, `Nordic Ice`, `Royal Gold`, `Monochrome`):
   omniTheme: const OmniTheme(
     id: 'brand',
     name: 'My Brand',
     seedColor: Colors.indigo,
-    style: OmniThemeStyle.outlined, // .modern / .outlined / .soft / .elevated / .minimal / .compact
+    style: OmniThemeStyle.outlined, // .modern / .outlined / .soft / .elevated / .minimal / .compact / .pill / .sharp / .floating / .brutal / .flat / .glassy
     statusBar: OmniStatusBarStyle.transparent(),                 // আলাদা ওপরের স্ট্যাটাস বার ক্লাস
     systemNavigationBar: OmniSystemNavigationBarStyle.transparent(), // আলাদা নিচের গেস্টচার/নেভ বার ক্লাস (কালো এরিয়া নেই)
     light: OmniColorPalette(
@@ -2091,17 +2089,17 @@ OmniApp.material(
 ```
 
 ### যা যা পাচ্ছেন একদম সহজভাবে:
-- **Settings ১-ক্লিক কালার প্যালেট, অ্যানিমেশন ও মোড সিস্টেম:** `OmniThemePanel`, `OmniThemePicker` (`paletteCards` / `chips`), `OmniThemeAnimationPicker` (১০টি স্ক্রিন অ্যানিমেশন মোড — `circularReveal`, `circularShrink`, `horizontalWipe`, `verticalWipe`, `diagonalSweep`, `splitShutter`, `diamondReveal`, `crossfade`, `colorMorph`, `none`), `OmniThemeSettingsTile`, `showOmniThemeSheet(context)` (`context.openThemeSettings()`), `OmniThemeStylePicker`, `OmniThemeModeSwitch` (`System` / `Light` / `Dark`), `OmniThemeButton()`, `OmniThemeModeButton()`, এবং কোড থেকে `context.setTheme('emerald')`, `context.nextTheme()`, `context.setThemeMode(ThemeMode.dark)`, `context.setThemeStyle(OmniThemeStyle.elevated)`, `context.setThemeAnimationMode(...)`, `context.toggleTheme()`, `context.cycleThemeMode()`।
-- **ডার্ক/লাইট ও প্যালেট স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`):** ডার্ক/লাইট/সিস্টেম মোড, OS ব্রাইটনেস বা কালার প্যালেট পরিবর্তন করলে স্ক্রিনের ওপর দিয়ে ট্যাপ পজিশন থেকে রিপল/সুইপ/শাটার/ডায়মন্ড/কার্টেইন বা `Color.lerp` কালার মর্ফ অ্যানিমেশন চলে (`edgeGlow` ও `Reduced Motion` সাপোর্টসহ)।
-- **৮টি রেডি ও ডুয়াল-মোড কালার প্যালেট (`OmniTheme.presets` + `OmniColorPalette`):** `Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate` (প্রতিটিতে লাইট ও ডার্ক দুই মোডের আলাদা রঙ), সাথে নিজস্ব প্যালেটে `light: OmniColorPalette(...)` / `dark: OmniColorPalette(...)` বা `OmniColors.light(...)` / `OmniColors.dark(...)` ও `SharedPreferences` অটো-সেভ।
+- **Settings ১-ক্লিক কালার প্যালেট, অ্যানিমেশন ও মোড সিস্টেম:** `OmniThemePanel`, `OmniThemePicker` (`paletteCards` / `chips`), `OmniThemeAnimationPicker` (১৬টি স্ক্রিন অ্যানিমেশন মোড — `circularReveal`, `circularShrink`, `horizontalWipe`, `verticalWipe`, `diagonalSweep`, `splitShutter`, `verticalSplitShutter`, `blindsWipe`, `clockSweep`, `roundedBoxReveal`, `diamondReveal`, `crossfade`, `zoomFade`, `slideReveal`, `colorMorph`, `none`), `OmniThemeSettingsTile`, `showOmniThemeSheet(context)` (`context.openThemeSettings()`), `OmniThemeStylePicker`, `OmniThemeModeSwitch` (`System` / `Light` / `Dark`), `OmniThemeButton()`, `OmniThemeModeButton()`, এবং কোড থেকে `context.setTheme('emerald')`, `context.nextTheme()`, `context.setThemeMode(ThemeMode.dark)`, `context.setThemeStyle(OmniThemeStyle.elevated)`, `context.setThemeAnimationMode(...)`, `context.toggleTheme()`, `context.cycleThemeMode()`।
+- **ডার্ক/লাইট ও প্যালেট স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`):** ডার্ক/লাইট/সিস্টেম মোড, OS ব্রাইটনেস বা কালার প্যালেট পরিবর্তন করলে স্ক্রিনের ওপর দিয়ে ট্যাপ পজিশন থেকে রিপল/সুইপ/শাটার/রাডার/ব্লাইন্ডস/কার্ড এক্সপ্যান্ড/জুম/স্লাইড/ডায়মন্ড বা `Color.lerp` কালার মর্ফ অ্যানিমেশন চলে (`edgeGlow` ও `Reduced Motion` সাপোর্টসহ)।
+- **১৬টি রেডি ও ডুয়াল-মোড কালার প্যালেট (`OmniTheme.presets` + `OmniColorPalette`):** `Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate`, `Indigo`, `Crimson`, `Neon Cyber`, `Forest`, `Espresso`, `Nordic Ice`, `Royal Gold`, `Monochrome` (প্রতিটিতে লাইট ও ডার্ক দুই মোডের আলাদা রঙ), সাথে নিজস্ব প্যালেটে `light: OmniColorPalette(...)` / `dark: OmniColorPalette(...)` বা `OmniColors.light(...)` / `OmniColors.dark(...)` ও `SharedPreferences` অটো-সেভ।
 - **৫৫টি পিওর কালার নাম (`context.colors`):** `surfaceColor`, `secondaryBackgroundColor`, `cardColor`, `appBarColor`, `navBarColor`, `statusBarColor`, `systemNavigationBarColor`, `buttonColor`, `secondaryButtonColor`, `secondaryButtonTextColor`, `dangerButtonColor`, `disabledColor`, `disabledTextColor`, `disabledBorderColor`, `switchActiveColor`, `switchInactiveColor`, `snackbarColor`, `tooltipColor`, `rippleColor`, `errorColor`, `warningColor`, `successColor`, `infoColor` ইত্যাদি — IDE-তে হোভার করলেই প্রতিটি কালারের আসল ব্যবহার দেখা যায়।
 - **আলাদা সিস্টেম স্ট্যাটাস বার ও গেস্টচার/নেভ বার ক্লাস (`OmniStatusBarStyle`, `OmniSystemNavigationBarStyle`, `OmniScreenMode`, `OmniOrientation`):** স্ট্যাটাস বার এবং নিচের সিস্টেম নেভিগেশন/গেস্টচার বারের জন্য সম্পূর্ণ আলাদা দুটি ক্লাস (প্রতিটিতে `color` + `darkColor` ও অটো আইকন কনট্রাস্ট)। ডিফল্টভাবেই `edgeToEdge` ও `contrastEnforced: false` থাকায় Android বটম গেস্টচার পিলের নিচে কালো এরিয়া থাকে না এবং অ্যাপের ভেতরে প্রতি স্ক্রিনে আলাদা `SystemChrome` / `AppBar.systemOverlayStyle` কোড না লিখেই **সব স্ক্রিনে স্বয়ংক্রিয়ভাবে কাজ করে**। সাথে ফুলস্ক্রিন (`fullscreen`, `fullscreenLean`, `OmniFullscreenButton`), `context.setStatusBar(...)`, `context.setSystemNavigationBar(...)` এবং `OmniOrientation` (`portrait`, `landscape`, `auto`, `portraitOnMobile`, `system`)।
 - **১৫টি টেক্সট স্টাইল (`context.textStyles`):** `display`, `heading`, `title`, `subtitle`, `body`, `bodyMuted`, `label`, `caption`, `hint`, `button`, `link`, `error`, `warning`, `success`, `code`।
-- **সহজ থিম স্টাইল ও প্রি-ক্যাশড UI ডেকোরেশন (`context.ui` / `context.styles` / `OmniThemeStyle`):** ৬টি ডিজাইন স্টাইল (`modern`, `outlined`, `soft`, `elevated`, `minimal`, `compact`), ৩টি ইনপুট ধরন (`OmniInputVariant`), `subtleBoxDecoration`, `disabledBoxDecoration`, `cardDecoration`, `secondaryButton`, `dangerButton`, `inputDecoration(...)`, `searchDecoration(...)`।
+- **সহজ থিম স্টাইল ও প্রি-ক্যাশড UI ডেকোরেশন (`context.ui` / `context.styles` / `OmniThemeStyle`):** ১২টি ডিজাইন স্টাইল (`modern`, `outlined`, `soft`, `elevated`, `minimal`, `compact`, `pill`, `sharp`, `floating`, `brutal`, `flat`, `glassy`), ৩টি ইনপুট ধরন (`OmniInputVariant`), `subtleBoxDecoration`, `disabledBoxDecoration`, `cardDecoration`, `secondaryButton`, `dangerButton`, `inputDecoration(...)`, `searchDecoration(...)`।
 - **শূন্য মেমরি ও রি-বিল্ড খরচ:** প্রতিটি `(themeId, style)` কম্বিনেশনের `lightTheme` ও `darkTheme` একবার তৈরি হয়ে মেমোইজড থাকে (`identical`); থিম বা মোড পাল্টালে অপ্রাসঙ্গিক `const` উইজেট রি-বিল্ড হয় না এবং `Splash`/`Onboarding`-ও একই থিম পায়।
 - **কাস্টম কন্ট্রোলার (ঐচ্ছিক):** অ্যাপের বাইরে বা Bloc থেকে নিয়ন্ত্রণ চাইলে `OmniThemeController()` পাস করা যায়।
 
-> **সম্পূর্ণ থিমিং গাইড (৫৫টি কালার, ৮টি প্যালেট, ৬টি স্টাইল, গেস্টচার বার, ফুলস্ক্রিন/রোটেশন ও `TextField`/`Button`/`Card` উদাহরণসহ):** [doc/theming.bn.md](doc/theming.bn.md)
+> **সম্পূর্ণ থিমিং গাইড (৫৫টি কালার, ১৬টি প্যালেট, ১২টি স্টাইল, ১৬টি অ্যানিমেশন, গেস্টচার বার, ফুলস্ক্রিন/রোটেশন ও `TextField`/`Button`/`Card` উদাহরণসহ):** [doc/theming.bn.md](doc/theming.bn.md)
 
 ---
 

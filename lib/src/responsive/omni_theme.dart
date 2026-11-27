@@ -1040,7 +1040,153 @@ class OmniTheme {
     ),
   );
 
-  /// ৮টি রেডিমেড প্রোডাকশন কালার প্যালেটের বান্ডিল (`OmniApp.material(themes: OmniTheme.presets)`)।
+  /// গভীর ইন্ডিগো-স্কাই প্রিসেট প্যালেট (`id: 'indigo'`)।
+  static const indigo = OmniTheme(
+    id: 'indigo',
+    name: 'Indigo',
+    seedColor: Color(0xFF4F46E5),
+    secondaryColor: Color(0xFF0EA5E9),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF818CF8),
+      secondaryColor: Color(0xFF38BDF8),
+      buttonTextColor: Color(0xFF0F172A),
+    ),
+  );
+
+  /// গাঢ় ক্রিমসন-অরেঞ্জ প্রিসেট প্যালেট (`id: 'crimson'`)।
+  static const crimson = OmniTheme(
+    id: 'crimson',
+    name: 'Crimson',
+    seedColor: Color(0xFFDC2626),
+    secondaryColor: Color(0xFFF97316),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFF87171),
+      secondaryColor: Color(0xFFFB923C),
+      buttonTextColor: Color(0xFF18181B),
+    ),
+  );
+
+  /// নিয়োন সাইবারপাঙ্ক ম্যাজেন্টা-সায়ান প্রিসেট প্যালেট (`id: 'cyberpunk'`)।
+  static const cyberpunk = OmniTheme(
+    id: 'cyberpunk',
+    name: 'Neon Cyber',
+    seedColor: Color(0xFFD946EF),
+    secondaryColor: Color(0xFF06B6D4),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFF472B6),
+      secondaryColor: Color(0xFF22D3EE),
+      surfaceColor: Color(0xFF090914),
+      secondaryBackgroundColor: Color(0xFF121226),
+      cardColor: Color(0xFF181832),
+      buttonTextColor: Color(0xFF090914),
+    ),
+  );
+
+  /// প্রাকৃতিক ফরেস্ট সবুজ প্রিসেট প্যালেট (`id: 'forest'`)।
+  static const forest = OmniTheme(
+    id: 'forest',
+    name: 'Forest',
+    seedColor: Color(0xFF15803D),
+    secondaryColor: Color(0xFF65A30D),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF4ADE80),
+      secondaryColor: Color(0xFFA3E635),
+      surfaceColor: Color(0xFF07130C),
+      secondaryBackgroundColor: Color(0xFF0E2015),
+      cardColor: Color(0xFF13291B),
+      buttonTextColor: Color(0xFF052E16),
+    ),
+  );
+
+  /// উষ্ণ এসপ্রেসো-কফি ওয়ার্ম প্যালেট (`id: 'coffee'`)।
+  static const coffee = OmniTheme(
+    id: 'coffee',
+    name: 'Espresso',
+    seedColor: Color(0xFF78350F),
+    secondaryColor: Color(0xFFD97706),
+    light: OmniColorPalette(
+      surfaceColor: Color(0xFFFAF7F2),
+      secondaryBackgroundColor: Color(0xFFF3ECE1),
+    ),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFFBBF24),
+      secondaryColor: Color(0xFFF59E0B),
+      surfaceColor: Color(0xFF140E0A),
+      secondaryBackgroundColor: Color(0xFF1F1610),
+      cardColor: Color(0xFF291D15),
+      buttonTextColor: Color(0xFF1C1008),
+    ),
+  );
+
+  /// নর্ডিক আইস-ব্লু মিনিমালিস্ট প্রিসেট প্যালেট (`id: 'nordic'`)।
+  static const nordic = OmniTheme(
+    id: 'nordic',
+    name: 'Nordic Ice',
+    seedColor: Color(0xFF0369A1),
+    secondaryColor: Color(0xFF38BDF8),
+    light: OmniColorPalette(
+      surfaceColor: Color(0xFFF4F8FB),
+      secondaryBackgroundColor: Color(0xFFE7EFF6),
+    ),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFF7DD3FC),
+      secondaryColor: Color(0xFF38BDF8),
+      surfaceColor: Color(0xFF09121C),
+      secondaryBackgroundColor: Color(0xFF0F1C2A),
+      cardColor: Color(0xFF152536),
+      buttonTextColor: Color(0xFF082F49),
+    ),
+  );
+
+  /// রয়্যাল গোল্ড ও ডার্ক স্লেট প্রিসেট প্যালেট (`id: 'gold'`)।
+  static const gold = OmniTheme(
+    id: 'gold',
+    name: 'Royal Gold',
+    seedColor: Color(0xFFCA8A04),
+    secondaryColor: Color(0xFF1E293B),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFFACC15),
+      secondaryColor: Color(0xFFCBD5E1),
+      surfaceColor: Color(0xFF0E0D0A),
+      secondaryBackgroundColor: Color(0xFF181611),
+      cardColor: Color(0xFF211E17),
+      buttonTextColor: Color(0xFF1C1917),
+    ),
+  );
+
+  /// ক্লিন মনোক্রোম ও AMOLED ট্রু-ব্ল্যাক প্রিসেট প্যালেট (`id: 'monochrome'`)।
+  static const monochrome = OmniTheme(
+    id: 'monochrome',
+    name: 'Monochrome',
+    seedColor: Color(0xFF18181B),
+    secondaryColor: Color(0xFF52525B),
+    light: OmniColorPalette(
+      primaryColor: Color(0xFF18181B),
+      secondaryColor: Color(0xFF52525B),
+      surfaceColor: Color(0xFFFAFAFA),
+      secondaryBackgroundColor: Color(0xFFF4F4F5),
+      cardColor: Color(0xFFFFFFFF),
+      buttonColor: Color(0xFF18181B),
+      buttonTextColor: Color(0xFFFFFFFF),
+      secondaryButtonColor: Color(0xFFE4E4E7),
+      secondaryButtonTextColor: Color(0xFF18181B),
+    ),
+    dark: OmniColorPalette(
+      primaryColor: Color(0xFFF4F4F5),
+      secondaryColor: Color(0xFFA1A1AA),
+      surfaceColor: Color(0xFF000000),
+      secondaryBackgroundColor: Color(0xFF09090B),
+      cardColor: Color(0xFF18181B),
+      appBarColor: Color(0xFF000000),
+      navBarColor: Color(0xFF09090B),
+      buttonColor: Color(0xFFFAFAFA),
+      buttonTextColor: Color(0xFF09090B),
+      secondaryButtonColor: Color(0xFF27272A),
+      secondaryButtonTextColor: Color(0xFFFAFAFA),
+    ),
+  );
+
+  /// ১৬টি রেডিমেড প্রোডাকশন কালার প্যালেটের বান্ডিল (`OmniApp.material(themes: OmniTheme.presets)`)।
   static const List<OmniTheme> presets = [
     ocean,
     emerald,
@@ -1050,6 +1196,14 @@ class OmniTheme {
     teal,
     amber,
     slate,
+    indigo,
+    crimson,
+    cyberpunk,
+    forest,
+    coffee,
+    nordic,
+    gold,
+    monochrome,
   ];
 
   /// [id] দিয়ে রেডিমেড [presets] থেকে প্যালেট খুঁজে বের করে (না পেলে `null`)।
@@ -1504,7 +1658,9 @@ class OmniTheme {
         secondaryLabelStyle: textStyles.label.copyWith(
           color: colors.primaryColor,
         ),
-        side: BorderSide(color: colors.borderColor, width: effBorderWidth),
+        side: effBorderWidth > 0
+            ? BorderSide(color: colors.borderColor, width: effBorderWidth)
+            : BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: buttonRadius),
       ),
       switchTheme: SwitchThemeData(
@@ -1533,7 +1689,10 @@ class OmniTheme {
                   : Colors.transparent,
         ),
         checkColor: WidgetStatePropertyAll(colors.buttonTextColor),
-        side: BorderSide(color: colors.borderColor, width: effBorderWidth),
+        side: BorderSide(
+          color: colors.borderColor,
+          width: effBorderWidth > 0 ? effBorderWidth : 1.5,
+        ),
       ),
       radioTheme: RadioThemeData(
         fillColor: WidgetStateProperty.resolveWith(
@@ -2640,8 +2799,7 @@ class _PaletteOptionItem extends StatelessWidget {
       return InkWell(
         borderRadius: BorderRadius.circular(24),
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 160),
+        child: Container(
           padding: EdgeInsets.symmetric(
             horizontal: showName ? 12 : 8,
             vertical: 8,
@@ -2686,8 +2844,7 @@ class _PaletteOptionItem extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 160),
+      child: Container(
         padding: EdgeInsets.symmetric(
           horizontal: showName ? 12 : 10,
           vertical: 10,
@@ -3178,35 +3335,37 @@ Future<T?> showOmniThemeSheet<T>(
     final tk = OmniResponsiveScope.tokensOf(ctx);
     return Padding(
       padding: tk.pagePadding,
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(child: Text(title, style: ctx.textStyles.heading)),
-                IconButton(
-                  tooltip: 'Close',
-                  onPressed: () => Navigator.of(ctx).maybePop(),
-                  icon: const Icon(Icons.close),
-                ),
-              ],
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(child: Text(title, style: ctx.textStyles.heading)),
+              IconButton(
+                tooltip: 'Close',
+                onPressed: () => Navigator.of(ctx).maybePop(),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          tk.gapSm,
+          Flexible(
+            child: SingleChildScrollView(
+              child: OmniThemePanel(
+                modeTitle: modeTitle,
+                themeTitle: themeTitle,
+                styleTitle: styleTitle,
+                animationTitle: animationTitle,
+                systemLabel: systemLabel,
+                lightLabel: lightLabel,
+                darkLabel: darkLabel,
+                showStylePicker: showStylePicker,
+                showAnimationPicker: showAnimationPicker,
+              ),
             ),
-            tk.gapSm,
-            OmniThemePanel(
-              modeTitle: modeTitle,
-              themeTitle: themeTitle,
-              styleTitle: styleTitle,
-              animationTitle: animationTitle,
-              systemLabel: systemLabel,
-              lightLabel: lightLabel,
-              darkLabel: darkLabel,
-              showStylePicker: showStylePicker,
-              showAnimationPicker: showAnimationPicker,
-            ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -3216,6 +3375,9 @@ Future<T?> showOmniThemeSheet<T>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.86,
+      ),
       builder: buildContent,
     );
   }

@@ -1,10 +1,7 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:omni_route/omni_route.dart';
-
-import 'api_lab_screens.dart';
 
 void main() {
   OmniRoute.usePathUrls();
@@ -12,95 +9,7 @@ void main() {
 }
 
 // =============================================================================
-// Separate Colored Bloc & Route Logger -> Terminal + OmniInspector
-// =============================================================================
-
-void _printSeparateBox({
-  required String colorCode,
-  required String header,
-  String? detail,
-}) {
-  final rule = '─' * 60;
-  final paint = '\x1B[${colorCode}m';
-  const reset = '\x1B[0m';
-  final lines = <String>[
-    '$paint┌$rule$reset',
-    '$paint│$reset $paint$header$reset',
-    if (detail != null && detail.isNotEmpty) '$paint│$reset $detail',
-    '$paint└$rule$reset',
-  ];
-  for (final l in lines) {
-    debugPrint(l);
-  }
-}
-
-class _ExampleBlocObserver extends BlocObserver {
-  _ExampleBlocObserver({required this.printTerminal});
-
-  final bool printTerminal;
-  OmniInspector? inspector;
-
-  @override
-  void onCreate(BlocBase<dynamic> bloc) {
-    super.onCreate(bloc);
-    final name = bloc.runtimeType.toString();
-    if (printTerminal && kDebugMode) {
-      _printSeparateBox(
-        colorCode: '38;5;78',
-        header: '🟩 bloc-create · $name',
-      );
-    }
-    scheduleMicrotask(() {
-      inspector?.logBloc(
-        'bloc-create',
-        '$name created',
-        kind: InspectorLogKind.blocCreate,
-      );
-    });
-  }
-
-  @override
-  void onChange(BlocBase<dynamic> bloc, Change<dynamic> change) {
-    super.onChange(bloc, change);
-    final name = bloc.runtimeType.toString();
-    final nextSummary = change.nextState.toString();
-    if (printTerminal && kDebugMode && name != 'ApiLabCubit') {
-      _printSeparateBox(
-        colorCode: '38;5;43',
-        header: '🔄 bloc-transition · $name',
-        detail: 'nextState: $nextSummary',
-      );
-    }
-    scheduleMicrotask(() {
-      inspector?.logBloc(
-        'bloc-transition',
-        '$name state updated',
-        kind: InspectorLogKind.blocTransition,
-        subtitle: nextSummary,
-        copyText: '[bloc-transition] $name\nfrom: ${change.currentState}\nto:   ${change.nextState}',
-      );
-    });
-  }
-
-  @override
-  void onError(BlocBase<dynamic> bloc, Object error, StackTrace stackTrace) {
-    super.onError(bloc, error, stackTrace);
-    final name = bloc.runtimeType.toString();
-    if (printTerminal && kDebugMode) {
-      _printSeparateBox(
-        colorCode: '38;5;196',
-        header: '\x1B[1;38;5;15;48;5;196m ⛔ bloc-error · $name \x1B[0m',
-        detail: '$error',
-      );
-    }
-    scheduleMicrotask(() {
-      inspector?.logError('$name error', subtitle: '$error');
-    });
-  }
-}
-
-// =============================================================================
-// Domain + Global & Lazy-Registered Blocs
+// Domain & Scoped Blocs
 // =============================================================================
 
 class AuthBloc extends Cubit<bool> {
@@ -149,6 +58,14 @@ class AttendanceBloc extends Cubit<bool> {
   void toggle() => emit(!state);
 }
 
+class ClassicStudentBloc extends Cubit<String?> {
+  ClassicStudentBloc() : super(null);
+
+  void load(int id) {
+    emit('ClassicStudent(id: $id, name: "Classic #$id", dept: "CSE")');
+  }
+}
+
 // =============================================================================
 // Route Guard
 // =============================================================================
@@ -181,37 +98,16 @@ class AuthGuard extends OmniGuard {
 }
 
 // =============================================================================
-// Application Root
+// Fast, Zero-Network Application Root
 // =============================================================================
 
-class ExampleApp extends StatefulWidget {
-  const ExampleApp({super.key, this.useLiveNetwork = true});
-
-  /// Defaults to `true` so running the app calls real public developer APIs
-  /// (JSONPlaceholder, DummyJSON, Open-Meteo, PokeAPI, Postman WS Echo).
-  /// Hermetic widget tests pass `false` since Flutter's test binding blocks
-  /// real sockets.
-  final bool useLiveNetwork;
-
-  @override
-  State<ExampleApp> createState() => _ExampleAppState();
-}
-
-class _ExampleAppState extends State<ExampleApp> {
-  late final _ExampleBlocObserver _blocObserver = _ExampleBlocObserver(
-    printTerminal: widget.useLiveNetwork,
-  );
-
-  @override
-  void dispose() {
-    _blocObserver.inspector = null;
-    super.dispose();
-  }
+class ExampleApp extends StatelessWidget {
+  const ExampleApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return OmniApp.material(
-      title: 'OmniRoute & OmniNetwork Example',
+      title: 'OmniRoute Example',
       screenMode: OmniScreenMode.edgeToEdge,
       orientation: OmniOrientation.portraitOnMobile,
       omniTheme: const OmniTheme(
@@ -237,43 +133,8 @@ class _ExampleAppState extends State<ExampleApp> {
       initialRoute: '/dashboard',
       transition: OmniPages.fadeSlide,
       guards: const [AuthGuard()],
-      blocObserver: _blocObserver,
-      logNavigation: false,
-      onNavigate: (nav) {
-        final from = nav.from?.location ?? '(start)';
-        final to = nav.to.location;
-        if (widget.useLiveNetwork && kDebugMode) {
-          _printSeparateBox(
-            colorCode: '38;5;141',
-            header: '🧭 route (${nav.kind.name}) · $from -> $to',
-            detail: 'uri: ${nav.uri}',
-          );
-        }
-        scheduleMicrotask(() {
-          _blocObserver.inspector?.logRoute(
-            '[${nav.kind.name}] $from -> $to',
-            subtitle: 'uri: ${nav.uri}',
-            copyText:
-                '[route:${nav.kind.name}]\nfrom: $from\nto:   $to\nuri:  ${nav.uri}',
-          );
-        });
-      },
-      appBuilder: (context, child) {
-        final inspector = context.read<ApiLabCubit>().inspector;
-        _blocObserver.inspector = inspector;
-        return OmniInspectorLauncher(
-          inspector: inspector,
-          initialTab: InspectorTab.logs,
-          child: child ?? const SizedBox.shrink(),
-        );
-      },
       blocs: [
         OmniBloc((_) => AuthBloc(), global: true),
-        OmniBloc(
-          (_) => ApiLabCubit(useLiveNetwork: widget.useLiveNetwork),
-          global: true,
-        ),
-        // Classic pre-registered style kept alongside page-entry registration:
         OmniBloc((_) => ClassicStudentBloc()),
       ],
       routes: [
@@ -282,14 +143,6 @@ class _ExampleAppState extends State<ExampleApp> {
           const ConfirmLogoutScreen(),
           transition: OmniPages.dialog(),
         ),
-        OmniPage.screen(
-          const ApiSheetScreen(),
-          transition: OmniPages.bottomSheet(
-            showDragHandle: true,
-            isScrollControlled: true,
-          ),
-        ),
-        // Classic string-based + named route style:
         OmniPage(
           '/classic-student/:id',
           (p) => ClassicStudentDetailScreen(id: p.pathInt('id')),
@@ -332,31 +185,7 @@ class _ExampleAppState extends State<ExampleApp> {
                 ),
               ],
             ),
-            // Branch 2: API, WebSocket & AI Lab wrapped in OmniShell
-            OmniBranch(
-              routes: [
-                OmniShell(
-                  builder: (context, state, child) =>
-                      ApiLabShellFrame(state: state, child: child),
-                  routes: [
-                    OmniPage.screen(
-                      const ApiCompareScreen(),
-                      routes: [
-                        OmniPage.screen(
-                          const AiAssistantScreen(),
-                          path: 'ai-chat',
-                        ),
-                        OmniPage.screen(
-                          const RealtimeChatScreen(),
-                          path: 'chat',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // Branch 3: Settings -> nested '/settings/profile'
+            // Branch 2: Settings -> nested '/settings/profile'
             OmniBranch(
               routes: [
                 OmniPage.screen(
@@ -387,7 +216,10 @@ class LoginScreen extends OmniStatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Sign in')),
+      appBar: AppBar(
+        title: const Text('Sign in'),
+        actions: const [OmniThemeModeButton()],
+      ),
       body: Center(
         child: FilledButton(
           onPressed: () {
@@ -447,7 +279,6 @@ class HomeShell extends StatelessWidget {
             label: 'Dashboard',
           ),
           NavigationDestination(icon: Icon(Icons.school), label: 'Students'),
-          NavigationDestination(icon: Icon(Icons.hub), label: 'API & AI'),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
@@ -502,6 +333,8 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
       appBar: AppBar(
         title: Text('$screenTitle ($routePath)'),
         actions: [
+          const OmniThemeButton(),
+          const OmniThemeModeButton(),
           IconButton(
             tooltip: 'Log out',
             icon: const Icon(Icons.logout),
@@ -521,7 +354,6 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Demonstrates embedding an OmniScreen outside a route via .hosted()
               const WelcomeBadge().hosted(),
               const SizedBox(height: 12),
               Text('OmniLifecycle onShow count: $_showCount'),
@@ -536,8 +368,11 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
                     child: const Text('Open student 101'),
                   ),
                   FilledButton.tonal(
-                    onPressed: () => go('/api'),
-                    child: const Text('Open API & AI Lab'),
+                    onPressed: () => OmniRoute.pushNamed(
+                      'classic_student',
+                      path: {'id': '205'},
+                    ),
+                    child: const Text('Classic Named Route'),
                   ),
                 ],
               ),
@@ -559,8 +394,6 @@ class StudentListScreen extends OmniStatelessWidget {
   @override
   String get routePath => '/students';
 
-  // Notice StudentBloc is NOT in OmniApp(blocs: ...); OmniRoute registers its
-  // BlocProvider automatically when first entering `/students`.
   @override
   List<Provide> get provide => [
     Provide.bloc((_) => StudentBloc()),
@@ -723,8 +556,44 @@ class _StudentEditScreenState extends OmniState<StudentEditScreen> {
   }
 }
 
+class ClassicStudentDetailScreen extends StatelessWidget {
+  const ClassicStudentDetailScreen({super.key, required this.id});
+
+  final int id;
+
+  @override
+  Widget build(BuildContext context) {
+    final bloc = context.read<ClassicStudentBloc>()..load(id);
+    return BlocBuilder<ClassicStudentBloc, String?>(
+      bloc: bloc,
+      builder: (context, student) => Scaffold(
+        appBar: AppBar(title: Text('Classic Route #$id')),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Classic Style: OmniPage("/classic-student/:id", ..., name: "classic_student") + '
+                'pre-registered OmniBloc<ClassicStudentBloc> + pushNamed',
+              ),
+              const SizedBox(height: 12),
+              Text('Loaded: $student'),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: () => context.pop(),
+                child: const Text('Pop Classic Route'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // =============================================================================
-// Settings Tab (Nested Child routePath '/settings/profile')
+// Settings Tab (Theming, Color Palettes, Animations & Nested Profile Route)
 // =============================================================================
 
 class SettingsScreen extends OmniStatelessWidget {
@@ -743,7 +612,7 @@ class SettingsScreen extends OmniStatelessWidget {
         actions: const [
           OmniFullscreenButton(),
           OmniThemeButton(),
-          OmniThemeModeButton(allowSystemMode: true),
+          OmniThemeModeButton(),
         ],
       ),
       body: ListView(
@@ -760,7 +629,7 @@ class SettingsScreen extends OmniStatelessWidget {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
-                const OmniThemeSettingsTile(),
+                const OmniThemeSettingsTile(showAnimationPicker: true),
                 Divider(height: 1, color: ui.colors.dividerColor),
                 ListTile(
                   title: const Text('Profile'),
@@ -780,8 +649,6 @@ class SettingsScreen extends OmniStatelessWidget {
 class ProfileScreen extends OmniStatelessWidget {
   const ProfileScreen({super.key});
 
-  // Declared as child `path: 'profile'` under `/settings`; nested `routePath`
-  // matches `/settings/profile` cleanly!
   @override
   String get routePath => '/settings/profile';
 

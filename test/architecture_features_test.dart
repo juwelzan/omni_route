@@ -932,13 +932,43 @@ void main() {
     );
 
     testWidgets(
-      'OmniThemeStyle, context.ui, 53 colors, 8 presets & Settings 1-click Color Palette + Mode sheet',
+      'OmniThemeStyle, context.ui, 53 colors, 16 presets & Settings 1-click Color Palette + Mode sheet',
       (t) async {
         SharedPreferences.setMockInitialValues(<String, Object>{});
-        expect(OmniTheme.presets.length, 8);
+        expect(OmniTheme.presets.length, 16);
+        expect(OmniTheme.presets.map((p) => p.id).toSet().length, 16);
+        expect(OmniThemeStyle.values.length, 12);
         expect(OmniTheme.findPreset('violet')?.name, 'Violet');
         expect(OmniTheme.findPreset('teal')?.name, 'Teal');
         expect(OmniTheme.findPreset('amber')?.name, 'Amber');
+        expect(OmniTheme.findPreset('indigo')?.name, 'Indigo');
+        expect(OmniTheme.findPreset('crimson')?.name, 'Crimson');
+        expect(OmniTheme.findPreset('cyberpunk')?.name, 'Neon Cyber');
+        expect(OmniTheme.findPreset('forest')?.name, 'Forest');
+        expect(OmniTheme.findPreset('coffee')?.name, 'Espresso');
+        expect(OmniTheme.findPreset('nordic')?.name, 'Nordic Ice');
+        expect(OmniTheme.findPreset('gold')?.name, 'Royal Gold');
+        expect(OmniTheme.findPreset('monochrome')?.name, 'Monochrome');
+
+        // Verify monochrome light/dark palettes produce crisp AMOLED contrast & pure light/dark buttons:
+        final monoLight = OmniTheme.monochrome.resolveColors(Brightness.light);
+        final monoDark = OmniTheme.monochrome.resolveColors(Brightness.dark);
+        expect(monoLight.buttonColor, const Color(0xFF18181B));
+        expect(monoLight.buttonTextColor, const Color(0xFFFFFFFF));
+        expect(monoDark.surfaceColor, const Color(0xFF000000));
+        expect(monoDark.buttonColor, const Color(0xFFFAFAFA));
+        expect(monoDark.buttonTextColor, const Color(0xFF09090B));
+
+        // Verify new OmniThemeStyle border/elevation presets:
+        expect(OmniThemeStyle.pill.borderRadius, 24.0);
+        expect(OmniThemeStyle.sharp.borderRadius, 4.0);
+        expect(OmniThemeStyle.floating.cardElevation, 6.0);
+        expect(OmniThemeStyle.floating.cardBorderWidth, 0.0);
+        expect(OmniThemeStyle.brutal.borderWidth, 2.2);
+        expect(OmniThemeStyle.flat.cardBorderWidth, 0.0);
+        expect(OmniThemeStyle.flat.cardElevation, 0.0);
+        expect(OmniThemeStyle.glassy.borderWidth, 0.7);
+        expect(OmniThemeStyle.glassy.borderRadius, 18.0);
 
         const themed = OmniTheme(
           id: 'brand',
@@ -1041,12 +1071,15 @@ void main() {
         await t.pumpAndSettle();
 
         // Tap Violet palette card:
+        await t.ensureVisible(find.text('Violet'));
         await t.tap(find.text('Violet'));
         await t.pumpAndSettle();
         // Tap Dark mode segment:
+        await t.ensureVisible(find.text('Dark'));
         await t.tap(find.text('Dark'));
         await t.pumpAndSettle();
         // Tap Elevated style chip:
+        await t.ensureVisible(find.text('Elevated'));
         await t.tap(find.text('Elevated'));
         await t.pumpAndSettle();
 
@@ -1080,6 +1113,19 @@ void main() {
         );
         await t.pumpAndSettle();
         expect(find.text('restored:violet:dark:elevated'), findsOneWidget);
+
+        // Verify borderless styles (.flat & .floating) emit no Card/cardDecoration borders:
+        final flatCtx = t.element(find.byType(Scaffold));
+        flatCtx.setThemeStyle(OmniThemeStyle.flat);
+        await t.pumpAndSettle();
+        expect(flatCtx.activeThemeStyle, OmniThemeStyle.flat);
+        expect(flatCtx.ui.styles.cardDecoration.border, isNull);
+        expect(Theme.of(flatCtx).cardTheme.elevation, 0.0);
+
+        flatCtx.setThemeStyle(OmniThemeStyle.floating);
+        await t.pumpAndSettle();
+        expect(flatCtx.ui.styles.cardDecoration.border, isNull);
+        expect(Theme.of(flatCtx).cardTheme.elevation, 6.0);
       },
     );
   });
@@ -1897,7 +1943,7 @@ void main() {
                     title: const Text('Animated Theme'),
                     actions: const [
                       OmniThemeButton(),
-                      OmniThemeModeButton(allowSystemMode: true),
+                      OmniThemeModeButton(),
                     ],
                   ),
                   body: Column(
@@ -1956,14 +2002,46 @@ void main() {
         expect(overlayFinder, findsNothing);
         expect(find.text('state:true:emerald:circularReveal'), findsOneWidget);
 
-        // 3. Pick multiple animation modes via OmniThemeAnimationPicker:
+        // 3. Verify all 16 animation modes, convenience constructors & pickers:
+        expect(OmniThemeAnimationMode.values.length, 16);
+        expect(
+          const OmniThemeAnimation.verticalSplitShutter().mode,
+          OmniThemeAnimationMode.verticalSplitShutter,
+        );
+        expect(
+          const OmniThemeAnimation.blindsWipe().mode,
+          OmniThemeAnimationMode.blindsWipe,
+        );
+        expect(
+          const OmniThemeAnimation.clockSweep().mode,
+          OmniThemeAnimationMode.clockSweep,
+        );
+        expect(
+          const OmniThemeAnimation.roundedBoxReveal().mode,
+          OmniThemeAnimationMode.roundedBoxReveal,
+        );
+        expect(
+          const OmniThemeAnimation.zoomFade().mode,
+          OmniThemeAnimationMode.zoomFade,
+        );
+        expect(
+          const OmniThemeAnimation.slideReveal().mode,
+          OmniThemeAnimationMode.slideReveal,
+        );
+
         for (final mode in const [
           OmniThemeAnimationMode.circularShrink,
           OmniThemeAnimationMode.horizontalWipe,
           OmniThemeAnimationMode.verticalWipe,
           OmniThemeAnimationMode.splitShutter,
+          OmniThemeAnimationMode.verticalSplitShutter,
+          OmniThemeAnimationMode.blindsWipe,
+          OmniThemeAnimationMode.clockSweep,
+          OmniThemeAnimationMode.roundedBoxReveal,
           OmniThemeAnimationMode.diamondReveal,
           OmniThemeAnimationMode.crossfade,
+          OmniThemeAnimationMode.zoomFade,
+          OmniThemeAnimationMode.slideReveal,
         ]) {
           await t.ensureVisible(find.text(mode.label));
           await t.tap(find.text(mode.label));

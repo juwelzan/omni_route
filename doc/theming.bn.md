@@ -51,9 +51,9 @@ OmniApp.material(
   title: 'Multi-Theme App',
   omniTheme: const OmniTheme(
     seedColor: Colors.indigo,
-    style: OmniThemeStyle.outlined, // অথবা .modern / .soft / .elevated / .minimal / .compact
+    style: OmniThemeStyle.outlined, // অথবা .modern / .soft / .elevated / .minimal / .compact / .pill / .sharp / .floating / .brutal / .flat / .glassy
   ),
-  // রেডিমেড ৮টি প্যালেট (`Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate`)
+  // রেডিমেড ১৬টি প্যালেট (`Ocean`, `Emerald`, `Violet`, `Sunset`, `Rose`, `Teal`, `Amber`, `Slate`, `Indigo`, `Crimson`, `Neon Cyber`, `Forest`, `Espresso`, `Nordic Ice`, `Royal Gold`, `Monochrome`)
   themes: OmniTheme.presets,
   routes: [
     OmniPage('/', (_) => const HomeScreen()),
@@ -84,7 +84,7 @@ OmniApp.material(
 | প্যারামিটার | ধরন ও ডিফল্ট | কাজ |
 |---|---|---|
 | `seedColor` | `Color` *(আবশ্যক)* | লাইট ও ডার্ক মূল ব্র্যান্ড প্যালেট তৈরি করে |
-| `style` | `OmniThemeStyle = .modern` | ১-লাইনের ডিজাইন প্রিসেট (`.modern`, `.outlined`, `.soft`, `.elevated`, `.minimal`, `.compact`) |
+| `style` | `OmniThemeStyle = .modern` | ১২টি ডিজাইন প্রিসেট (`.modern`, `.outlined`, `.soft`, `.elevated`, `.minimal`, `.compact`, `.pill`, `.sharp`, `.floating`, `.brutal`, `.flat`, `.glassy`) |
 | `mode` | `ThemeMode = ThemeMode.system` | প্রথমবার অ্যাপ চালু হলে কোন মোড দেখাবে |
 | `persistMode` | `bool = true` | `SharedPreferences`-এ ইউজারের পছন্দের প্যালেট, মোড ও স্টাইল সেভ রাখবে কি না |
 | `storageKey` | `String = 'default'` | সেভ করার চাবি (একাধিক অ্যাপ বা প্রোফাইল আলাদা রাখতে) |
@@ -139,7 +139,7 @@ const myBrandTheme = OmniTheme(
 3. **পূর্ণ ৫৫-কালার ফ্যাক্টরি:** চাইলে `lightColors: OmniColors.light(...)` এবং `darkColors: OmniColors.dark(...)` ব্যবহার করা যায় — সেখানেও কোনো প্যারামিটার বাধ্যতামূলক নয়।
 4. **সব ৫৫টি সেমান্টিক রোল:** `surfaceColor`, `secondaryBackgroundColor`, `cardColor`, `dividerColor`, `appBarColor`, `appBarTextColor`, `navBarColor`, `navSelectedColor`, `navUnselectedColor`, `statusBarColor`, `systemNavigationBarColor`, `buttonColor`, `buttonTextColor`, `secondaryButtonColor`, `secondaryButtonTextColor`, `dangerButtonColor`, `dangerButtonTextColor`, `linkColor`, `inputFillColor`, `borderColor`, `focusedBorderColor`, `textColor`, `secondaryTextColor`, `hintTextColor`, `iconColor`, `chipColor`, `chipTextColor`, `badgeColor`, `badgeTextColor`, `selectedItemColor`, `hoverColor`, `rippleColor`, `disabledColor`, `disabledTextColor`, `disabledBorderColor`, `switchActiveColor`, `switchInactiveColor`, `snackbarColor`, `snackbarTextColor`, `tooltipColor`, `tooltipTextColor`, `errorColor`, `errorBackgroundColor`, `warningColor`, `warningBackgroundColor`, `successColor`, `successBackgroundColor`, `infoColor`, `infoBackgroundColor`, `shimmerBaseColor`, `shimmerHighlightColor`, `overlayColor`, `shadowColor`।
 
-*(অন্তর্নির্মিত ৮টি `OmniTheme.presets`-এও আগে থেকেই লাইট ও ডার্ক দুই মোডের জন্য আলাদা উজ্জ্বল রঙ সেট করা আছে এবং Settings-এর `OmniThemePicker` ডার্ক মোডে স্বয়ংক্রিয়ভাবে ডার্ক রঙগুলোই প্রিভিউ করে।)*
+*(অন্তর্নির্মিত ১৬টি `OmniTheme.presets`-এও আগে থেকেই লাইট ও ডার্ক দুই মোডের জন্য আলাদা উজ্জ্বল রঙ সেট করা আছে এবং Settings-এর `OmniThemePicker` ডার্ক মোডে স্বয়ংক্রিয়ভাবে ডার্ক রঙগুলোই প্রিভিউ করে।)*
 
 ### ঘ. একটি পূর্ণ-কনফিগার করা উদাহরণ
 
@@ -502,7 +502,7 @@ class DemoApp extends StatelessWidget {
         mode: ThemeMode.system,
         persistMode: true,
       ),
-      themes: OmniTheme.presets, // ৮টি রেডি কালার প্যালেট!
+      themes: OmniTheme.presets, // ১৬টি রেডি কালার প্যালেট!
       routes: [
         OmniPage('/', (_) => const DemoFormPage()),
       ],
@@ -753,7 +753,7 @@ context.resetSystemUi();
 
 যখন ইউজার **Dark ↔ Light ↔ System** মোড পাল্টান, OS সিস্টেম ব্রাইটনেস বদলায়, অথবা Settings/বাটন থেকে **কালার প্যালেট** (`Ocean`, `Emerald`, `Violet` ইত্যাদি) ও **থিম স্টাইল** পরিবর্তন করেন — তখন পুরো স্ক্রিনের ওপর দিয়ে (অ্যাপবার, কার্ড, বটমশিট, ডায়ালগ ও নেভবারসহ) ৬০/১২০fps অ্যানিমেশনে রঙ ও থিম রূপান্তরিত হয়।
 
-### ক. ১০টি বিল্ট-ইন অ্যানিমেশন মোড (`OmniThemeAnimationMode`)
+### ক. ১৬টি বিল্ট-ইন অ্যানিমেশন মোড (`OmniThemeAnimationMode`)
 
 | মোড | কী ধরনের অ্যানিমেশন হয় |
 |---|---|
@@ -763,8 +763,14 @@ context.resetSystemUi();
 | `OmniThemeAnimationMode.verticalWipe` | ওপর থেকে নিচে কার্টেইন/পর্দা নামার মতো সুইপ অ্যানিমেশন |
 | `OmniThemeAnimationMode.diagonalSweep` | ওপরের বাম কোণা থেকে নিচের ডান কোণায় ডায়াগোনাল সুইপ |
 | `OmniThemeAnimationMode.splitShutter` | মাঝখান থেকে দুই পাশে শাটার সরে গিয়ে নতুন থিম উন্মোচিত হয় |
+| `OmniThemeAnimationMode.verticalSplitShutter` | মাঝখান থেকে ওপর-নিচে শাটার সরে গিয়ে নতুন থিম বেরিয়ে আসে |
+| `OmniThemeAnimationMode.blindsWipe` | ভেনিশিয়ান ব্লাইন্ডের মতো স্তরে স্তরে স্লেট খুলে থিম বদলায় |
+| `OmniThemeAnimationMode.clockSweep` | ঘড়ির কাঁটা বা রাডার সুইপের মতো ৩৬০° ঘুরে পুরো স্ক্রিনের থিম বদলায় |
+| `OmniThemeAnimationMode.roundedBoxReveal` | ট্যাপ পয়েন্ট/কেন্দ্র থেকে রাউন্ডেড কার্ড বড় হয়ে পুরো স্ক্রিনে ছড়িয়ে পড়ে |
 | `OmniThemeAnimationMode.diamondReveal` | ট্যাপ পয়েন্ট/কেন্দ্র থেকে ডায়মন্ড (রম্বস) আকারে ছড়িয়ে থিম বদলায় |
 | `OmniThemeAnimationMode.crossfade` | পুরোনো ও নতুন পুরো স্ক্রিন মসৃণ ক্রসফেডে মিশে যায় |
+| `OmniThemeAnimationMode.zoomFade` | পুরোনো স্ক্রিন হালকা জুম হয়ে মসৃণ ফেডে নতুন থিমে মিশে যায় |
+| `OmniThemeAnimationMode.slideReveal` | পুরোনো স্ক্রিন একপাশে স্লাইড করে সরে নিচের লাইভ নতুন থিম দেখায় |
 | `OmniThemeAnimationMode.colorMorph` | স্ক্রিন ওভারলে ছাড়াই সব রঙ, কার্ড ও বাটন `Color.lerp` ইন্টারপোলেশনে মসৃণভাবে রূপান্তরিত হয় |
 | `OmniThemeAnimationMode.none` | অ্যানিমেশন ছাড়া তাৎক্ষণিক পরিবর্তন |
 
@@ -779,7 +785,7 @@ OmniApp.material(
     animation: OmniThemeAnimation(
       mode: OmniThemeAnimationMode.circularReveal,     // Dark/Light মোডে গোল রিপল
       paletteMode: OmniThemeAnimationMode.diagonalSweep, // কালার প্যালেট বদলালে ডায়াগোনাল সুইপ!
-      duration: Duration(milliseconds: 480),
+      duration: Duration(milliseconds: 380),
       showEdgeGlow: true, // সুইপ বর্ডারে নতুন থিমের ব্র্যান্ড গ্লো!
     ),
   ),
@@ -788,14 +794,14 @@ OmniApp.material(
 )
 ```
 
-- **প্রিসেট কনস্ট্রাক্টর:** `OmniThemeAnimation.circularReveal()`, `.circularShrink()`, `.horizontalWipe()`, `.verticalWipe()`, `.diagonalSweep()`, `.splitShutter()`, `.diamondReveal()`, `.crossfade()`, `.colorMorph()`, `.none()`।
+- **প্রিসেট কনস্ট্রাক্টর (১৬টি):** `OmniThemeAnimation.circularReveal()`, `.circularShrink()`, `.horizontalWipe()`, `.verticalWipe()`, `.diagonalSweep()`, `.splitShutter()`, `.verticalSplitShutter()`, `.blindsWipe()`, `.clockSweep()`, `.roundedBoxReveal()`, `.diamondReveal()`, `.crossfade()`, `.zoomFade()`, `.slideReveal()`, `.colorMorph()`, `.none()`।
 - **`omniTheme` ছাড়াও কাজ করে:** সাধারণ `MaterialApp` থিম (`theme:` + `darkTheme:` + `themeMode:`) ব্যবহার করলে `OmniApp.material(themeAnimation: OmniThemeAnimation.splitShutter(), ...)` দিন।
 - **অটো ট্যাপ উৎস (`autoTapOrigin: true`):** স্ক্রিনের যেখানেই বাটন বা প্যালেটে ট্যাপ করবেন, অ্যানিমেশন ঠিক সেখান থেকেই ছড়িয়ে পড়বে। কোড থেকে চাইলে `context.toggleTheme(origin: offset)` বা `context.setTheme('emerald', origin: offset)`-ও দিতে পারেন।
 
 ### গ. Settings-এ ইউজারকে অ্যানিমেশন বেছে দেওয়ার পিকার (`OmniThemeAnimationPicker`)
 
 ```dart
-// ১. Settings প্যানেলেই ১০টি অ্যানিমেশন চিপ দেখান (অটো SharedPreferences-এ সেভ হয়!):
+// ১. Settings প্যানেলেই ১৬টি অ্যানিমেশন চিপ দেখান (অটো SharedPreferences-এ সেভ হয়!):
 const OmniThemePanel(
   showStylePicker: true,
   showAnimationPicker: true,
