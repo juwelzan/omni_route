@@ -2121,6 +2121,9 @@ OmniApp.material(
 
 ---
 
+
+> **নতুন (0.5):** পুরো অ্যাপের লেখা ছোট/বড় করা — `context.setTextSize(OmniTextSize.large)` বা রেডিমেড `OmniTextSizePicker` (সেভ থাকে, OS accessibility ও ভাষার সাথে মিলিয়ে); `main()`-এ `await OmniPreferences.preload()` দিলে অ্যাপ খোলার সময় থিম/ভাষার ঝলক শূন্য; `OmniTheme.fromSeed(...)`, runtime-এ `addTheme`, `OmniTheme.fromJson`, অংশবিশেষে `OmniThemeOverride`, আর নিজে থেকেই high contrast। বিস্তারিত: [doc/theming.bn.md §১৩](doc/theming.bn.md#১৩-লেখার-আকার-দ্রুত-চালু-নতুন-থিম-ফিচার)।
+
 ## Migration — 0.3 থেকে 0.4
 
 `0.4.0` থেকে `go_router` ডিপেন্ডেন্সি সম্পূর্ণ সরিয়ে নেটিভ `OmniRouter` (Segment Trie ইঞ্জিন) চালু করা হয়েছে:

@@ -20,6 +20,7 @@
 10. [সিস্টেম স্ট্যাটাস বার, গেস্টচার বার (কালো এরিয়া রিমুভ), ফুলস্ক্রিন ও ওরিয়েন্টেশন মোড](#১০-সিস্টেম-স্ট্যাটাস-বার-গেস্টচার-বার-কালো-এরিয়া-রিমুভ-ফুলস্ক্রিন-ও-ওরিয়েন্টেশন-মোড)
 11. [ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`)](#১১-ডার্কলাইট-মোড-ও-কালার-প্যালেট-বদলানোর-স্ক্রিন-অ্যানিমেশন-omnithemeanimation)
 12. [প্রি-ডিফাইনড টেক্সট ফিল্ড ও এক-থিম সিস্টেম (`OmniFieldTheme`, `OmniEmailField`, `OmniPasswordField`, `OmniOtpField`, `OmniPhoneField`, `OmniNumberField`)](#১২-প্রি-ডিফাইনড-টেক্সট-ফিল্ড-ও-এক-থিম-সিস্টেম-omnifieldtheme-omniemailfield-omnipasswordfield-omniotpfield-omniphonefield-omninumberfield)
+13. [লেখার আকার, দ্রুত চালু, নতুন থিম ফিচার (`OmniTextSize`, `OmniPreferences`, `fromSeed`, `addTheme`, `OmniThemeOverride`)](#১৩-লেখার-আকার-দ্রুত-চালু-নতুন-থিম-ফিচার)
 
 ---
 
@@ -474,9 +475,13 @@ await themeController.resetSavedMode(); // সেভ করা পছন্দ �
 
 ## ৮. পারফরম্যান্স ও মেমরি নীতি (`0` এক্সট্রা রি-বিল্ড)
 
-1. **Memoized `ThemeData`, `OmniTextStyles` ও `OmniStyles`:** `OmniResponsiveThemeHost` শুধু ব্রেকপয়েন্ট টিয়ার (`mobile` ↔ `tablet` ↔ `desktop`) বা থিম/স্টাইল বদলালেই একবারে সব কালার, টেক্সট স্টাইল, বক্স ডেকোরেশন ও বাটন স্টাইল ক্যাশ করে রাখে। একবার ভিজিট করা প্যালেট বা উইন্ডো রিসাইজে একই ইনস্ট্যান্স রিটার্ন হয়।
-2. **মোড টগলে ন্যূনতম কাজ:** `Dark ↔ Light ↔ System` টগল করলে নতুন `ThemeData` রিকম্পিউট হয় না; শুধু `MaterialApp`-এর `themeMode` বদলায় এবং `const` চাইল্ড উইজেটগুলো রি-বিল্ড হয় না।
-3. **কোনো কিবোর্ড জ্যাঙ্ক নেই:** কীবোর্ড উঠা-নামায় (`viewInsets`) `OmniTheme` বা `OmniResponsiveScope` কেউই ট্রিগার হয় না।
+1. **প্রতিটা থিম একবারই তৈরি হয়।** প্যালেট (`OmniColors`) প্রতিটা থিমের জন্য cache থাকে, আর `ThemeData` প্রতিটা screen tier (mobile / tablet / desktop) আলাদা করে cache থাকে — window resize করে আগের tier-এ ফিরলে কিছুই নতুন তৈরি হয় না।
+2. **ট্যাপের frame হালকা।** থিম বদলালে শুধু যে brightness (light বা dark) স্ক্রিনে আছে সেটাই সাথে সাথে তৈরি হয়; অন্যটা পরের frame-গুলোতে, frame-প্রতি একটা করে। `OmniThemePicker` নিজে থেকেই তার সব থিম এভাবে আগে তৈরি করে রাখে, তাই ট্যাপে কোনো থিম-বিল্ড হয় না। নিজে চাইলে: `context.themeController.precache(['ocean', 'emerald'])`।
+3. **অ্যাপ খোলার সময় ঝলক নেই।** saved থিম/ভাষা/লেখার আকার প্রথম frame-এর আগেই বসে (নিচে §১৩.খ)।
+4. **কিছুই remount হয় না।** ভাষা, লেখার আকার বা window size বদলালে অ্যাপের widget tree-র আকার একই থাকে, তাই কোনো screen-এর state হারায় না।
+5. **`themes:` তালিকা build-এর ভেতরে লিখলেও সমস্যা নেই।** তালিকা নতুন instance হলেও বিষয়বস্তু একই থাকলে cache মোছা হয় না।
+6. **কোনো কিবোর্ড জ্যাঙ্ক নেই:** কীবোর্ড উঠা-নামায় (`viewInsets`) থিম কিছুই নতুন করে হিসাব করে না।
+7. **OS-এর "animation কমাও" (reduce motion)** চালু থাকলে থিম সাথে সাথে বদলায়।
 
 ---
 
@@ -940,3 +945,96 @@ const OmniLanguageButton()   // হেডার টগল বাটন
 ```
 
 *(বিস্তারিত তুলনা ও ব্যবহারের উদাহরণ: [LOCALIZATION.README.md](../LOCALIZATION.README.md))*
+
+---
+
+## ১৩. লেখার আকার, দ্রুত চালু, নতুন থিম ফিচার
+
+### ক. লেখার আকার — ছোট / মাঝারি / বড় / অনেক বড় (`OmniTextSize`)
+
+`OmniApp` বা `OmniResponsiveApp` থাকলেই পুরো অ্যাপের **প্রতিটা `Text`** এই সেটিং মেনে ছোট-বড় হয় — আলাদা কোনো কোড লাগে না। পছন্দ নিজে থেকেই সেভ থাকে।
+
+```dart
+context.setTextSize(OmniTextSize.large);     // ছোট (0.85) · মাঝারি (1.0) · বড় (1.15) · অনেক বড় (1.3)
+OmniTextScale.setSize(OmniTextSize.small);   // context ছাড়াই
+context.setTextSizeFactor(1.08);             // slider-এর মতো যেকোনো মান (0.8–1.6)
+context.textSize;                            // এখনকার মান (custom হলে null)
+
+const OmniTextSizePicker(showLabels: true)   // রেডিমেড বাটন (নাম নিজের ভাষায়)
+```
+
+`OmniThemePanel` / `OmniThemeSettingsTile`-এ লেখার আকারের অংশ আগে থেকেই আছে (`showTextSize: false` দিলে লুকায়)।
+
+চূড়ান্ত আকার = **OS-এর accessibility সেটিং × screen tier × ব্যবহারকারীর আকার × ভাষার গুণক**, তারপর `minTextScale` / `maxTextScale` সীমা।
+
+```dart
+OmniApp.material(
+  textScaling: const OmniTextScaling(
+    initialSize: OmniTextSize.medium,   // প্রথমবার
+    persist: true,                      // সেভ থাকবে
+  ),
+  localization: const OmniLocalization(
+    supportedLanguages: [OmniLanguage.en, OmniLanguage.bn],
+    localeFonts: {'bn': 'NotoSansBengali'},   // বাংলায় এই font — সব Material স্ক্রিনে
+    languageTextScale: {'bn': 1.06},          // বাংলা অক্ষর একটু বড়
+  ),
+  ...
+)
+```
+
+### খ. অ্যাপ খোলার সময় ঝলক নেই (`OmniPreferences.preload`)
+
+saved থিম, ভাষা আর লেখার আকার প্রথম frame-এর আগেই পড়া হয়। `main()`-এ এক লাইন দিলে একদম শূন্য অপেক্ষা:
+
+```dart
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await OmniPreferences.preload();
+  runApp(const MyApp());
+}
+```
+
+না দিলেও চলবে — তখন অ্যাপ প্রথম frame সর্বোচ্চ ~১২০ ms ধরে রাখে, যাতে default থিম/ভাষা এক ঝলক দেখা না যায়।
+
+### গ. এক রং থেকে পুরো থিম (`OmniTheme.fromSeed`)
+
+```dart
+OmniTheme.fromSeed(
+  const Color(0xFF0EA5E9),
+  id: 'brand',
+  variant: DynamicSchemeVariant.vibrant,   // tonalSpot, fidelity, expressive, monochrome, …
+)
+```
+
+OS-এ **high contrast** চালু থাকলে প্রতিটা থিমের high-contrast সংস্করণ নিজে থেকেই ব্যবহার হয় (`contrastLevel: 0.5` দিয়ে নিজেও বাড়ানো যায়)।
+
+### ঘ. ব্যবহারকারীর নিজের থিম — runtime-এ, সেভসহ (`addTheme`)
+
+```dart
+context.themeController.addTheme(OmniTheme.fromSeed(pickedColor, id: 'mine'));
+context.setTheme('mine');                         // picker-এও দেখা যাবে, অ্যাপ খুললেও থাকবে
+context.themeController.removeTheme('mine');
+```
+
+### ঙ. JSON থেকে থিম (server-driven brand theme)
+
+```dart
+final theme = OmniTheme.fromJson(await api.get('/theme'));   // রং '#0EA5E9' বা int
+final json = theme.toJson();
+```
+
+### চ. অ্যাপের একটা অংশে আলাদা থিম (`OmniThemeOverride`)
+
+```dart
+OmniThemeOverride(
+  theme: OmniTheme.emerald,     // শুধু এই অংশে; light/dark অ্যাপের সাথে মিলিয়ে
+  child: PremiumSection(),
+)
+```
+
+তৈরি করা থিম cache থাকে, তাই list-এর প্রতিটা item-এ ব্যবহার করলেও ধীর হয় না।
+
+### ছ. পড়তে কষ্ট হয় এমন রং ধরা (শুধু debug)
+
+custom রঙে লেখা/বাটনের contrast WCAG-এর সীমার নিচে নামলে debug console-এ সতর্কবার্তা আসে। Release-এ কোনো খরচ নেই।
+

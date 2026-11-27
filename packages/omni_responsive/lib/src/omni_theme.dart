@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' show PlatformDispatcher;
 
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -2775,8 +2776,10 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
   @override
   void didUpdateWidget(covariant OmniResponsiveThemeHost oldWidget) {
     super.didUpdateWidget(oldWidget);
+    // Compared by content: a parent that rebuilds with a new but equal
+    // `themes: [...]` list must not throw away every built theme.
     if (widget.omniTheme != oldWidget.omniTheme ||
-        widget.themes != oldWidget.themes) {
+        !listEquals(widget.themes, oldWidget.themes)) {
       _catalog = _buildCatalog();
       _tiers.clear();
     }
@@ -2872,7 +2875,7 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     );
   }
 
-  /// Resolves [brightness] of [entry] in an idle task (no-op when cached).
+  /// Queues building [brightness] of [entry] (no-op when cached/queued).
   void _warm(
     _OmniThemeEntry entry,
     Brightness brightness,
@@ -2882,9 +2885,34 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     if (entry.themeFor(brightness) != null || !entry.claimWarm(brightness)) {
       return;
     }
-    SchedulerBinding.instance.scheduleTask<void>(() {
-      if (mounted) entry.resolve(brightness, device, tokens);
-    }, Priority.idle);
+    _warmQueue.add(() => entry.resolve(brightness, device, tokens));
+    _scheduleWarmStep();
+  }
+
+  final List<VoidCallback> _warmQueue = [];
+  bool _warmStepScheduled = false;
+
+  /// Builds one queued theme right after a frame, then asks for another
+  /// frame while work remains: at most one theme build per frame, never
+  /// inside a frame's build phase, and nothing left running when idle.
+  void _scheduleWarmStep({bool skipCurrentFrame = true}) {
+    if (_warmStepScheduled || _warmQueue.isEmpty) return;
+    _warmStepScheduled = true;
+    final binding = SchedulerBinding.instance;
+    binding.addPostFrameCallback((_) {
+      _warmStepScheduled = false;
+      if (!mounted) {
+        _warmQueue.clear();
+        return;
+      }
+      // The frame that queued the work (often the tap frame of a theme
+      // switch) is left alone; work starts after the next one.
+      if (!skipCurrentFrame) _warmQueue.removeAt(0)();
+      if (_warmQueue.isNotEmpty) {
+        _scheduleWarmStep(skipCurrentFrame: false);
+        binding.scheduleFrame();
+      }
+    }, debugLabel: 'OmniTheme.precache');
   }
 
   OmniThemeAnimation _effectiveAnimationFor(OmniTheme targetTheme) {

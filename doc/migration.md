@@ -12,11 +12,28 @@ The package was split so apps install only what they use.
 
 Routing, Bloc, theme and responsive APIs are unchanged.
 
+### Behaviour changes to check (0.5)
+
+- **Startup:** the app holds its first frame (at most 120 ms) until saved
+  settings are read. Add `await OmniPreferences.preload();` before
+  `runApp` to remove the wait entirely.
+- **Button text colors:** on generated palettes the label color is now chosen
+  by contrast, so some presets show dark text on light buttons (e.g. Gold,
+  Amber, Sunset). Set `buttonTextColor` to keep the old look.
+- **`OmniThemeScope.maybeThemesOf(context).mode`** returns the brightness on
+  screen (`ThemeMode.light` / `ThemeMode.dark`) instead of `system`. Use
+  `context.themeMode` for the user's choice.
+- **Theme widget labels** (`OmniThemePanel`, `OmniThemeModeSwitch`,
+  `OmniThemeSettingsTile`, `showOmniThemeSheet`) default to the current
+  language; passed strings still win. These panels also show a text size
+  section (`showTextSize: false` to hide).
+
 # Migrating from 0.1 to 0.2
 
 0.2 adds features and fixes bugs. No public API was removed or renamed, and
 most apps need no changes. Read the **behaviour changes** below; each one
 was a bug fix, but code may have relied on the old behaviour.
+
 
 ## Behaviour changes
 

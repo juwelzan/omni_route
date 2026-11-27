@@ -32,6 +32,11 @@
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step
   passes.
+- `OmniApp` is built on `omni_responsive`'s `OmniUiHost` (about 120 lines of
+  duplicated composition removed) and gains `textScaling:` /
+  `textScaleController:` for the new app-wide text size. Theme, language
+  and text size are restored before the first frame (see
+  `OmniPreferences.preload`). Details in omni_responsive's CHANGELOG.
 
 ## 0.3.1
 

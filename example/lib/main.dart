@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:omni_route/omni_route.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   OmniRoute.usePathUrls();
+  // Saved theme, language and text size are ready for the very first frame.
+  await OmniPreferences.preload();
   runApp(const ExampleApp());
 }
 
