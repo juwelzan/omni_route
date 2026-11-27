@@ -5,6 +5,7 @@ import '../core/http_date.dart';
 import '../core/omni_network_exception.dart';
 import '../core/omni_request.dart';
 import '../core/omni_response.dart';
+import '../log/redactor.dart';
 import '../transport/transport.dart';
 import 'cache_store.dart';
 
@@ -118,16 +119,40 @@ final class OmniCache {
     return out;
   }
 
-  bool _isAuthed(TransportRequest r) => r.headers.containsKey('authorization');
+  static const _redactor = Redactor();
+  static const _credentialHeaders = {
+    'authorization',
+    'proxy-authorization',
+    'cookie',
+    'x-api-key',
+    'x-auth-token',
+    'x-csrf-token',
+    'x-xsrf-token',
+  };
+
+  static bool _isCredentialHeader(String name) {
+    final lower = name.toLowerCase();
+    return _credentialHeaders.contains(lower) || _redactor.isSecretHeader(lower);
+  }
+
+  List<MapEntry<String, String>> _credentialEntries(TransportRequest r) {
+    final out = [
+      for (final e in r.headers.entries)
+        if (_isCredentialHeader(e.key))
+          MapEntry(e.key.toLowerCase(), e.value),
+    ]..sort((a, b) => a.key.compareTo(b.key));
+    return out;
+  }
 
   String? _partition(TransportRequest r) {
-    if (!_isAuthed(r)) return '';
+    final creds = _credentialEntries(r);
+    if (creds.isEmpty) return '';
     if (!cacheAuthenticated) return null;
     final scope = authScope?.call();
     if (scope != null) return 'u:$scope';
-    // In-memory only (enforced in the constructor): the exact header value,
-    // so two users can never share an entry through a hash collision.
-    return 't:${r.headers['authorization']}';
+    // In-memory only (enforced in the constructor): canonical header values,
+    // so two users can never share an entry across Authorization/Cookie/API key.
+    return 't:${creds.map((e) => '${e.key}=${e.value}').join('\n')}';
   }
 
   static String _url(TransportRequest r) => r.uri.toString();
@@ -235,7 +260,16 @@ final class OmniCache {
     Map<String, String> headers,
   ) async {
     final cc = _directives(headers['cache-control']);
+    final hasSetCookie = headers.keys.any(
+      (k) => k.toLowerCase() == 'set-cookie',
+    );
+    final unsharedPrivate =
+        cc.containsKey('private') &&
+        store is! MemoryCacheStore &&
+        authScope == null;
     if (cc.containsKey('no-store') ||
+        hasSetCookie ||
+        unsharedPrivate ||
         headers['vary']?.trim() == '*' ||
         entry.body.length > maxEntryBytes) {
       await store.remove(key);

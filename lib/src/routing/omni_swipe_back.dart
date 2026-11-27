@@ -687,11 +687,19 @@ class _SwipeBackLayerState extends State<_SwipeBackLayer>
     if (nav == null) return;
     _navigator = null;
     if (identical(_activeSwipes[nav], _swipe)) _activeSwipes[nav] = null;
-    nav.didStopUserGesture();
-    if (rebuild && mounted) {
-      setState(() => _swipe = null);
+    if (rebuild) {
+      nav.didStopUserGesture();
+      if (mounted) {
+        setState(() => _swipe = null);
+      } else {
+        _swipe = null;
+      }
     } else {
       _swipe = null;
+      // Avoid synchronous notifier broadcasts inside dispose / widget tree teardown.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (nav.mounted) nav.didStopUserGesture();
+      });
     }
   }
 

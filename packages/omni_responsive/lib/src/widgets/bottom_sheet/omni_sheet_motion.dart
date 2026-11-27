@@ -12,7 +12,8 @@ class OmniSheetMotion {
     this.rubberBand = true,
     this.dismissVelocity = 900,
   }) : assert(response > 0),
-       assert(dampingRatio > 0);
+       assert(dampingRatio > 0),
+       assert(dismissVelocity >= 0);
 
   /// iOS sheet presentation: smooth, no bounce, stretches past the top.
   static const OmniSheetMotion ios = OmniSheetMotion(response: 0.45);
@@ -53,6 +54,30 @@ class OmniSheetMotion {
       stiffness: omega * omega,
       damping: 2 * dampingRatio * omega,
     );
+  }
+
+  void _validate() {
+    if (!response.isFinite || response <= 0) {
+      throw ArgumentError.value(
+        response,
+        'motion.response',
+        'Response must be finite and > 0.',
+      );
+    }
+    if (!dampingRatio.isFinite || dampingRatio <= 0) {
+      throw ArgumentError.value(
+        dampingRatio,
+        'motion.dampingRatio',
+        'Damping ratio must be finite and > 0.',
+      );
+    }
+    if (!dismissVelocity.isFinite || dismissVelocity < 0) {
+      throw ArgumentError.value(
+        dismissVelocity,
+        'motion.dismissVelocity',
+        'Dismiss velocity must be finite and >= 0.',
+      );
+    }
   }
 
   @override

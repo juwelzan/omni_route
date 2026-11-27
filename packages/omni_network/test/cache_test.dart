@@ -335,6 +335,39 @@ void main() {
         ResponseSource.network,
       );
     });
+
+    test(
+      'Cookie, X-API-Key, and X-Auth-Token are excluded unless enabled and partitioned',
+      () async {
+        client();
+        await get('/me', h: {'Cookie': 'sid=userA'});
+        await get('/me', h: {'Cookie': 'sid=userA'});
+        await get('/me', h: {'X-API-Key': 'key-1'});
+        await get('/me', h: {'X-Auth-Token': 'tok-1'});
+        expect(mock.requests, hasLength(4));
+
+        // With cacheAuthenticated: true and no authScope, distinct Cookies/API keys
+        // stay strictly partitioned per credential set.
+        client(authed: true);
+        expect(
+          ((await get('/me', h: {'Cookie': 'sid=userA'})).$1! as Map)['v'],
+          1,
+        );
+        version = 2;
+        expect(
+          (await get('/me', h: {'Cookie': 'sid=userA'})).$2,
+          ResponseSource.cache,
+        );
+        expect(
+          ((await get('/me', h: {'Cookie': 'sid=userB'})).$1! as Map)['v'],
+          2,
+        );
+        expect(
+          (await get('/me', h: {'X-API-Key': 'key-1'})).$2,
+          ResponseSource.network,
+        );
+      },
+    );
   });
 
   test('successful unsafe request invalidates the URL', () async {

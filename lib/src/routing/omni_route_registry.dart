@@ -178,6 +178,12 @@ class OmniRouteRegistry {
           case OmniPage():
             var nodePath = node.path;
             if (!topLevel &&
+                parentPath == '/' &&
+                node.usesScreenPath &&
+                nodePath.startsWith('/') &&
+                nodePath.length > 1) {
+              nodePath = nodePath.substring(1);
+            } else if (!topLevel &&
                 parentPath != '/' &&
                 nodePath.startsWith('$parentPath/')) {
               nodePath = nodePath.substring(parentPath.length + 1);
@@ -196,6 +202,9 @@ class OmniRouteRegistry {
             final fullPath = topLevel || nodePath.startsWith('/')
                 ? nodePath
                 : (parentPath == '/' ? '/$nodePath' : '$parentPath/$nodePath');
+            if (!topLevel && fullPath != nodePath) {
+              validateRoutePath(fullPath, topLevel: true);
+            }
             allPaths.add(fullPath);
             onFirstBranchPage?.call(fullPath);
 

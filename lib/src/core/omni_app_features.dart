@@ -272,9 +272,11 @@ class OmniConfigGuard extends OmniGuard {
         for (final r in ob.effectiveRoutes) normalizeOmniConfigPath(r),
     ];
 
+    final isPublic = _publicTrie.matchUri(state.uri) != null;
+
     if (obRoutes.isNotEmpty) {
       final idx = obRoutes.indexOf(loc);
-      if (session.onboardingPending && idx < 0) {
+      if (session.onboardingPending && idx < 0 && !isPublic) {
         final targetIdx = session.onboardingRouteStep.clamp(
           0,
           obRoutes.length - 1,
@@ -312,7 +314,6 @@ class OmniConfigGuard extends OmniGuard {
 
     final authed = authCheck(context);
     final homeLoc = normalizeOmniConfigPath(auth.homeRoute);
-    final isPublic = _publicTrie.matchUri(state.uri) != null;
 
     if (authed &&
         ob != null &&
@@ -1068,6 +1069,7 @@ class _OmniInitGateState extends State<OmniInitGate>
       widget.session.onboardingPending = true;
       widget.session.onboardingRouteStep = 0;
       _stepNotifier.value = 0;
+      widget.router?.resetInitialGuards();
       widget.router?.go(routes.first, replaceHistory: true);
       _leaveOverlayIfNeeded();
     }
@@ -1103,6 +1105,7 @@ class _OmniInitGateState extends State<OmniInitGate>
     _gateDecision = null;
     _gateDismissed = false;
     _stepNotifier.value = 0;
+    widget.router?.resetInitialGuards();
     _run();
   }
 

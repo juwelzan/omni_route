@@ -70,7 +70,9 @@ class OmniScalableSheet extends StatefulWidget {
        assert(
          dimFromDetent == null ||
              (dimFromDetent >= 0 && dimFromDetent < detents.length),
-       );
+       ),
+       assert(cornerRadius == null || cornerRadius >= 0),
+       assert(maxWidth == null || maxWidth > 0);
 
   /// The page behind the sheet.
   final Widget body;
@@ -121,8 +123,8 @@ class OmniScalableSheet extends StatefulWidget {
   /// Shows the drag handle / grabber (default: when [enableDrag]).
   final bool? showHandle;
 
-  /// Index into the smallest-first detents from which the page dims (fully
-  /// at the largest). `null` never dims.
+  /// Index into [detents] (in the given order) from which the page dims (fully
+  /// at the largest detent). `null` never dims.
   final int? dimFromDetent;
 
   /// Color of the dimming (default: the theme's overlay color).
@@ -159,8 +161,8 @@ class OmniScalableSheet extends StatefulWidget {
   /// Screen reader name of the sheet.
   final String? semanticLabel;
 
-  /// Called when the sheet comes to rest on (or heads to) a detent, with
-  /// its smallest-first index.
+  /// Called when the sheet comes to rest on (or heads to) a detent, with its
+  /// index in [detents].
   final ValueChanged<int>? onDetentChanged;
 
   /// Called after a drag hid the sheet ([isDismissible] only).
@@ -180,7 +182,8 @@ class OmniScalableSheetController {
   /// Whether a sheet is using this controller.
   bool get isAttached => _state != null;
 
-  /// The detent the sheet rests on (or moves to), smallest first.
+  /// The detent the sheet rests on (or moves to), in [OmniScalableSheet.detents]
+  /// order.
   ValueListenable<int> get detent => _detent;
 
   /// Whether the sheet is on screen.
@@ -191,15 +194,17 @@ class OmniScalableSheetController {
   /// with an `AnimatedBuilder`; nothing rebuilds unless you listen.
   ValueListenable<double> get height => _height;
 
-  /// Animates to the detent at [index] (smallest first).
+  /// Animates to the detent at [index] (in [OmniScalableSheet.detents] order).
   Future<void> snapTo(int index) =>
       _state?._view?.snapTo(index) ?? Future<void>.value();
 
   /// Animates to the largest detent.
-  Future<void> expand() => snapTo(_state?._detentCount ?? 1 << 20);
+  Future<void> expand() =>
+      _state?._view?._expand() ?? Future<void>.value();
 
   /// Animates to the smallest detent.
-  Future<void> collapse() => snapTo(0);
+  Future<void> collapse() =>
+      _state?._view?._collapse() ?? Future<void>.value();
 
   /// Brings a hidden sheet back.
   Future<void> show() => _state?._setShown(true) ?? Future<void>.value();
@@ -247,17 +252,19 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
   late _SheetConfig _config = _buildConfig();
   bool _opened = false;
 
-  int get _detentCount => widget.detents.length;
-
   @override
   void initState() {
     super.initState();
-    assert(
-      widget.detents.length == 1 || !widget.detents.any((d) => d._isContent),
-      'OmniSheetDetent.content can only be used on its own.',
+    _validateSheetConfig(
+      detents: widget.detents,
+      initialDetent: widget.initialDetent,
+      dimFromDetent: widget.dimFromDetent,
+      cornerRadius: widget.cornerRadius,
+      maxWidth: widget.maxWidth,
+      motion: widget.motion,
     );
     _controller._state = this;
-    _controller._detent.value = 0;
+    _controller._detent.value = widget.initialDetent;
   }
 
   @override
@@ -281,6 +288,14 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
   @override
   void didUpdateWidget(OmniScalableSheet oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _validateSheetConfig(
+      detents: widget.detents,
+      initialDetent: widget.initialDetent,
+      dimFromDetent: widget.dimFromDetent,
+      cornerRadius: widget.cornerRadius,
+      maxWidth: widget.maxWidth,
+      motion: widget.motion,
+    );
     if (oldWidget.controller != widget.controller) {
       (oldWidget.controller ?? _ownController)?._state = null;
       _controller._state = this;
@@ -408,9 +423,12 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     final from = widget.dimFromDetent;
     final view = _view;
     if (from == null || view == null) return 0;
-    final heights = view._metrics.heights;
-    if (heights.length <= from) return 0;
-    final start = heights[from], end = heights.last;
+    final metrics = view._metrics;
+    final heights = metrics.heights;
+    if (from < 0 || from >= metrics.publicToSorted.length) return 0;
+    final sortedFrom = metrics.publicToSorted[from];
+    if (heights.length <= sortedFrom) return 0;
+    final start = heights[sortedFrom], end = heights.last;
     final extent = view._extent.value;
     final t = end > start
         ? ((extent - start) / (end - start)).clamp(0.0, 1.0)
@@ -444,6 +462,23 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     _view?.snapTo(from);
   }
 
+  bool _isAtSmallestDetent(int publicDetent) {
+    final view = _view;
+    if (view == null || view._metrics.heights.isEmpty) {
+      return publicDetent == 0;
+    }
+    final metrics = view._metrics;
+    if (publicDetent < 0 || publicDetent >= metrics.publicToSorted.length) {
+      return false;
+    }
+    return metrics.publicToSorted[publicDetent] == 0;
+  }
+
+  late final Listenable _popScopeListenable = Listenable.merge([
+    _controller._detent,
+    _controller._shown,
+  ]);
+
   @override
   Widget build(BuildContext context) {
     final omni = Theme.of(context).extension<OmniColors>();
@@ -476,12 +511,14 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
       ],
     );
     if (widget.collapseOnBack) {
-      stack = ValueListenableBuilder<int>(
-        valueListenable: _controller._detent,
-        builder: (context, detent, child) => PopScope(
-          canPop: detent == 0 || !_controller._shown.value,
+      stack = ListenableBuilder(
+        listenable: _popScopeListenable,
+        builder: (context, child) => PopScope(
+          canPop:
+              !_controller._shown.value ||
+              _isAtSmallestDetent(_controller._detent.value),
           onPopInvokedWithResult: (didPop, _) {
-            if (!didPop) _view?.snapTo(0);
+            if (!didPop) _view?._collapse();
           },
           child: child!,
         ),

@@ -294,5 +294,53 @@ void main() {
         'https://h.io:8443/a?token=***&b=2&b=3',
       );
     });
+
+    test('text and textual bodies mask tokens, query secrets, and passwords', () {
+      final errText = r.text(
+        'WebSocketException connecting wss://u:p@h.io/ws?token=WS-SECRET&key=KEY-SECRET with Bearer TOP-SECRET password=MY-PASS',
+      );
+      expect(errText, isNot(contains('WS-SECRET')));
+      expect(errText, isNot(contains('KEY-SECRET')));
+      expect(errText, isNot(contains('TOP-SECRET')));
+      expect(errText, isNot(contains('MY-PASS')));
+      expect(errText, contains('token=***'));
+      expect(errText, contains('key=***'));
+      expect(errText, contains('Bearer ***'));
+
+      final txtBody = r.body(
+        utf8.encode('Authorization: Bearer BODY-TOK\npassword: SECRET-PW'),
+        'text/plain',
+      );
+      expect(txtBody, isNot(contains('BODY-TOK')));
+      expect(txtBody, isNot(contains('SECRET-PW')));
+    });
+
+    test('ws realtimeLogs mask query tokens and error URLs', () async {
+      final api = OmniNetwork(
+        baseUrl: 'https://api.test',
+        wsBaseUrl: 'wss://api.test',
+        enableLogging: true,
+        wsConnector: (uri, _, _) => throw StateError('fail $uri'),
+      );
+      addTearDown(api.close);
+
+      final logs = <WsLogRecord>[];
+      final sub = api.realtimeLogs.listen(logs.add);
+      addTearDown(sub.cancel);
+
+      final ws = api.ws(
+        '/live',
+        query: {'token': 'WS-QUERY-SECRET', 'api_key': 'KEY-42'},
+        maxReconnects: 0,
+        minDelay: const Duration(milliseconds: 1),
+      );
+      await expectLater(ws.messages, emitsError(isA<StateError>()));
+      await Future<void>.delayed(Duration.zero);
+
+      final combined = logs.map((e) => '${e.uri} ${e.summary}').join('\n');
+      expect(combined, isNot(contains('WS-QUERY-SECRET')));
+      expect(combined, isNot(contains('KEY-42')));
+      expect(combined, contains('token=***'));
+    });
   });
 }

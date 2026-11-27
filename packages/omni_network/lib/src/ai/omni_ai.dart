@@ -1341,7 +1341,14 @@ final class OmniAi {
     required bool usedFallback,
   }) {
     if (_telemetry.isClosed) return;
-    final lastPrompt = messages.isEmpty ? '' : messages.last.text;
+    final redactor = _client.redactor;
+    final lastPrompt = messages.isEmpty
+        ? ''
+        : redactor.text(messages.last.text);
+    final safeResponse = responseText == null
+        ? null
+        : redactor.text(responseText);
+    final safeError = error == null ? null : redactor.text(error);
     String clip(String s) => s.length <= 120 ? s : '${s.substring(0, 117)}...';
     _telemetry.add(
       AiCallLogRecord(
@@ -1351,10 +1358,10 @@ final class OmniAi {
         latency: latency,
         timestamp: DateTime.now(),
         promptPreview: lastPrompt.isEmpty ? null : clip(lastPrompt),
-        responsePreview: responseText == null || responseText.isEmpty
+        responsePreview: safeResponse == null || safeResponse.isEmpty
             ? null
-            : clip(responseText),
-        error: error,
+            : clip(safeResponse),
+        error: safeError,
         usedFallback: usedFallback,
       ),
     );

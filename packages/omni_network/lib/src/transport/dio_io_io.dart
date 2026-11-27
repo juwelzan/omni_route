@@ -6,6 +6,7 @@ import 'package:dio/io.dart';
 import 'package:dio_http2_adapter/dio_http2_adapter.dart';
 
 import '../core/omni_network_exception.dart';
+import '../core/release_mode.dart';
 import 'dns_resolver.dart';
 import 'pin_verifier.dart';
 
@@ -49,7 +50,8 @@ import 'pin_verifier.dart';
 Object? Function()? buildConfiguredHttpClientFactory({
   String? proxy,
   List<String> pinnedSha256 = const [],
-  bool allowBadProxyCertificate = true,
+  bool allowBadProxyCertificate = false,
+  List<int>? trustedProxyCertificateBytes,
   List<int>? clientCertificateBytes,
   List<int>? clientPrivateKeyBytes,
   String? clientCertificatePassword,
@@ -74,6 +76,7 @@ Object? Function()? buildConfiguredHttpClientFactory({
   if (proxyConfig == null &&
       matcher == null &&
       !hasMtls &&
+      trustedProxyCertificateBytes == null &&
       resolvedDns == null &&
       maxConnectionsPerHost == null &&
       idleConnectionTimeout == null &&
@@ -85,6 +88,7 @@ Object? Function()? buildConfiguredHttpClientFactory({
     proxyConfig: proxyConfig,
     matcher: matcher,
     allowBadProxyCertificate: allowBadProxyCertificate,
+    trustedProxyCertificateBytes: trustedProxyCertificateBytes,
     clientCertificateBytes: clientCertificateBytes,
     clientPrivateKeyBytes: clientPrivateKeyBytes,
     clientCertificatePassword: clientCertificatePassword,
@@ -97,16 +101,22 @@ Object? Function()? buildConfiguredHttpClientFactory({
 
 SecurityContext? _createSecurityContext({
   required CertificatePinMatcher? matcher,
+  required List<int>? trustedProxyCertificateBytes,
   required List<int>? clientCertificateBytes,
   required List<int>? clientPrivateKeyBytes,
   required String? clientCertificatePassword,
 }) {
   final hasMtls =
       clientCertificateBytes != null || clientPrivateKeyBytes != null;
-  if (matcher == null && !hasMtls) return null;
+  if (matcher == null && !hasMtls && trustedProxyCertificateBytes == null) {
+    return null;
+  }
   // When pinning is active, disable OS/user trusted roots so every TLS
-  // certificate must pass SHA-256 verification.
+  // certificate must pass SHA-256 + host/SAN verification.
   final ctx = SecurityContext(withTrustedRoots: matcher == null);
+  if (trustedProxyCertificateBytes != null) {
+    ctx.setTrustedCertificatesBytes(trustedProxyCertificateBytes);
+  }
   if (clientCertificateBytes != null) {
     ctx.useCertificateChainBytes(
       clientCertificateBytes,
@@ -126,6 +136,7 @@ HttpClient _createConfiguredHttpClient({
   required ({String rule, Uri? uri})? proxyConfig,
   required CertificatePinMatcher? matcher,
   required bool allowBadProxyCertificate,
+  required List<int>? trustedProxyCertificateBytes,
   required List<int>? clientCertificateBytes,
   required List<int>? clientPrivateKeyBytes,
   required String? clientCertificatePassword,
@@ -136,6 +147,7 @@ HttpClient _createConfiguredHttpClient({
 }) {
   final securityContext = _createSecurityContext(
     matcher: matcher,
+    trustedProxyCertificateBytes: trustedProxyCertificateBytes,
     clientCertificateBytes: clientCertificateBytes,
     clientPrivateKeyBytes: clientPrivateKeyBytes,
     clientCertificatePassword: clientCertificatePassword,
@@ -154,14 +166,19 @@ HttpClient _createConfiguredHttpClient({
     client.findProxy = (_) => rule;
   }
 
+  final hasProxyTunnel = proxyConfig?.uri != null;
+  final effectiveAllowBadProxy =
+      allowBadProxyCertificate && hasProxyTunnel && !omniNetworkReleaseBuild;
+
   bool Function(X509Certificate cert, String host, int port)? badCert;
   if (matcher != null) {
-    badCert = (cert, _, _) => matcher.matchesDer(
+    badCert = (cert, host, _) => matcher.matchesDer(
       cert.der,
+      host: host,
       startValidity: cert.startValidity,
       endValidity: cert.endValidity,
     );
-  } else if (proxyConfig != null && allowBadProxyCertificate) {
+  } else if (effectiveAllowBadProxy) {
     badCert = (_, _, _) => true;
   }
   if (badCert != null) {
@@ -222,7 +239,8 @@ HttpClient _createConfiguredHttpClient({
 HttpClientAdapter? buildConfiguredAdapter({
   String? proxy,
   List<String> pinnedSha256 = const [],
-  bool allowBadProxyCertificate = true,
+  bool allowBadProxyCertificate = false,
+  List<int>? trustedProxyCertificateBytes,
   List<int>? clientCertificateBytes,
   List<int>? clientPrivateKeyBytes,
   String? clientCertificatePassword,
@@ -243,10 +261,15 @@ HttpClientAdapter? buildConfiguredAdapter({
           ? DnsOverHttpsResolver(endpoint: Uri.parse(dnsOverHttps)).resolve
           : null);
 
+  final hasProxyTunnel = proxyConfig?.uri != null;
+  final effectiveAllowBadProxy =
+      allowBadProxyCertificate && hasProxyTunnel && !omniNetworkReleaseBuild;
+
   HttpClient createClient() => _createConfiguredHttpClient(
     proxyConfig: proxyConfig,
     matcher: matcher,
     allowBadProxyCertificate: allowBadProxyCertificate,
+    trustedProxyCertificateBytes: trustedProxyCertificateBytes,
     clientCertificateBytes: clientCertificateBytes,
     clientPrivateKeyBytes: clientPrivateKeyBytes,
     clientCertificatePassword: clientCertificatePassword,
@@ -266,12 +289,13 @@ HttpClientAdapter? buildConfiguredAdapter({
     ConnectionManager(
       idleTimeout: idleConnectionTimeout ?? const Duration(seconds: 15),
       supportedProtocols: const ['h2', 'http/1.1'],
-      onClientCreate: (_, settings) {
+      onClientCreate: (uri, settings) {
         if (proxyConfig?.uri != null) {
           settings.proxy = proxyConfig!.uri;
         }
         final ctx = _createSecurityContext(
           matcher: matcher,
+          trustedProxyCertificateBytes: trustedProxyCertificateBytes,
           clientCertificateBytes: clientCertificateBytes,
           clientPrivateKeyBytes: clientPrivateKeyBytes,
           clientCertificatePassword: clientCertificatePassword,
@@ -282,10 +306,11 @@ HttpClientAdapter? buildConfiguredAdapter({
         if (matcher != null) {
           settings.onBadCertificate = (cert) => matcher.matchesDer(
             cert.der,
+            host: uri.host,
             startValidity: cert.startValidity,
             endValidity: cert.endValidity,
           );
-        } else if (proxyConfig != null && allowBadProxyCertificate) {
+        } else if (effectiveAllowBadProxy) {
           settings.onBadCertificate = (_) => true;
         }
       },

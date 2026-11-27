@@ -39,6 +39,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     required OmniErrorBuilder onRouteError,
     required String initialRoute,
     this.restorationScopeId,
+    this.guardTimeout,
     Listenable? refresh,
     VoidCallback? onReady,
   }) : _registry = routeRegistry,
@@ -72,6 +73,9 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   /// Restoration bucket identifier passed from [OmniApp.restorationScopeId].
   final String? restorationScopeId;
 
+  /// Optional per-guard async timeout before routing cleanly to an error screen.
+  final Duration? guardTimeout;
+
   Listenable? _refreshListenable;
   final VoidCallback? _onInitialReady;
 
@@ -94,6 +98,8 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     const OmniRouteEntry(location: '/'),
   );
   final Map<LocalKey, Future<Object?>> _pendingPopFutures = {};
+  final Map<int, Completer<Object?>> _inFlightCompleters = {};
+  final Map<GlobalKey<NavigatorState>, _OmniPopObserver> _observersByNav = {};
 
   BuildContext? _hostContext;
   bool _initialGuardsDone = false;
@@ -107,6 +113,31 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   int _nextKeyId = 1;
   int _navSeq = 0;
   OmniNavigationKind _lastNavKind = OmniNavigationKind.initial;
+
+  /// Whether [dispose] has been called on this router.
+  @internal
+  bool get isDisposed => _disposed;
+
+  /// Resets initial guard state so the next mount re-evaluates startup guards.
+  @internal
+  void resetInitialGuards() {
+    _initialGuardsDone = false;
+    _initialReadyNotified = false;
+    _resolvingInitial = false;
+  }
+
+  int _nextSequence() {
+    final seq = ++_navSeq;
+    _resolvingInitial = false;
+    if (_inFlightCompleters.isNotEmpty) {
+      final superseded = _inFlightCompleters.values.toList();
+      _inFlightCompleters.clear();
+      for (final c in superseded) {
+        if (!c.isCompleted) c.complete(null);
+      }
+    }
+    return seq;
+  }
 
   /// Runs [action] without adding a new web browser history entry.
   void runNeglect(VoidCallback action) {
@@ -213,6 +244,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     OmniPageType? transition,
     bool replaceHistory = false,
   }) {
+    if (_disposed) return;
     _navigate(
       location,
       kind: _NavKind.go,
@@ -230,6 +262,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     bool animated = true,
     OmniPageType? transition,
   }) {
+    if (_disposed) return SynchronousFuture<T?>(null);
     final completer = Completer<Object?>();
     _navigate(
       location,
@@ -250,6 +283,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     bool animated = true,
     OmniPageType? transition,
   }) {
+    if (_disposed) return;
     _navigate(
       location,
       kind: _NavKind.replace,
@@ -268,7 +302,21 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     bool animated = true,
     OmniPageType? transition,
   }) {
-    final target = _normalizeParse(location);
+    if (_disposed) return SynchronousFuture<T?>(null);
+    final Uri target;
+    try {
+      target = _normalizeUri(_normalizeParse(location));
+    } on FormatException catch (e, st) {
+      omniReportRecovered('router.open($location)', e, st);
+      _navigate(
+        location,
+        kind: _NavKind.push,
+        extra: extra,
+        animated: animated ? null : false,
+        transition: transition,
+      );
+      return SynchronousFuture<T?>(null);
+    }
     if (this.location == target) return SynchronousFuture<T?>(null);
 
     final active = _deepestActiveStack();
@@ -281,8 +329,6 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       }
       final top = active.last as _PageFrame;
       if (top.uri != target || !identical(top.extra, extra)) {
-        _markReportType(RouteInformationReportingType.neglect);
-        _commit();
         replace(
           location,
           extra: extra,
@@ -312,7 +358,13 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   /// Pops pages synchronously from the deepest active stack until [location]
   /// (`Uri.path`) is on top. Ignores `PopScope`.
   Future<bool> popUntil(String location) {
-    final targetPath = _normalizeParse(location).path;
+    if (_disposed) return SynchronousFuture<bool>(false);
+    final String targetPath;
+    try {
+      targetPath = _normalizeUri(_normalizeParse(location)).path;
+    } on FormatException {
+      return SynchronousFuture<bool>(false);
+    }
     final active = _deepestActiveStack();
     final idx = active.lastIndexWhere(
       (f) => f is _PageFrame && f.matchedLocation == targetPath,
@@ -329,6 +381,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
   /// Pops every poppable page on the active stack back to its root page.
   Future<void> popToRoot() {
+    if (_disposed) return SynchronousFuture<void>(null);
     final active = _deepestActiveStack();
     if (active.length > 1) {
       _removeSliceFrom(active, 1);
@@ -340,10 +393,11 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   }
 
   /// Whether at least one poppable page exists on the active or root stack.
-  bool canPop() => _findPopTargetStack() != null;
+  bool canPop() => !_disposed && _findPopTargetStack() != null;
 
   /// Pops the top page, completing any `push` future with [result].
   void pop<T extends Object?>([T? result]) {
+    if (_disposed) return;
     final stack = _findPopTargetStack();
     if (stack == null) {
       throw const OmniRouteException(
@@ -358,15 +412,23 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     _commit();
   }
 
-  /// Pops if possible and returns whether a page was popped.
+  /// Pops if possible (honoring [PopScope] and `OmniPage.onExit` on mounted
+  /// navigators) and returns whether a pop was initiated or performed.
   bool maybePop<T extends Object?>([T? result]) {
-    if (!canPop()) return false;
+    if (_disposed || !canPop()) return false;
+    final navKey = _findPopTargetNavigatorKey();
+    final nav = navKey?.currentState;
+    if (nav != null && nav.mounted) {
+      unawaited(nav.maybePop<T>(result));
+      return true;
+    }
     pop<T>(result);
     return true;
   }
 
   /// Re-evaluates all guards against the current top URI immediately.
   void refresh() {
+    if (_disposed) return;
     final ctx = _hostContext;
     if (ctx == null || !ctx.mounted) return;
     _runRefresh(ctx);
@@ -382,6 +444,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     required OmniErrorBuilder errorBuilder,
     Listenable? refreshListenable,
   }) {
+    if (_disposed) return;
     _registry = registry;
     _appGuards = guards;
     _userObservers = observers;
@@ -396,10 +459,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   }
 
   /// Removes a specific page bypassing its [PopScope] after `OmniPage.onExit`
-  /// approves closing it.
+  /// approves closing it, refusing to empty any navigator's last frame.
   @internal
   void forcePopPage(ValueKey<String> pageKey, [Object? result]) {
-    final removed = _removePageByKey(_rootStack, pageKey);
+    if (_disposed) return;
+    final removed = _removePageByKey(
+      _rootStack,
+      pageKey,
+      keepLastFrame: true,
+    );
     if (removed != null) {
       _completeRemovedFrame(removed, result);
       _lastNavKind = OmniNavigationKind.pop;
@@ -425,8 +493,14 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     _hostContext = context;
   }
 
+  void _detachHost(BuildContext context) {
+    if (identical(_hostContext, context)) {
+      _hostContext = null;
+    }
+  }
+
   void _runInitialGuardsIfNeeded() {
-    if (_initialGuardsDone) return;
+    if (_disposed || _initialGuardsDone) return;
     _initialGuardsDone = true;
     final ctx = _hostContext;
     if (ctx == null || !ctx.mounted) {
@@ -442,13 +516,19 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     var completedSynchronously = false;
     var stillInBuild = true;
     _resolvingInitial = true;
-    final seq = ++_navSeq;
+    final seq = _nextSequence();
+    // _nextSequence clears _resolvingInitial; keep it true during active startup guard pass.
+    _resolvingInitial = true;
 
     _resolveGuardsSyncOrAsync(
       ctx,
       top.uri,
       extra: top.extra,
       seq: seq,
+      onAborted: () {
+        _resolvingInitial = false;
+        completedSynchronously = stillInBuild;
+      },
       onResolved: (res) {
         _resolvingInitial = false;
         completedSynchronously = stillInBuild;
@@ -496,13 +576,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   }
 
   void _runRefresh(BuildContext context) {
+    if (_disposed) return;
     final top = _topPageFrame();
-    final seq = ++_navSeq;
+    final seq = _nextSequence();
     _resolveGuardsSyncOrAsync(
       context,
       top.uri,
       extra: top.extra,
       seq: seq,
+      onAborted: () {},
       onResolved: (res) {
         if (_disposed || _navSeq != seq) return;
         if (res.redirected || res.error != null) {
@@ -531,11 +613,19 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     bool replaceHistory = false,
     Completer<Object?>? completer,
   }) {
-    final seq = ++_navSeq;
+    if (_disposed) {
+      if (completer != null && !completer.isCompleted) completer.complete(null);
+      return;
+    }
+    final seq = _nextSequence();
+    if (completer != null) {
+      _inFlightCompleters[seq] = completer;
+    }
     Uri parsed;
     try {
       parsed = _normalizeParse(rawLocation);
     } on FormatException catch (e) {
+      _inFlightCompleters.remove(seq);
       if (replaceHistory || kind == _NavKind.replace || _neglectScopeActive) {
         _markReportType(RouteInformationReportingType.neglect);
       }
@@ -553,6 +643,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
     final ctx = _hostContext;
     if (ctx == null || !ctx.mounted) {
+      _inFlightCompleters.remove(seq);
       _explicitInitialOverride = true;
       final normalized = _normalizeUri(parsed);
       final match = _registry.matchUri(normalized);
@@ -579,7 +670,14 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       parsed,
       extra: extra,
       seq: seq,
+      onAborted: () {
+        _inFlightCompleters.remove(seq);
+        if (completer != null && !completer.isCompleted) {
+          completer.complete(null);
+        }
+      },
       onResolved: (res) {
+        _inFlightCompleters.remove(seq);
         if (_disposed || _navSeq != seq) {
           if (completer != null && !completer.isCompleted) {
             completer.complete(null);
@@ -608,6 +706,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     Uri initialUri, {
     required Object? extra,
     required int seq,
+    VoidCallback? onAborted,
     required void Function(
       ({Uri uri, CompiledMatch? match, Object? error, bool redirected}) result,
     )
@@ -630,36 +729,89 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           metadata: route?.page.metadata,
         );
 
-        final guardRes = evaluateGuards(context, candidateState, guards);
+        final FutureOr<String?> guardRes;
+        try {
+          guardRes = evaluateGuards(
+            context,
+            candidateState,
+            guards,
+            timeout: guardTimeout,
+          );
+        } on GuardCancelledException {
+          onAborted?.call();
+          return;
+        } catch (error) {
+          onResolved((
+            uri: normalized,
+            match: null,
+            error: error,
+            redirected: redirected,
+          ));
+          return;
+        }
+
         if (guardRes is Future<String?>) {
-          guardRes.then((to) {
-            if (_disposed || _navSeq != seq) return;
-            if (to == null) {
-              onResolved((
-                uri: normalized,
-                match: match,
-                error: match == null
-                    ? FlutterError('No route matches ${normalized.path}.')
-                    : null,
-                redirected: redirected || normalized != initialUri,
-              ));
-              return;
-            }
-            final nextHops = hops + 1;
-            if (nextHops > _maxRedirects) {
+          guardRes.then(
+            (to) {
+              if (_disposed || _navSeq != seq || !context.mounted) {
+                onAborted?.call();
+                return;
+              }
+              if (to == null) {
+                onResolved((
+                  uri: normalized,
+                  match: match,
+                  error: match == null
+                      ? FlutterError('No route matches ${normalized.path}.')
+                      : null,
+                  redirected: redirected || normalized != initialUri,
+                ));
+                return;
+              }
+              final nextHops = hops + 1;
+              if (nextHops > _maxRedirects) {
+                onResolved((
+                  uri: normalized,
+                  match: null,
+                  error: OmniRouteException(
+                    OmniErrorCode.redirectLoop,
+                    'Exceeded $_maxRedirects redirects — redirect loop at "$to".',
+                  ),
+                  redirected: true,
+                ));
+                return;
+              }
+              final Uri nextUri;
+              try {
+                nextUri = _normalizeParse(to);
+              } on FormatException catch (e) {
+                onResolved((
+                  uri: normalized,
+                  match: null,
+                  error: e,
+                  redirected: true,
+                ));
+                return;
+              }
+              step(nextUri, nextHops, true);
+            },
+            onError: (Object error, StackTrace _) {
+              if (_disposed || _navSeq != seq) {
+                onAborted?.call();
+                return;
+              }
+              if (error is GuardCancelledException || !context.mounted) {
+                onAborted?.call();
+                return;
+              }
               onResolved((
                 uri: normalized,
                 match: null,
-                error: OmniRouteException(
-                  OmniErrorCode.redirectLoop,
-                  'Exceeded $_maxRedirects redirects — redirect loop at "$to".',
-                ),
-                redirected: true,
+                error: error,
+                redirected: redirected,
               ));
-              return;
-            }
-            step(_normalizeParse(to), nextHops, true);
-          });
+            },
+          );
           return;
         }
 
@@ -688,7 +840,17 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           ));
           return;
         }
-        uri = _normalizeParse(guardRes);
+        try {
+          uri = _normalizeParse(guardRes);
+        } on FormatException catch (e) {
+          onResolved((
+            uri: normalized,
+            match: null,
+            error: e,
+            redirected: true,
+          ));
+          return;
+        }
         redirected = true;
       }
     }
@@ -926,6 +1088,19 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       return out;
     }
 
+    final priorPages = _collectPageFrames(_rootStack);
+
+    void finishRemoved() {
+      final survivingKeys = <LocalKey>{
+        for (final p in _collectPageFrames(_rootStack)) p.key,
+      };
+      for (final old in priorPages) {
+        if (!survivingKeys.contains(old.key)) {
+          _completeRemovedFrame(old, null);
+        }
+      }
+    }
+
     if (shellChain.isEmpty) {
       // Root Navigator target. What if `outerShellAncestors` exist because
       // `parentNavigatorKey` popped out of a shell? Build underlying shell
@@ -951,14 +1126,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           ..clear()
           ..add(rebuiltShell)
           ..addAll(tail);
+        finishRemoved();
         return;
       }
 
       final nextRoot = buildPageChain(_rootStack, route.sameNavigatorAncestors);
-      _completeRemovedNotIn(_rootStack, nextRoot);
       _rootStack
         ..clear()
         ..addAll(nextRoot);
+      finishRemoved();
       return;
     }
 
@@ -975,6 +1151,24 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     _rootStack
       ..clear()
       ..add(shellFrame);
+    finishRemoved();
+  }
+
+  List<_PageFrame> _collectPageFrames(List<_StackFrame> frames) {
+    final out = <_PageFrame>[];
+    for (final f in frames) {
+      switch (f) {
+        case _PageFrame():
+          out.add(f);
+        case _ShellFrame():
+          out.addAll(_collectPageFrames(f.children));
+        case _StatefulShellFrame():
+          for (final b in f.branches) {
+            out.addAll(_collectPageFrames(b));
+          }
+      }
+    }
+    return out;
   }
 
   _StackFrame _buildShellTree(
@@ -1172,6 +1366,32 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     return deepestPoppable;
   }
 
+  GlobalKey<NavigatorState>? _findPopTargetNavigatorKey() {
+    GlobalKey<NavigatorState>? deepestNavKey;
+    void visit(
+      List<_StackFrame> frames,
+      GlobalKey<NavigatorState> currentNavKey,
+    ) {
+      if (frames.length > 1) {
+        deepestNavKey = currentNavKey;
+      }
+      if (frames.isEmpty) return;
+      final last = frames.last;
+      switch (last) {
+        case _PageFrame():
+          return;
+        case _ShellFrame():
+          visit(last.children, last.shell.navigatorKey);
+        case _StatefulShellFrame():
+          final branch = last.statefulShell.branches[last.currentIndex];
+          visit(last.branches[last.currentIndex], branch.navigatorKey);
+      }
+    }
+
+    visit(_rootStack, navigatorKey);
+    return deepestNavKey;
+  }
+
   _PageFrame _topPageFrame() {
     _StackFrame? cur = _rootStack.isEmpty ? null : _rootStack.last;
     while (cur != null) {
@@ -1196,21 +1416,33 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
   _StackFrame? _removePageByKey(
     List<_StackFrame> frames,
-    ValueKey<String> key,
-  ) {
+    ValueKey<String> key, {
+    bool keepLastFrame = false,
+  }) {
     for (var i = frames.length - 1; i >= 0; i--) {
       final f = frames[i];
       switch (f) {
         case _PageFrame():
           if (f.key == key) {
+            if (keepLastFrame && frames.length <= 1) {
+              return null;
+            }
             return frames.removeAt(i);
           }
         case _ShellFrame():
-          final hit = _removePageByKey(f.children, key);
+          final hit = _removePageByKey(
+            f.children,
+            key,
+            keepLastFrame: keepLastFrame,
+          );
           if (hit != null) return hit;
         case _StatefulShellFrame():
           for (final b in f.branches) {
-            final hit = _removePageByKey(b, key);
+            final hit = _removePageByKey(
+              b,
+              key,
+              keepLastFrame: keepLastFrame,
+            );
             if (hit != null) return hit;
           }
       }
@@ -1238,9 +1470,32 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           );
         case _ShellFrame():
           _remapStack(f.children);
+          final freshShell = _findCompiledShellById(f.shell.id);
+          if (freshShell != null && !identical(freshShell, f.shell)) {
+            frames[i] = _ShellFrame(
+              shell: freshShell,
+              key: f.key,
+              children: f.children,
+            );
+          }
         case _StatefulShellFrame():
           for (final b in f.branches) {
             _remapStack(b);
+          }
+          final freshSS = _findCompiledStatefulShellById(f.statefulShell.id);
+          if (freshSS != null && !identical(freshSS, f.statefulShell)) {
+            final branches = [
+              for (var j = 0; j < freshSS.branches.length; j++)
+                j < f.branches.length && f.branches[j].isNotEmpty
+                    ? f.branches[j]
+                    : _seedBranchStack(freshSS.branches[j]),
+            ];
+            frames[i] = _StatefulShellFrame(
+              statefulShell: freshSS,
+              key: f.key,
+              currentIndex: f.currentIndex.clamp(0, freshSS.branches.length - 1),
+              branches: branches,
+            );
           }
       }
     }
@@ -1254,10 +1509,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   }
 
   void _handlePageRemoved(Page<Object?> page) {
+    if (_disposed) return;
     final key = page.key;
     if (key is! ValueKey<String>) return;
     final popFuture = _pendingPopFutures.remove(key);
-    final removed = _removePageByKey(_rootStack, key);
+    final removed = _removePageByKey(
+      _rootStack,
+      key,
+      keepLastFrame: true,
+    );
     if (removed is _PageFrame) {
       final completer = removed.completer;
       if (completer != null && !completer.isCompleted) {
@@ -1286,19 +1546,61 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     int index, {
     bool initialLocation = false,
   }) {
-    if (index < 0 || index >= shellFrame.branches.length) return;
+    if (_disposed || index < 0 || index >= shellFrame.branches.length) return;
     final changed = shellFrame.currentIndex != index;
-    shellFrame.currentIndex = index;
-    if (initialLocation) {
-      final branch = shellFrame.statefulShell.branches[index];
-      final old = shellFrame.branches[index];
-      _clearFrames(old);
-      shellFrame.branches[index] = _seedBranchStack(branch);
+    final branch = shellFrame.statefulShell.branches[index];
+    final targetUri = initialLocation
+        ? _normalizeUri(_normalizeParse(branch.defaultLocation))
+        : (_topPageFrameIn(shellFrame.branches[index])?.uri ??
+            _normalizeUri(_normalizeParse(branch.defaultLocation)));
+
+    void commitSwitch() {
+      shellFrame.currentIndex = index;
+      if (initialLocation) {
+        final old = shellFrame.branches[index];
+        _clearFrames(old);
+        shellFrame.branches[index] = _seedBranchStack(branch);
+      }
+      if (changed || initialLocation) {
+        _lastNavKind = OmniNavigationKind.go;
+        _commit();
+      }
     }
-    if (changed || initialLocation) {
-      _lastNavKind = OmniNavigationKind.go;
-      _commit();
+
+    final seq = _nextSequence();
+    final ctx = _hostContext;
+    if (ctx == null || !ctx.mounted) {
+      commitSwitch();
+      return;
     }
+
+    _resolveGuardsSyncOrAsync(
+      ctx,
+      targetUri,
+      extra: null,
+      seq: seq,
+      onAborted: () {},
+      onResolved: (res) {
+        if (_disposed || _navSeq != seq) return;
+        if (res.error != null || res.redirected) {
+          _applyResolved(
+            uri: res.uri,
+            match: res.match,
+            error: res.error,
+            redirected: res.redirected,
+            kind: _NavKind.go,
+            extra: null,
+            transition: null,
+            animated: null,
+            replaceHistory: false,
+            completer: null,
+          );
+          _commit();
+          return;
+        }
+        commitSwitch();
+      },
+    );
   }
 
   Set<_GroupScopeKey> _activeGroupScopeKeys() {
@@ -1347,23 +1649,6 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       _completeRemovedFrame(f, null);
     }
     stack.clear();
-  }
-
-  void _completeRemovedNotIn(
-    List<_StackFrame> previous,
-    List<_StackFrame> next,
-  ) {
-    final keptKeys = {
-      for (final f in next)
-        if (f is _PageFrame) f.key,
-    };
-    for (final f in previous) {
-      if (f is _PageFrame && !keptKeys.contains(f.key)) {
-        _completeRemovedFrame(f, null);
-      } else if (f is! _PageFrame) {
-        _completeRemovedFrame(f, null);
-      }
-    }
   }
 
   void _completeRemovedFrame(_StackFrame frame, Object? result) {
@@ -1447,6 +1732,12 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     );
   }
 
+  _OmniPopObserver _observerFor(GlobalKey<NavigatorState> key) =>
+      _observersByNav.putIfAbsent(
+        key,
+        () => _OmniPopObserver(_onNavigatorDidPop),
+      );
+
   Widget _buildNavigator({
     required GlobalKey<NavigatorState> key,
     required List<Page<Object?>> pages,
@@ -1456,7 +1747,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     key: key,
     restorationScopeId: restorationScopeId,
     pages: pages,
-    observers: [...observers, _OmniPopObserver(_onNavigatorDidPop)],
+    observers: [...observers, _observerFor(key)],
     onDidRemovePage: _handlePageRemoved,
   );
 
@@ -1539,6 +1830,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       current = _GroupScopeHost(
         manager: _groupManager,
         scopeKey: scopeKey,
+        state: state,
         provide: g.group.provide,
         hasActiveStackRef: () => _activeGroupScopeKeys().contains(scopeKey),
         child: current,
@@ -1868,6 +2160,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   @override
   void dispose() {
     _disposed = true;
+    _resolvingInitial = false;
+    _hostContext = null;
+    if (_inFlightCompleters.isNotEmpty) {
+      for (final c in _inFlightCompleters.values) {
+        if (!c.isCompleted) c.complete(null);
+      }
+      _inFlightCompleters.clear();
+    }
+    _observersByNav.clear();
     _refreshListenable?.removeListener(refresh);
     _clearFrames(_rootStack);
     _groupManager.disposeAll();
@@ -1982,8 +2283,11 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
 
   @override
   Future<bool> popRoute() async {
+    if (router.isDisposed) return false;
     // Give the deepest active navigator a chance to run `PopScope` / dismiss
-    // barriers / pop its own route before popping outer navigators.
+    // barriers / pop its own route before popping outer navigators, EXCEPT
+    // when an outer navigator currently presents an imperative modal/dialog
+    // (`showDialog` / `showModalBottomSheet`) on top of an active shell.
     final navKeys = <GlobalKey<NavigatorState>>[];
     void collect(List<_StackFrame> frames) {
       if (frames.isEmpty) return;
@@ -2005,6 +2309,14 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
     navKeys.add(router.navigatorKey);
     collect(router._rootStack);
 
+    for (var i = 0; i < navKeys.length; i++) {
+      final obs = router._observersByNav[navKeys[i]];
+      if (obs != null && obs.overlayCount > 0) {
+        final nav = navKeys[i].currentState;
+        if (nav != null && await nav.maybePop()) return true;
+      }
+    }
+
     for (var i = navKeys.length - 1; i >= 0; i--) {
       final nav = navKeys[i].currentState;
       if (nav == null) continue;
@@ -2015,6 +2327,7 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
 
   @override
   Future<void> setInitialRoutePath(Uri configuration) {
+    if (router.isDisposed) return SynchronousFuture<void>(null);
     final normalized = OmniRouter._normalizeUri(configuration);
     if (!router._explicitInitialOverride &&
         normalized != router.location &&
@@ -2027,6 +2340,7 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
 
   @override
   Future<void> setNewRoutePath(Uri configuration) {
+    if (router.isDisposed) return SynchronousFuture<void>(null);
     final normalized = OmniRouter._normalizeUri(configuration);
     if (normalized != router.location) {
       router.go(normalized.toString(), replaceHistory: true);
@@ -2156,6 +2470,7 @@ class _OmniRouterHostState extends State<_OmniRouterHost>
   @override
   void dispose() {
     widget.router.removeListener(_onRouterChanged);
+    widget.router._detachHost(context);
     _savedStack.dispose();
     super.dispose();
   }
@@ -2191,9 +2506,29 @@ class _OmniPopObserver extends NavigatorObserver {
   final void Function(Route<dynamic> route, Route<dynamic>? previousRoute)
   onPop;
 
+  int overlayCount = 0;
+
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) =>
-      onPop(route, previousRoute);
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route.settings is! Page<Object?>) {
+      overlayCount++;
+    }
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route.settings is! Page<Object?> && overlayCount > 0) {
+      overlayCount--;
+    }
+    onPop(route, previousRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (route.settings is! Page<Object?> && overlayCount > 0) {
+      overlayCount--;
+    }
+  }
 }
 
 class _ScopedHeroHost extends StatefulWidget {
@@ -2312,6 +2647,7 @@ class _GroupScopeHost extends StatefulWidget {
   const _GroupScopeHost({
     required this.manager,
     required this.scopeKey,
+    required this.state,
     required this.provide,
     required this.hasActiveStackRef,
     required this.child,
@@ -2319,6 +2655,7 @@ class _GroupScopeHost extends StatefulWidget {
 
   final _GroupScopeManager manager;
   final _GroupScopeKey scopeKey;
+  final OmniRouteState state;
   final List<OmniBlocEntry> provide;
   final bool Function() hasActiveStackRef;
   final Widget child;
@@ -2364,7 +2701,11 @@ class _GroupScopeHostState extends State<_GroupScopeHost> {
   Widget build(BuildContext context) {
     if (widget.provide.isEmpty) return widget.child;
     final registry = OmniGlobalBlocScope.registryOf(context);
-    registry.registerPageBlocs(widget.provide);
+    try {
+      registry.registerPageBlocs(widget.provide);
+    } on OmniRouteException catch (e) {
+      return OmniPageConfig.of(context).errorBuilder(context, widget.state, e);
+    }
 
     Widget wrapChain(int index) {
       if (index >= widget.provide.length) return widget.child;
@@ -2375,7 +2716,14 @@ class _GroupScopeHostState extends State<_GroupScopeHost> {
       }
       return Builder(
         builder: (innerCtx) {
-          final created = _box.getOrCreate(index, innerCtx, registry);
+          final OmniAnyBloc created;
+          try {
+            created = _box.getOrCreate(index, innerCtx, registry);
+          } on OmniRouteException catch (e) {
+            return OmniPageConfig.of(
+              innerCtx,
+            ).errorBuilder(innerCtx, widget.state, e);
+          }
           return p.valueProvider(created, child: wrapChain(index + 1));
         },
       );

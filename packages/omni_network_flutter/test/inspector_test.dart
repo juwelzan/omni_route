@@ -336,6 +336,53 @@ void main() {
         expect(copied, contains('"id": 1'));
       },
     );
+
+    testWidgets(
+      'defensively redacts WS URLs, AI errors, and route logs in entries and Markdown report',
+      (tester) async {
+        final inspector = OmniInspector(enabled: true);
+        addTearDown(inspector.dispose);
+
+        inspector
+          ..recordWsLog(
+            WsLogRecord(
+              uri: 'wss://api.test/live?token=WS-SECRET&v=1',
+              direction: 'err',
+              summary: 'failed connecting wss://api.test/live?key=API-KEY-SECRET',
+              timestamp: DateTime(2026, 1, 1),
+            ),
+          )
+          ..recordAiCall(
+            AiCallLogRecord(
+              providerId: 'gemini',
+              model: 'flash',
+              usage: const AiUsage(),
+              latency: const Duration(milliseconds: 10),
+              timestamp: DateTime(2026, 1, 1),
+              promptPreview: 'Bearer PROMPT-SECRET',
+              error: 'https://generativelanguage.googleapis.com?key=GEMINI-SECRET',
+            ),
+          )
+          ..logRoute('/auth?token=ROUTE-SECRET -> /home');
+
+        final md = inspector.toMarkdownReport();
+        final allText = [
+          md,
+          for (final l in inspector.logs) '${l.title} ${l.subtitle} ${l.copyText}',
+        ].join('\n');
+
+        for (final secret in [
+          'WS-SECRET',
+          'API-KEY-SECRET',
+          'PROMPT-SECRET',
+          'GEMINI-SECRET',
+          'ROUTE-SECRET',
+        ]) {
+          expect(allText, isNot(contains(secret)));
+        }
+        expect(md, contains('token=***'));
+      },
+    );
   });
 }
 

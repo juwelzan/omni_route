@@ -18,12 +18,12 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     vsync: this,
   )..addStatusListener(_onExtentStatus);
   late final _SheetMetrics _metrics = _SheetMetrics(
-    index: _sortedInitialIndex(),
+    publicIndex: _config.initialDetent,
   );
-  late final ValueNotifier<int> _detent = ValueNotifier(_metrics.index);
+  late final ValueNotifier<int> _detent = ValueNotifier(_metrics.publicIndex);
   late final _SheetScrollController _scroll = _SheetScrollController(this);
   final ValueNotifier<bool> _scrolled = ValueNotifier(false);
-  int _dragStartIndex = 0;
+  int _dragStartSortedIndex = 0;
   Widget? _header;
   WidgetBuilder? _headerBuilder;
   Widget? _trailing;
@@ -46,30 +46,48 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   bool get _contentSized => _config.detents.first._isContent;
   double get _available => _metrics.available;
 
-  // The given index (caller's order) is mapped to the smallest-first order
-  // at the first layout, once fractions and fixed heights can be compared.
-  int _sortedInitialIndex() => _config.detents[_config.initialDetent]._isContent
-      ? 0
-      : _config.initialDetent;
-
   @override
   void initState() {
     super.initState();
     _host.attachView(this);
-    // Publish the smallest-first index of the initial detent once known.
+    // Publish the initial detent once attached.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _detent.value = _metrics.index;
-      _host.didChangeDetent(_metrics.index);
+      _detent.value = _metrics.publicIndex;
+      _host.didChangeDetent(_metrics.publicIndex);
     });
   }
 
   @override
   void didUpdateWidget(_OmniSheetView oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final oldDetents = oldWidget.host.config.detents;
+    final newDetents = widget.host.config.detents;
     if (!identical(oldWidget.host, widget.host)) {
       oldWidget.host.attachView(null);
       widget.host.attachView(this);
+    }
+    if (!listEquals(oldDetents, newDetents)) {
+      final prevIdx = _metrics.publicIndex.clamp(0, oldDetents.length - 1);
+      final prevDetent = oldDetents[prevIdx];
+      int nextPublic;
+      if (prevIdx < newDetents.length && newDetents[prevIdx] == prevDetent) {
+        nextPublic = prevIdx;
+      } else {
+        final found = newDetents.indexOf(prevDetent);
+        nextPublic = found >= 0
+            ? found
+            : prevIdx.clamp(0, newDetents.length - 1);
+      }
+      _metrics.publicIndex = nextPublic;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        final current = _metrics.publicIndex;
+        if (_detent.value != current) {
+          _detent.value = current;
+          _host.didChangeDetent(current);
+        }
+      });
     }
   }
 
@@ -115,7 +133,47 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   ScrollController get scrollController => _scroll;
 
   @override
-  Future<void> snapTo(int index) => _snap(index, 0);
+  Future<void> snapTo(int index) {
+    RangeError.checkValidIndex(index, _config.detents, 'index');
+    if (_heights.isEmpty || _metrics.publicToSorted.length != _config.detents.length) {
+      _metrics.publicIndex = index;
+      if (_detent.value != index) {
+        _detent.value = index;
+        _host.didChangeDetent(index);
+      }
+      return Future<void>.value();
+    }
+    return _snapSorted(
+      _metrics.publicToSorted[index],
+      publicIndex: index,
+      velocity: 0,
+    );
+  }
+
+  Future<void> _expand() {
+    if (_heights.isEmpty) {
+      _metrics.publicIndex = _config.detents.length - 1;
+      return Future<void>.value();
+    }
+    final sorted = _heights.length - 1;
+    return _snapSorted(
+      sorted,
+      publicIndex: _metrics.sortedToPublic[sorted],
+      velocity: 0,
+    );
+  }
+
+  Future<void> _collapse() {
+    if (_heights.isEmpty) {
+      _metrics.publicIndex = 0;
+      return Future<void>.value();
+    }
+    return _snapSorted(
+      0,
+      publicIndex: _metrics.sortedToPublic[0],
+      velocity: 0,
+    );
+  }
 
   @override
   void close([Object? result]) => _host.close(result);
@@ -127,7 +185,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   void _dragStart() {
     if (_heights.isEmpty) return;
     _dragging = true;
-    _dragStartIndex = _metrics.index;
+    _dragStartSortedIndex = _metrics.sortedIndex;
     if (_config.scrolling.dismissKeyboardOnDrag) _closeKeyboard();
     _metrics.settled = false;
     _extent.stop();
@@ -160,9 +218,13 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       extent = _raw;
     } else {
       extent = min;
-      presence = _config.isDismissible
-          ? (_raw / min).clamp(0.001, 1.0)
-          : 1 - _rubber(min - _raw, min) / min;
+      if (min <= 0) {
+        presence = 1.0;
+      } else {
+        presence = _config.isDismissible
+            ? (_raw / min).clamp(0.001, 1.0)
+            : 1 - _rubber(min - _raw, min) / min;
+      }
     }
     if (_extent.value != extent) _extent.value = extent;
     if (_presence.value != presence) _presence.value = presence;
@@ -183,8 +245,11 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         _dismiss(velocity);
       } else {
         // Pulled below the smallest detent: rest on the smallest.
-        _host.settlePresence(-velocity / min);
-        _snap(0, 0);
+        _host.settlePresence(min > 0 ? -velocity / min : 0.0);
+        final publicForMin = _metrics.sortedIndex == 0
+            ? _metrics.publicIndex
+            : _metrics.sortedToPublic[0];
+        _snapSorted(0, publicIndex: publicForMin, velocity: 0);
       }
       return;
     }
@@ -204,10 +269,13 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _dismiss(velocity);
       return;
     }
-    if (target != _dragStartIndex && _config.scrolling.hapticFeedback) {
+    if (target != _dragStartSortedIndex && _config.scrolling.hapticFeedback) {
       HapticFeedback.selectionClick();
     }
-    _snap(target, -velocity);
+    final targetPublic = target == _metrics.sortedIndex
+        ? _metrics.publicIndex
+        : _metrics.sortedToPublic[target];
+    _snapSorted(target, publicIndex: targetPublic, velocity: -velocity);
   }
 
   Future<void> _dismiss(double velocity) async {
@@ -216,17 +284,27 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     // Refused (a PopScope, or the host keeps it): spring back.
     if (!gone && mounted) {
       _host.settlePresence(0);
-      _snap(_metrics.index, 0);
+      _snapSorted(
+        _metrics.sortedIndex,
+        publicIndex: _metrics.publicIndex,
+        velocity: 0,
+      );
     }
   }
 
-  TickerFuture _snap(int index, double velocity) {
+  TickerFuture _snapSorted(
+    int sortedIndex, {
+    required int publicIndex,
+    required double velocity,
+  }) {
     if (_heights.isEmpty) return TickerFuture.complete();
-    final i = index.clamp(0, _heights.length - 1);
-    _metrics.index = i;
-    if (_detent.value != i) {
-      _detent.value = i;
-      _host.didChangeDetent(i);
+    final i = sortedIndex.clamp(0, _heights.length - 1);
+    final pub = publicIndex.clamp(0, _config.detents.length - 1);
+    _metrics.sortedIndex = i;
+    _metrics.publicIndex = pub;
+    if (_detent.value != pub) {
+      _detent.value = pub;
+      _host.didChangeDetent(pub);
     }
     if (i == 0 && _heights.length > 1 && _config.scrolling.resetOnCollapse) {
       _scrollToTop();
@@ -289,10 +367,15 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   }
 
   void _cycleDetent() {
-    if (detentCount > 1) {
-      _snap((_metrics.index + 1) % _heights.length, 0);
+    if (_heights.length > 1) {
+      final nextSorted = (_metrics.sortedIndex + 1) % _heights.length;
+      _snapSorted(
+        nextSorted,
+        publicIndex: _metrics.sortedToPublic[nextSorted],
+        velocity: 0,
+      );
     } else if (_config.isDismissible) {
-      close();
+      unawaited(_dismiss(180));
     }
   }
 
@@ -576,8 +659,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
 
   String _handleHint(BuildContext context) {
     final l = _localizations(context);
-    if (detentCount > 1) {
-      return _metrics.index < detentCount - 1
+    final distinctCount = _heights.isNotEmpty ? _heights.length : detentCount;
+    if (distinctCount > 1) {
+      return _metrics.sortedIndex < distinctCount - 1
           ? (l?.collapsedIconTapHint ?? 'Expand')
           : (l?.expandedIconTapHint ?? 'Collapse');
     }

@@ -4,10 +4,22 @@
 part of 'omni_bottom_sheet.dart';
 
 class _SheetMetrics {
-  _SheetMetrics({required this.index});
+  _SheetMetrics({required this.publicIndex});
 
-  int index;
+  /// Active detent index in the caller's `detents` list.
+  int publicIndex;
+
+  /// Active detent index in [heights] (smallest-first).
+  int sortedIndex = 0;
+
+  /// Distinct resolved heights in ascending order.
   List<double> heights = const [];
+
+  /// Maps each caller detent index to its entry in [heights].
+  List<int> publicToSorted = const [];
+
+  /// Canonical caller detent index for each entry in [heights].
+  List<int> sortedToPublic = const [];
 
   /// Height the sheet may grow to (below the top gap, above the bottom
   /// gap); written at layout.
@@ -193,8 +205,8 @@ class _RenderSheet extends RenderBox
 
   void _syncExtent() {
     final heights = _metrics.heights;
-    final index = _metrics.index.clamp(0, heights.length - 1);
-    _metrics.index = index;
+    final index = _metrics.sortedIndex.clamp(0, heights.length - 1);
+    _metrics.sortedIndex = index;
     final target = heights[index];
     if (!_metrics.ready || (_metrics.settled && _extent.value != target)) {
       _metrics.ready = true;
@@ -222,23 +234,43 @@ class _RenderSheet extends RenderBox
         BoxConstraints(minWidth: width, maxWidth: width, maxHeight: _available),
         parentUsesSize: true,
       );
-      _metrics.heights = [child.size.height];
+      _metrics
+        ..heights = [child.size.height]
+        ..publicToSorted = const [0]
+        ..sortedToPublic = const [0]
+        ..publicIndex = 0
+        ..sortedIndex = 0;
       _syncExtent();
     } else {
-      final firstLayout = !_metrics.ready;
-      final heights = <double>{
-        for (final d in _detents) math.max(1.0, d._resolve(_available)),
-      }.toList()..sort();
-      if (firstLayout) {
-        // The initial detent was given in the caller's order.
-        final initial = _detents[_metrics.index.clamp(0, _detents.length - 1)]
-            ._resolve(_available);
-        _metrics.index = heights.indexWhere(
-          (h) => (h - math.max(1.0, initial)).abs() < 0.01,
-        );
-        if (_metrics.index < 0) _metrics.index = 0;
+      final entries = <({double height, int publicIndex})>[];
+      for (var i = 0; i < _detents.length; i++) {
+        final resolved = _detents[i]._resolve(_available);
+        final h = _available > 0 ? math.max(1.0, resolved) : 0.0;
+        entries.add((height: h, publicIndex: i));
       }
-      _metrics.heights = heights;
+      entries.sort((a, b) {
+        final cmp = a.height.compareTo(b.height);
+        return cmp != 0 ? cmp : a.publicIndex.compareTo(b.publicIndex);
+      });
+      const epsilon = 0.01;
+      final heights = <double>[];
+      final publicToSorted = List<int>.filled(_detents.length, 0);
+      final sortedToPublic = <int>[];
+      for (final entry in entries) {
+        if (heights.isEmpty || (entry.height - heights.last).abs() > epsilon) {
+          heights.add(entry.height);
+          sortedToPublic.add(entry.publicIndex);
+        }
+        publicToSorted[entry.publicIndex] = heights.length - 1;
+      }
+      final publicIdx = _metrics.publicIndex.clamp(0, _detents.length - 1);
+      final sortedIdx = publicToSorted[publicIdx];
+      _metrics
+        ..heights = heights
+        ..publicToSorted = publicToSorted
+        ..sortedToPublic = sortedToPublic
+        ..publicIndex = publicIdx
+        ..sortedIndex = sortedIdx;
       _syncExtent();
       child.layout(
         BoxConstraints.tightFor(width: width, height: _layoutHeight()),

@@ -7,7 +7,8 @@ import 'dns_resolver.dart';
 Object? Function()? buildConfiguredHttpClientFactory({
   String? proxy,
   List<String> pinnedSha256 = const [],
-  bool allowBadProxyCertificate = true,
+  bool allowBadProxyCertificate = false,
+  List<int>? trustedProxyCertificateBytes,
   List<int>? clientCertificateBytes,
   List<int>? clientPrivateKeyBytes,
   String? clientCertificatePassword,
@@ -22,7 +23,8 @@ Object? Function()? buildConfiguredHttpClientFactory({
 HttpClientAdapter? buildConfiguredAdapter({
   String? proxy,
   List<String> pinnedSha256 = const [],
-  bool allowBadProxyCertificate = true,
+  bool allowBadProxyCertificate = false,
+  List<int>? trustedProxyCertificateBytes,
   List<int>? clientCertificateBytes,
   List<int>? clientPrivateKeyBytes,
   String? clientCertificatePassword,

@@ -104,6 +104,32 @@ void main() {
       expect(body.contentType, 'multipart/form-data; boundary=B');
     });
 
+    test('rejects CRLF injection in boundary and contentType', () {
+      expect(
+        () => MultipartBody(boundary: 'bad\r\nX-Injected: 1'),
+        throwsArgumentError,
+      );
+      expect(
+        () => UploadFile.fromBytes(
+          'file',
+          const [1, 2],
+          filename: 'a.txt',
+          contentType: 'text/plain\r\nX-Injected: evil',
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => UploadFile.fromStream(
+          'file',
+          () => const Stream.empty(),
+          length: 0,
+          filename: 'a.txt',
+          contentType: 'text/plain\nX-Injected: evil',
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('random boundaries differ', () {
       expect(MultipartBody().boundary, isNot(MultipartBody().boundary));
     });

@@ -10,6 +10,8 @@ import 'package:dio/dio.dart';
 import 'package:omni_network/advanced.dart';
 import 'package:omni_network/src/transport/dio_io_io.dart'
     show classifyDioError, parseProxyConfig;
+import 'package:omni_network/src/transport/pin_verifier.dart'
+    show CertificatePinMatcher;
 import 'package:test/test.dart';
 
 final class _Person {
@@ -108,6 +110,10 @@ void main() {
         '-nodes',
         '-subj',
         '/CN=localhost',
+        '-addext',
+        'basicConstraints=CA:TRUE',
+        '-addext',
+        'subjectAltName=DNS:localhost,IP:127.0.0.1',
       ]);
       expect(gen.exitCode, 0, reason: '${gen.stderr}');
 
@@ -249,6 +255,378 @@ void main() {
             ConnectionReason.sslMismatch,
           ),
         ),
+      );
+    });
+
+    test(
+      'rejects matching pin when certificate SAN/CN mismatches host',
+      () async {
+        final mismatchDir = await Directory.systemTemp.createTemp('omni_badh_');
+        addTearDown(() => mismatchDir.delete(recursive: true));
+        final cPath = '${mismatchDir.path}/cert.pem';
+        final kPath = '${mismatchDir.path}/key.pem';
+
+        final gen = await Process.run('openssl', [
+          'req',
+          '-x509',
+          '-newkey',
+          'rsa:2048',
+          '-keyout',
+          kPath,
+          '-out',
+          cPath,
+          '-days',
+          '2',
+          '-nodes',
+          '-subj',
+          '/CN=wrong.example.com',
+          '-addext',
+          'subjectAltName=DNS:wrong.example.com',
+        ]);
+        expect(gen.exitCode, 0, reason: '${gen.stderr}');
+
+        final pinRes = await Process.run('sh', [
+          '-c',
+          'openssl x509 -in "$cPath" -outform DER '
+              '| openssl dgst -sha256 -binary | openssl base64 -A',
+        ]);
+        expect(pinRes.exitCode, 0);
+        final wrongHostPin = 'sha256/${(pinRes.stdout as String).trim()}';
+
+        final ctx = SecurityContext()
+          ..useCertificateChain(cPath)
+          ..usePrivateKey(kPath);
+        final mismatchServer = await HttpServer.bindSecure(
+          InternetAddress.loopbackIPv4,
+          0,
+          ctx,
+        );
+        addTearDown(() => mismatchServer.close(force: true));
+        mismatchServer.listen((req) async {
+          req.response
+            ..statusCode = 200
+            ..write('{"ok":true}');
+          await req.response.close();
+        });
+
+        final api = OmniNetwork(
+          baseUrl: 'https://127.0.0.1:${mismatchServer.port}',
+          pinnedSha256: [wrongHostPin],
+        );
+        addTearDown(api.close);
+
+        await expectLater(
+          api.get<Map<String, dynamic>>('/'),
+          throwsA(
+            isA<ConnectionFailure>().having(
+              (e) => e.reason,
+              'reason',
+              ConnectionReason.sslMismatch,
+            ),
+          ),
+        );
+      },
+    );
+
+    test(
+      'DioTransport.configured shares pinning with OmniNetwork.ws()',
+      () async {
+        final wsServer = await HttpServer.bindSecure(
+          InternetAddress.loopbackIPv4,
+          0,
+          SecurityContext()
+            ..useCertificateChain(certPath)
+            ..usePrivateKey(keyPath),
+        );
+        addTearDown(() => wsServer.close(force: true));
+        wsServer.listen((req) async {
+          final ws = await WebSocketTransformer.upgrade(req);
+          ws.listen((msg) => ws.add('pong:$msg'));
+        });
+
+        final transport = DioTransport.configured(
+          pinnedSha256: [leafBase64Pin],
+        );
+        final api = OmniNetwork(
+          baseUrl: 'https://127.0.0.1:${httpsServer.port}',
+          wsBaseUrl: 'wss://127.0.0.1:${wsServer.port}',
+          transport: transport,
+        );
+        addTearDown(() async {
+          await api.close();
+          await transport.close(force: true);
+        });
+
+        final ws = api.ws('/live');
+        addTearDown(ws.close);
+        while (ws.state != WebSocketState.open) {
+          await Future<void>.delayed(const Duration(milliseconds: 5));
+        }
+        ws.send('ping');
+        expect(await ws.messages.first, 'pong:ping');
+
+        final wrongPin = 'sha256/${base64Encode(List<int>.filled(32, 0xEE))}';
+        final badTransport = DioTransport.configured(pinnedSha256: [wrongPin]);
+        final badApi = OmniNetwork(
+          wsBaseUrl: 'wss://127.0.0.1:${wsServer.port}',
+          transport: badTransport,
+        );
+        addTearDown(() async {
+          await badApi.close();
+          await badTransport.close(force: true);
+        });
+        final badWs = badApi.ws('/live', maxReconnects: 0);
+        await expectLater(badWs.messages, emitsError(isA<StateError>()));
+      },
+    );
+
+    test('default proxy & DIRECT never disable TLS verification', () async {
+      // DIRECT must never bypass TLS even if caller passes allowBadProxyCertificate: true.
+      final directBypassAttempt = OmniNetwork(
+        baseUrl: 'https://127.0.0.1:${httpsServer.port}',
+        proxy: 'DIRECT',
+        allowBadProxyCertificate: true,
+      );
+      addTearDown(directBypassAttempt.close);
+      await expectLater(
+        directBypassAttempt.get<Map<String, dynamic>>('/ping'),
+        throwsA(
+          isA<ConnectionFailure>().having(
+            (e) => e.reason,
+            'reason',
+            ConnectionReason.sslMismatch,
+          ),
+        ),
+      );
+
+      // Default allowBadProxyCertificate (false) rejects untrusted HTTPS even
+      // over an HTTP CONNECT tunnel, while trustedProxyCertificateBytes trusts
+      // the explicit CA cleanly and release builds disable bypass.
+      final connectProxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(connectProxy.close);
+      connectProxy.listen((clientSocket) {
+        final upstreamFuture = Socket.connect(
+          InternetAddress.loopbackIPv4,
+          httpsServer.port,
+        );
+        final buf = <int>[];
+        var tunnelOpen = false;
+        StreamSubscription<Uint8List>? upSub;
+        Socket? upstream;
+        clientSocket.listen(
+          (chunk) async {
+            if (tunnelOpen) {
+              upstream?.add(chunk);
+              return;
+            }
+            buf.addAll(chunk);
+            final text = ascii.decode(buf, allowInvalid: true);
+            final endIdx = text.indexOf('\r\n\r\n');
+            if (endIdx < 0) return;
+            tunnelOpen = true;
+            upstream = await upstreamFuture;
+            clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+            final restStart = endIdx + 4;
+            if (restStart < buf.length) {
+              upstream!.add(buf.sublist(restStart));
+            }
+            upSub = upstream!.listen(
+              clientSocket.add,
+              onDone: clientSocket.close,
+              onError: (_) => clientSocket.close(),
+            );
+          },
+          onDone: () {
+            upSub?.cancel();
+            upstream?.close();
+          },
+          onError: (_) {
+            upSub?.cancel();
+            upstream?.close();
+          },
+        );
+      });
+
+      final defaultProxyApi = OmniNetwork(
+        baseUrl: 'https://127.0.0.1:${httpsServer.port}',
+        proxy: '127.0.0.1:${connectProxy.port}',
+      );
+      addTearDown(defaultProxyApi.close);
+      await expectLater(
+        defaultProxyApi.get<Map<String, dynamic>>('/ping'),
+        throwsA(
+          isA<ConnectionFailure>().having(
+            (e) => e.reason,
+            'reason',
+            ConnectionReason.sslMismatch,
+          ),
+        ),
+      );
+
+      // Create a genuine Proxy CA + CA-signed server certificate matching 127.0.0.1
+      // (mimicking Charles/Proxyman/corporate MITM CA), and verify:
+      // 1) without trusting the CA, default allowBadProxyCertificate == false rejects
+      // 2) trusting the CA via trustedProxyCertificateBytes succeeds with full SAN/chain check
+      final caDir = await Directory.systemTemp.createTemp('omni_proxy_ca_');
+      addTearDown(() => caDir.delete(recursive: true));
+      final caKey = '${caDir.path}/ca.key';
+      final caPem = '${caDir.path}/ca.pem';
+      final srvKey = '${caDir.path}/srv.key';
+      final srvCsr = '${caDir.path}/srv.csr';
+      final srvExt = '${caDir.path}/srv.ext';
+      final srvPem = '${caDir.path}/srv.pem';
+      await File(srvExt).writeAsString(
+        'basicConstraints=CA:FALSE\n'
+        'keyUsage=digitalSignature,keyEncipherment\n'
+        'extendedKeyUsage=serverAuth\n'
+        'subjectAltName=DNS:localhost,IP:127.0.0.1\n',
+      );
+      await Process.run('openssl', [
+        'req', '-x509', '-newkey', 'rsa:2048', '-keyout', caKey, '-out', caPem,
+        '-days', '2', '-nodes', '-subj', '/CN=Test Proxy CA',
+        '-addext', 'basicConstraints=critical,CA:TRUE',
+        '-addext', 'keyUsage=critical,keyCertSign,cRLSign',
+      ]);
+      await Process.run('openssl', [
+        'req', '-new', '-newkey', 'rsa:2048', '-keyout', srvKey, '-out', srvCsr,
+        '-nodes', '-subj', '/CN=localhost',
+      ]);
+      final sign = await Process.run('openssl', [
+        'x509', '-req', '-in', srvCsr, '-CA', caPem, '-CAkey', caKey,
+        '-CAcreateserial', '-out', srvPem, '-days', '2', '-extfile', srvExt,
+      ]);
+      expect(sign.exitCode, 0, reason: '${sign.stderr}');
+
+      final caSignedServer = await HttpServer.bindSecure(
+        InternetAddress.loopbackIPv4,
+        0,
+        SecurityContext()
+          ..useCertificateChain(srvPem)
+          ..usePrivateKey(srvKey),
+      );
+      addTearDown(() => caSignedServer.close(force: true));
+      caSignedServer.listen((req) async {
+        req.response
+          ..statusCode = 200
+          ..headers.contentType = ContentType.json
+          ..write('{"secure":true}');
+        await req.response.close();
+      });
+
+      final caProxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(caProxy.close);
+      caProxy.listen((clientSocket) {
+        final upstreamFuture = Socket.connect(
+          InternetAddress.loopbackIPv4,
+          caSignedServer.port,
+        );
+        final buf = <int>[];
+        var tunnelOpen = false;
+        StreamSubscription<Uint8List>? upSub;
+        Socket? upstream;
+        clientSocket.listen(
+          (chunk) async {
+            if (tunnelOpen) {
+              upstream?.add(chunk);
+              return;
+            }
+            buf.addAll(chunk);
+            final text = ascii.decode(buf, allowInvalid: true);
+            final endIdx = text.indexOf('\r\n\r\n');
+            if (endIdx < 0) return;
+            tunnelOpen = true;
+            upstream = await upstreamFuture;
+            clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
+            final restStart = endIdx + 4;
+            if (restStart < buf.length) {
+              upstream!.add(buf.sublist(restStart));
+            }
+            upSub = upstream!.listen(
+              clientSocket.add,
+              onDone: clientSocket.close,
+              onError: (_) => clientSocket.close(),
+            );
+          },
+          onDone: () {
+            upSub?.cancel();
+            upstream?.close();
+          },
+          onError: (_) {
+            upSub?.cancel();
+            upstream?.close();
+          },
+        );
+      });
+
+      final caBytes = await File(caPem).readAsBytes();
+      final trustedApi = OmniNetwork(
+        baseUrl: 'https://127.0.0.1:${caSignedServer.port}',
+        proxy: '127.0.0.1:${caProxy.port}',
+        trustedProxyCertificateBytes: caBytes,
+      );
+      addTearDown(trustedApi.close);
+      expect(
+        (await trustedApi.get<Map<String, dynamic>>('/ping'))['secure'],
+        isTrue,
+      );
+
+      // Even with trustedProxyCertificateBytes, an unrelated untrusted cert fails!
+      final unrelatedWithCa = OmniNetwork(
+        baseUrl: 'https://127.0.0.1:${httpsServer.port}',
+        trustedProxyCertificateBytes: caBytes,
+      );
+      addTearDown(unrelatedWithCa.close);
+      await expectLater(
+        unrelatedWithCa.get<Map<String, dynamic>>('/ping'),
+        throwsA(
+          isA<ConnectionFailure>().having(
+            (e) => e.reason,
+            'reason',
+            ConnectionReason.sslMismatch,
+          ),
+        ),
+      );
+
+      // Debug opt-in allowBadProxyCertificate works in debug, but is ignored
+      // when OmniNetwork.isReleaseBuild == true even with allowProxyInRelease.
+      final devOptIn = OmniNetwork(
+        baseUrl: 'https://127.0.0.1:${httpsServer.port}',
+        proxy: '127.0.0.1:${connectProxy.port}',
+        allowBadProxyCertificate: true,
+      );
+      addTearDown(devOptIn.close);
+      expect(
+        (await devOptIn.get<Map<String, dynamic>>('/ping'))['secure'],
+        isTrue,
+      );
+
+      final prevRelease = OmniNetwork.isReleaseBuild;
+      OmniNetwork.isReleaseBuild = true;
+      try {
+        final releaseOptIn = OmniNetwork(
+          baseUrl: 'https://127.0.0.1:${httpsServer.port}',
+          proxy: '127.0.0.1:${connectProxy.port}',
+          allowProxyInRelease: true,
+          allowBadProxyCertificate: true,
+        );
+        addTearDown(releaseOptIn.close);
+        await expectLater(
+          releaseOptIn.get<Map<String, dynamic>>('/ping'),
+          throwsA(
+            isA<ConnectionFailure>().having(
+              (e) => e.reason,
+              'reason',
+              ConnectionReason.sslMismatch,
+            ),
+          ),
+        );
+      } finally {
+        OmniNetwork.isReleaseBuild = prevRelease;
+      }
+
+      expect(
+        () => CertificatePinMatcher(const []),
+        throwsArgumentError,
       );
     });
   });

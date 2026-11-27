@@ -36,8 +36,9 @@ final class UploadFile {
     this.field,
     List<int> bytes, {
     required this.filename,
-    this.contentType = 'application/octet-stream',
-  }) : length = bytes.length,
+    String contentType = 'application/octet-stream',
+  }) : contentType = _validateHeaderValue(contentType, 'contentType'),
+       length = bytes.length,
        _open = (() => Stream.value(bytes));
 
   /// A file read from a stream, e.g. on IO platforms:
@@ -54,8 +55,23 @@ final class UploadFile {
     Stream<List<int>> Function() open, {
     required this.length,
     required this.filename,
-    this.contentType = 'application/octet-stream',
-  }) : _open = open;
+    String contentType = 'application/octet-stream',
+  }) : contentType = _validateHeaderValue(contentType, 'contentType'),
+       _open = open;
+
+  static String _validateHeaderValue(String value, String name) {
+    if (value.isEmpty ||
+        value.contains('\r') ||
+        value.contains('\n') ||
+        value.contains('\x00')) {
+      throw ArgumentError.value(
+        value,
+        name,
+        'Header value cannot be empty or contain CR/LF/NUL characters',
+      );
+    }
+    return value;
+  }
 
   /// Form field name.
   final String field;
@@ -81,7 +97,9 @@ final class MultipartBody {
     this.fields = const {},
     this.files = const [],
     String? boundary,
-  }) : boundary = boundary ?? _randomBoundary();
+  }) : boundary = boundary == null
+           ? _randomBoundary()
+           : UploadFile._validateHeaderValue(boundary, 'boundary');
 
   /// Text fields.
   final Map<String, String> fields;
@@ -116,7 +134,7 @@ final class MultipartBody {
     '--$boundary\r\n'
     'content-disposition: form-data; name="${_escape(f.field)}"; '
     'filename="${_escape(f.filename)}"\r\n'
-    'content-type: ${f.contentType}\r\n\r\n',
+    'content-type: ${UploadFile._validateHeaderValue(f.contentType, 'contentType')}\r\n\r\n',
   );
 
   static final _crlf = Uint8List.fromList([13, 10]);

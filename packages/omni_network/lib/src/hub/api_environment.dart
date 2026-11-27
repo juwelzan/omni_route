@@ -149,7 +149,8 @@ final class ServiceConfig {
     this.circuitBreaker,
     this.decoders = const {},
     this.pinnedSha256 = const [],
-    this.allowBadProxyCertificate = true,
+    this.allowBadProxyCertificate = false,
+    this.trustedProxyCertificateBytes,
     this.clientCertificateBytes,
     this.clientPrivateKeyBytes,
     this.clientCertificatePassword,
@@ -181,7 +182,8 @@ final class ServiceConfig {
     this.circuitBreaker,
     this.decoders = const {},
     this.pinnedSha256 = const [],
-    this.allowBadProxyCertificate = true,
+    this.allowBadProxyCertificate = false,
+    this.trustedProxyCertificateBytes,
     this.clientCertificateBytes,
     this.clientPrivateKeyBytes,
     this.clientCertificatePassword,
@@ -245,8 +247,13 @@ final class ServiceConfig {
   /// Service-specific SHA-256 certificate pins.
   final List<String> pinnedSha256;
 
-  /// Proxy bad-certificate handling when `proxy` is enabled.
+  /// Proxy bad-certificate handling when `proxy` is enabled (disabled in
+  /// release builds; prefer [trustedProxyCertificateBytes]).
   final bool allowBadProxyCertificate;
+
+  /// Optional trusted CA certificate bytes (PEM/DER) for debugging/corporate
+  /// proxies, allowing TLS verification without weakening origin checks.
+  final List<int>? trustedProxyCertificateBytes;
 
   /// Optional mTLS certificate bytes.
   final List<int>? clientCertificateBytes;
@@ -316,6 +323,7 @@ final class ServiceConfig {
     decoders: decoders,
     pinnedSha256: pinnedSha256 ?? this.pinnedSha256,
     allowBadProxyCertificate: allowBadProxyCertificate,
+    trustedProxyCertificateBytes: trustedProxyCertificateBytes,
     clientCertificateBytes: clientCertificateBytes,
     clientPrivateKeyBytes: clientPrivateKeyBytes,
     clientCertificatePassword: clientCertificatePassword,

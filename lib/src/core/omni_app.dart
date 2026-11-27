@@ -59,6 +59,7 @@ class OmniApp extends StatefulWidget {
     this.resolveInitialRoute,
     this.transition = OmniPages.material,
     this.guards = const [],
+    this.guardTimeout,
     this.refreshListenable,
     this.notFound,
     this.navigatorKey,
@@ -114,6 +115,7 @@ class OmniApp extends StatefulWidget {
     this.resolveInitialRoute,
     this.transition = OmniPages.material,
     this.guards = const [],
+    this.guardTimeout,
     this.refreshListenable,
     this.notFound,
     this.navigatorKey,
@@ -295,6 +297,7 @@ class OmniApp extends StatefulWidget {
     this.resolveInitialRoute,
     this.transition = OmniPages.cupertino,
     this.guards = const [],
+    this.guardTimeout,
     this.refreshListenable,
     this.notFound,
     this.navigatorKey,
@@ -455,6 +458,10 @@ class OmniApp extends StatefulWidget {
 
   /// App-wide guards evaluated in order on every navigation.
   final List<OmniGuard> guards;
+
+  /// Optional maximum duration allowed per async guard evaluation before it
+  /// fails safely into the error route instead of leaving navigation pending.
+  final Duration? guardTimeout;
 
   /// External listenable whose notifications re-evaluate guards.
   final Listenable? refreshListenable;
@@ -686,6 +693,7 @@ class _OmniAppState extends State<OmniApp> {
       routeRegistry: compiled.registry,
       navigatorKey: _navKey,
       guards: compiled.guards,
+      guardTimeout: widget.guardTimeout,
       observers: widget.observers ?? const [],
       onRouteError: widget.notFound ?? defaultOmniErrorBuilder,
       initialRoute: _resolveInitialRoute(compiled.config, compiled.registry),
@@ -863,14 +871,18 @@ class _OmniAppState extends State<OmniApp> {
     if (_ourFlutterOnError != null) return;
     _prevFlutterOnError = FlutterError.onError;
     FlutterError.onError = _ourFlutterOnError = (details) {
-      if (widget.maxBreadcrumbs > 0 && _router != null) {
+      final router = _router;
+      if (mounted &&
+          widget.maxBreadcrumbs > 0 &&
+          router != null &&
+          !router.isDisposed) {
         OmniRoute.recordBreadcrumbFor(
-          _router!,
+          router,
           OmniBreadcrumb(
             timestamp: DateTime.now(),
             category: 'error',
             message: details.exceptionAsString(),
-            routePath: _router?.state.routePath,
+            routePath: router.state.routePath,
           ),
         );
       }
@@ -883,14 +895,18 @@ class _OmniAppState extends State<OmniApp> {
     final dispatcher = PlatformDispatcher.instance;
     _prevPlatformOnError = dispatcher.onError;
     dispatcher.onError = _ourPlatformOnError = (error, stack) {
-      if (widget.maxBreadcrumbs > 0 && _router != null) {
+      final router = _router;
+      if (mounted &&
+          widget.maxBreadcrumbs > 0 &&
+          router != null &&
+          !router.isDisposed) {
         OmniRoute.recordBreadcrumbFor(
-          _router!,
+          router,
           OmniBreadcrumb(
             timestamp: DateTime.now(),
             category: 'error',
             message: error.toString(),
-            routePath: _router?.state.routePath,
+            routePath: router.state.routePath,
           ),
         );
       }

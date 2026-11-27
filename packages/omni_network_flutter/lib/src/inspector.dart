@@ -129,12 +129,16 @@ String _prettyJsonOrRaw(String raw) {
 /// One request as seen by the inspector. All data is already redacted by
 /// the client's `Redactor`.
 final class InspectorEntry {
-  InspectorEntry._(this.id, this.label, NetworkLogRecord request)
-    : method = request.method,
-      url = request.url,
-      requestHeaders = request.headers,
-      requestBody = request.body,
-      startedAt = DateTime.now();
+  InspectorEntry._(
+    this.id,
+    this.label,
+    NetworkLogRecord request, [
+    Redactor redactor = const Redactor(),
+  ]) : method = request.method,
+       url = redactor.text(request.url),
+       requestHeaders = redactor.headers(request.headers),
+       requestBody = request.body,
+       startedAt = DateTime.now();
 
   /// Unique within the inspector.
   final int id;
@@ -259,8 +263,12 @@ final class InspectorEntry {
 /// UI. Call [dispose] when done.
 final class OmniInspector extends ChangeNotifier implements LogSink {
   /// Creates an inspector.
-  OmniInspector({bool? enabled, this.maxEntries = 300, this.forwardTo})
-    : enabled = enabled ?? !kReleaseMode;
+  OmniInspector({
+    bool? enabled,
+    this.maxEntries = 300,
+    this.forwardTo,
+    this.redactor = const Redactor(),
+  }) : enabled = enabled ?? !kReleaseMode;
 
   /// Whether records are collected.
   final bool enabled;
@@ -270,6 +278,9 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
 
   /// Optional sink that also receives every record (e.g. `PrintLogSink`).
   final LogSink? forwardTo;
+
+  /// Defensive redactor applied to routes, WS URLs/messages, and AI previews.
+  final Redactor redactor;
 
   final ListQueue<InspectorEntry> _entries = ListQueue();
   final Map<(String, int), InspectorEntry> _open = {};
@@ -330,24 +341,27 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
     InspectorEntry? httpEntry,
   }) {
     if (!enabled || _disposed) return;
-    final resolvedCopy =
-        copyText ??
-        [
-          '[$tag] $title',
-          if (subtitle.isNotEmpty) subtitle,
-          if (copyBody != null && copyBody.isNotEmpty) copyBody,
-        ].join('\n');
+    final safeTitle = redactor.text(title);
+    final safeSubtitle = redactor.text(subtitle);
+    final safeCopyBody = copyBody == null ? null : redactor.text(copyBody);
+    final safeCopy = copyText != null
+        ? redactor.text(copyText)
+        : [
+            '[$tag] $safeTitle',
+            if (safeSubtitle.isNotEmpty) safeSubtitle,
+            if (safeCopyBody != null && safeCopyBody.isNotEmpty) safeCopyBody,
+          ].join('\n');
     _pushLog(
       InspectorLogEntry(
         id: _nextId++,
         kind: kind,
         tag: tag,
-        title: title,
-        subtitle: subtitle,
+        title: safeTitle,
+        subtitle: safeSubtitle,
         timestamp: DateTime.now(),
         duration: duration,
-        copyText: resolvedCopy,
-        copyBody: copyBody,
+        copyText: safeCopy,
+        copyBody: safeCopyBody,
         httpEntry: httpEntry,
       ),
     );
@@ -418,22 +432,28 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
   /// Records a single redacted WebSocket log event.
   void recordWsLog(WsLogRecord record) {
     if (!enabled || _disposed) return;
-    _wsEntries.addLast(record);
+    final safe = WsLogRecord(
+      uri: redactor.text(record.uri),
+      direction: record.direction,
+      summary: redactor.text(record.summary),
+      timestamp: record.timestamp,
+    );
+    _wsEntries.addLast(safe);
     while (_wsEntries.length > maxEntries) {
       _wsEntries.removeFirst();
     }
     _pushLog(
       InspectorLogEntry(
         id: _nextId++,
-        kind: record.direction == 'err'
+        kind: safe.direction == 'err'
             ? InspectorLogKind.error
             : InspectorLogKind.ws,
-        tag: record.direction == 'err' ? 'ws-error' : 'ws-${record.direction}',
-        title: '${record.direction.toUpperCase()} ${record.uri}',
-        subtitle: record.summary,
-        timestamp: record.timestamp,
-        copyText: '[WS ${record.direction}] ${record.uri}\n${record.summary}',
-        copyBody: _prettyJsonOrRaw(record.summary),
+        tag: safe.direction == 'err' ? 'ws-error' : 'ws-${safe.direction}',
+        title: '${safe.direction.toUpperCase()} ${safe.uri}',
+        subtitle: safe.summary,
+        timestamp: safe.timestamp,
+        copyText: '[WS ${safe.direction}] ${safe.uri}\n${safe.summary}',
+        copyBody: _prettyJsonOrRaw(safe.summary),
       ),
     );
     notifyListeners();
@@ -442,32 +462,42 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
   /// Records a single redacted AI call telemetry event.
   void recordAiCall(AiCallLogRecord record) {
     if (!enabled || _disposed) return;
-    _aiEntries.addLast(record);
+    final safe = AiCallLogRecord(
+      providerId: record.providerId,
+      model: record.model,
+      usage: record.usage,
+      latency: record.latency,
+      timestamp: record.timestamp,
+      promptPreview: record.promptPreview == null
+          ? null
+          : redactor.text(record.promptPreview!),
+      responsePreview: record.responsePreview == null
+          ? null
+          : redactor.text(record.responsePreview!),
+      error: record.error == null ? null : redactor.text(record.error!),
+      usedFallback: record.usedFallback,
+    );
+    _aiEntries.addLast(safe);
     while (_aiEntries.length > maxEntries) {
       _aiEntries.removeFirst();
     }
     _pushLog(
       InspectorLogEntry(
         id: _nextId++,
-        kind: record.error != null
-            ? InspectorLogKind.error
-            : InspectorLogKind.ai,
-        tag: record.error != null ? 'ai-error' : 'ai-response',
+        kind: safe.error != null ? InspectorLogKind.error : InspectorLogKind.ai,
+        tag: safe.error != null ? 'ai-error' : 'ai-response',
         title:
-            '${record.providerId}:${record.model} · ${record.usage.totalTokens} tok',
+            '${safe.providerId}:${safe.model} · ${safe.usage.totalTokens} tok',
         subtitle:
-            record.error ??
-            record.responsePreview ??
-            record.promptPreview ??
-            '',
+            safe.error ?? safe.responsePreview ?? safe.promptPreview ?? '',
         timestamp: DateTime.now(),
-        duration: record.latency,
+        duration: safe.latency,
         copyText:
-            '[AI ${record.providerId}:${record.model}]\n'
-            'Prompt: ${record.promptPreview ?? ''}\n'
-            'Response: ${record.responsePreview ?? ''}\n'
-            'Error: ${record.error ?? 'none'}',
-        copyBody: record.responsePreview,
+            '[AI ${safe.providerId}:${safe.model}]\n'
+            'Prompt: ${safe.promptPreview ?? ''}\n'
+            'Response: ${safe.responsePreview ?? ''}\n'
+            'Error: ${safe.error ?? 'none'}',
+        copyBody: safe.responsePreview,
       ),
     );
     notifyListeners();
@@ -527,7 +557,7 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
     final key = (label, r.requestId);
     switch (r.kind) {
       case NetworkLogKind.request:
-        final e = InspectorEntry._(_nextId++, label, r);
+        final e = InspectorEntry._(_nextId++, label, r, redactor);
         _open[key] = e;
         _entries.addLast(e);
         while (_entries.length > maxEntries) {
@@ -539,7 +569,7 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
             id: _nextId++,
             kind: InspectorLogKind.httpRequest,
             tag: 'http-request',
-            title: '${r.method} ${r.url}',
+            title: '${r.method} ${e.url}',
             subtitle: r.body != null ? 'Body: ${r.body}' : 'Request dispatched',
             timestamp: e.startedAt,
             copyText: e.formattedFullLog(),
@@ -552,7 +582,7 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
         if (e == null) return;
         e
           ..statusCode = r.statusCode
-          ..responseHeaders = r.headers
+          ..responseHeaders = redactor.headers(r.headers)
           ..responseBody = r.body
           ..duration = r.duration
           ..source = r.source;
@@ -586,8 +616,9 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
       case NetworkLogKind.error:
         final e = _open.remove(key);
         if (e == null) return;
+        final safeErr = r.error == null ? null : redactor.text(r.error!);
         e
-          ..error = r.error
+          ..error = safeErr
           ..duration = r.duration;
         _pushLog(
           InspectorLogEntry(
@@ -595,11 +626,11 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
             kind: InspectorLogKind.httpError,
             tag: 'http-error',
             title: '${e.method} ERROR · ${e.url}',
-            subtitle: r.error ?? 'Request failed',
+            subtitle: safeErr ?? 'Request failed',
             timestamp: DateTime.now(),
             duration: r.duration,
             copyText: e.formattedFullLog(),
-            copyBody: r.error,
+            copyBody: safeErr,
             httpEntry: e,
           ),
         );

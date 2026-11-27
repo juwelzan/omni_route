@@ -65,6 +65,13 @@ class _FnGuard extends OmniGuard {
   Stream<Object?>? refresh(BuildContext context) => _refresh?.call(context);
 }
 
+/// Internal sentinel thrown when the host widget unmounts while an async
+/// guard is in flight, preventing unauthorized navigation fall-through.
+@internal
+class GuardCancelledException implements Exception {
+  const GuardCancelledException();
+}
+
 /// Evaluates [guards] in order; the first non-null redirect wins.
 ///
 /// Stays completely synchronous whenever every guard returns synchronously,
@@ -74,26 +81,40 @@ class _FnGuard extends OmniGuard {
 FutureOr<String?> evaluateGuards(
   BuildContext context,
   OmniRouteState state,
-  List<OmniGuard> guards,
-) {
+  List<OmniGuard> guards, {
+  Duration? timeout,
+}) {
   if (guards.isEmpty) return null;
-  return _runGuards(context, state, guards, 0);
+  return _runGuards(context, state, guards, 0, timeout: timeout);
 }
 
 FutureOr<String?> _runGuards(
   BuildContext context,
   OmniRouteState state,
   List<OmniGuard> guards,
-  int index,
-) {
+  int index, {
+  Duration? timeout,
+}) {
   for (; index < guards.length; index++) {
-    final result = guards[index].redirect(context, state);
+    final guard = guards[index];
+    final result = guard.redirect(context, state);
     if (result is Future<String?>) {
+      final Future<String?> bounded = timeout == null
+          ? result
+          : result.timeout(
+              timeout,
+              onTimeout: () => throw TimeoutException(
+                'Guard ${guard.runtimeType} timed out after $timeout.',
+                timeout,
+              ),
+            );
       final next = index + 1;
-      return result.then((to) {
-        if (!context.mounted) return null;
+      return bounded.then((to) {
+        if (!context.mounted) {
+          throw const GuardCancelledException();
+        }
         return _acceptRedirect(to, state) ??
-            _runGuards(context, state, guards, next);
+            _runGuards(context, state, guards, next, timeout: timeout);
       });
     }
     final accepted = _acceptRedirect(result, state);
@@ -118,9 +139,21 @@ String? _acceptRedirect(String? to, OmniRouteState state) {
 }
 
 bool _sameLocation(String to, Uri current) {
-  final target = Uri.parse(to);
-  return target.path == current.path &&
-      (target.query.isEmpty || target.query == current.query);
+  final target = Uri.tryParse(to);
+  if (target == null) {
+    throw FormatException('Invalid redirect destination "$to"');
+  }
+  String normPath(String p) {
+    if (p.isEmpty || p == '/') return '/';
+    var out = p;
+    while (out.length > 1 && out.endsWith('/')) {
+      out = out.substring(0, out.length - 1);
+    }
+    return out;
+  }
+
+  return normPath(target.path) == normPath(current.path) &&
+      target.query == current.query;
 }
 
 /// Listens to guard refresh streams and triggers router re-evaluation.
@@ -149,7 +182,21 @@ class _GuardRefreshState extends State<GuardRefresh> {
     _subs = [
       for (final g in widget.guards)
         if (g.refresh(context) case final s?)
-          s.listen((_) => widget.notifier.ping()),
+          s.listen(
+            (_) => widget.notifier.ping(),
+            onError: (Object error, StackTrace stack) {
+              FlutterError.reportError(
+                FlutterErrorDetails(
+                  exception: error,
+                  stack: stack,
+                  library: 'omni_route',
+                  context: ErrorDescription(
+                    'while listening to ${g.runtimeType}.refresh()',
+                  ),
+                ),
+              );
+            },
+          ),
     ];
   }
 

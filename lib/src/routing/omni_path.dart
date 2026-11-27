@@ -3,14 +3,17 @@ import 'package:meta/meta.dart';
 import '../errors/omni_route_exception.dart';
 
 final RegExp _param = RegExp(r'^:[a-zA-Z_]\w*$');
+final RegExp _wildcard = RegExp(r'^\*(?:[a-zA-Z_]\w*)?$');
 final RegExp _static = RegExp(r'^[a-z0-9._~-]+$');
 final RegExp _titleSeparators = RegExp(r'[-_.]+');
 final RegExp _paramName = RegExp(r':\w+');
+final RegExp _wildcardName = RegExp(r'\*\w*');
 
-/// Validates a route path before it reaches go_router.
+/// Validates a route path before compiling routes.
 ///
 /// Top-level paths start with `/`; child paths must not. Static segments are
-/// lowercase URL-safe; parameters are `:name`. No `#`, `?`, empty segments,
+/// lowercase URL-safe; parameters are `:name`; trailing wildcards `*` or
+/// `*name` are allowed only as the final segment. No `#`, `?`, empty segments,
 /// trailing slash, or repeated parameter names.
 @internal
 void validateRoutePath(String path, {required bool topLevel}) {
@@ -43,11 +46,19 @@ void validateRoutePath(String path, {required bool topLevel}) {
 
   final segments = (topLevel ? path.substring(1) : path).split('/');
   final params = <String>{};
-  for (final s in segments) {
+  for (var i = 0; i < segments.length; i++) {
+    final s = segments[i];
     if (s.isEmpty) fail('empty segment ("//")');
     if (s.startsWith(':')) {
       if (!_param.hasMatch(s)) fail('bad parameter "$s"', 'Use ":name".');
       if (!params.add(s)) fail('parameter "$s" is repeated');
+    } else if (s.startsWith('*')) {
+      if (!_wildcard.hasMatch(s)) {
+        fail('bad wildcard "$s"', 'Use "*" or "*name".');
+      }
+      if (i != segments.length - 1) {
+        fail('wildcard "$s" must be the last segment');
+      }
     } else if (!_static.hasMatch(s)) {
       fail(
         'segment "$s" must be lowercase and URL-safe',
@@ -112,8 +123,8 @@ String defaultTitleFromRoutePath(String routePath) {
 void checkDuplicatePaths(Iterable<String> fullPaths) {
   final seen = <String>{};
   for (final p in fullPaths) {
-    // `/a/:id` and `/a/:slug` match the same URLs.
-    final shape = p.replaceAll(_paramName, ':');
+    // `/a/:id` and `/a/:slug` match the same URLs, as do `/f/*a` and `/f/*b`.
+    final shape = p.replaceAll(_paramName, ':').replaceAll(_wildcardName, '*');
     if (!seen.add(shape)) {
       throw OmniRouteException(
         OmniErrorCode.duplicateRoute,

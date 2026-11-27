@@ -142,6 +142,13 @@ class OmniBlocRegistry {
   void registerPageBlocs(Iterable<OmniBlocEntry> entries) {
     for (final p in entries) {
       _checkInferredBlocType(p.type);
+      if (p is OmniBloc && p.global) {
+        throw OmniRouteException(
+          OmniErrorCode.unsupportedConfiguration,
+          '${p.type} has global: true and cannot be declared inside a page or group.',
+          hint: 'Move it to `OmniApp(blocs: [...])`, and read it via `context.read<${p.type}>()`.',
+        );
+      }
       if (p.isOwned && isGlobal(p.type)) {
         throw OmniRouteException(
           OmniErrorCode.unsupportedConfiguration,

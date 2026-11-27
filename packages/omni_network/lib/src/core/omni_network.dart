@@ -47,6 +47,7 @@ import 'omni_metrics.dart';
 import 'omni_network_exception.dart';
 import 'omni_request.dart';
 import 'omni_response.dart';
+import 'release_mode.dart';
 import 'response_adapter.dart';
 
 part 'omni_network_advanced.dart';
@@ -128,7 +129,8 @@ final class OmniNetwork {
     Duration? receiveTimeout,
     String? proxy,
     bool allowProxyInRelease = false,
-    bool allowBadProxyCertificate = true,
+    bool allowBadProxyCertificate = false,
+    List<int>? trustedProxyCertificateBytes,
     List<String> pinnedSha256 = const [],
     bool enableHttp2 = false,
     List<int>? clientCertificateBytes,
@@ -167,6 +169,7 @@ final class OmniNetwork {
   }) {
     if (transport != null &&
         (proxy != null ||
+            trustedProxyCertificateBytes != null ||
             pinnedSha256.isNotEmpty ||
             enableHttp2 ||
             clientCertificateBytes != null ||
@@ -177,9 +180,9 @@ final class OmniNetwork {
             idleConnectionTimeout != null)) {
       throw ArgumentError(
         'Cannot combine a custom transport: with proxy:, pinnedSha256:, '
-        'enableHttp2:, mTLS, DNS, maxConnectionsPerHost:, or '
-        'idleConnectionTimeout:. Configure those on DioTransport.configured(...) '
-        'directly.',
+        'trustedProxyCertificateBytes:, enableHttp2:, mTLS, DNS, '
+        'maxConnectionsPerHost:, or idleConnectionTimeout:. Configure those '
+        'on DioTransport.configured(...) directly.',
       );
     }
 
@@ -190,6 +193,7 @@ final class OmniNetwork {
 
     final usesConfiguredDio =
         effectiveProxy != null ||
+        trustedProxyCertificateBytes != null ||
         pinnedSha256.isNotEmpty ||
         enableHttp2 ||
         clientCertificateBytes != null ||
@@ -209,6 +213,7 @@ final class OmniNetwork {
                 proxy: effectiveProxy,
                 pinnedSha256: pinnedSha256,
                 allowBadProxyCertificate: allowBadProxyCertificate,
+                trustedProxyCertificateBytes: trustedProxyCertificateBytes,
                 clientCertificateBytes: clientCertificateBytes,
                 clientPrivateKeyBytes: clientPrivateKeyBytes,
                 clientCertificatePassword: clientCertificatePassword,
@@ -228,6 +233,7 @@ final class OmniNetwork {
             proxy: effectiveProxy,
             pinnedSha256: pinnedSha256,
             allowBadProxyCertificate: allowBadProxyCertificate,
+            trustedProxyCertificateBytes: trustedProxyCertificateBytes,
             clientCertificateBytes: clientCertificateBytes,
             clientPrivateKeyBytes: clientPrivateKeyBytes,
             clientCertificatePassword: clientCertificatePassword,
@@ -236,7 +242,7 @@ final class OmniNetwork {
             maxConnectionsPerHost: maxConnectionsPerHost,
             idleConnectionTimeout: idleConnectionTimeout,
           )
-        : null;
+        : (transport is DioTransport ? transport.httpClientFactory : null);
 
     return OmniNetwork._(
       baseUrl: baseUrl,
@@ -844,7 +850,10 @@ final class OmniNetwork {
 
   /// Whether this is a release/product build. Tests may override it.
   @visibleForTesting
-  static bool isReleaseBuild = const bool.fromEnvironment('dart.vm.product');
+  static bool get isReleaseBuild => omniNetworkReleaseBuild;
+
+  @visibleForTesting
+  static set isReleaseBuild(bool value) => omniNetworkReleaseBuild = value;
 
   NetworkLogger? _logger;
   int _logSeq = 0;
@@ -1833,14 +1842,14 @@ final class OmniNetwork {
           final contentType = trimmed.startsWith('{') || trimmed.startsWith('[')
               ? 'application/json'
               : 'text/plain';
+          final safeSummary = isBody
+              ? (redactor.body(utf8.encode(summary), contentType) ?? summary)
+              : redactor.text(summary);
           _realtimeLogController.add(
             WsLogRecord(
               uri: safeTarget,
               direction: direction,
-              summary: isBody
-                  ? (redactor.body(utf8.encode(summary), contentType) ??
-                        summary)
-                  : summary,
+              summary: safeSummary,
               timestamp: DateTime.now(),
             ),
           );

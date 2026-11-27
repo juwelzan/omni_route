@@ -339,6 +339,7 @@ void main() {
         ),
         isFalse,
       );
+      expect(() => CertificatePinMatcher(const []), throwsArgumentError);
       expect(() => CertificatePinMatcher(['']), throwsArgumentError);
       expect(
         () => CertificatePinMatcher(['not-a-valid-pin']),

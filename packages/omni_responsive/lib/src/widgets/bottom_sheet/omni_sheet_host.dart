@@ -74,11 +74,59 @@ abstract class _SheetHost {
   /// Closes the sheet from code ([OmniSheetController.close]).
   void close(Object? result);
 
-  /// The detent the sheet now rests on (or moves to), smallest first.
+  /// The detent the sheet now rests on (or moves to), in caller order.
   void didChangeDetent(int index);
 
   /// The view registers itself so the host's controller can drive it.
   void attachView(_OmniSheetViewState? view);
+}
+
+/// Validates sheet configuration at runtime so invalid inputs fail early and
+/// consistently in both debug and release builds.
+void _validateSheetConfig({
+  required List<OmniSheetDetent> detents,
+  required int initialDetent,
+  int? dimFromDetent,
+  double? cornerRadius,
+  double? maxWidth,
+  OmniSheetMotion? motion,
+}) {
+  if (detents.isEmpty) {
+    throw ArgumentError.value(
+      detents,
+      'detents',
+      'A sheet needs at least one detent.',
+    );
+  }
+  for (var i = 0; i < detents.length; i++) {
+    detents[i]._validate(i);
+  }
+  if (detents.length > 1 && detents.any((d) => d._isContent)) {
+    throw ArgumentError.value(
+      detents,
+      'detents',
+      'OmniSheetDetent.content can only be used on its own.',
+    );
+  }
+  RangeError.checkValidIndex(initialDetent, detents, 'initialDetent');
+  if (dimFromDetent != null) {
+    RangeError.checkValidIndex(dimFromDetent, detents, 'dimFromDetent');
+  }
+  if (cornerRadius != null && (!cornerRadius.isFinite || cornerRadius < 0)) {
+    throw ArgumentError.value(
+      cornerRadius,
+      'cornerRadius',
+      'Corner radius must be finite and >= 0.',
+    );
+  }
+  if (maxWidth != null && (!maxWidth.isFinite || maxWidth <= 0)) {
+    throw ArgumentError.value(
+      maxWidth,
+      'maxWidth',
+      'Max width must be finite and > 0.',
+    );
+  }
+  motion?._validate();
 }
 
 /// Springs [presence] to [target], or jumps there with reduced motion.

@@ -464,6 +464,9 @@ final class OmniApiHub {
       proxy: _transportOverride == null ? env?.proxy : null,
       pinnedSha256: _transportOverride == null ? effectivePins : const [],
       allowBadProxyCertificate: config.allowBadProxyCertificate,
+      trustedProxyCertificateBytes: _transportOverride == null
+          ? config.trustedProxyCertificateBytes
+          : null,
       clientCertificateBytes: _transportOverride == null
           ? config.clientCertificateBytes
           : null,

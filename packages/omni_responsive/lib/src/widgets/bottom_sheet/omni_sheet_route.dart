@@ -53,6 +53,13 @@ Future<T?> showOmniBottomSheet<T>({
   String? semanticLabel,
   RouteSettings? settings,
 }) {
+  _validateSheetConfig(
+    detents: detents,
+    initialDetent: initialDetent,
+    cornerRadius: cornerRadius,
+    maxWidth: maxWidth,
+    motion: motion,
+  );
   final navigator = Navigator.of(context, rootNavigator: useRootNavigator);
   final resolved = style.resolve(_platformOf(context));
   return navigator.push(
@@ -119,14 +126,16 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
     String? barrierLabel,
     this.capturedThemes,
     super.settings,
-  }) : assert(detents.isNotEmpty, 'A sheet needs at least one detent.'),
-       assert(
-         detents.length == 1 || !detents.any((d) => d._isContent),
-         'OmniSheetDetent.content can only be used on its own.',
-       ),
-       assert(initialDetent >= 0 && initialDetent < detents.length),
-       _barrierColor = barrierColor,
-       _barrierLabel = barrierLabel;
+  }) : _barrierColor = barrierColor,
+       _barrierLabel = barrierLabel {
+    _validateSheetConfig(
+      detents: detents,
+      initialDetent: initialDetent,
+      cornerRadius: cornerRadius,
+      maxWidth: maxWidth,
+      motion: motion,
+    );
+  }
 
   /// Builds the sheet's content.
   final WidgetBuilder builder;

@@ -171,9 +171,9 @@ final class PrettyLogSink implements LogSink {
     level: Level.trace,
   );
 
-  // Insertion-ordered; bounded so a request whose result is never logged
-  // (e.g. a programming error thrown mid-call) cannot grow it forever.
-  final Map<int, NetworkLogRecord> _open = {};
+  // Insertion-ordered; keyed by (requestId, method, url) so shared sinks
+  // across clients do not collide, and bounded to prevent unbounded growth.
+  final Map<(int, String, String), NetworkLogRecord> _open = {};
   static const _maxOpen = 256;
 
   /// Requests waiting for their result (diagnostics/tests).
@@ -186,14 +186,15 @@ final class PrettyLogSink implements LogSink {
       _logSeparate(record);
       return;
     }
+    final key = (record.requestId, record.method, record.url);
     switch (record.kind) {
       case NetworkLogKind.request:
-        _open[record.requestId] = record;
+        _open[key] = record;
         while (_open.length > _maxOpen) {
           _open.remove(_open.keys.first);
         }
       case NetworkLogKind.response || NetworkLogKind.error:
-        final req = _open.remove(record.requestId);
+        final req = _open.remove(key);
         if (_printer case final printer?) {
           // Trailing newline: a blank line between blocks.
           printer('${format(req, record)}\n');
@@ -205,9 +206,11 @@ final class PrettyLogSink implements LogSink {
 
   static const _magenta = '38;5;171'; // http-request border / badge
 
-  void _emitLines(String block) {
+  void _emitLines(NetworkLogRecord record, String block) {
     if (_printer case final printer?) {
       printer('$block\n');
+    } else if (_customLogger) {
+      _out.log(levelOf(record), '\n$block');
     } else {
       // ignore: avoid_print
       block.split('\n').forEach(print);
@@ -246,9 +249,10 @@ final class PrettyLogSink implements LogSink {
 
   void _logSeparate(NetworkLogRecord record) {
     final now = formatDateTime(DateTime.now());
+    final key = (record.requestId, record.method, record.url);
     switch (record.kind) {
       case NetworkLogKind.request:
-        _open[record.requestId] = record;
+        _open[key] = record;
         while (_open.length > _maxOpen) {
           _open.remove(_open.keys.first);
         }
@@ -275,10 +279,10 @@ final class PrettyLogSink implements LogSink {
             ..._body(record.body!, highlight: true),
           ],
         ];
-        _emitLines(_renderBox(_magenta, rows, headerTimestamp: now));
+        _emitLines(record, _renderBox(_magenta, rows, headerTimestamp: now));
 
       case NetworkLogKind.response || NetworkLogKind.error:
-        final req = _open.remove(record.requestId);
+        final req = _open.remove(key);
         final took = formatDuration(record.duration);
         final method = req?.method ?? record.method;
         final url = req?.url ?? record.url;
@@ -339,12 +343,14 @@ final class PrettyLogSink implements LogSink {
               ..addAll(_headers('⇠ headers', record.headers));
           }
           _emitLines(
+            record,
             _renderBox(color, headerRows, headerTimestamp: '$now (+$took)'),
           );
 
           final resBody = options.responseBody ? record.body : null;
           if (resBody != null && resBody.trim().isNotEmpty) {
             _emitLines(
+              record,
               _renderBox(
                 color,
                 _body(resBody, highlight: true, fallbackColor: color),
@@ -357,7 +363,10 @@ final class PrettyLogSink implements LogSink {
             [('$method  $url', null)],
             [('Error: ${record.error ?? 'Connection failed'}', null)],
           ];
-          _emitLines(_renderBox(_red, rows, headerTimestamp: '$now (+$took)'));
+          _emitLines(
+            record,
+            _renderBox(_red, rows, headerTimestamp: '$now (+$took)'),
+          );
         }
     }
   }

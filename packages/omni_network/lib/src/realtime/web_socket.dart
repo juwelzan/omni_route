@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:web_socket_channel/web_socket_channel.dart';
 
+import '../log/redactor.dart';
 import 'ws_connect_web.dart' if (dart.library.io) 'ws_connect_io.dart';
 import 'ws_protocol.dart';
 
@@ -279,7 +280,7 @@ final class OmniWebSocket {
         failures = 0;
         _lastInboundAt = DateTime.now();
         _set(WebSocketState.open);
-        _logCallback?.call('open', '$connectUri');
+        _logCallback?.call('open', _wsRedactor.uri(connectUri));
         if (firstAuthFrame != null) {
           channel.sink.add(firstAuthFrame);
         }
@@ -314,7 +315,7 @@ final class OmniWebSocket {
         _channel = null;
         if (_closed) break;
         failures++;
-        _logCallback?.call('err', '$e');
+        _logCallback?.call('err', _wsRedactor.text('$e'));
       }
       if (maxReconnects case final max? when failures > max) {
         if (!_messages.isClosed) {
@@ -359,6 +360,8 @@ final class OmniWebSocket {
     });
     return c.future.whenComplete(t.cancel);
   }
+
+  static const _wsRedactor = Redactor();
 
   /// Sends a text or binary message. See the class docs for behaviour while
   /// disconnected.

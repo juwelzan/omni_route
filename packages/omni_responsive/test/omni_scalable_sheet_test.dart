@@ -332,4 +332,75 @@ void main() {
       expect(find.text('h=600'), findsOneWidget);
     },
   );
+
+  testWidgets('unsorted detents work with expand, collapse, dimFromDetent, and back button', (
+    t,
+  ) async {
+    final controller = OmniScalableSheetController();
+    addTearDown(controller.dispose);
+    final changes = <int>[];
+    await t.pumpWidget(
+      _page(
+        controller: controller,
+        detents: const [
+          OmniSheetDetent.large,
+          OmniSheetDetent.medium,
+          _peek,
+        ],
+        initialDetent: 0, // large
+        dimFromDetent: 1, // medium -> dims above medium
+        onDetentChanged: changes.add,
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(controller.detent.value, 0);
+    expect(_rect(t).top, 0);
+
+    // Back collapses to smallest detent (index 2 = _peek).
+    await t.binding.handlePopRoute();
+    await t.pumpAndSettle();
+    expect(controller.detent.value, 2);
+    expect(_rect(t).top, 600 - 140);
+
+    controller.expand();
+    await t.pumpAndSettle();
+    expect(controller.detent.value, 0);
+    expect(_rect(t).top, 0);
+
+    controller.collapse();
+    await t.pumpAndSettle();
+    expect(controller.detent.value, 2);
+    expect(_rect(t).top, 600 - 140);
+    expect(changes, [0, 2, 0, 2]);
+  });
+
+  testWidgets('dynamic detent changes remap active detent safely', (t) async {
+    final controller = OmniScalableSheetController();
+    addTearDown(controller.dispose);
+    final detents = ValueNotifier<List<OmniSheetDetent>>(const [
+      _peek,
+      OmniSheetDetent.large,
+    ]);
+    addTearDown(detents.dispose);
+
+    await t.pumpWidget(
+      ValueListenableBuilder<List<OmniSheetDetent>>(
+        valueListenable: detents,
+        builder: (_, list, _) => _page(
+          controller: controller,
+          detents: list,
+          initialDetent: 1, // large
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(controller.detent.value, 1);
+    expect(_rect(t).top, 0);
+
+    // Insert medium in the middle -> large moves to index 2.
+    detents.value = const [_peek, OmniSheetDetent.medium, OmniSheetDetent.large];
+    await t.pumpAndSettle();
+    expect(controller.detent.value, 2);
+    expect(_rect(t).top, 0);
+  });
 }

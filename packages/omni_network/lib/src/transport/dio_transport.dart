@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:meta/meta.dart';
 
 import '../core/cancel_signal.dart';
 import '../core/omni_network_exception.dart';
@@ -19,7 +20,11 @@ import 'transport.dart';
 /// and SHA-256 certificate pinning are handled cleanly at the transport layer.
 final class DioTransport implements ProgressReportingTransport {
   /// Creates a transport. Pass [dio] to customise the client or interceptors.
-  DioTransport({Dio? dio}) : _dio = dio ?? Dio();
+  DioTransport({Dio? dio})
+    : _dio = dio ?? Dio(),
+      _httpClientFactory = null;
+
+  DioTransport._(this._dio, this._httpClientFactory);
 
   /// Creates a configured [DioTransport] with built-in proxy, SSL certificate
   /// pinning ([pinnedSha256]), stage-specific timeouts, HTTP/2 multiplexing, or
@@ -31,7 +36,8 @@ final class DioTransport implements ProgressReportingTransport {
     Dio? dio,
     String? proxy,
     List<String> pinnedSha256 = const [],
-    bool allowBadProxyCertificate = true,
+    bool allowBadProxyCertificate = false,
+    List<int>? trustedProxyCertificateBytes,
     List<int>? clientCertificateBytes,
     List<int>? clientPrivateKeyBytes,
     String? clientCertificatePassword,
@@ -49,6 +55,7 @@ final class DioTransport implements ProgressReportingTransport {
     final hasAdapterConfig =
         proxy != null ||
         pinnedSha256.isNotEmpty ||
+        trustedProxyCertificateBytes != null ||
         clientCertificateBytes != null ||
         clientPrivateKeyBytes != null ||
         dnsOverHttps != null ||
@@ -65,6 +72,7 @@ final class DioTransport implements ProgressReportingTransport {
                 proxy: proxy,
                 pinnedSha256: pinnedSha256,
                 allowBadProxyCertificate: allowBadProxyCertificate,
+                trustedProxyCertificateBytes: trustedProxyCertificateBytes,
                 clientCertificateBytes: clientCertificateBytes,
                 clientPrivateKeyBytes: clientPrivateKeyBytes,
                 clientCertificatePassword: clientCertificatePassword,
@@ -76,6 +84,23 @@ final class DioTransport implements ProgressReportingTransport {
                 onHttpClientCreate: onHttpClientCreate,
               )
             : null);
+
+    final clientFactory = httpClientAdapter == null && hasAdapterConfig
+        ? buildConfiguredHttpClientFactory(
+            proxy: proxy,
+            pinnedSha256: pinnedSha256,
+            allowBadProxyCertificate: allowBadProxyCertificate,
+            trustedProxyCertificateBytes: trustedProxyCertificateBytes,
+            clientCertificateBytes: clientCertificateBytes,
+            clientPrivateKeyBytes: clientPrivateKeyBytes,
+            clientCertificatePassword: clientCertificatePassword,
+            dnsOverHttps: dnsOverHttps,
+            dnsLookup: dnsLookup,
+            maxConnectionsPerHost: maxConnectionsPerHost,
+            idleConnectionTimeout: idleConnectionTimeout,
+            onHttpClientCreate: onHttpClientCreate,
+          )
+        : null;
 
     final client = dio ?? Dio();
     if (connectTimeout != null) {
@@ -90,10 +115,16 @@ final class DioTransport implements ProgressReportingTransport {
     if (resolvedAdapter != null) {
       client.httpClientAdapter = resolvedAdapter;
     }
-    return DioTransport(dio: client);
+    return DioTransport._(client, clientFactory);
   }
 
   final Dio _dio;
+  final Object? Function()? _httpClientFactory;
+
+  /// Client factory configured for IO sockets (shared with WebSocket connections).
+  @internal
+  Object? Function()? get httpClientFactory => _httpClientFactory;
+
   final Set<CancelToken> _active = {};
 
   @override

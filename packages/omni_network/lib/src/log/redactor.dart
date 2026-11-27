@@ -166,7 +166,7 @@ final class Redactor {
     } else if (type.contains('x-www-form-urlencoded')) {
       text = form(utf8.decode(bytes, allowMalformed: true));
     } else if (_isTextualType(type)) {
-      text = utf8.decode(bytes, allowMalformed: true);
+      text = this.text(utf8.decode(bytes, allowMalformed: true));
     } else {
       final label = type.isEmpty ? 'unknown type' : type;
       return '<${bytes.length} bytes, $label, not shown>';
@@ -177,6 +177,52 @@ final class Redactor {
     }
     return text;
   }
+
+  /// Redacts URIs (query secrets / userInfo), `Bearer`/`Basic` tokens, and
+  /// `key=value` / `key: value` secrets embedded in arbitrary text.
+  String text(String input) {
+    if (input.isEmpty) return input;
+    var out = input.replaceAllMapped(_uriInTextPattern, (m) {
+      var raw = m.group(0)!;
+      var suffix = '';
+      while (raw.isNotEmpty && _trailingUriPunct.contains(raw[raw.length - 1])) {
+        suffix = raw[raw.length - 1] + suffix;
+        raw = raw.substring(0, raw.length - 1);
+      }
+      final parsed = Uri.tryParse(raw);
+      if (parsed == null || parsed.host.isEmpty) return m.group(0)!;
+      return '${uri(parsed)}$suffix';
+    });
+
+    out = out.replaceAllMapped(
+      _bearerPattern,
+      (m) => '${m.group(1)} $mask',
+    );
+
+    out = out.replaceAllMapped(_kvSecretPattern, (m) {
+      final prefix = m.group(1)!;
+      final key = m.group(2)!;
+      final sep = m.group(3)!;
+      if (!isSecretKey(key)) return m.group(0)!;
+      if (m.group(4) != null) return '$prefix$key$sep"$mask"';
+      if (m.group(5) != null) return "$prefix$key$sep'$mask'";
+      return '$prefix$key$sep$mask';
+    });
+    return out;
+  }
+
+  static final RegExp _uriInTextPattern = RegExp(
+    r'''(?:https?|wss?)://[^\s'"<>]+''',
+    caseSensitive: false,
+  );
+  static const _trailingUriPunct = {'.', ',', ';', ')', ']', '}'};
+  static final RegExp _bearerPattern = RegExp(
+    r'\b(Bearer|Basic)\s+[A-Za-z0-9\-._~+/]{6,}={0,2}',
+    caseSensitive: false,
+  );
+  static final RegExp _kvSecretPattern = RegExp(
+    r'''(^|[\s?&,{(\[])([A-Za-z0-9_.-]+)(\s*[:=]\s*)(?:"([^"\r\n]*)"|'([^'\r\n]*)'|([^\s&,;)}\]]+))''',
+  );
 
   static bool _isTextualType(String type) =>
       type.startsWith('text/') ||

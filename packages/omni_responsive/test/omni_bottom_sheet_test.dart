@@ -542,4 +542,182 @@ void main() {
     await t.pumpAndSettle();
     expect(_rect(t).bottom, 350);
   });
+
+  group('detent validation and mapping', () {
+    test('runtime validation rejects invalid configurations', () {
+      Widget dummy(BuildContext _) => const SizedBox();
+      expect(
+        () => OmniSheetRoute<void>(builder: dummy, detents: const []),
+        throwsArgumentError,
+      );
+      expect(
+        () => OmniSheetRoute<void>(
+          builder: dummy,
+          detents: const [OmniSheetDetent.content, OmniSheetDetent.medium],
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => OmniSheetRoute<void>(
+          builder: dummy,
+          detents: const [OmniSheetDetent.medium],
+          initialDetent: 1,
+        ),
+        throwsRangeError,
+      );
+      expect(
+        () => OmniSheetRoute<void>(
+          builder: dummy,
+          detents: const [OmniSheetDetent.medium],
+          initialDetent: -1,
+        ),
+        throwsRangeError,
+      );
+      expect(
+        () => OmniSheetRoute<void>(
+          builder: dummy,
+          detents: const [OmniSheetDetent.medium],
+          maxWidth: 0,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => OmniSheetRoute<void>(
+          builder: dummy,
+          detents: const [OmniSheetDetent.medium],
+          cornerRadius: -4,
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => OmniSheetDetent.fraction(0.5),
+        isNotNull,
+      );
+      expect(
+        () => showOmniBottomSheet<void>(
+          context: _ctx,
+          builder: dummy,
+          detents: const [],
+        ),
+        throwsArgumentError,
+      );
+    });
+
+    testWidgets(
+      'unsorted detents preserve caller initialDetent, detent ValueListenable, and snapTo',
+      (t) async {
+        await t.pumpWidget(_app());
+        showOmniBottomSheet<void>(
+          context: _ctx,
+          style: OmniSheetStyle.material,
+          showHandle: false,
+          detents: const [OmniSheetDetent.large, OmniSheetDetent.medium],
+          initialDetent: 0,
+          builder: (_) => const SizedBox.expand(key: _box),
+        );
+        await t.pumpAndSettle();
+        final sheet = OmniSheet.of(t.element(find.byKey(_box)));
+        expect(sheet.detentCount, 2);
+        expect(sheet.detent.value, 0);
+        expect(_rect(t).top, 0);
+
+        sheet.snapTo(1);
+        await t.pumpAndSettle();
+        expect(sheet.detent.value, 1);
+        expect(_rect(t).top, 300);
+
+        sheet.snapTo(0);
+        await t.pumpAndSettle();
+        expect(sheet.detent.value, 0);
+        expect(_rect(t).top, 0);
+
+        expect(() => sheet.snapTo(-1), throwsRangeError);
+        expect(() => sheet.snapTo(2), throwsRangeError);
+      },
+    );
+
+    testWidgets(
+      'duplicate and equal-height detents map deterministically and cycle skips duplicates',
+      (t) async {
+        await t.pumpWidget(_app());
+        showOmniBottomSheet<void>(
+          context: _ctx,
+          style: OmniSheetStyle.material,
+          detents: const [
+            OmniSheetDetent.height(200),
+            OmniSheetDetent.height(200),
+            OmniSheetDetent.fraction(0.3333333333), // ~200 on 600px height
+            OmniSheetDetent.large,
+          ],
+          initialDetent: 1,
+          builder: (_) => const SizedBox.expand(key: _box),
+        );
+        await t.pumpAndSettle();
+        final sheet = OmniSheet.of(t.element(find.byKey(_box)));
+        expect(sheet.detentCount, 4);
+        expect(sheet.detent.value, 1);
+        expect(_rect(t).height, closeTo(200, 1));
+
+        // Snapping to index 2 addresses the ~200px detent, not large!
+        sheet.snapTo(2);
+        await t.pumpAndSettle();
+        expect(sheet.detent.value, 2);
+        expect(_rect(t).height, closeTo(200, 1));
+
+        // Snapping to index 3 reaches large (600 minus 36 handle).
+        sheet.snapTo(3);
+        await t.pumpAndSettle();
+        expect(sheet.detent.value, 3);
+        expect(_rect(t).top, 36);
+      },
+    );
+
+    testWidgets(
+      'orientation / height change swaps detent order while keeping active detent',
+      (t) async {
+        final size = ValueNotifier(const Size(400, 800));
+        addTearDown(size.dispose);
+        late BuildContext innerCtx;
+        await t.pumpWidget(
+          ValueListenableBuilder<Size>(
+            valueListenable: size,
+            builder: (_, s, _) => MediaQuery(
+              data: MediaQueryData(size: s),
+              child: MaterialApp(
+                home: Builder(
+                  builder: (c) {
+                    innerCtx = c;
+                    return const Scaffold(body: SizedBox.expand());
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        // At 800px: height(360)=360, fraction(0.8)=640.
+        // At 400px: height(360)=360, fraction(0.8)=320 (swapped!).
+        showOmniBottomSheet<void>(
+          context: innerCtx,
+          style: OmniSheetStyle.material,
+          showHandle: false,
+          detents: const [
+            OmniSheetDetent.height(360),
+            OmniSheetDetent.fraction(0.8),
+          ],
+          initialDetent: 0,
+          builder: (_) => const SizedBox.expand(key: _box),
+        );
+        await t.pumpAndSettle();
+        final sheet = OmniSheet.of(t.element(find.byKey(_box)));
+        expect(sheet.detent.value, 0);
+        expect(_rect(t).height, 360);
+
+        // Rotate / resize to 400px tall (detents swap order).
+        size.value = const Size(800, 400);
+        await t.pumpAndSettle();
+        expect(sheet.detent.value, 0);
+        expect(_rect(t).height, 360, reason: 'kept height(360), did not jump to 320');
+      },
+    );
+  });
 }
