@@ -184,6 +184,8 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
   /// The 0–1 presence animation; dragging writes to it directly.
   AnimationController get _presence => controller!;
 
+  late final _RouteSheetHost<T> _host = _RouteSheetHost<T>(this);
+
   bool get _reduceMotion {
     final nav = navigator;
     return nav != null &&
@@ -225,32 +227,90 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
     );
   }
 
-  /// Springs the presence back to fully shown after a partial drag.
-  void _settlePresence(double velocity) {
-    if (_reduceMotion) {
-      _presence.value = 1;
-      return;
-    }
-    _presence.animateWith(
-      _settlingSpring(
-        effectiveMotion.spring,
-        _presence.value,
-        1,
-        velocity,
-        tolerance: const Tolerance(distance: 0.0008, velocity: 0.01),
-      ),
-    );
-  }
-
   @override
   Widget buildPage(
     BuildContext context,
     Animation<double> animation,
     Animation<double> secondaryAnimation,
   ) {
-    final view = _OmniSheetView<T>(route: this);
+    final view = _OmniSheetView(host: _host);
     return capturedThemes?.wrap(view) ?? view;
   }
+}
+
+/// Connects [OmniSheetRoute] to the shared sheet view.
+class _RouteSheetHost<T> implements _SheetHost {
+  _RouteSheetHost(this.route);
+
+  final OmniSheetRoute<T> route;
+
+  @override
+  late final _SheetConfig config = _SheetConfig(
+    builder: route.builder,
+    detents: route.detents,
+    initialDetent: route.initialDetent,
+    isDismissible: route.isDismissible,
+    enableDrag: route.enableDrag,
+    showHandle: route.showHandle,
+    backgroundColor: route.backgroundColor,
+    handleColor: route.handleColor,
+    cornerRadius: route.cornerRadius,
+    margin: route.margin,
+    maxWidth: route.maxWidth,
+    shadow: route.shadow,
+    useSafeArea: route.useSafeArea,
+    semanticLabel: route.semanticLabel,
+  );
+
+  @override
+  OmniSheetStyle get effectiveStyle => route.effectiveStyle;
+
+  @override
+  OmniSheetMotion get effectiveMotion => route.effectiveMotion;
+
+  @override
+  AnimationController get presence => route._presence;
+
+  @override
+  bool get reduceMotion => route._reduceMotion;
+
+  @override
+  bool get isModal => true;
+
+  @override
+  void settlePresence(double velocity) => _springPresence(
+    presence,
+    effectiveMotion,
+    1,
+    velocity,
+    reduceMotion: reduceMotion,
+  );
+
+  @override
+  Future<bool> dismiss(double velocity) async {
+    route._popVelocity = velocity;
+    await route.navigator?.maybePop<T>();
+    final gone = !(route.isActive && route.isCurrent);
+    if (!gone) route._popVelocity = null;
+    return gone;
+  }
+
+  @override
+  void close(Object? result) {
+    final nav = route.navigator;
+    if (nav == null || !route.isActive) return;
+    if (route.isCurrent) {
+      nav.pop<T>(result as T?);
+    } else {
+      nav.removeRoute(route, result as T?);
+    }
+  }
+
+  @override
+  void didChangeDetent(int index) {}
+
+  @override
+  void attachView(_OmniSheetViewState? view) {}
 }
 
 Color _defaultBarrierColor(BuildContext context, OmniSheetStyle style) {

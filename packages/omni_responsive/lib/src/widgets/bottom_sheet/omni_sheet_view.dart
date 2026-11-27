@@ -1,15 +1,17 @@
 part of 'omni_bottom_sheet.dart';
 
-class _OmniSheetView<T> extends StatefulWidget {
-  const _OmniSheetView({required this.route});
+/// The sheet itself — drag, detents, look — shared by the modal route and
+/// the in-page [OmniScalableSheet] through [_SheetHost].
+class _OmniSheetView extends StatefulWidget {
+  const _OmniSheetView({required this.host});
 
-  final OmniSheetRoute<T> route;
+  final _SheetHost host;
 
   @override
-  State<_OmniSheetView<T>> createState() => _OmniSheetViewState<T>();
+  State<_OmniSheetView> createState() => _OmniSheetViewState();
 }
 
-class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
+class _OmniSheetViewState extends State<_OmniSheetView>
     with SingleTickerProviderStateMixin
     implements OmniSheetController {
   late final AnimationController _extent = AnimationController.unbounded(
@@ -24,22 +26,45 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
   // Content built once; the sheet's own rebuilds (keyboard, rotation) reuse
   // it, so dragging and animating never rebuild what the developer wrote.
   Widget? _content;
+  WidgetBuilder? _contentBuilder;
   bool _cupertinoApp = false;
 
   // Finger position in sheet terms (px of visible sheet), unclamped.
   double _raw = 0;
   bool _dragging = false;
 
-  OmniSheetRoute<T> get _route => widget.route;
-  OmniSheetMotion get _motion => _route.effectiveMotion;
-  bool get _contentSized => _route.detents.first._isContent;
+  _SheetHost get _host => widget.host;
+  _SheetConfig get _config => _host.config;
+  AnimationController get _presence => _host.presence;
+  OmniSheetMotion get _motion => _host.effectiveMotion;
+  bool get _contentSized => _config.detents.first._isContent;
+  double get _available => _metrics.available;
 
-  int _sortedInitialIndex() {
-    final initial = _route.detents[_route.initialDetent];
-    if (initial._isContent) return 0;
-    // Heights are sorted ascending; fractions sort before or among fixed
-    // heights depending on the screen, so match after the first layout.
-    return _route.initialDetent;
+  // The given index (caller's order) is mapped to the smallest-first order
+  // at the first layout, once fractions and fixed heights can be compared.
+  int _sortedInitialIndex() => _config.detents[_config.initialDetent]._isContent
+      ? 0
+      : _config.initialDetent;
+
+  @override
+  void initState() {
+    super.initState();
+    _host.attachView(this);
+    // Publish the smallest-first index of the initial detent once known.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _detent.value = _metrics.index;
+      _host.didChangeDetent(_metrics.index);
+    });
+  }
+
+  @override
+  void didUpdateWidget(_OmniSheetView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.host, widget.host)) {
+      oldWidget.host.attachView(null);
+      widget.host.attachView(this);
+    }
   }
 
   @override
@@ -52,6 +77,7 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
 
   @override
   void dispose() {
+    _host.attachView(null);
     _extent.dispose();
     _detent.dispose();
     _scroll.dispose();
@@ -70,10 +96,10 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
   ValueListenable<int> get detent => _detent;
 
   @override
-  int get detentCount => _route.detents.length;
+  int get detentCount => _config.detents.length;
 
   @override
-  OmniSheetStyle get style => _route.effectiveStyle;
+  OmniSheetStyle get style => _host.effectiveStyle;
 
   @override
   ScrollController get scrollController => _scroll;
@@ -82,15 +108,7 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
   Future<void> snapTo(int index) => _snap(index, 0);
 
   @override
-  void close([Object? result]) {
-    final nav = _route.navigator;
-    if (nav == null || !_route.isActive) return;
-    if (_route.isCurrent) {
-      nav.pop<T>(result as T?);
-    } else {
-      nav.removeRoute(_route, result as T?);
-    }
-  }
+  void close([Object? result]) => _host.close(result);
 
   // ── Gestures ──────────────────────────────────────────────────────────────
 
@@ -101,11 +119,11 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
     _dragging = true;
     _metrics.settled = false;
     _extent.stop();
-    _route._presence.stop();
-    final presence = _route._presence.value;
+    _presence.stop();
+    final presence = _presence.value;
     final min = _heights.first, max = _heights.last;
     if (presence < 1) {
-      _raw = _route.isDismissible
+      _raw = _config.isDismissible
           ? presence * min
           : min - _rubberInverse((1 - presence) * min, min);
     } else if (_extent.value > max) {
@@ -130,12 +148,12 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
       extent = _raw;
     } else {
       extent = min;
-      presence = _route.isDismissible
+      presence = _config.isDismissible
           ? (_raw / min).clamp(0.001, 1.0)
           : 1 - _rubber(min - _raw, min) / min;
     }
     if (_extent.value != extent) _extent.value = extent;
-    if (_route._presence.value != presence) _route._presence.value = presence;
+    if (_presence.value != presence) _presence.value = presence;
   }
 
   /// [velocity] > 0 is a downward fling (px/s).
@@ -145,15 +163,16 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
     if (_heights.isEmpty) return;
     final min = _heights.first;
     final projected = _raw - velocity * 0.25;
-    final dismissible = _route.isDismissible;
+    final dismissible = _config.isDismissible;
 
-    if (_route._presence.value < 1) {
+    if (_presence.value < 1) {
       if (dismissible &&
           (velocity > _motion.dismissVelocity || projected < min / 2)) {
         _dismiss(velocity);
       } else {
-        _route._settlePresence(-velocity / min);
-        _snap(_metrics.index, 0);
+        // Pulled below the smallest detent: rest on the smallest.
+        _host.settlePresence(-velocity / min);
+        _snap(0, 0);
       }
       return;
     }
@@ -178,12 +197,10 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
 
   Future<void> _dismiss(double velocity) async {
     final base = math.max(_extent.value, 1.0);
-    _route._popVelocity = -velocity / base;
-    await _route.navigator?.maybePop<T>();
-    // Blocked by a PopScope (or a guard): spring back.
-    if (mounted && _route.isActive && _route.isCurrent) {
-      _route._popVelocity = null;
-      _route._settlePresence(0);
+    final gone = await _host.dismiss(-velocity / base);
+    // Refused (a PopScope, or the host keeps it): spring back.
+    if (!gone && mounted) {
+      _host.settlePresence(0);
       _snap(_metrics.index, 0);
     }
   }
@@ -192,10 +209,13 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
     if (_heights.isEmpty) return TickerFuture.complete();
     final i = index.clamp(0, _heights.length - 1);
     _metrics.index = i;
-    _detent.value = i;
+    if (_detent.value != i) {
+      _detent.value = i;
+      _host.didChangeDetent(i);
+    }
     _metrics.settled = false;
     final target = _heights[i];
-    if (_route._reduceMotion) {
+    if (_host.reduceMotion) {
       _extent.value = target;
       _metrics.settled = true;
       return TickerFuture.complete();
@@ -214,7 +234,7 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
   void _cycleDetent() {
     if (detentCount > 1) {
       _snap((_metrics.index + 1) % _heights.length, 0);
-    } else if (_route.isDismissible) {
+    } else if (_config.isDismissible) {
       close();
     }
   }
@@ -222,24 +242,21 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
   /// Whether a scroll view inside should move the sheet instead of its
   /// content for a drag of [delta] (> 0 = finger down).
   bool _takesScroll(double delta, ScrollPosition position) {
-    if (!_route.enableDrag || _heights.isEmpty) return false;
+    if (!_config.enableDrag || _heights.isEmpty) return false;
     if (_dragging) {
       // Keep the sheet until it is fully expanded again.
-      return delta > 0 || _route._presence.value < 1 || _raw < _heights.last;
+      return delta > 0 || _presence.value < 1 || _raw < _heights.last;
     }
     if (delta > 0) return position.pixels <= position.minScrollExtent;
-    return _route._presence.value < 1 || _extent.value < _heights.last - 0.5;
+    return _presence.value < 1 || _extent.value < _heights.last - 0.5;
   }
 
-  // ── Layout values ─────────────────────────────────────────────────────────
-
-  double _available = 0;
+  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
-    final route = _route;
-    final style = route.effectiveStyle;
-    final size = MediaQuery.sizeOf(context);
+    final route = _config;
+    final style = _host.effectiveStyle;
     final padding = MediaQuery.paddingOf(context);
     final insets = MediaQuery.viewInsetsOf(context);
     final fadeOnly = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
@@ -249,18 +266,16 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
         ? (route.margin ?? const EdgeInsets.all(10))
         : EdgeInsets.zero;
 
-    final topGap = switch (style) {
-      OmniSheetStyle.cupertino => (safe ? padding.top : 0) + 10,
-      OmniSheetStyle.floating => (safe ? padding.top : 0) + margin.top,
-      _ => safe ? padding.top : 0,
+    final double topGap = switch (style) {
+      OmniSheetStyle.cupertino => (safe ? padding.top : 0.0) + 10,
+      OmniSheetStyle.floating => (safe ? padding.top : 0.0) + margin.top,
+      _ => safe ? padding.top : 0.0,
     };
     final keyboard = insets.bottom;
     final safeBottom = safe && keyboard == 0 ? padding.bottom : 0.0;
     final bottomGap = floating
         ? keyboard + math.max(margin.bottom, safeBottom + margin.bottom * 0.5)
         : keyboard;
-    _available = math.max(0, size.height - topGap - bottomGap);
-
     final look = _SheetLook.resolve(context, style, route, _cupertinoApp);
     final radius = Radius.circular(
       route.cornerRadius ??
@@ -276,7 +291,13 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
           : BorderRadius.vertical(top: radius),
     );
 
-    Widget content = _content ??= Builder(builder: route.builder);
+    // Built once per builder: drags and animations never rebuild it; a new
+    // builder (the in-page sheet's parent rebuilt) does.
+    if (!identical(_contentBuilder, route.builder)) {
+      _contentBuilder = route.builder;
+      _content = Builder(builder: route.builder);
+    }
+    Widget content = _content!;
     if (look.cupertinoText) {
       content = DefaultTextStyle.merge(
         style: CupertinoTheme.of(context).textTheme.textStyle,
@@ -357,19 +378,20 @@ class _OmniSheetViewState<T> extends State<_OmniSheetView<T>>
     return _OmniSheetScope(
       controller: this,
       child: Semantics(
-        scopesRoute: true,
-        namesRoute: true,
+        scopesRoute: _host.isModal,
+        namesRoute: _host.isModal,
+        container: true,
         explicitChildNodes: true,
         label:
             route.semanticLabel ??
             _localizations(context)?.bottomSheetLabel ??
             'Sheet',
         child: _SheetLayout(
-          presence: route._presence,
+          presence: _presence,
           extent: _extent,
           metrics: _metrics,
           detents: route.detents,
-          available: _available,
+          topGap: topGap,
           bottomGap: bottomGap,
           maxWidth: route.maxWidth ?? (floating ? 560 : 640),
           horizontalMargin: math.max(margin.left, margin.right),

@@ -3,7 +3,7 @@ part of 'omni_bottom_sheet.dart';
 class _SheetScrollController extends ScrollController {
   _SheetScrollController(this.sheet);
 
-  final _OmniSheetViewState<dynamic> sheet;
+  final _OmniSheetViewState sheet;
 
   @override
   ScrollPosition createScrollPosition(
@@ -32,7 +32,7 @@ class _SheetScrollPosition extends ScrollPositionWithSingleContext {
     super.debugLabel,
   });
 
-  final _OmniSheetViewState<dynamic> sheet;
+  final _OmniSheetViewState sheet;
   bool _driving = false;
 
   @override
@@ -53,8 +53,7 @@ class _SheetScrollPosition extends ScrollPositionWithSingleContext {
     if (_driving) {
       _driving = false;
       final expanded =
-          sheet._route._presence.value >= 1 &&
-          sheet._raw >= sheet._heights.last;
+          sheet._presence.value >= 1 && sheet._raw >= sheet._heights.last;
       if (expanded) {
         // The sheet is fully up: the content keeps its fling.
         sheet._dragEnd(0);

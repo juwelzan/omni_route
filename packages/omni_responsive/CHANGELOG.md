@@ -48,6 +48,15 @@
   `OmniSheet.of(context)` (`snapTo`, `close`, `detent`). Works in
   `MaterialApp` and `CupertinoApp`; opening, closing and dragging only
   repaint. See `doc/bottom_sheet.bn.md`.
+- New `OmniScalableSheet`: a resizable sheet on the page (Maps-style) in
+  every `OmniSheetStyle`, opening at `initialDetent` and resting only on its
+  detents (smallest = minimum, largest = maximum, rubber-band past both),
+  with optional page dimming (`dimFromDetent`), back-button collapse, hide /
+  show, and `OmniScalableSheetController` (`snapTo`, `expand`, `collapse`,
+  `detent`, `isShown`, per-frame `height`). It shares the modal sheet's
+  engine.
+- Bottom sheets: releasing a non-dismissible sheet dragged below its
+  smallest detent now rests on the smallest one.
 
 **Text size**
 - New app-wide text size: `OmniTextSize` (small / medium / large / extra

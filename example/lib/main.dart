@@ -225,7 +225,16 @@ class ExampleApp extends StatelessWidget {
                   const SettingsScreen(),
                   routes: [
                     OmniPage.screen(const ProfileScreen(), path: 'profile'),
-                    OmniPage.screen(const SheetsDemoScreen(), path: 'sheets'),
+                    OmniPage.screen(
+                      const SheetsDemoScreen(),
+                      path: 'sheets',
+                      routes: [
+                        OmniPage.screen(
+                          const ScalableSheetDemoScreen(),
+                          path: 'scalable',
+                        ),
+                      ],
+                    ),
                   ],
                 ),
               ],

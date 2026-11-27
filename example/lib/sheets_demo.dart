@@ -156,6 +156,12 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
                   onTap: _openCustom,
                 ),
                 _DemoTile(
+                  icon: Icons.map_outlined,
+                  title: 'Scalable sheet on a page',
+                  subtitle: 'Opens at medium · peek / medium / large · dims',
+                  onTap: () => context.to<ScalableSheetDemoScreen>(),
+                ),
+                _DemoTile(
                   icon: Icons.lock_outline,
                   title: 'Not dismissible',
                   subtitle: 'Only its button closes it',
@@ -363,5 +369,152 @@ class _CustomContent extends StatelessWidget {
         ),
       ],
     ),
+  );
+}
+
+/// `OmniScalableSheet` on a page (`/settings/sheets/scalable`): opens at
+/// medium, rests on peek / medium / large, dims the page above medium.
+class ScalableSheetDemoScreen extends OmniStatefulWidget {
+  /// Creates the demo.
+  const ScalableSheetDemoScreen({super.key});
+
+  @override
+  String get routePath => '/settings/sheets/scalable';
+
+  @override
+  String get title => 'Scalable Sheet';
+
+  @override
+  State<ScalableSheetDemoScreen> createState() =>
+      _ScalableSheetDemoScreenState();
+}
+
+class _ScalableSheetDemoScreenState extends OmniState<ScalableSheetDemoScreen> {
+  final _sheet = OmniScalableSheetController();
+  OmniSheetStyle _style = OmniSheetStyle.adaptive;
+
+  @override
+  void dispose() {
+    _sheet.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(screenTitle),
+      actions: [
+        PopupMenuButton<OmniSheetStyle>(
+          tooltip: 'Style',
+          icon: const Icon(Icons.style_outlined),
+          initialValue: _style,
+          onSelected: (s) => setState(() => _style = s),
+          itemBuilder: (_) => [
+            for (final s in OmniSheetStyle.values)
+              PopupMenuItem(value: s, child: Text(s.name)),
+          ],
+        ),
+      ],
+    ),
+    body: OmniScalableSheet(
+      // A new style is a new sheet (it opens again at its initial size).
+      key: ValueKey(_style),
+      controller: _sheet,
+      style: _style,
+      detents: const [
+        OmniSheetDetent.height(150), // peek
+        OmniSheetDetent.medium,
+        OmniSheetDetent.large,
+      ],
+      initialDetent: 1, // opens at medium
+      dimFromDetent: 1, // the map dims as it grows past medium
+      body: _FakeMap(sheet: _sheet),
+      builder: (context) => _PlacesList(sheet: _sheet),
+    ),
+  );
+}
+
+class _FakeMap extends StatelessWidget {
+  const _FakeMap({required this.sheet});
+
+  final OmniScalableSheetController sheet;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [c.secondaryBackgroundColor, c.infoBackgroundColor],
+            ),
+          ),
+        ),
+        for (final (x, y) in const [(0.2, 0.15), (0.7, 0.3), (0.45, 0.5)])
+          Align(
+            alignment: Alignment(x * 2 - 1, y * 2 - 1),
+            child: Icon(Icons.location_on, size: 40, color: c.primaryColor),
+          ),
+        // Rides above the sheet without rebuilding the page.
+        AnimatedBuilder(
+          animation: sheet.height,
+          builder: (context, child) => Positioned(
+            right: 16,
+            bottom: sheet.height.value + 16,
+            child: child!,
+          ),
+          child: FloatingActionButton.small(
+            heroTag: null,
+            tooltip: 'Show places',
+            onPressed: sheet.expand,
+            child: const Icon(Icons.list),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PlacesList extends StatelessWidget {
+  const _PlacesList({required this.sheet});
+
+  final OmniScalableSheetController sheet;
+
+  @override
+  Widget build(BuildContext context) => Column(
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 8, 4),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text('Places nearby', style: context.textStyles.title),
+            ),
+            ValueListenableBuilder<int>(
+              valueListenable: sheet.detent,
+              builder: (context, detent, _) => TextButton(
+                onPressed: detent == 2 ? sheet.collapse : sheet.expand,
+                child: Text(detent == 2 ? 'Collapse' : 'Expand'),
+              ),
+            ),
+          ],
+        ),
+      ),
+      Expanded(
+        child: ListView.builder(
+          controller: OmniSheet.of(context).scrollController,
+          itemCount: 30,
+          itemBuilder: (context, i) => ListTile(
+            leading: const Icon(Icons.place_outlined),
+            title: Text('Place #${i + 1}'),
+            subtitle: Text('${(i + 1) * 120} m away'),
+          ),
+        ),
+      ),
+    ],
   );
 }

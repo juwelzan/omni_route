@@ -8,6 +8,10 @@ class _SheetMetrics {
 
   int index;
   List<double> heights = const [];
+
+  /// Height the sheet may grow to (below the top gap, above the bottom
+  /// gap); written at layout.
+  double available = 0;
   bool ready = false;
   bool settled = true;
 }
@@ -18,7 +22,7 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
     required this.extent,
     required this.metrics,
     required this.detents,
-    required this.available,
+    required this.topGap,
     required this.bottomGap,
     required this.maxWidth,
     required this.horizontalMargin,
@@ -31,7 +35,7 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
   final AnimationController extent;
   final _SheetMetrics metrics;
   final List<OmniSheetDetent> detents;
-  final double available;
+  final double topGap;
   final double bottomGap;
   final double maxWidth;
   final double horizontalMargin;
@@ -44,7 +48,7 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
     extent: extent,
     metrics: metrics,
     detents: detents,
-    available: available,
+    topGap: topGap,
     bottomGap: bottomGap,
     maxWidth: maxWidth,
     horizontalMargin: horizontalMargin,
@@ -56,7 +60,7 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
   void updateRenderObject(BuildContext context, _RenderSheet renderObject) {
     renderObject
       ..detents = detents
-      ..available = available
+      ..topGap = topGap
       ..bottomGap = bottomGap
       ..maxWidth = maxWidth
       ..horizontalMargin = horizontalMargin
@@ -76,7 +80,7 @@ class _RenderSheet extends RenderBox
     required AnimationController extent,
     required _SheetMetrics metrics,
     required List<OmniSheetDetent> detents,
-    required double available,
+    required double topGap,
     required double bottomGap,
     required double maxWidth,
     required double horizontalMargin,
@@ -86,7 +90,7 @@ class _RenderSheet extends RenderBox
        _extent = extent,
        _metrics = metrics,
        _detents = detents,
-       _available = available,
+       _topGap = topGap,
        _bottomGap = bottomGap,
        _maxWidth = maxWidth,
        _horizontalMargin = horizontalMargin,
@@ -105,18 +109,20 @@ class _RenderSheet extends RenderBox
     markNeedsLayout();
   }
 
-  double _available;
-  set available(double v) {
-    if (v == _available) return;
-    _available = v;
+  double _topGap;
+  set topGap(double v) {
+    if (v == _topGap) return;
+    _topGap = v;
     markNeedsLayout();
   }
+
+  double get _available => _metrics.available;
 
   double _bottomGap;
   set bottomGap(double v) {
     if (v == _bottomGap) return;
     _bottomGap = v;
-    markNeedsPaint();
+    markNeedsLayout();
   }
 
   double _maxWidth;
@@ -206,6 +212,7 @@ class _RenderSheet extends RenderBox
   void performLayout() {
     final child = this.child;
     if (child == null) return;
+    _metrics.available = math.max(0, size.height - _topGap - _bottomGap);
     final width = math.max(
       0.0,
       math.min(size.width - _horizontalMargin * 2, _maxWidth),

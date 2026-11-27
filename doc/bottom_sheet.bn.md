@@ -118,3 +118,68 @@ const OmniSheetMotion(response: 0.38, dampingRatio: 0.85, rubberBand: true, dism
 - স্প্রিং ঠিক জায়গায় এসে থামে, তারপর আর কোনো frame চলে না।
 - কিবোর্ড খুললে শিট কিবোর্ডের ওপরে ওঠে।
 - সিস্টেমে "Reduce motion" চালু থাকলে স্লাইড না করে শুধু ফেড হয়।
+
+---
+
+# স্কেলেবল শিট — পেজের ওপর থাকা শিট (`OmniScalableSheet`)
+
+Maps বা Music অ্যাপের মতো: শিট পেজের ওপরেই থাকে, পেছনের পেজ ব্যবহার করা যায়। টেনে ছোট-বড় করা যায়,
+নির্দিষ্ট সাইজগুলোতে গিয়ে আটকে থাকে, আর প্রথমবার খোলার সময় নির্দিষ্ট সাইজে খোলে। চারটি স্টাইলেই
+(`floating`-সহ) কাজ করে।
+
+```dart
+final sheet = OmniScalableSheetController();   // ঐচ্ছিক; dispose() করবেন
+
+Scaffold(
+  appBar: AppBar(title: const Text('Map')),
+  body: OmniScalableSheet(
+    controller: sheet,
+    style: OmniSheetStyle.floating,          // adaptive · material · cupertino · floating
+    detents: const [
+      OmniSheetDetent.height(150),           // সবচেয়ে ছোট = নিচের সীমা
+      OmniSheetDetent.medium,
+      OmniSheetDetent.large,                 // সবচেয়ে বড় = ওপরের সীমা
+    ],
+    initialDetent: 1,                        // প্রথমবার মাঝারি সাইজে খুলবে
+    dimFromDetent: 1,                        // মাঝারির পর বড় হলে পেছনের পেজ ধীরে ধীরে কালচে
+    body: const MapView(),
+    builder: (context) => ListView(...),     // ভেতরের লিস্ট টেনেও শিট বড়-ছোট হয়
+  ),
+)
+```
+
+- **আটকে থাকা:** আঙুল ছাড়লে গতি দেখে কাছের সাইজে spring করে থামে। সবচেয়ে ছোটটির নিচে বা সবচেয়ে বড়টির
+  ওপরে যায় না — টানলে রাবারের মতো একটু প্রসারিত হয়ে ফিরে আসে।
+- **প্রথম খোলা:** `initialDetent` সাইজে নিচ থেকে স্লাইড করে ওঠে; `animateOnOpen: false` দিলে প্রথম
+  frame-এই জায়গামতো থাকে।
+- **পেছনের পেজ:** শিটের বাইরে ট্যাপ সরাসরি পেজে যায়। `dimFromDetent` দিলে সেই সাইজের পর পেজ কালচে হয় এবং
+  তখন পেজে ট্যাপ করলে শিট আবার ছোট হয়।
+- **Back বাটন:** বড় অবস্থায় Back চাপলে আগে শিট ছোট হয় (`collapseOnBack`, ডিফল্ট চালু)।
+- **লুকানো:** `isDismissible: true` দিলে সবচেয়ে ছোটটির নিচে টানলে শিট লুকায় (`onDismissed`);
+  `sheet.show()` দিয়ে ফেরত আনুন। কোড থেকে `sheet.hide()` সবসময় কাজ করে।
+
+### কন্ট্রোলার
+
+```dart
+sheet.snapTo(2);        // সূচক ছোট থেকে বড় ক্রমে
+sheet.expand();         // সবচেয়ে বড়
+sheet.collapse();       // সবচেয়ে ছোট
+sheet.detent;           // ValueListenable<int>
+sheet.isShown;          // ValueListenable<bool>
+sheet.height;           // ValueListenable<double> — প্রতি frame-এ দৃশ্যমান উচ্চতা
+
+// শিটের ঠিক ওপরে ভাসমান বাটন (পেজ রিবিল্ড ছাড়াই সাথে সাথে চলে)
+AnimatedBuilder(
+  animation: sheet.height,
+  builder: (context, child) =>
+      Positioned(right: 16, bottom: sheet.height.value + 16, child: child!),
+  child: FloatingActionButton(onPressed: sheet.expand, child: const Icon(Icons.list)),
+)
+```
+
+শিটের ভেতর থেকে `OmniSheet.of(context)` (`snapTo`, `close` = লুকানো, `detent`, `scrollController`)
+একইভাবে কাজ করে।
+
+রঙ, কোণ, মার্জিন, শ্যাডো, হ্যান্ডেল, `motion`, `onDetentChanged` — modal শিটের মতোই সব বদলানো যায়।
+Modal শিট ও স্কেলেবল শিট একই ইঞ্জিন ব্যবহার করে, তাই ড্র্যাগ, স্প্রিং ও পারফরম্যান্স (শুধু রিপেইন্ট,
+কনটেন্ট একবার build) দুটোতেই এক।

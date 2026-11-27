@@ -58,6 +58,8 @@ void main() {
     expect(find.text('New note'), findsNothing);
 
     // Not dismissible: a barrier tap keeps it, its button closes it.
+    await t.ensureVisible(find.text('Not dismissible'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Not dismissible'));
     await t.pumpAndSettle();
     await t.tapAt(const Offset(400, 20));
@@ -68,11 +70,51 @@ void main() {
     expect(find.text('Terms updated'), findsNothing);
 
     // Custom look opens and closes from the barrier.
+    await t.ensureVisible(find.text('Custom look'));
+    await t.pumpAndSettle();
     await t.tap(find.text('Custom look'));
     await t.pumpAndSettle();
     expect(find.text('Premium unlocked'), findsOneWidget);
     await t.tapAt(const Offset(400, 20));
     await t.pumpAndSettle();
     expect(find.text('Premium unlocked'), findsNothing);
+  });
+
+  testWidgets('scalable sheet demo: opens at medium, expands, styles', (
+    t,
+  ) async {
+    await t.pumpWidget(
+      OmniApp(
+        routes: [OmniPage.screen(const ScalableSheetDemoScreen())],
+        initialRoute: '/settings/sheets/scalable',
+        builder: (_, router) => MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await t.pumpAndSettle();
+    final mediumTop = t.getTopLeft(find.text('Places nearby')).dy;
+    expect(find.text('Expand'), findsOneWidget);
+
+    // The FAB rides above the sheet and expands it.
+    final fabAtMedium = t.getCenter(find.byTooltip('Show places')).dy;
+    await t.tap(find.byTooltip('Show places'));
+    await t.pumpAndSettle();
+    expect(t.getTopLeft(find.text('Places nearby')).dy, lessThan(mediumTop));
+    expect(find.text('Collapse'), findsOneWidget);
+
+    await t.tap(find.text('Collapse'));
+    await t.pumpAndSettle();
+    expect(
+      t.getCenter(find.byTooltip('Show places')).dy,
+      greaterThan(fabAtMedium),
+      reason: 'the button follows the sheet down to the peek size',
+    );
+
+    // Switching style re-creates the sheet at its initial (medium) size.
+    await t.tap(find.byTooltip('Style'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('floating'));
+    await t.pumpAndSettle();
+    expect(find.text('Places nearby'), findsOneWidget);
+    expect(find.text('Expand'), findsOneWidget);
   });
 }

@@ -142,6 +142,8 @@ export 'src/omni_text_scale.dart'
 export 'src/omni_theme_override.dart' show OmniThemeOverride;
 export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'
     show
+        OmniScalableSheet,
+        OmniScalableSheetController,
         OmniSheet,
         OmniSheetController,
         OmniSheetDetent,

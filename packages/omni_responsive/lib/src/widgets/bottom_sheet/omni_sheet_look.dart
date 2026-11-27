@@ -10,7 +10,7 @@ class _SheetLook {
   static _SheetLook resolve(
     BuildContext context,
     OmniSheetStyle style,
-    OmniSheetRoute<dynamic> route,
+    _SheetConfig route,
     bool cupertinoApp,
   ) {
     final omni = Theme.of(context).extension<OmniColors>();
