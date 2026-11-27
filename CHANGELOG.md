@@ -1,6 +1,19 @@
-## Unreleased
+## 0.5.0 — Unreleased
 
-No API changes.
+**Breaking: packages split** — see [doc/migration.md](doc/migration.md).
+
+- `omni_route` no longer depends on or re-exports `omni_network`,
+  `omni_network_flutter`, `omni_network_ws`, `dio`, `web_socket_channel` or
+  `flutter_secure_storage`. Add them only when you use them;
+  `flutter_secure_storage` was the one native plugin every app paid for.
+- `package:omni_route/network.dart` and `advanced.dart` are removed;
+  `testing.dart` no longer exports network mocks.
+- Responsive layout, themes, theme transitions, fields, system UI and
+  localization moved to the new `omni_responsive` package. `omni_route`
+  depends on it and re-exports it, so existing imports keep working.
+- New `OmniResponsiveApp` (in `omni_responsive`): the same theme / locale /
+  system-UI / text-scaling stack as `OmniApp`, around any `MaterialApp`, for
+  apps that route with something else.
 
 - Text fields rebuild only when what they show changes (clear button,
   suggestions, strength meter), not on every cursor move or IME update.
@@ -13,8 +26,6 @@ No API changes.
 - State restoration looks shells up by id from a one-time index.
 - Recovered errors (storage unavailable, malformed restoration data) are
   logged to DevTools in debug builds instead of being swallowed silently.
-- `omni_network*` dependencies use version constraints instead of `path:`
-  (the workspace still resolves them locally).
 
 ## 0.3.1
 

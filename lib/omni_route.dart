@@ -1,20 +1,18 @@
-/// OmniRoute: all-in-one Flutter plugin providing fast Trie routing, Bloc
-/// scoping, onboarding & auth flows with auto local persistence, networking
-/// (HTTP/WebSocket/SSE/AI), in-app inspector UI, secure storage, and native OS
-/// utilities across Android, iOS, Web, macOS, Windows, and Linux.
+/// OmniRoute: fast Trie routing, Bloc scoping, guards, onboarding & auth
+/// flows with local persistence, and native OS utilities across Android,
+/// iOS, Web, macOS, Windows, and Linux.
 ///
-/// Just depend on `omni_route` and import `package:omni_route/omni_route.dart`
-/// — no separate `flutter_bloc`, `omni_network`, `omni_network_flutter`, or
-/// storage packages required in your app's `pubspec.yaml`.
+/// Also re-exports `flutter_bloc`, `shared_preferences` and `omni_responsive`
+/// (themes, responsive layout, fields, localization — built into `OmniApp`).
+///
+/// Networking is a separate package: add `omni_network` (and optionally
+/// `omni_network_flutter` for the inspector and secure token storage) to
+/// your `pubspec.yaml` only when you need it.
 library;
 
-// ── State Management (flutter_bloc) ─────────────────────────────────────────
+// ── State Management, Persistence & Responsive UI ───────────────────────────
 export 'package:flutter_bloc/flutter_bloc.dart';
-export 'package:flutter_secure_storage/flutter_secure_storage.dart';
-
-// ── Core Networking & Flutter Network Tools ─────────────────────────────────
-export 'package:omni_network/omni_network.dart';
-export 'package:omni_network_flutter/omni_network_flutter.dart';
+export 'package:omni_responsive/omni_responsive.dart';
 export 'package:shared_preferences/shared_preferences.dart';
 
 // ── Routing, Blocs, Flows & Local Persistence ───────────────────────────────
@@ -75,126 +73,6 @@ export 'src/screens/omni_screen_host.dart' show OmniScreenHost;
 export 'src/screens/omni_stateful_widget.dart';
 export 'src/screens/omni_stateless_widget.dart';
 
-// ── Responsive Engine ───────────────────────────────────────────────────────
-export 'src/responsive/omni_adaptive_extras.dart'
-    show OmniBreadcrumbBar, OmniPrefetch, OmniResponsiveSliverGrid;
-export 'src/responsive/omni_adaptive_shell.dart'
-    show OmniAdaptiveDestination, OmniAdaptiveShellScaffold;
-export 'src/responsive/omni_responsive_config.dart'
-    show
-        OmniDeviceType,
-        OmniResponsiveConfig,
-        OmniResponsiveTokenSet,
-        OmniResponsiveTokens,
-        OmniWindowSize;
-export 'src/responsive/omni_responsive_extensions.dart';
-export 'src/responsive/omni_responsive_scope.dart'
-    show OmniResponsiveData, OmniResponsiveScope;
-export 'src/responsive/omni_responsive_widgets.dart'
-    show
-        OmniGap,
-        OmniResponsiveBuilder,
-        OmniResponsiveColumns,
-        OmniResponsiveContainer,
-        OmniResponsiveGrid,
-        OmniResponsiveLayout,
-        OmniResponsivePadding,
-        OmniResponsiveRowColumn,
-        OmniResponsiveVisibility,
-        OmniResponsiveWidgetBuilder;
-export 'src/responsive/omni_split_view.dart'
-    show
-        OmniDetailBuilder,
-        OmniFoldableSplit,
-        OmniMasterBuilder,
-        OmniMasterDetail,
-        OmniMasterDetailController;
-export 'src/responsive/omni_colors.dart'
-    show OmniColorPalette, OmniColors, OmniColorsContext;
-export 'src/responsive/omni_status_bar.dart' show OmniStatusBarStyle;
-export 'src/responsive/omni_styles.dart'
-    show
-        OmniInputVariant,
-        OmniStyles,
-        OmniStylesContext,
-        OmniTextStyles,
-        OmniThemeStyle,
-        OmniUiTheme;
-export 'src/responsive/omni_system_navigation_bar.dart'
-    show OmniSystemNavigationBarStyle;
-export 'src/responsive/omni_system_ui.dart'
-    show
-        OmniFullscreenButton,
-        OmniOrientation,
-        OmniScreenMode,
-        OmniSystemUi,
-        OmniSystemUiContext,
-        OmniSystemUiController,
-        OmniSystemUiScope;
-export 'src/responsive/omni_theme.dart'
-    show
-        OmniResponsiveThemeHost,
-        OmniTheme,
-        OmniThemeAnimationPicker,
-        OmniThemeButton,
-        OmniThemeContext,
-        OmniThemeController,
-        OmniThemeCustomizer,
-        OmniThemeModeButton,
-        OmniThemeModeSwitch,
-        OmniThemePanel,
-        OmniThemePicker,
-        OmniThemePickerLayout,
-        OmniThemeScope,
-        OmniThemeSelection,
-        OmniThemeSettingsTile,
-        OmniThemeStylePicker,
-        showOmniThemeSheet;
-export 'src/responsive/omni_theme_transition.dart'
-    show OmniThemeAnimation, OmniThemeAnimationMode, OmniThemeTransition;
-export 'src/responsive/omni_fields.dart'
-    show
-        OmniCountryDialCode,
-        OmniEmailField,
-        OmniFieldIdentity,
-        OmniFieldLabelMode,
-        OmniFieldStyle,
-        OmniFieldTheme,
-        OmniFieldThemeScope,
-        OmniMultilineField,
-        OmniNameField,
-        OmniNumberField,
-        OmniOtpAnimationType,
-        OmniOtpBoxStyle,
-        OmniOtpErrorAnimation,
-        OmniOtpField,
-        OmniOtpStatus,
-        OmniOtpVerifiedAnimation,
-        OmniOtpWarningAnimation,
-        OmniPasswordField,
-        OmniPhoneField,
-        OmniPinTheme,
-        OmniSearchField,
-        OmniTextField,
-        OmniUrlField,
-        OmniValidators;
-export 'src/responsive/omni_localization.dart'
-    show
-        OmniCountryCode,
-        OmniFallbackCupertinoLocalizationsDelegate,
-        OmniFallbackMaterialLocalizationsDelegate,
-        OmniFallbackWidgetsLocalizationsDelegate,
-        OmniL10nScope,
-        OmniLang,
-        OmniLanguage,
-        OmniLanguageButton,
-        OmniLanguagePicker,
-        OmniLanguagePickerLayout,
-        OmniLanguageTile,
-        OmniLocaleController,
-        OmniLocaleState,
-        OmniLocalization,
-        OmniLocalizationHost,
-        OmniText,
-        OmniTextContext,
-        showOmniLanguageSheet;
+// ── Route-aware widgets ─────────────────────────────────────────────────────
+export 'src/routing/omni_route_widgets.dart'
+    show OmniBreadcrumbBar, OmniPrefetch;

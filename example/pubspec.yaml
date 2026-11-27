@@ -37,16 +37,6 @@ dependencies:
     path: ../
   cupertino_icons: ^1.0.8
 
-# The omni_network packages live in this repo's workspace; use the local
-# copies here (the published omni_route depends on their pub.dev versions).
-dependency_overrides:
-  omni_network:
-    path: ../packages/omni_network
-  omni_network_flutter:
-    path: ../packages/omni_network_flutter
-  omni_network_ws:
-    path: ../packages/omni_network_ws
-
 dev_dependencies:
   flutter_test:
     sdk: flutter

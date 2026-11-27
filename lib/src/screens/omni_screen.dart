@@ -4,9 +4,7 @@ import 'package:meta/meta.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../core/omni_route.dart';
-import '../responsive/omni_status_bar.dart';
-import '../responsive/omni_system_navigation_bar.dart';
-import '../responsive/omni_system_ui.dart';
+import 'package:omni_responsive/omni_responsive.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_path.dart';
 import '../routing/omni_trie.dart';

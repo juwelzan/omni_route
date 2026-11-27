@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../guards/omni_guard.dart';
-import '../responsive/omni_adaptive_shell.dart';
+import 'package:omni_responsive/omni_responsive.dart';
 import 'omni_route_state.dart';
 
 /// Builds a shared shell layout around child routes.

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:omni_route/omni_route.dart';
+import 'package:omni_responsive/omni_responsive.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test('theme: a change made during hydrate is not overwritten', () async {

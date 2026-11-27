@@ -1,6 +1,6 @@
 name: omni_route
-description: "All-in-one Flutter plugin for routing, transitions, Bloc scoping, onboarding persistence, networking, and native utilities."
-version: 0.4.0
+description: "Flutter routing with a Trie router, transitions, Bloc scoping, guards, onboarding persistence, and native utilities."
+version: 0.5.0
 repository: https://github.com/juwelzan/omni_route
 homepage: https://github.com/juwelzan/omni_route
 issue_tracker: https://github.com/juwelzan/omni_route/issues
@@ -10,7 +10,7 @@ topics:
   - navigation
   - routing
   - bloc
-  - networking
+  - responsive
   - plugin
 
 platforms:
@@ -26,6 +26,7 @@ environment:
   flutter: ">=3.44.0"
 
 workspace:
+  - packages/omni_responsive
   - packages/omni_network
   - packages/omni_network_flutter
   - packages/omni_network_ws
@@ -61,13 +62,9 @@ dependencies:
   flutter_bloc: ^9.1.1
   logger: ^2.8.0
   shared_preferences: ^2.5.4
-  flutter_secure_storage: ^11.2.0
-  dio: ^5.11.1
-  web_socket_channel: ^3.0.3
+  omni_responsive:
+    path: packages/omni_responsive
   web: ">=0.5.1 <2.0.0"
-  omni_network: ^0.1.1
-  omni_network_flutter: ^0.1.0
-  omni_network_ws: ^0.1.0
 
 dev_dependencies:
   flutter_test:

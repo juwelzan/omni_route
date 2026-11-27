@@ -1,7 +1,6 @@
-/// Test helpers bundled inside the `omni_route` plugin (network mock
-/// utilities from `omni_network/testing.dart` + `SharedPreferences` mock
-/// support + custom `OmniRoutePlatform` overrides).
+/// Test helpers for `omni_route`: everything in `omni_route.dart` plus
+/// custom `OmniRoutePlatform` overrides. For network mocks import
+/// `package:omni_network/testing.dart`.
 library;
 
-export 'package:omni_network/testing.dart';
 export 'omni_route.dart';

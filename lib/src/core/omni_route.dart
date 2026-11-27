@@ -9,7 +9,7 @@ import 'package:logger/logger.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../errors/omni_route_exception.dart';
-import '../responsive/omni_responsive_scope.dart';
+import 'package:omni_responsive/omni_responsive.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_params.dart';
 import '../routing/omni_route_registry.dart';

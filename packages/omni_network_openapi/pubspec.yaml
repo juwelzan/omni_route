@@ -20,4 +20,5 @@ dependencies:
 dev_dependencies:
   lints: ^6.1.0
   test: ^1.25.0
-  omni_network: ^0.1.1
+  omni_network:
+    path: ../omni_network

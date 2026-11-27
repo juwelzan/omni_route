@@ -47,25 +47,34 @@
 
 ---
 
-## ১. ইনস্টলেশন (All-in-One Flutter Plugin)
+## ১. ইনস্টলেশন — শুধু যা দরকার
 
-`omni_route` এখন একটি **All-in-One Flutter Plugin** (Android, iOS, macOS, Linux, Windows, Web)। শুধু এটি যোগ করলেই `flutter_bloc`, `omni_network`, `omni_network_flutter`, `shared_preferences`, `flutter_secure_storage` এবং নেটিভ `OmniNative` সব **অটো ইনস্টল** হয়ে যায় — আলাদা কোনো প্যাকেজ বা মাইগ্রেশন দরকার হয় না:
+প্যাকেজগুলো আলাদা। যেটা লাগবে শুধু সেটাই `pubspec.yaml`-এ যোগ করুন:
+
+| Package | কী দেয় | কখন লাগবে |
+|---|---|---|
+| `omni_route` | Routing, transition, Bloc scope, guard, onboarding, native utility — সাথে `omni_responsive` | রাউটিং চাইলে |
+| `omni_responsive` | Responsive layout, theme (অ্যানিমেশনসহ), form field, system UI, localization | একা ব্যবহার করতে চাইলে (`omni_route`-এ এটা আগে থেকেই আছে) |
+| `omni_network` | HTTP, auth, cache, retry, upload (pure Dart) | API call করলে — [§২১](#২১-omninetwork--api-call-http-auth-cache-upload) |
+| `omni_network_flutter` | নিরাপদ token storage, in-app inspector | Flutter-এ token রাখলে |
 
 ```yaml
 dependencies:
   omni_route:
     git:
       url: https://github.com/juwelzan/omni_route.git
-      ref: v0.4.0          # release tag — নতুন version এলে শুধু এটা বদলান
+      ref: v0.5.0          # release tag — নতুন version এলে শুধু এটা বদলান
 ```
 
-প্রয়োজন: Dart ≥ 3.12, Flutter ≥ 3.44 (`go_router` বা বাড়তি কোনো প্লাগিনের আর প্রয়োজন নেই)।
+প্রয়োজন: Dart ≥ 3.12, Flutter ≥ 3.44।
 
 ```dart
-import 'package:omni_route/omni_route.dart'; // Routing, Bloc, Network, Inspector, Native সব এক ইমপোর্টেই!
+import 'package:omni_route/omni_route.dart'; // Routing, Bloc, Responsive, Theme, Native
 ```
 
-> অ্যাডভান্সড নেটওয়ার্ক/ক্যাশ/অফলাইন কিউয়ের জন্য `package:omni_route/advanced.dart` এবং মক টেস্টের জন্য `package:omni_route/testing.dart` ব্যবহার করতে পারেন।
+> `omni_route` আর networking বা `flutter_secure_storage` সাথে আনে না। দরকার হলে `omni_network` যোগ করে `package:omni_network/omni_network.dart` import করুন। মক টেস্টের জন্য `package:omni_network/testing.dart`। 0.4 থেকে আপগ্রেড: [doc/migration.md](doc/migration.md)।
+
+> **App size নিয়ে:** release build-এ Flutter অব্যবহৃত Dart কোড tree-shake করে ফেলে, তাই pure-Dart প্যাকেজ (যেমন dio) ব্যবহার না করলে সেটা app-এ ঢোকে না। আকার বাড়ায় মূলত **native plugin** (যেমন `flutter_secure_storage`) — তাই সেগুলো এখন ঐচ্ছিক।
 
 ---
 
@@ -1332,7 +1341,7 @@ OmniNetwork হলো এই repo-র **আলাদা** networking package —
 
 > অবস্থা: pub.dev-এ publish হয়নি — নিচের মতো `git` দিয়ে যোগ করুন।
 
-একই GitHub repo-র `packages/` ফোল্ডার থেকে, প্রতিটা package-এর নিজের release tag দিয়ে:
+একই GitHub repo-র `packages/` ফোল্ডার থেকে। শুধু HTTP দরকার হলে:
 
 ```yaml
 dependencies:
@@ -1340,24 +1349,34 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network
-      ref: omni_network-v0.1.1
-  omni_network_flutter:          # Flutter অ্যাপে (ঐচ্ছিক)
+      ref: v0.5.0
+```
+
+Flutter extras (secure token storage, inspector) বা WebSocket/SSE লাগলে `omni_network` আলাদা করে লিখবেন **না** — এগুলোর সাথেই আসে:
+
+```yaml
+dependencies:
+  omni_network_flutter:          # secure token storage, inspector
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_flutter
-      ref: omni_network_flutter-v0.1.0
+      ref: v0.5.0
   omni_network_ws:               # WebSocket / SSE (ঐচ্ছিক)
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_ws
-      ref: omni_network_ws-v0.1.0
+      ref: v0.5.0
 dev_dependencies:
   omni_network_openapi:          # code generator (ঐচ্ছিক)
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_openapi
-      ref: omni_network_openapi-v0.1.0
+      ref: v0.5.0
 ```
+
+> **`git:` install-এর দুটো নিয়ম** (pub.dev-এ publish হওয়ার আগ পর্যন্ত):
+> 1. এই repo-র সব package-এ **একই `ref`** দিন। আলাদা tag দিলে `pub get` "version solving failed" দেয়, কারণ `omni_network`-এর দুটো আলাদা কপি চলে আসে।
+> 2. `omni_network_flutter` / `omni_network_ws` থাকলে `omni_network` নিজে লিখবেন না, আর `omni_route` থাকলে `omni_responsive` লিখবেন না। এগুলো সাথেই আসে, আর নিজে লিখলে একই কারণে conflict হয়।
 
 ```dart
 import 'package:omni_network/omni_network.dart';          // সাধারণ ব্যবহার
@@ -2008,6 +2027,8 @@ model (`fromJson`/`toJson`), enum আর typed `Endpoint` তৈরি হয়
 - **সহজ কনফিগ প্রিসেট:** `OmniResponsiveConfig()` (স্ট্যান্ডার্ড), `.phoneFriendly()` (ল্যান্ডস্কেপ ফোনেও মোবাইল), `.desktopDense()` (`900dp` থেকে ডেস্কটপ), `.disabled()`।
 - **অ্যাডাপ্টিভ শেল ও মোডাল:** `OmniStatefulShell.adaptive(...)` (Bottom NavigationBar ↔ Compact Rail ↔ Extended Rail) ও `OmniPages.adaptiveModal(...)` (মোবাইলে BottomSheet ↔ বড় স্ক্রিনে Dialog)।
 - **এন্টারপ্রাইজ স্প্লিট, থিম ও গার্ড:** `OmniMasterDetail` (মাস্টার লিস্টে ০ রি-বিল্ড), `OmniFoldableSplit` (ফোল্ডেবল হিঞ্জ-সেফ), `OmniApp.material(omniTheme: OmniTheme(...))` (মেমোইজড থিম), `OmniResponsiveSliverGrid` (ভার্চুয়ালাইজড স্লিভার), `OmniBreadcrumbBar`, `OmniPrefetch` / `OmniPage(onPrefetch:)`, `OmniPage(validateParams:)` (ডিপ-লিংক ক্র্যাশ সুরক্ষা), `OmniConfig(gate: OmniAppGate(...))` (Maintenance/Update), এবং `OmniRoute.exportDiagnostics()` / বাউন্ডেড `OmniRoute.breadcrumbs`।
+
+`omni_route` ছাড়া (go_router বা নিজের navigation-এর সাথে) ব্যবহার করতে `omni_responsive` যোগ করে `OmniResponsiveApp` দিয়ে `MaterialApp` মোড়ান — দেখুন [packages/omni_responsive/README.md](packages/omni_responsive/README.md)।
 
 বিস্তারিত উদাহরণ, ব্রেকপয়েন্ট, টোকেন ও সব উইজেটের পূর্ণাঙ্গ গাইড দেখুন: [doc/responsive.bn.md](doc/responsive.bn.md) · [doc/guide.bn.md — ১৪. Responsive Handling](doc/guide.bn.md#১৪-জিরো-ল্যাগ-responsive-handling--omniresponsiveconfig-ও-অ্যাডাপ্টিভ-শেলমোডাল)।
 

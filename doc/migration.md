@@ -1,3 +1,17 @@
+# Migrating from 0.4 to 0.5
+
+The package was split so apps install only what they use.
+
+| Was (0.4) | Now (0.5) | What to do |
+|---|---|---|
+| `omni_route` exported `omni_network`, `omni_network_flutter` and `flutter_secure_storage` | not exported, not depended on | add `omni_network` (and `omni_network_flutter` for `SecureTokenStorage` / inspector) to `pubspec.yaml`, then `import 'package:omni_network/omni_network.dart';` (and `package:omni_network_flutter/omni_network_flutter.dart`) |
+| `package:omni_route/network.dart` | removed | import the `omni_network` packages directly |
+| `package:omni_route/advanced.dart` | removed | `import 'package:omni_network/advanced.dart';` |
+| `package:omni_route/testing.dart` exported network mocks | exports only `omni_route` | `import 'package:omni_network/testing.dart';` for `OmniMock` / `MockTransport` |
+| responsive, theme, fields, localization lived in `omni_route` | moved to the `omni_responsive` package | nothing — `omni_route.dart` re-exports it; to use them **without** `omni_route`, depend on `omni_responsive` and wrap your app in `OmniResponsiveApp` |
+
+Routing, Bloc, theme and responsive APIs are unchanged.
+
 # Migrating from 0.1 to 0.2
 
 0.2 adds features and fixes bugs. No public API was removed or renamed, and

@@ -13,7 +13,7 @@ import 'omni_styles.dart';
 import 'omni_system_navigation_bar.dart';
 import 'omni_system_ui.dart';
 import 'omni_theme_transition.dart';
-import '../core/omni_debug_report.dart';
+import 'omni_debug_report.dart';
 
 /// বর্তমান সক্রিয় থিম কনফিগার করার জন্য কাস্টম হুক (প্রতি ডিভাইস টিয়ারে একবার
 /// চলে ও ফল মেমোইজড থাকে)।

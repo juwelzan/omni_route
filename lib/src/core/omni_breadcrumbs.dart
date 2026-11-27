@@ -2,7 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
-import '../responsive/omni_responsive_config.dart';
+import 'package:omni_responsive/omni_responsive.dart';
 
 /// Immutable telemetry breadcrumb stored in a bounded ring buffer for crash
 /// diagnostics without runtime listeners or UI rebuilds.

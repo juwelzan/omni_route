@@ -37,6 +37,10 @@ jobs:
         working-directory: example
         run: flutter test
 
+      - name: Test omni_responsive
+        working-directory: packages/omni_responsive
+        run: flutter test
+
       - name: Test omni_network
         working-directory: packages/omni_network
         run: flutter test
@@ -59,7 +63,7 @@ jobs:
         continue-on-error: true
         run: |
           status=0
-          for dir in . packages/omni_network packages/omni_network_flutter \
+          for dir in . packages/omni_responsive packages/omni_network packages/omni_network_flutter \
                      packages/omni_network_ws packages/omni_network_openapi; do
             echo "::group::$dir"
             (cd "$dir" && dart pub publish --dry-run) || status=1

@@ -4,7 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../core/omni_debug_report.dart';
+import 'omni_debug_report.dart';
 
 /// বিশ্বের প্রধান দেশসমূহের টাইপ-সেইফ ISO-3166 কান্ট্রি কোড ইনাম (`OmniCountryCode`)।
 ///

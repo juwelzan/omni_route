@@ -7,9 +7,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
 import '../guards/omni_guard.dart';
-import '../responsive/omni_localization.dart';
-import '../responsive/omni_responsive_config.dart';
-import '../responsive/omni_responsive_scope.dart';
+import 'package:omni_responsive/integration.dart';
+import 'package:omni_responsive/omni_responsive.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
@@ -23,11 +22,6 @@ import 'omni_log.dart';
 import 'omni_route.dart';
 import 'omni_route_entry.dart';
 import 'omni_router.dart';
-import '../responsive/omni_status_bar.dart';
-import '../responsive/omni_system_navigation_bar.dart';
-import '../responsive/omni_system_ui.dart';
-import '../responsive/omni_theme.dart';
-import '../responsive/omni_theme_transition.dart';
 
 /// Builds your app widget (`MaterialApp.router`, `CupertinoApp.router`, etc.)
 /// around the [OmniRouter] created by [OmniApp].

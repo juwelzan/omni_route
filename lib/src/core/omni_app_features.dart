@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../guards/omni_guard.dart';
-import '../responsive/omni_responsive_scope.dart';
-import '../responsive/omni_theme.dart';
+import 'package:omni_responsive/integration.dart';
+import 'package:omni_responsive/omni_responsive.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_trie.dart';

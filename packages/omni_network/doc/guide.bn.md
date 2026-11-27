@@ -45,7 +45,7 @@ UI state, offline queue, test, আর OmniRoute-এর সাথে জোড়
 
 ## ১. Install
 
-pub.dev-এ এখনো publish হয়নি, তাই GitHub tag দিয়ে যোগ করুন:
+pub.dev-এ এখনো publish হয়নি, তাই GitHub tag দিয়ে যোগ করুন। শুধু HTTP:
 
 ```yaml
 dependencies:
@@ -53,35 +53,34 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network
-      ref: omni_network-v0.1.1
+      ref: v0.5.0
+```
 
-  # ঐচ্ছিক — Flutter অ্যাপে secure token storage আর inspector
-  omni_network_flutter:
+Flutter অ্যাপে secure token storage / inspector বা WebSocket লাগলে `omni_network` আলাদা লিখবেন না — এগুলোর সাথেই আসে:
+
+```yaml
+dependencies:
+  omni_network_flutter:          # secure token storage, inspector
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_flutter
-      ref: omni_network_flutter-v0.1.0
-
-  # ঐচ্ছিক — WebSocket / Server-Sent Events
-  omni_network_ws:
+      ref: v0.5.0
+  omni_network_ws:               # WebSocket / Server-Sent Events (ঐচ্ছিক)
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_ws
-      ref: omni_network_ws-v0.1.0
+      ref: v0.5.0
 
 dev_dependencies:
-  # ঐচ্ছিক — OpenAPI spec থেকে model আর endpoint তৈরি
-  omni_network_openapi:
+  omni_network_openapi:          # OpenAPI spec থেকে model আর endpoint (ঐচ্ছিক)
     git:
       url: https://github.com/juwelzan/omni_route.git
       path: packages/omni_network_openapi
-      ref: omni_network_openapi-v0.1.0
+      ref: v0.5.0
 ```
 
-> **খেয়াল রাখুন:** `omni_network_flutter` আর `omni_network_ws`-এর `v0.1.0` tag নিজের
-> ভিতরে `omni_network 0.1.0` ব্যবহার করে। এগুলো একসাথে নিলে pub একটা মাত্র
-> `omni_network` বেছে নেবে; conflict দেখালে `dependency_overrides`-এ `omni_network`-কে
-> `omni_network-v0.1.1` tag-এ রাখুন।
+> **খেয়াল রাখুন:** সব package-এ **একই `ref`** দিন। আলাদা tag দিলে প্রতিটা package নিজের
+> ভিতরের `omni_network`-এর আলাদা কপি আনে, আর `pub get` "version solving failed" দেয়।
 
 তিনটা import আছে — যেটা দরকার সেটাই নিন:
 

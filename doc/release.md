@@ -104,8 +104,11 @@ lower for the network packages means replacing private named parameters.
 
 ## Known dry-run errors
 
-- `omni_network_flutter` and `omni_network_ws` depend on `omni_network`
+- `omni_route` depends on `omni_responsive`, and `omni_network_flutter`,
+  `omni_network_ws` and `omni_network_openapi` depend on `omni_network`,
   with `path:`. pub.dev rejects that, but it is what makes the `git:`
-  install work. Switch them to a hosted constraint (`omni_network: ^0.1.0`)
-  in the same release that first publishes `omni_network` to pub.dev.
+  install work. Switch them to hosted constraints (`omni_network: ^0.1.0`,
+  `omni_responsive: ^0.1.0`) in the same release that first publishes
+  those packages to pub.dev (publish `omni_responsive` and `omni_network`
+  first).
 - All packages have `publish_to: none` until the first pub.dev release.

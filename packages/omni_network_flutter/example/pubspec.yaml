@@ -9,7 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  omni_network: ^0.1.1
+  omni_network:
+    path: ../../omni_network
   omni_network_flutter:
     path: ..
 
@@ -18,8 +19,3 @@ dev_dependencies:
     sdk: flutter
   flutter_secure_storage: ^11.2.0
   flutter_lints: ^6.0.0
-
-# omni_network_flutter depends on the hosted omni_network; use the local copy.
-dependency_overrides:
-  omni_network:
-    path: ../../omni_network
