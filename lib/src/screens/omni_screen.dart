@@ -180,7 +180,16 @@ mixin OmniScreen on Widget {
 }
 
 /// Throws if [screen]'s `routePath` is empty or invalid.
+///
+/// Runs on every screen build, so paths that passed once are remembered and
+/// skipped (a few distinct strings per app).
 @internal
 void validateScreen(OmniScreen screen) {
-  validateScreenRoutePath(screen.routePath);
+  final path = screen.routePath;
+  if (_validScreenPaths.contains(path)) return;
+  validateScreenRoutePath(path);
+  if (_validScreenPaths.length >= 512) _validScreenPaths.clear();
+  _validScreenPaths.add(path);
 }
+
+final Set<String> _validScreenPaths = <String>{};

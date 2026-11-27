@@ -28,6 +28,19 @@
   logged to DevTools in debug builds instead of being swallowed silently.
 - The router host follows a replaced `OmniRouter` instead of keeping the
   old one's listener.
+- Push, pop and app rebuilds (theme, locale) no longer re-run the screen
+  builder of every page in the stack: a page whose route is unchanged is
+  handed back to the Navigator as is. Before, a builder route such as
+  `(p) => DetailScreen(id: p.pathInt('id'))` rebuilt every screen below on
+  each navigation. A query or parameter change still rebuilds its page; hot
+  reload refreshes all pages.
+- Dialog, bottom-sheet and adaptive-modal pages show the updated screen when
+  their page changes (for example a new query), instead of the first one.
+- `OmniPage.onExit` is asked once when back is pressed again while it is
+  still deciding, so the confirm dialog no longer opens twice and the page
+  is not popped twice.
+- A screen's `routePath` is validated once per path instead of on every
+  build.
 - Install docs use one repository tag (`ref: v0.5.0`) for every package;
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step

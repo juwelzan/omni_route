@@ -398,14 +398,28 @@ class _OmniDialogPage extends Page<void> {
   final bool barrierDismissible;
 
   @override
-  Route<void> createRoute(BuildContext context) => DialogRoute<void>(
-    context: context,
-    settings: this,
-    barrierColor: barrierColor,
-    barrierDismissible: barrierDismissible,
-    builder: (_) => child,
-  );
+  Route<void> createRoute(BuildContext context) {
+    late final DialogRoute<void> route;
+    return route = DialogRoute<void>(
+      context: context,
+      settings: this,
+      barrierColor: barrierColor,
+      barrierDismissible: barrierDismissible,
+      builder: (_) => _currentChild(route, child),
+    );
+  }
 }
+
+/// The child of the page [route] shows now. Navigator swaps a route's
+/// settings when its page is updated (new query, new screen), so route
+/// builders read the child from there, not from the page that created them.
+Widget _currentChild(Route<void> route, Widget fallback) =>
+    switch (route.settings) {
+      _OmniDialogPage(:final child) => child,
+      _OmniSheetPage(:final child) => child,
+      _OmniAdaptiveModalPage(:final child) => child,
+      _ => fallback,
+    };
 
 class _OmniSheetPage extends Page<void> {
   const _OmniSheetPage({
@@ -421,12 +435,15 @@ class _OmniSheetPage extends Page<void> {
   final bool isScrollControlled;
 
   @override
-  Route<void> createRoute(BuildContext context) => ModalBottomSheetRoute<void>(
-    settings: this,
-    showDragHandle: showDragHandle,
-    isScrollControlled: isScrollControlled,
-    builder: (_) => child,
-  );
+  Route<void> createRoute(BuildContext context) {
+    late final ModalBottomSheetRoute<void> route;
+    return route = ModalBottomSheetRoute<void>(
+      settings: this,
+      showDragHandle: showDragHandle,
+      isScrollControlled: isScrollControlled,
+      builder: (_) => _currentChild(route, child),
+    );
+  }
 }
 
 class _OmniAdaptiveModalPage extends Page<void> {
@@ -452,34 +469,36 @@ class _OmniAdaptiveModalPage extends Page<void> {
   Route<void> createRoute(BuildContext context) {
     final snapshot = OmniResponsiveScope.read(context);
     if (snapshot.device == OmniDeviceType.mobile) {
-      return ModalBottomSheetRoute<void>(
+      late final ModalBottomSheetRoute<void> sheet;
+      return sheet = ModalBottomSheetRoute<void>(
         settings: this,
         showDragHandle: showDragHandle,
         isScrollControlled: isScrollControlled,
         useSafeArea: true,
-        builder: (_) => child,
+        builder: (_) => _currentChild(sheet, child),
       );
     }
-    return DialogRoute<void>(
+    late final DialogRoute<void> dialog;
+    return dialog = DialogRoute<void>(
       context: context,
       settings: this,
       barrierColor: barrierColor,
       barrierDismissible: barrierDismissible,
-      builder: (dialogContext) => child is Dialog
-          ? ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxDialogWidth),
-              child: child,
-            )
-          : Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: snapshot.tokens.dialogBorderRadius,
-              ),
-              clipBehavior: Clip.antiAlias,
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: maxDialogWidth),
-                child: child,
-              ),
-            ),
+      builder: (_) {
+        final content = _currentChild(dialog, child);
+        final constrained = ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: maxDialogWidth),
+          child: content,
+        );
+        if (content is Dialog) return constrained;
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: snapshot.tokens.dialogBorderRadius,
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: constrained,
+        );
+      },
     );
   }
 }
@@ -551,20 +570,22 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
        _path = path,
        _screenBuilder = null;
 
-  /// এই রাউটের জন্য ঐচ্ছিক [OmniScreenMode] (যেমন ফুল-স্ক্রিন বা এজ-টু-এজ)।
-  /// রাউট পপ করলে আগের স্ক্রিন বা অ্যাপের মোড স্বয়ংক্রিয়ভাবে ফিরে আসবে।
+  /// Screen mode for this route (fullscreen, edge-to-edge, …); overrides the
+  /// screen's own `screenMode`. The previous mode comes back on pop.
   final OmniScreenMode? screenMode;
 
-  /// এই রাউটের জন্য আলাদা ওপরের স্ট্যাটাস বার কনফিগারেশন ([OmniStatusBarStyle])।
+  /// Status bar style for this route; overrides the screen's `statusBar`.
   final OmniStatusBarStyle? statusBar;
 
-  /// এই রাউটের জন্য আলাদা নিচের সিস্টেম নেভিগেশন/গেস্টচার বার কনফিগারেশন ([OmniSystemNavigationBarStyle])।
+  /// System navigation bar style for this route; overrides the screen's
+  /// `systemNavigationBar`.
   final OmniSystemNavigationBarStyle? systemNavigationBar;
 
-  /// এই রাউটের জন্য রোটেশন বা ওরিয়েন্টেশন প্রিসেট ([OmniOrientation])।
+  /// Orientation lock for this route; restored on pop.
   final OmniOrientation? orientation;
 
-  /// এই রাউটের জন্য কাস্টম [DeviceOrientation] তালিকা (প্রয়োজনে [orientation]-এর বদলে)।
+  /// Allowed orientations for this route (takes precedence over
+  /// [orientation]).
   final List<DeviceOrientation>? orientations;
 
   final String? _path;
@@ -823,7 +844,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   }
 }
 
-class _OmniPageExitScope extends StatelessWidget {
+class _OmniPageExitScope extends StatefulWidget {
   const _OmniPageExitScope({
     required this.pageKey,
     required this.onExit,
@@ -835,16 +856,33 @@ class _OmniPageExitScope extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_OmniPageExitScope> createState() => _OmniPageExitScopeState();
+}
+
+class _OmniPageExitScopeState extends State<_OmniPageExitScope> {
+  // A second back press while `onExit` is still deciding (its confirm
+  // dialog not up yet, or a slow async check) must not ask or pop twice.
+  bool _deciding = false;
+
+  Future<void> _onPopInvoked(bool didPop, Object? result) async {
+    if (didPop || _deciding) return;
+    _deciding = true;
+    final bool allowed;
+    try {
+      allowed = await widget.onExit(context);
+    } finally {
+      _deciding = false;
+    }
+    if (allowed && mounted) {
+      OmniRouter.maybeOf(context)?.forcePopPage(widget.pageKey, result);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) => PopScope(
     canPop: false,
-    onPopInvokedWithResult: (didPop, result) async {
-      if (didPop) return;
-      final allowed = await onExit(context);
-      if (allowed && context.mounted) {
-        OmniRouter.maybeOf(context)?.forcePopPage(pageKey, result);
-      }
-    },
-    child: child,
+    onPopInvokedWithResult: _onPopInvoked,
+    child: widget.child,
   );
 }
 

@@ -12,6 +12,7 @@ import '../routing/omni_page.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_shell.dart';
+import '../routing/omni_swipe_back.dart';
 import 'omni_route_entry.dart';
 import 'omni_debug_report.dart';
 
@@ -79,6 +80,14 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   late final RootBackButtonDispatcher _backButtonDispatcher;
 
   final _GroupScopeManager _groupManager = _GroupScopeManager();
+
+  // The built [Page] of each frame. Frames are immutable, so while the frame
+  // and the app's page settings stay the same the old Page is handed back to
+  // the Navigator, which then skips the route entirely: a push, pop or theme
+  // change no longer re-runs every screen builder below the top page.
+  final Expando<_CachedPage> _pageCache = Expando('omniRoutePage');
+  // Bumped on hot reload so edited screen builders take effect at once.
+  int _pageCacheGeneration = 0;
   final List<_StackFrame> _rootStack = [];
   final ValueNotifier<OmniRouteEntry> _currentEntryNotifier = ValueNotifier(
     const OmniRouteEntry(location: '/'),
@@ -1480,7 +1489,16 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       return type(frame.key, 'error', widget);
     }
 
-    return compiled.page.buildPage(
+    final config = OmniPageConfig.of(context);
+    final predictiveBack = OmniSwipeBackDefaults.predictiveBackOf(context);
+    final cached = _pageCache[frame];
+    if (cached != null &&
+        cached.generation == _pageCacheGeneration &&
+        cached.predictiveBack == predictiveBack &&
+        !config.updateShouldNotify(cached.config)) {
+      return cached.page;
+    }
+    final page = compiled.page.buildPage(
       context,
       st,
       fullRoutePath: compiled.fullPath,
@@ -1492,6 +1510,13 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           : (ctx, state, innerChild) =>
                 _wrapGroups(compiled.groups, state, innerChild),
     );
+    _pageCache[frame] = _CachedPage(
+      page,
+      config,
+      predictiveBack,
+      _pageCacheGeneration,
+    );
+    return page;
   }
 
   Widget _wrapGroups(
@@ -1852,6 +1877,20 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
 sealed class _StackFrame {}
 
+class _CachedPage {
+  const _CachedPage(
+    this.page,
+    this.config,
+    this.predictiveBack,
+    this.generation,
+  );
+
+  final Page<Object?> page;
+  final OmniPageConfig config;
+  final bool predictiveBack;
+  final int generation;
+}
+
 class _PageFrame extends _StackFrame {
   _PageFrame({
     required this.key,
@@ -2114,6 +2153,12 @@ class _OmniRouterHostState extends State<_OmniRouterHost>
     widget.router.removeListener(_onRouterChanged);
     _savedStack.dispose();
     super.dispose();
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    widget.router._pageCacheGeneration++;
   }
 
   @override
