@@ -23,6 +23,109 @@ enum InspectorStatus {
   failed,
 }
 
+/// Category of a unified log card displayed in the Talker-style timeline.
+enum InspectorLogKind {
+  /// Outgoing HTTP request.
+  httpRequest,
+
+  /// Successful (1xx–3xx) HTTP response.
+  httpResponse,
+
+  /// Client-side (4xx) HTTP warning response.
+  httpWarning,
+
+  /// Server-side (5xx) HTTP error or connection failure.
+  httpError,
+
+  /// Navigation transition recorded by `OmniRoute`.
+  route,
+
+  /// Bloc or Cubit creation lifecycle event.
+  blocCreate,
+
+  /// Bloc incoming event.
+  blocEvent,
+
+  /// Bloc/Cubit state transition.
+  blocTransition,
+
+  /// Realtime WebSocket event or error.
+  ws,
+
+  /// Multi-model AI call or error telemetry.
+  ai,
+
+  /// General informational log message.
+  info,
+
+  /// General warning log message.
+  warning,
+
+  /// General error log message.
+  error,
+}
+
+/// One separate color-coded log item in [OmniInspector.logs] supporting 1-click
+/// copy of either the full log block or the pure API JSON response.
+@immutable
+final class InspectorLogEntry {
+  /// Creates an inspector log timeline entry.
+  const InspectorLogEntry({
+    required this.id,
+    required this.kind,
+    required this.tag,
+    required this.title,
+    required this.timestamp,
+    this.subtitle = '',
+    this.duration,
+    this.copyText = '',
+    this.copyBody,
+    this.httpEntry,
+  });
+
+  /// Unique sequential ID within the inspector.
+  final int id;
+
+  /// Log category used for accent coloring and grouping.
+  final InspectorLogKind kind;
+
+  /// Display tag badge (e.g. `http-response`, `route`, `bloc-transition`).
+  final String tag;
+
+  /// Primary single-line summary title.
+  final String title;
+
+  /// Secondary contextual summary text.
+  final String subtitle;
+
+  /// Capture wall-clock timestamp.
+  final DateTime timestamp;
+
+  /// Optional round-trip or elapsed duration.
+  final Duration? duration;
+
+  /// Complete preformatted text copied by 1-click card copy actions.
+  final String copyText;
+
+  /// Pure pretty-printed JSON payload when available for response-only copy.
+  final String? copyBody;
+
+  /// Associated paired HTTP exchange, if applicable.
+  final InspectorEntry? httpEntry;
+}
+
+String _prettyJsonOrRaw(String raw) {
+  final trimmed = raw.trim();
+  if (trimmed.isEmpty) return raw;
+  try {
+    final decoded = jsonDecode(trimmed);
+    if (decoded is Map || decoded is List) {
+      return const JsonEncoder.withIndent('  ').convert(decoded);
+    }
+  } catch (_) {}
+  return raw;
+}
+
 /// One request as seen by the inspector. All data is already redacted by
 /// the client's `Redactor`.
 final class InspectorEntry {
@@ -94,6 +197,47 @@ final class InspectorEntry {
         '--data-raw ${q(b)}',
     ].join(' ');
   }
+
+  /// Pretty-formatted JSON response body (or raw text) for 1-click copy.
+  String formattedResponseBody() =>
+      responseBody == null ? '' : _prettyJsonOrRaw(responseBody!);
+
+  /// Pretty-formatted JSON request body (or raw text).
+  String formattedRequestBody() =>
+      requestBody == null ? '' : _prettyJsonOrRaw(requestBody!);
+
+  /// Full copyable log block containing status, URL, headers, and body.
+  String formattedFullLog() {
+    final buf = StringBuffer()
+      ..writeln('[$method] $url')
+      ..writeln(
+        'Status: ${statusCode ?? error ?? 'pending'}'
+        '${duration != null ? ' · ${duration!.inMilliseconds} ms' : ''}'
+        '${source != null ? ' · ${source!.name}' : ''}',
+      );
+    if (requestHeaders.isNotEmpty) {
+      buf.writeln('\n-- Request Headers --');
+      requestHeaders.forEach((k, v) => buf.writeln('$k: $v'));
+    }
+    if (requestBody != null && requestBody!.isNotEmpty) {
+      buf
+        ..writeln('\n-- Request Body --')
+        ..writeln(formattedRequestBody());
+    }
+    if (responseHeaders.isNotEmpty) {
+      buf.writeln('\n-- Response Headers --');
+      responseHeaders.forEach((k, v) => buf.writeln('$k: $v'));
+    }
+    if (responseBody != null && responseBody!.isNotEmpty) {
+      buf
+        ..writeln('\n-- Response Body --')
+        ..writeln(formattedResponseBody());
+    }
+    if (error != null) {
+      buf.writeln('\n-- Error --\n$error');
+    }
+    return buf.toString().trimRight();
+  }
 }
 
 /// Collects redacted request/response records for the in-app inspector.
@@ -131,12 +275,20 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
   final Map<(String, int), InspectorEntry> _open = {};
   final ListQueue<WsLogRecord> _wsEntries = ListQueue();
   final ListQueue<AiCallLogRecord> _aiEntries = ListQueue();
+  final ListQueue<InspectorLogEntry> _logs = ListQueue();
   final List<StreamSubscription<Object?>> _subs = [];
   int _nextId = 0;
+  bool _disposed = false;
 
   /// Entries, newest first.
   List<InspectorEntry> get entries =>
       List.unmodifiable(_entries.toList().reversed);
+
+  /// All unified Talker-style log cards (`http-request`, `http-response`,
+  /// `http-error`, `route`, `bloc`, `ws`, `ai`, `info`, `warning`, `error`),
+  /// newest first.
+  List<InspectorLogEntry> get logs =>
+      List.unmodifiable(_logs.toList().reversed);
 
   /// Recorded WebSocket events, newest first.
   List<WsLogRecord> get wsEntries =>
@@ -158,23 +310,159 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
   /// are per client).
   LogSink sink(String label) => _LabelledSink(this, label);
 
+  void _pushLog(InspectorLogEntry entry) {
+    _logs.addLast(entry);
+    final limit = maxEntries * 2;
+    while (_logs.length > limit) {
+      _logs.removeFirst();
+    }
+  }
+
+  /// Appends a custom log entry (e.g. `route`, `bloc-event`, `info`, `warning`).
+  void addLog({
+    required InspectorLogKind kind,
+    required String tag,
+    required String title,
+    String subtitle = '',
+    Duration? duration,
+    String? copyText,
+    String? copyBody,
+    InspectorEntry? httpEntry,
+  }) {
+    if (!enabled || _disposed) return;
+    final resolvedCopy =
+        copyText ??
+        [
+          '[$tag] $title',
+          if (subtitle.isNotEmpty) subtitle,
+          if (copyBody != null && copyBody.isNotEmpty) copyBody,
+        ].join('\n');
+    _pushLog(
+      InspectorLogEntry(
+        id: _nextId++,
+        kind: kind,
+        tag: tag,
+        title: title,
+        subtitle: subtitle,
+        timestamp: DateTime.now(),
+        duration: duration,
+        copyText: resolvedCopy,
+        copyBody: copyBody,
+        httpEntry: httpEntry,
+      ),
+    );
+    notifyListeners();
+  }
+
+  /// Records an `OmniRoute` navigation event card (`route | HH:MM:SS`).
+  void logRoute(
+    String title, {
+    String subtitle = '',
+    Duration? duration,
+    String? copyText,
+  }) => addLog(
+    kind: InspectorLogKind.route,
+    tag: 'route',
+    title: title,
+    subtitle: subtitle,
+    duration: duration,
+    copyText: copyText,
+  );
+
+  /// Records a Bloc lifecycle/event/transition card (`bloc-event`,
+  /// `bloc-transition`, `bloc-create`).
+  void logBloc(
+    String tag,
+    String title, {
+    InspectorLogKind kind = InspectorLogKind.blocEvent,
+    String subtitle = '',
+    String? copyText,
+  }) => addLog(
+    kind: kind,
+    tag: tag,
+    title: title,
+    subtitle: subtitle,
+    copyText: copyText,
+  );
+
+  /// Records an informational app log card.
+  void logInfo(String title, {String subtitle = '', String? copyText}) =>
+      addLog(
+        kind: InspectorLogKind.info,
+        tag: 'info',
+        title: title,
+        subtitle: subtitle,
+        copyText: copyText,
+      );
+
+  /// Records a warning log card.
+  void logWarning(String title, {String subtitle = '', String? copyText}) =>
+      addLog(
+        kind: InspectorLogKind.warning,
+        tag: 'warning',
+        title: title,
+        subtitle: subtitle,
+        copyText: copyText,
+      );
+
+  /// Records an error log card.
+  void logError(String title, {String subtitle = '', String? copyText}) =>
+      addLog(
+        kind: InspectorLogKind.error,
+        tag: 'error',
+        title: title,
+        subtitle: subtitle,
+        copyText: copyText,
+      );
+
   /// Records a single redacted WebSocket log event.
   void recordWsLog(WsLogRecord record) {
-    if (!enabled) return;
+    if (!enabled || _disposed) return;
     _wsEntries.addLast(record);
     while (_wsEntries.length > maxEntries) {
       _wsEntries.removeFirst();
     }
+    _pushLog(
+      InspectorLogEntry(
+        id: _nextId++,
+        kind: record.direction == 'err'
+            ? InspectorLogKind.error
+            : InspectorLogKind.ws,
+        tag: record.direction == 'err' ? 'ws-error' : 'ws-${record.direction}',
+        title: '${record.direction.toUpperCase()} ${record.uri}',
+        subtitle: record.summary,
+        timestamp: record.timestamp,
+        copyText: '[WS ${record.direction}] ${record.uri}\n${record.summary}',
+        copyBody: _prettyJsonOrRaw(record.summary),
+      ),
+    );
     notifyListeners();
   }
 
   /// Records a single redacted AI call telemetry event.
   void recordAiCall(AiCallLogRecord record) {
-    if (!enabled) return;
+    if (!enabled || _disposed) return;
     _aiEntries.addLast(record);
     while (_aiEntries.length > maxEntries) {
       _aiEntries.removeFirst();
     }
+    _pushLog(
+      InspectorLogEntry(
+        id: _nextId++,
+        kind: record.error != null ? InspectorLogKind.error : InspectorLogKind.ai,
+        tag: record.error != null ? 'ai-error' : 'ai-response',
+        title: '${record.providerId}:${record.model} · ${record.usage.totalTokens} tok',
+        subtitle: record.error ?? record.responsePreview ?? record.promptPreview ?? '',
+        timestamp: DateTime.now(),
+        duration: record.latency,
+        copyText:
+            '[AI ${record.providerId}:${record.model}]\n'
+            'Prompt: ${record.promptPreview ?? ''}\n'
+            'Response: ${record.responsePreview ?? ''}\n'
+            'Error: ${record.error ?? 'none'}',
+        copyBody: record.responsePreview,
+      ),
+    );
     notifyListeners();
   }
 
@@ -213,6 +501,7 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
 
   @override
   void dispose() {
+    _disposed = true;
     for (final sub in _subs) {
       unawaited(sub.cancel());
     }
@@ -227,7 +516,7 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
     try {
       forwardTo?.log(r);
     } catch (_) {}
-    if (!enabled) return;
+    if (!enabled || _disposed) return;
     final key = (label, r.requestId);
     switch (r.kind) {
       case NetworkLogKind.request:
@@ -238,6 +527,19 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
           final old = _entries.removeFirst();
           _open.removeWhere((_, v) => identical(v, old));
         }
+        _pushLog(
+          InspectorLogEntry(
+            id: _nextId++,
+            kind: InspectorLogKind.httpRequest,
+            tag: 'http-request',
+            title: '${r.method} ${r.url}',
+            subtitle: r.body != null ? 'Body: ${r.body}' : 'Request dispatched',
+            timestamp: e.startedAt,
+            copyText: e.formattedFullLog(),
+            copyBody: e.requestBody == null ? null : e.formattedRequestBody(),
+            httpEntry: e,
+          ),
+        );
       case NetworkLogKind.response:
         final e = _open.remove(key);
         if (e == null) return;
@@ -247,22 +549,65 @@ final class OmniInspector extends ChangeNotifier implements LogSink {
           ..responseBody = r.body
           ..duration = r.duration
           ..source = r.source;
+        final status = r.statusCode ?? 200;
+        final kind = status >= 500
+            ? InspectorLogKind.httpError
+            : status >= 400
+            ? InspectorLogKind.httpWarning
+            : InspectorLogKind.httpResponse;
+        final tag = status >= 500
+            ? 'http-error'
+            : status >= 400
+            ? 'http-warning'
+            : 'http-response';
+        _pushLog(
+          InspectorLogEntry(
+            id: _nextId++,
+            kind: kind,
+            tag: tag,
+            title: '${e.method} $status · ${e.url}',
+            subtitle:
+                '${r.bytes ?? e.responseBody?.length ?? 0} B'
+                '${r.source != null && r.source != ResponseSource.network ? ' · ${r.source!.name}' : ''}',
+            timestamp: DateTime.now(),
+            duration: r.duration,
+            copyText: e.formattedFullLog(),
+            copyBody: e.formattedResponseBody(),
+            httpEntry: e,
+          ),
+        );
       case NetworkLogKind.error:
         final e = _open.remove(key);
         if (e == null) return;
         e
           ..error = r.error
           ..duration = r.duration;
+        _pushLog(
+          InspectorLogEntry(
+            id: _nextId++,
+            kind: InspectorLogKind.httpError,
+            tag: 'http-error',
+            title: '${e.method} ERROR · ${e.url}',
+            subtitle: r.error ?? 'Request failed',
+            timestamp: DateTime.now(),
+            duration: r.duration,
+            copyText: e.formattedFullLog(),
+            copyBody: r.error,
+            httpEntry: e,
+          ),
+        );
     }
     notifyListeners();
   }
 
-  /// Removes all HTTP, WebSocket, and AI entries.
+  /// Removes all HTTP, WebSocket, AI, and unified timeline log entries.
   void clear() {
+    if (_disposed) return;
     _entries.clear();
     _open.clear();
     _wsEntries.clear();
     _aiEntries.clear();
+    _logs.clear();
     notifyListeners();
   }
 

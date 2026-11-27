@@ -3,13 +3,34 @@ import 'package:flutter/services.dart';
 
 import 'inspector.dart';
 
-/// The inspector UI: request list with filter, and a detail view.
+/// Active view mode inside [OmniInspectorView].
+enum InspectorTab {
+  /// Paired HTTP requests and responses.
+  http,
+
+  /// Talker-style unified color-coded timeline (HTTP, Route, Bloc, WS, AI).
+  logs,
+
+  /// Realtime WebSocket events.
+  ws,
+
+  /// Multi-Model AI calls and telemetry.
+  ai,
+}
+
+/// The inspector UI: Talker-style color-coded log & network cards, search and
+/// category filters, 1-click copy on every card, and full detail views.
 ///
-/// Works without a `Navigator` (it switches views internally), so it can
+/// Works without a parent `Navigator` (it switches views internally), so it can
 /// be shown from `MaterialApp.builder` via [OmniInspectorLauncher].
 class OmniInspectorView extends StatefulWidget {
   /// Creates the view.
-  const OmniInspectorView({super.key, required this.inspector, this.onClose});
+  const OmniInspectorView({
+    super.key,
+    required this.inspector,
+    this.onClose,
+    this.initialTab = InspectorTab.http,
+  });
 
   /// Data source.
   final OmniInspector inspector;
@@ -17,16 +38,19 @@ class OmniInspectorView extends StatefulWidget {
   /// Shows a close button when set.
   final VoidCallback? onClose;
 
+  /// Initial tab displayed when opened.
+  final InspectorTab initialTab;
+
   @override
   State<OmniInspectorView> createState() => _OmniInspectorViewState();
 }
 
-enum _InspectorTab { http, ws, ai }
-
 class _OmniInspectorViewState extends State<OmniInspectorView> {
   final _filter = TextEditingController();
   InspectorEntry? _selected;
-  _InspectorTab _tab = _InspectorTab.http;
+  InspectorLogEntry? _selectedLog;
+  late InspectorTab _tab = widget.initialTab;
+  String _selectedLogCategory = 'all';
 
   @override
   void dispose() {
@@ -35,22 +59,76 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
   }
 
   static Color _color(InspectorStatus s, ColorScheme c) => switch (s) {
-    InspectorStatus.pending => c.outline,
-    InspectorStatus.success => Colors.green.shade700,
-    InspectorStatus.clientError => Colors.orange.shade800,
+    InspectorStatus.pending => const Color(0xFFE879F9),
+    InspectorStatus.success => const Color(0xFF4ADE80),
+    InspectorStatus.clientError => const Color(0xFFFB923C),
     InspectorStatus.serverError || InspectorStatus.failed => c.error,
   };
 
+  static Color _logColor(InspectorLogKind k, Brightness brightness) {
+    final dark = brightness == Brightness.dark;
+    return switch (k) {
+      InspectorLogKind.httpResponse =>
+        dark ? const Color(0xFF4ADE80) : Colors.green.shade700,
+      InspectorLogKind.httpRequest =>
+        dark ? const Color(0xFFE879F9) : Colors.purple.shade600,
+      InspectorLogKind.httpWarning || InspectorLogKind.warning =>
+        dark ? const Color(0xFFFB923C) : Colors.orange.shade800,
+      InspectorLogKind.httpError || InspectorLogKind.error =>
+        dark ? const Color(0xFFF87171) : Colors.red.shade700,
+      InspectorLogKind.route =>
+        dark ? const Color(0xFFC084FC) : Colors.deepPurple.shade600,
+      InspectorLogKind.blocCreate =>
+        dark ? const Color(0xFF86EFAC) : Colors.teal.shade700,
+      InspectorLogKind.blocEvent || InspectorLogKind.blocTransition =>
+        dark ? const Color(0xFF2DD4BF) : Colors.teal.shade800,
+      InspectorLogKind.ws =>
+        dark ? const Color(0xFF38BDF8) : Colors.lightBlue.shade700,
+      InspectorLogKind.ai =>
+        dark ? const Color(0xFF818CF8) : Colors.indigo.shade600,
+      InspectorLogKind.info =>
+        dark ? const Color(0xFF60A5FA) : Colors.blue.shade700,
+    };
+  }
+
+  static String _fmtClock(DateTime dt) {
+    final t = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
+  }
+
+  void _copy(BuildContext context, String text, String feedback) {
+    if (text.isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          content: Text(feedback),
+        ),
+      );
+  }
+
   @override
-  Widget build(BuildContext context) => Material(
-    child: ListenableBuilder(
-      listenable: Listenable.merge([widget.inspector, _filter]),
-      builder: (context, _) {
-        final sel = _selected;
-        return sel != null && _tab == _InspectorTab.http
-            ? _detail(context, sel)
-            : _list(context);
-      },
+  Widget build(BuildContext context) => ScaffoldMessenger(
+    child: Builder(
+      builder: (messengerCtx) => Scaffold(
+        backgroundColor: Theme.of(messengerCtx).colorScheme.surface,
+        body: ListenableBuilder(
+          listenable: Listenable.merge([widget.inspector, _filter]),
+          builder: (context, _) {
+            if (_selected case final sel? when _tab == InspectorTab.http || _tab == InspectorTab.logs) {
+              return _detail(context, sel);
+            }
+            if (_selectedLog case final log? when _tab == InspectorTab.logs) {
+              return _logDetail(context, log);
+            }
+            return _list(context);
+          },
+        ),
+      ),
     ),
   );
 
@@ -73,6 +151,7 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
               child: Text(
                 title,
                 style: Theme.of(context).textTheme.titleMedium,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
             ...actions,
@@ -91,11 +170,13 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
   Widget _list(BuildContext context) {
     final q = _filter.text.trim().toLowerCase();
     final title = switch (_tab) {
-      _InspectorTab.http => 'Network (${widget.inspector.entries.length})',
-      _InspectorTab.ws => 'WebSocket (${widget.inspector.wsEntries.length})',
-      _InspectorTab.ai => 'AI Calls (${widget.inspector.aiEntries.length})',
+      InspectorTab.http => 'Network (${widget.inspector.entries.length})',
+      InspectorTab.logs => 'All Logs (${widget.inspector.logs.length})',
+      InspectorTab.ws => 'WebSocket (${widget.inspector.wsEntries.length})',
+      InspectorTab.ai => 'AI Calls (${widget.inspector.aiEntries.length})',
     };
     final scheme = Theme.of(context).colorScheme;
+    final hasAnyLogs = widget.inspector.logs.isNotEmpty;
     return Column(
       children: [
         _bar(
@@ -103,20 +184,32 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           title,
           actions: [
             IconButton(
+              tooltip: 'Copy all logs',
+              icon: const Icon(Icons.copy_all),
+              onPressed: !hasAnyLogs
+                  ? null
+                  : () {
+                      final combined = [
+                        for (final l in widget.inspector.logs)
+                          '=== ${l.tag} | ${_fmtClock(l.timestamp)} ===\n${l.copyText}',
+                      ].join('\n\n');
+                      _copy(
+                        context,
+                        combined,
+                        'Copied ${widget.inspector.logs.length} logs to clipboard',
+                      );
+                    },
+            ),
+            IconButton(
               tooltip: 'Copy HAR',
               icon: const Icon(Icons.download_outlined),
               onPressed: widget.inspector.entries.isEmpty
                   ? null
-                  : () {
-                      Clipboard.setData(
-                        ClipboardData(text: widget.inspector.toHarJson()),
-                      );
-                      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-                        const SnackBar(
-                          content: Text('HAR copied to clipboard'),
-                        ),
-                      );
-                    },
+                  : () => _copy(
+                      context,
+                      widget.inspector.toHarJson(),
+                      'HAR copied to clipboard',
+                    ),
             ),
             IconButton(
               tooltip: 'Clear',
@@ -133,53 +226,140 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
               children: [
                 ChoiceChip(
                   label: Text('HTTP (${widget.inspector.entries.length})'),
-                  selected: _tab == _InspectorTab.http,
-                  onSelected: (_) => setState(() => _tab = _InspectorTab.http),
+                  selected: _tab == InspectorTab.http,
+                  onSelected: (_) => setState(() {
+                    _selectedLog = null;
+                    _tab = InspectorTab.http;
+                  }),
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: Text('Logs (${widget.inspector.logs.length})'),
+                  selected: _tab == InspectorTab.logs,
+                  onSelected: (_) => setState(() {
+                    _selected = null;
+                    _selectedLog = null;
+                    _tab = InspectorTab.logs;
+                  }),
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
                   label: Text('WS (${widget.inspector.wsEntries.length})'),
-                  selected: _tab == _InspectorTab.ws,
+                  selected: _tab == InspectorTab.ws,
                   onSelected: (_) => setState(() {
                     _selected = null;
-                    _tab = _InspectorTab.ws;
+                    _selectedLog = null;
+                    _tab = InspectorTab.ws;
                   }),
                 ),
                 const SizedBox(width: 8),
                 ChoiceChip(
                   label: Text('AI (${widget.inspector.aiEntries.length})'),
-                  selected: _tab == _InspectorTab.ai,
+                  selected: _tab == InspectorTab.ai,
                   onSelected: (_) => setState(() {
                     _selected = null;
-                    _tab = _InspectorTab.ai;
+                    _selectedLog = null;
+                    _tab = InspectorTab.ai;
                   }),
                 ),
               ],
             ),
           ),
         ),
+        if (_tab == InspectorTab.logs) _logCategoryStrip(context),
         Padding(
           padding: const EdgeInsets.all(8),
           child: TextField(
             controller: _filter,
-            decoration: const InputDecoration(
+            decoration: InputDecoration(
               isDense: true,
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Filter by method, URL, status',
-              border: OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.search),
+              hintText: 'Search...',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
           ),
         ),
         Expanded(
           child: switch (_tab) {
-            _InspectorTab.http => _httpList(context, q, scheme),
-            _InspectorTab.ws => _wsList(context, q, scheme),
-            _InspectorTab.ai => _aiList(context, q, scheme),
+            InspectorTab.http => _httpList(context, q, scheme),
+            InspectorTab.logs => _logsList(context, q, scheme),
+            InspectorTab.ws => _wsList(context, q, scheme),
+            InspectorTab.ai => _aiList(context, q, scheme),
           },
         ),
       ],
     );
   }
+
+  Widget _logCategoryStrip(BuildContext context) {
+    final logs = widget.inspector.logs;
+    final counts = <String, int>{'all': logs.length};
+    for (final l in logs) {
+      counts[l.tag] = (counts[l.tag] ?? 0) + 1;
+    }
+    final orderedTags = [
+      'all',
+      for (final tag in [
+        'http-response',
+        'http-request',
+        'http-warning',
+        'http-error',
+        'route',
+        'bloc-event',
+        'bloc-transition',
+        'bloc-create',
+        'ws-in',
+        'ws-out',
+        'ai-response',
+        'info',
+        'warning',
+        'error',
+      ])
+        if ((counts[tag] ?? 0) > 0) tag,
+    ];
+    for (final tag in counts.keys) {
+      if (!orderedTags.contains(tag)) orderedTags.add(tag);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            for (final tag in orderedTags) ...[
+              FilterChip(
+                visualDensity: VisualDensity.compact,
+                label: Text('${counts[tag]} $tag'),
+                selected: _selectedLogCategory == tag,
+                onSelected: (_) => setState(() => _selectedLogCategory = tag),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _talkerCard({
+    required BuildContext context,
+    required Color accent,
+    required Widget child,
+  }) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    child: Material(
+      color: accent.withValues(alpha: 0.10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: BorderSide(color: accent.withValues(alpha: 0.72), width: 1.15),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    ),
+  );
 
   Widget _httpList(BuildContext context, String q, ColorScheme scheme) {
     final items = [
@@ -191,42 +371,130 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           e,
     ];
     if (items.isEmpty) return const Center(child: Text('No requests'));
-    return ListView.separated(
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 16),
       itemCount: items.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, i) {
         final e = items[i];
         final uri = Uri.tryParse(e.url);
-        return ListTile(
-          key: ValueKey('entry-${e.id}'),
-          dense: true,
-          leading: Text(
-            e.method,
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          title: Text(
-            uri == null
-                ? e.url
-                : '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            [
-              uri?.host ?? '',
-              if (e.duration case final d?) '${d.inMilliseconds} ms',
-              if (e.source case final s? when s.name != 'network') s.name,
-              if (e.label != 'default') e.label,
-            ].where((x) => x.isNotEmpty).join(' · '),
-          ),
-          trailing: Text(
-            e.error != null ? 'ERR' : '${e.statusCode ?? '…'}',
-            style: TextStyle(
-              color: _color(e.status, scheme),
-              fontWeight: FontWeight.bold,
+        final accent = _color(e.status, scheme);
+        final copyPayload = e.formattedResponseBody().isNotEmpty
+            ? e.formattedResponseBody()
+            : e.formattedFullLog();
+        return _talkerCard(
+          context: context,
+          accent: accent,
+          child: ListTile(
+            key: ValueKey('entry-${e.id}'),
+            dense: true,
+            leading: Text(
+              e.method,
+              style: TextStyle(fontWeight: FontWeight.bold, color: accent),
             ),
+            title: Text(
+              uri == null
+                  ? e.url
+                  : '${uri.path}${uri.hasQuery ? '?${uri.query}' : ''}',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(fontWeight: FontWeight.w600, color: accent),
+            ),
+            subtitle: Text(
+              [
+                _fmtClock(e.startedAt),
+                uri?.host ?? '',
+                if (e.duration case final d?) '${d.inMilliseconds} ms',
+                if (e.source case final s? when s.name != 'network') s.name,
+                if (e.label != 'default') e.label,
+              ].where((x) => x.isNotEmpty).join(' · '),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  e.error != null ? 'ERR' : '${e.statusCode ?? '…'}',
+                  style: TextStyle(color: accent, fontWeight: FontWeight.bold),
+                ),
+                IconButton(
+                  tooltip: 'Copy response',
+                  icon: Icon(Icons.copy, size: 18, color: accent),
+                  onPressed: () => _copy(
+                    context,
+                    copyPayload,
+                    'Copied ${e.method} ${e.statusCode ?? 'log'} response!',
+                  ),
+                ),
+              ],
+            ),
+            onTap: () => setState(() => _selected = e),
           ),
-          onTap: () => setState(() => _selected = e),
+        );
+      },
+    );
+  }
+
+  Widget _logsList(BuildContext context, String q, ColorScheme scheme) {
+    final brightness = Theme.of(context).brightness;
+    final items = [
+      for (final l in widget.inspector.logs)
+        if ((_selectedLogCategory == 'all' || l.tag == _selectedLogCategory) &&
+            (q.isEmpty ||
+                '${l.tag} ${l.title} ${l.subtitle}'.toLowerCase().contains(q)))
+          l,
+    ];
+    if (items.isEmpty) return const Center(child: Text('No logs recorded'));
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 16),
+      itemCount: items.length,
+      itemBuilder: (context, i) {
+        final l = items[i];
+        final accent = _logColor(l.kind, brightness);
+        final header = [
+          '${l.tag} | ${_fmtClock(l.timestamp)}',
+          if (l.duration case final d?) '${d.inMilliseconds}ms',
+        ].join(' ');
+        final payloadToCopy = (l.copyBody != null && l.copyBody!.isNotEmpty)
+            ? l.copyBody!
+            : l.copyText;
+        return _talkerCard(
+          context: context,
+          accent: accent,
+          child: ListTile(
+            key: ValueKey('log-${l.id}'),
+            dense: true,
+            title: Text(
+              header,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                color: accent,
+                fontFamily: 'monospace',
+                fontSize: 13,
+              ),
+            ),
+            subtitle: Text(
+              [l.title, if (l.subtitle.isNotEmpty) l.subtitle].join('\n'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: IconButton(
+              tooltip: 'Copy ${l.tag}',
+              icon: Icon(Icons.copy, size: 18, color: accent),
+              onPressed: () => _copy(
+                context,
+                payloadToCopy,
+                'Copied ${l.tag} to clipboard',
+              ),
+            ),
+            onTap: () => setState(() {
+              if (l.httpEntry != null) {
+                _selected = l.httpEntry;
+              } else {
+                _selectedLog = l;
+              }
+            }),
+          ),
         );
       },
     );
@@ -242,30 +510,37 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
     if (items.isEmpty) {
       return const Center(child: Text('No WebSocket events'));
     }
-    return ListView.separated(
+    return ListView.builder(
+      padding: const EdgeInsets.only(bottom: 16),
       itemCount: items.length,
-      separatorBuilder: (_, _) => const Divider(height: 1),
       itemBuilder: (context, i) {
         final e = items[i];
         final isErr = e.direction == 'err';
-        return ListTile(
-          dense: true,
-          leading: Text(
-            e.direction.toUpperCase(),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              color: isErr ? scheme.error : scheme.primary,
+        final accent = isErr ? scheme.error : const Color(0xFF38BDF8);
+        return _talkerCard(
+          context: context,
+          accent: accent,
+          child: ListTile(
+            dense: true,
+            leading: Text(
+              e.direction.toUpperCase(),
+              style: TextStyle(fontWeight: FontWeight.bold, color: accent),
             ),
-          ),
-          title: Text(
-            e.summary,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          subtitle: Text(
-            '${e.uri} · ${e.timestamp.toLocal().toIso8601String()}',
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            title: Text(
+              e.summary,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Text(
+              '${e.uri} · ${_fmtClock(e.timestamp)}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            trailing: IconButton(
+              tooltip: 'Copy WS frame',
+              icon: Icon(Icons.copy, size: 18, color: accent),
+              onPressed: () => _copy(context, e.summary, 'Copied WS frame'),
+            ),
           ),
         );
       },
@@ -297,41 +572,62 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
         Expanded(
           child: items.isEmpty
               ? const Center(child: Text('No AI calls'))
-              : ListView.separated(
+              : ListView.builder(
+                  padding: const EdgeInsets.only(bottom: 16),
                   itemCount: items.length,
-                  separatorBuilder: (_, _) => const Divider(height: 1),
                   itemBuilder: (context, i) {
                     final e = items[i];
-                    return ListTile(
-                      dense: true,
-                      leading: Icon(
-                        e.error != null
-                            ? Icons.error_outline
-                            : Icons.auto_awesome,
-                        color: e.error != null ? scheme.error : scheme.primary,
-                      ),
-                      title: Text('${e.providerId}:${e.model}'),
-                      subtitle: Text(
-                        [
-                          if (e.promptPreview != null) 'Q: ${e.promptPreview}',
-                          if (e.responsePreview != null)
-                            'A: ${e.responsePreview}',
-                          if (e.error != null) 'Error: ${e.error}',
-                          if (e.usedFallback) 'fallback',
-                        ].join(' · '),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      trailing: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.end,
-                        children: [
-                          Text('${e.usage.totalTokens} tok'),
-                          Text(
-                            '${e.latency.inMilliseconds} ms',
-                            style: Theme.of(context).textTheme.labelSmall,
-                          ),
-                        ],
+                    final accent = e.error != null
+                        ? scheme.error
+                        : const Color(0xFF818CF8);
+                    return _talkerCard(
+                      context: context,
+                      accent: accent,
+                      child: ListTile(
+                        dense: true,
+                        leading: Icon(
+                          e.error != null
+                              ? Icons.error_outline
+                              : Icons.auto_awesome,
+                          color: accent,
+                        ),
+                        title: Text('${e.providerId}:${e.model}'),
+                        subtitle: Text(
+                          [
+                            if (e.promptPreview != null) 'Q: ${e.promptPreview}',
+                            if (e.responsePreview != null)
+                              'A: ${e.responsePreview}',
+                            if (e.error != null) 'Error: ${e.error}',
+                            if (e.usedFallback) 'fallback',
+                          ].join(' · '),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text('${e.usage.totalTokens} tok'),
+                                Text(
+                                  '${e.latency.inMilliseconds} ms',
+                                  style: Theme.of(context).textTheme.labelSmall,
+                                ),
+                              ],
+                            ),
+                            IconButton(
+                              tooltip: 'Copy AI reply',
+                              icon: Icon(Icons.copy, size: 18, color: accent),
+                              onPressed: () => _copy(
+                                context,
+                                e.responsePreview ?? e.error ?? '',
+                                'Copied AI response',
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   },
@@ -341,7 +637,95 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
     );
   }
 
+  Widget _logDetail(BuildContext context, InspectorLogEntry log) {
+    final accent = _logColor(log.kind, Theme.of(context).brightness);
+    return Column(
+      children: [
+        _bar(
+          context,
+          '${log.tag} · ${_fmtClock(log.timestamp)}',
+          leading: IconButton(
+            tooltip: 'Back',
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => setState(() => _selectedLog = null),
+          ),
+          actions: [
+            IconButton(
+              tooltip: 'Copy log',
+              icon: const Icon(Icons.copy),
+              onPressed: () => _copy(
+                context,
+                log.copyText,
+                'Copied ${log.tag} log to clipboard',
+              ),
+            ),
+          ],
+        ),
+        Expanded(
+          child: ListView(
+            padding: const EdgeInsets.all(14),
+            children: [
+              Text(
+                log.title,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (log.subtitle.isNotEmpty) ...[
+                const SizedBox(height: 6),
+                Text(log.subtitle),
+              ],
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  FilledButton.icon(
+                    onPressed: () =>
+                        _copy(context, log.copyText, 'Copied full log'),
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('Copy Full Log'),
+                  ),
+                  if (log.copyBody != null && log.copyBody!.isNotEmpty) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => _copy(
+                        context,
+                        log.copyBody!,
+                        'Copied JSON payload',
+                      ),
+                      icon: const Icon(Icons.data_object, size: 16),
+                      label: const Text('Copy JSON'),
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF0F172A),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: SelectableText(
+                  log.copyText,
+                  style: const TextStyle(
+                    fontFamily: 'monospace',
+                    fontSize: 12,
+                    color: Color(0xFFE2E8F0),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _detail(BuildContext context, InspectorEntry e) {
+    final prettyRes = e.formattedResponseBody();
+    final prettyReq = e.formattedRequestBody();
+
     Widget section(String title, Map<String, String> headers, String? body) =>
         Padding(
           padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
@@ -355,7 +739,7 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                   '${h.key}: ${h.value}',
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                 ),
-              if (body != null) ...[
+              if (body != null && body.isNotEmpty) ...[
                 const SizedBox(height: 6),
                 SelectableText(
                   body,
@@ -365,6 +749,7 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
             ],
           ),
         );
+
     return Column(
       children: [
         _bar(
@@ -377,10 +762,19 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
           ),
           actions: [
             IconButton(
+              tooltip: 'Copy response',
+              icon: const Icon(Icons.data_object),
+              onPressed: () => _copy(
+                context,
+                prettyRes.isNotEmpty ? prettyRes : e.formattedFullLog(),
+                'Copied full API response',
+              ),
+            ),
+            IconButton(
               tooltip: 'Copy as cURL',
               icon: const Icon(Icons.copy),
               onPressed: () =>
-                  Clipboard.setData(ClipboardData(text: e.toCurl())),
+                  _copy(context, e.toCurl(), 'cURL copied to clipboard'),
             ),
           ],
         ),
@@ -401,8 +795,43 @@ class _OmniInspectorViewState extends State<OmniInspectorView> {
                   ].join(' · '),
                 ),
               ),
-              section('Request', e.requestHeaders, e.requestBody),
-              section('Response', e.responseHeaders, e.responseBody),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _copy(
+                        context,
+                        prettyRes.isNotEmpty ? prettyRes : e.formattedFullLog(),
+                        'Full API response copied!',
+                      ),
+                      icon: const Icon(Icons.copy, size: 16),
+                      label: const Text('Copy Full Response'),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () => _copy(
+                        context,
+                        e.formattedFullLog(),
+                        'Complete HTTP log copied!',
+                      ),
+                      icon: const Icon(Icons.receipt_long, size: 16),
+                      label: const Text('Copy Full Log'),
+                    ),
+                  ],
+                ),
+              ),
+              section(
+                'Request',
+                e.requestHeaders,
+                prettyReq.isNotEmpty ? prettyReq : e.requestBody,
+              ),
+              section(
+                'Response',
+                e.responseHeaders,
+                prettyRes.isNotEmpty ? prettyRes : e.responseBody,
+              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -428,6 +857,7 @@ class OmniInspectorLauncher extends StatefulWidget {
     required this.inspector,
     required this.child,
     this.alignment = Alignment.bottomRight,
+    this.initialTab = InspectorTab.http,
   });
 
   /// Data source.
@@ -438,6 +868,9 @@ class OmniInspectorLauncher extends StatefulWidget {
 
   /// Button position.
   final Alignment alignment;
+
+  /// Initial tab shown when opening the inspector.
+  final InspectorTab initialTab;
 
   @override
   State<OmniInspectorLauncher> createState() => _OmniInspectorLauncherState();
@@ -478,7 +911,11 @@ class _OmniInspectorLauncherState extends State<OmniInspectorLauncher> {
 
   Widget _buildUi(BuildContext context) {
     if (_open) {
-      return OmniInspectorView(inspector: widget.inspector, onClose: _toggle);
+      return OmniInspectorView(
+        inspector: widget.inspector,
+        initialTab: widget.initialTab,
+        onClose: _toggle,
+      );
     }
     return Align(
       alignment: widget.alignment,

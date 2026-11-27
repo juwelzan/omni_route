@@ -1,11 +1,16 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:omni_network_flutter/omni_network_flutter.dart';
 import 'package:omni_route/omni_route.dart';
 
 import 'demo_backend.dart';
+
+/// Color mode exposed in the UI (`auto` respects platform ANSI detection,
+/// `on` forces ANSI colors in terminal logs, `off` prints plain text + emojis).
+enum LogColorMode { auto, on, off }
 
 /// State exposed by [ApiLabCubit] driving side-by-side Normal vs Modified API
 /// comparison across real public websites, logger toggles, `OmniApiHub`,
@@ -17,15 +22,18 @@ class ApiLabState {
     this.busy = false,
     this.enableLogging = true,
     this.logResponse = true,
-    this.logColors = false,
+    this.colorMode = LogColorMode.auto,
     this.activeEnv = 'live',
     this.normalResponse =
         'Tap "Call Normal API" -> https://jsonplaceholder.typicode.com/users/1',
+    this.normalJson = '',
     this.modifiedResponse =
         'Tap "Call Modified API" -> https://jsonplaceholder.typicode.com/users/1',
+    this.modifiedJson = '',
     this.modifiedTerminalBox = '',
     this.hubOutput =
         'Tap "Call 3 Public Websites" -> DummyJSON + Open-Meteo + PokeAPI',
+    this.multiApiJson = '',
     this.wsOutput =
         'Tap "Run Live WS Echo + RPC" -> wss://ws.postman-echo.com/raw',
     this.totalCapturedLogs = 0,
@@ -35,12 +43,15 @@ class ApiLabState {
   final bool busy;
   final bool enableLogging;
   final bool logResponse;
-  final bool logColors;
+  final LogColorMode colorMode;
   final String activeEnv;
   final String normalResponse;
+  final String normalJson;
   final String modifiedResponse;
+  final String modifiedJson;
   final String modifiedTerminalBox;
   final String hubOutput;
+  final String multiApiJson;
   final String wsOutput;
   final int totalCapturedLogs;
 
@@ -49,12 +60,15 @@ class ApiLabState {
     bool? busy,
     bool? enableLogging,
     bool? logResponse,
-    bool? logColors,
+    LogColorMode? colorMode,
     String? activeEnv,
     String? normalResponse,
+    String? normalJson,
     String? modifiedResponse,
+    String? modifiedJson,
     String? modifiedTerminalBox,
     String? hubOutput,
+    String? multiApiJson,
     String? wsOutput,
     int? totalCapturedLogs,
   }) => ApiLabState(
@@ -62,12 +76,15 @@ class ApiLabState {
     busy: busy ?? this.busy,
     enableLogging: enableLogging ?? this.enableLogging,
     logResponse: logResponse ?? this.logResponse,
-    logColors: logColors ?? this.logColors,
+    colorMode: colorMode ?? this.colorMode,
     activeEnv: activeEnv ?? this.activeEnv,
     normalResponse: normalResponse ?? this.normalResponse,
+    normalJson: normalJson ?? this.normalJson,
     modifiedResponse: modifiedResponse ?? this.modifiedResponse,
+    modifiedJson: modifiedJson ?? this.modifiedJson,
     modifiedTerminalBox: modifiedTerminalBox ?? this.modifiedTerminalBox,
     hubOutput: hubOutput ?? this.hubOutput,
+    multiApiJson: multiApiJson ?? this.multiApiJson,
     wsOutput: wsOutput ?? this.wsOutput,
     totalCapturedLogs: totalCapturedLogs ?? this.totalCapturedLogs,
   );
@@ -79,11 +96,15 @@ class ApiLabCubit extends Cubit<ApiLabState> {
   ApiLabCubit({bool useLiveNetwork = true}) : super(const ApiLabState()) {
     demo = ApiComparisonCoordinator(
       useLiveNetwork: useLiveNetwork,
-      enableColors: false,
+      // `null` = auto-detect terminal/Android ANSI color support while avoiding
+      // iOS os_log `\^[` escape garbage; UI still renders full colors below.
+      enableColors: null,
       onTerminalOutput: (line) => debugPrint(line),
     );
     inspector = OmniInspector(enabled: true)..attachClient(demo.modifiedClient);
-    _inspectorSub = demo.modifiedClient.logStream.listen(inspector.log);
+    _inspectorSub = demo.networkLogs.listen(
+      (entry) => inspector.sink(entry.label).log(entry.record),
+    );
   }
 
   late final ApiComparisonCoordinator demo;
@@ -102,7 +123,13 @@ class ApiLabCubit extends Cubit<ApiLabState> {
     try {
       await demo.callNormalApi(id: state.userId);
       if (isClosed) return;
-      emit(state.copyWith(busy: false, normalResponse: demo.lastNormalOutput));
+      emit(
+        state.copyWith(
+          busy: false,
+          normalResponse: demo.lastNormalOutput,
+          normalJson: demo.lastNormalJson,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(busy: false, normalResponse: 'Error: $e'));
@@ -124,6 +151,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
         state.copyWith(
           busy: false,
           modifiedResponse: demo.lastModifiedOutput,
+          modifiedJson: demo.lastModifiedJson,
           modifiedTerminalBox: terminalBox,
           totalCapturedLogs: demo.modifiedOutputLog.length,
         ),
@@ -145,6 +173,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
         state.copyWith(
           busy: false,
           modifiedResponse: '[POST 201 CREATED]\n$created',
+          modifiedJson: demo.lastModifiedJson,
           modifiedTerminalBox: demo.modifiedClient.enableLogging
               ? demo.lastModifiedTerminalBlock
               : '(enableLogging is false — silent)',
@@ -172,6 +201,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
           modifiedResponse:
               '[FULL PUBLIC PAYLOAD TEST]\n'
               'totalPosts=${posts.length} | Printed $lines lines in log (no truncation)',
+          modifiedJson: demo.lastModifiedJson,
           modifiedTerminalBox: demo.modifiedClient.enableLogging
               ? demo.lastModifiedTerminalBlock
               : '(enableLogging is false — silent)',
@@ -194,7 +224,17 @@ class ApiLabCubit extends Cubit<ApiLabState> {
         pokemon: 'pikachu',
       );
       if (isClosed) return;
-      emit(state.copyWith(busy: false, hubOutput: summary));
+      emit(
+        state.copyWith(
+          busy: false,
+          hubOutput: summary,
+          multiApiJson: demo.lastMultiApiJson,
+          modifiedTerminalBox: demo.modifiedClient.enableLogging
+              ? demo.lastModifiedTerminalBlock
+              : state.modifiedTerminalBox,
+          totalCapturedLogs: demo.modifiedOutputLog.length,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(busy: false, hubOutput: 'Hub error: $e'));
@@ -228,7 +268,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
   }
 
   Future<void> switchEnvironment(String env) async {
-    await demo.hub.useEnvironment(env);
+    await demo.switchHubEnvironment(env);
     if (isClosed) return;
     emit(
       state.copyWith(
@@ -249,9 +289,14 @@ class ApiLabCubit extends Cubit<ApiLabState> {
     emit(state.copyWith(logResponse: value));
   }
 
-  void setLogColors(bool value) {
-    demo.modifiedClient.logColors = value;
-    emit(state.copyWith(logColors: value));
+  void setColorMode(LogColorMode mode) {
+    final mapped = switch (mode) {
+      LogColorMode.auto => null,
+      LogColorMode.on => true,
+      LogColorMode.off => false,
+    };
+    demo.setLogColors(mapped);
+    emit(state.copyWith(colorMode: mode));
   }
 
   @override
@@ -372,6 +417,67 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
     }
   }
 
+  void _copy(BuildContext context, String text, String label) {
+    if (text.trim().isEmpty) return;
+    Clipboard.setData(ClipboardData(text: text));
+    ScaffoldMessenger.maybeOf(context)
+      ?..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+          content: Text('Copied $label'),
+        ),
+      );
+  }
+
+  static String _stripAnsi(String input) =>
+      input.replaceAll(RegExp(r'\x1B\[[0-9;]*m'), '');
+
+  static Color _logKindColor(InspectorLogKind k, Brightness b) {
+    final dark = b == Brightness.dark;
+    return switch (k) {
+      InspectorLogKind.httpResponse =>
+        dark ? const Color(0xFF4ADE80) : Colors.green.shade700,
+      InspectorLogKind.httpRequest =>
+        dark ? const Color(0xFFE879F9) : Colors.purple.shade600,
+      InspectorLogKind.httpWarning || InspectorLogKind.warning =>
+        dark ? const Color(0xFFFB923C) : Colors.orange.shade800,
+      InspectorLogKind.httpError || InspectorLogKind.error =>
+        dark ? const Color(0xFFF87171) : Colors.red.shade700,
+      InspectorLogKind.route =>
+        dark ? const Color(0xFFC084FC) : Colors.deepPurple.shade600,
+      InspectorLogKind.blocCreate =>
+        dark ? const Color(0xFF86EFAC) : Colors.teal.shade700,
+      InspectorLogKind.blocEvent || InspectorLogKind.blocTransition =>
+        dark ? const Color(0xFF2DD4BF) : Colors.teal.shade800,
+      InspectorLogKind.ws =>
+        dark ? const Color(0xFF38BDF8) : Colors.lightBlue.shade700,
+      InspectorLogKind.ai =>
+        dark ? const Color(0xFF818CF8) : Colors.indigo.shade600,
+      InspectorLogKind.info =>
+        dark ? const Color(0xFF60A5FA) : Colors.blue.shade700,
+    };
+  }
+
+  static String _fmtClock(DateTime dt) {
+    final t = dt.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(t.hour)}:${two(t.minute)}:${two(t.second)}';
+  }
+
+  void _openInspectorLogs(BuildContext context, ApiLabCubit cubit) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (ctx) => OmniInspectorView(
+          inspector: cubit.inspector,
+          initialTab: InspectorTab.logs,
+          onClose: () => Navigator.of(ctx).pop(),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final cubit = readBloc<ApiLabCubit>();
@@ -381,6 +487,11 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
       appBar: AppBar(
         title: Text('$screenTitle ($routePath)'),
         actions: [
+          IconButton(
+            tooltip: 'Open All Logs & Copy Inspector',
+            icon: const Icon(Icons.receipt_long_outlined),
+            onPressed: () => _openInspectorLogs(context, cubit),
+          ),
           IconButton(
             tooltip: 'BottomSheet Diagnostics',
             icon: const Icon(Icons.layers_outlined),
@@ -431,6 +542,17 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ),
+                      IconButton(
+                        tooltip: 'Copy Normal API JSON',
+                        icon: const Icon(Icons.copy, size: 18),
+                        onPressed: () => _copy(
+                          context,
+                          lab.normalJson.isNotEmpty
+                              ? lab.normalJson
+                              : lab.normalResponse,
+                          'Normal API response',
+                        ),
+                      ),
                       OutlinedButton(
                         onPressed: lab.busy ? null : cubit.runNormalApi,
                         child: const Text('Call Normal API'),
@@ -476,11 +598,24 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                         onPressed: lab.busy ? null : cubit.runLargePayloadApi,
                         child: const Text('Print 100 Posts JSON'),
                       ),
+                      OutlinedButton.icon(
+                        onPressed: () => _copy(
+                          context,
+                          lab.modifiedJson.isNotEmpty
+                              ? lab.modifiedJson
+                              : lab.modifiedResponse,
+                          'Modified API JSON',
+                        ),
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Copy Full JSON'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Wrap(
                     spacing: 12,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       FilterChip(
                         label: const Text('enableLogging'),
@@ -492,10 +627,23 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                         selected: lab.logResponse,
                         onSelected: cubit.setLogResponse,
                       ),
-                      FilterChip(
-                        label: const Text('logColors'),
-                        selected: lab.logColors,
-                        onSelected: cubit.setLogColors,
+                      SegmentedButton<LogColorMode>(
+                        segments: const [
+                          ButtonSegment(
+                            value: LogColorMode.auto,
+                            label: Text('Colors: Auto'),
+                          ),
+                          ButtonSegment(
+                            value: LogColorMode.on,
+                            label: Text('On'),
+                          ),
+                          ButtonSegment(
+                            value: LogColorMode.off,
+                            label: Text('Off'),
+                          ),
+                        ],
+                        selected: {lab.colorMode},
+                        onSelectionChanged: (s) => cubit.setColorMode(s.first),
                       ),
                     ],
                   ),
@@ -506,31 +654,27 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                   ),
                   if (lab.modifiedTerminalBox.isNotEmpty) ...[
                     const Divider(),
-                    Text(
-                      'Formatted Terminal Log Preview (Captured ${lab.totalCapturedLogs} calls):',
-                      style: Theme.of(context).textTheme.labelMedium,
-                    ),
-                    const SizedBox(height: 4),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: SelectableText(
-                          lab.modifiedTerminalBox,
-                          maxLines: 14,
-                          style: const TextStyle(
-                            fontFamily: 'monospace',
-                            fontSize: 11,
-                            color: Colors.greenAccent,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Formatted Colored Terminal Preview (Captured ${lab.totalCapturedLogs} calls):',
+                            style: Theme.of(context).textTheme.labelMedium,
                           ),
                         ),
-                      ),
+                        TextButton.icon(
+                          onPressed: () => _copy(
+                            context,
+                            _stripAnsi(lab.modifiedTerminalBox),
+                            'Terminal Log',
+                          ),
+                          icon: const Icon(Icons.copy, size: 15),
+                          label: const Text('Copy Log'),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 4),
+                    _ColoredAnsiTerminalBox(ansiText: lab.modifiedTerminalBox),
                   ],
                 ],
               ),
@@ -568,6 +712,17 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                         onSelectionChanged: (s) =>
                             cubit.switchEnvironment(s.first),
                       ),
+                      OutlinedButton.icon(
+                        onPressed: () => _copy(
+                          context,
+                          lab.multiApiJson.isNotEmpty
+                              ? lab.multiApiJson
+                              : lab.hubOutput,
+                          'Hub API JSON',
+                        ),
+                        icon: const Icon(Icons.copy, size: 16),
+                        label: const Text('Copy Hub JSON'),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -596,6 +751,12 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ),
+                      IconButton(
+                        tooltip: 'Copy WebSocket Output',
+                        icon: const Icon(Icons.copy, size: 18),
+                        onPressed: () =>
+                            _copy(context, lab.wsOutput, 'WS output'),
+                      ),
                       OutlinedButton(
                         onPressed: lab.busy ? null : cubit.runWebSocketRpc,
                         child: const Text('Run Live WS Echo + RPC'),
@@ -610,7 +771,147 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
           ),
           const SizedBox(height: 12),
 
-          // 5. Routing Systems Showcase Card
+          // 5. Separate API & App Logs (Talker-Style 1-Click Copy)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: ListenableBuilder(
+                listenable: cubit.inspector,
+                builder: (context, _) {
+                  final brightness = Theme.of(context).brightness;
+                  final logs = cubit.inspector.logs;
+                  final visible = logs.take(6).toList();
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '5. Separate Logs & 1-Click Copy (${logs.length})',
+                              style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                          ),
+                          if (logs.isNotEmpty)
+                            TextButton.icon(
+                              onPressed: () => _copy(
+                                context,
+                                logs.map((e) => e.copyText).join('\n\n${'=' * 48}\n\n'),
+                                'All ${logs.length} logs',
+                              ),
+                              icon: const Icon(Icons.copy_all, size: 16),
+                              label: const Text('Copy All'),
+                            ),
+                          FilledButton.tonalIcon(
+                            onPressed: () => _openInspectorLogs(context, cubit),
+                            icon: const Icon(Icons.tune, size: 16),
+                            label: const Text('All Logs'),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      if (visible.isEmpty)
+                        const Text(
+                          'Run any API or navigate to see separate color-coded log cards.',
+                        )
+                      else
+                        for (final entry in visible)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 8,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _logKindColor(
+                                entry.kind,
+                                brightness,
+                              ).withValues(alpha: 0.08),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                color: _logKindColor(
+                                  entry.kind,
+                                  brightness,
+                                ).withValues(alpha: 0.65),
+                              ),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        '${entry.tag} | ${_fmtClock(entry.timestamp)}'
+                                        '${entry.duration != null ? ' ${entry.duration!.inMilliseconds}ms' : ''}',
+                                        style: TextStyle(
+                                          color: _logKindColor(
+                                            entry.kind,
+                                            brightness,
+                                          ),
+                                          fontFamily: 'monospace',
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        entry.title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontFamily: 'monospace',
+                                          fontSize: 11.5,
+                                        ),
+                                      ),
+                                      if (entry.subtitle.isNotEmpty)
+                                        Text(
+                                          entry.subtitle,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(
+                                            context,
+                                          ).textTheme.bodySmall,
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                                if (entry.copyBody != null &&
+                                    entry.copyBody!.isNotEmpty)
+                                  TextButton(
+                                    onPressed: () => _copy(
+                                      context,
+                                      entry.copyBody!,
+                                      '${entry.tag} JSON',
+                                    ),
+                                    child: const Text('Copy JSON'),
+                                  ),
+                                IconButton(
+                                  tooltip: 'Copy ${entry.tag} log',
+                                  icon: Icon(
+                                    Icons.copy,
+                                    size: 18,
+                                    color: _logKindColor(entry.kind, brightness),
+                                  ),
+                                  onPressed: () => _copy(
+                                    context,
+                                    entry.copyText,
+                                    '${entry.tag} log',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 6. Routing Systems Showcase Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -618,7 +919,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '5. Routing Systems Showcase',
+                    '6. Routing Systems Showcase',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 8),
@@ -790,6 +1091,110 @@ class ClassicStudentDetailScreen extends StatelessWidget {
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Renders ANSI-colored `PrettyLogSink` terminal blocks natively inside Flutter
+/// with full per-token syntax highlighting (even on platforms like iOS whose
+/// system console strips/escapes ANSI codes).
+class _ColoredAnsiTerminalBox extends StatelessWidget {
+  const _ColoredAnsiTerminalBox({required this.ansiText});
+
+  final String ansiText;
+
+  static final RegExp _ansiPattern = RegExp(r'\x1B\[([0-9;]*)m');
+
+  static const Map<int, Color> _palette = {
+    40: Color(0xFF4ADE80), // green (2xx)
+    196: Color(0xFFF87171), // red (5xx / failure)
+    214: Color(0xFFFB923C), // amber (4xx warning)
+    39: Color(0xFF38BDF8), // blue (3xx / GET)
+    171: Color(0xFFE879F9), // magenta (http-request)
+    81: Color(0xFF67E8F9), // cyan (JSON keys)
+    186: Color(0xFFFDE68A), // yellow (JSON strings)
+    141: Color(0xFFC4B5FD), // violet (numbers)
+    205: Color(0xFFF472B6), // pink (true/false/null)
+    250: Color(0xFFD1D5DB), // light grey (punctuation)
+    252: Color(0xFFE5E7EB), // body text
+    244: Color(0xFF9CA3AF), // dim labels
+    45: Color(0xFF22D3EE), // notes & payload summary
+  };
+
+  List<TextSpan> _parseAnsi(String input) {
+    final spans = <TextSpan>[];
+    var currentColor = const Color(0xFFE2E8F0);
+    var bold = false;
+    var index = 0;
+
+    for (final match in _ansiPattern.allMatches(input)) {
+      if (match.start > index) {
+        spans.add(
+          TextSpan(
+            text: input.substring(index, match.start),
+            style: TextStyle(
+              color: currentColor,
+              fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+            ),
+          ),
+        );
+      }
+      final code = match.group(1) ?? '';
+      if (code.isEmpty || code == '0') {
+        currentColor = const Color(0xFFE2E8F0);
+        bold = false;
+      } else {
+        final parts = code.split(';');
+        if (parts.contains('1')) bold = true;
+        final fgIdx = parts.indexOf('38');
+        if (fgIdx >= 0 && fgIdx + 2 < parts.length && parts[fgIdx + 1] == '5') {
+          final colorNum = int.tryParse(parts[fgIdx + 2]);
+          if (colorNum != null && _palette.containsKey(colorNum)) {
+            currentColor = _palette[colorNum]!;
+          }
+        }
+      }
+      index = match.end;
+    }
+
+    if (index < input.length) {
+      spans.add(
+        TextSpan(
+          text: input.substring(index),
+          style: TextStyle(
+            color: currentColor,
+            fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
+          ),
+        ),
+      );
+    }
+    return spans;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0F172A),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SelectableText.rich(
+          TextSpan(
+            style: const TextStyle(
+              fontFamily: 'monospace',
+              fontSize: 11.5,
+              height: 1.35,
+            ),
+            children: _parseAnsi(ansiText),
+          ),
+          maxLines: 18,
         ),
       ),
     );

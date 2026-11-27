@@ -18,6 +18,8 @@ final class LogOptions {
     this.responseBody = true,
     this.maxLines,
     this.colors,
+    this.summary = false,
+    this.separate = false,
     this.width = 60,
     this.maxLineLength = 160,
   });
@@ -40,6 +42,16 @@ final class LogOptions {
   /// whose log turns colour codes into `\^[` text.
   final bool? colors;
 
+  /// Adds an instant status verdict, speed indicator, and JSON shape summary
+  /// line (e.g. `🟢 ✔ 200 OK · SUCCESS · ⚡ FAST`, `📦 Body: JSON Object`)
+  /// so responses are understandable at a glance even without ANSI colours.
+  final bool summary;
+
+  /// Prints HTTP requests and HTTP responses (plus their JSON payloads) in
+  /// crisp separate color-coded terminal boxes without repeating level emojis
+  /// on every JSON line.
+  final bool separate;
+
   /// Width of the frame lines.
   final int width;
 
@@ -56,6 +68,8 @@ final class LogOptions {
     bool? responseBody,
     int? maxLines,
     bool? colors,
+    bool? summary,
+    bool? separate,
     int? width,
     int? maxLineLength,
   }) => LogOptions(
@@ -64,6 +78,8 @@ final class LogOptions {
     responseBody: responseBody ?? this.responseBody,
     maxLines: maxLines ?? this.maxLines,
     colors: colors ?? this.colors,
+    summary: summary ?? this.summary,
+    separate: separate ?? this.separate,
     width: width ?? this.width,
     maxLineLength: maxLineLength ?? this.maxLineLength,
   );
@@ -166,6 +182,10 @@ final class PrettyLogSink implements LogSink {
 
   @override
   void log(NetworkLogRecord record) {
+    if (options.separate) {
+      _logSeparate(record);
+      return;
+    }
     switch (record.kind) {
       case NetworkLogKind.request:
         _open[record.requestId] = record;
@@ -183,11 +203,170 @@ final class PrettyLogSink implements LogSink {
     }
   }
 
+  static const _magenta = '38;5;171'; // http-request border / badge
+
+  void _emitLines(String block) {
+    if (_printer case final printer?) {
+      printer('$block\n');
+    } else {
+      // ignore: avoid_print
+      block.split('\n').forEach(print);
+    }
+  }
+
+  String _renderBox(
+    String borderColor,
+    List<List<_Span>?> rows, {
+    String? headerTimestamp,
+  }) {
+    String paintBorder(String s) =>
+        _colors ? '\x1B[${borderColor}m$s\x1B[0m' : s;
+    final rule = '─' * options.width;
+    final divider = '┄' * options.width;
+    final out = <String>[paintBorder('┌$rule')];
+    if (headerTimestamp != null) {
+      out
+        ..add('${paintBorder('│')} ${_paintRow([(headerTimestamp, _dim)], borderColor)}')
+        ..add(paintBorder('├$divider'));
+    }
+    for (final row in rows) {
+      if (row == null) {
+        out.add(paintBorder('├$divider'));
+      } else {
+        for (final wrapped in _wrap(row)) {
+          out.add('${paintBorder('│')} ${_paintRow(wrapped, borderColor)}');
+        }
+      }
+    }
+    out.add(paintBorder('└$rule'));
+    return out.join('\n');
+  }
+
+  void _logSeparate(NetworkLogRecord record) {
+    final now = formatDateTime(DateTime.now());
+    switch (record.kind) {
+      case NetworkLogKind.request:
+        _open[record.requestId] = record;
+        while (_open.length > _maxOpen) {
+          _open.remove(_open.keys.first);
+        }
+        final rows = <List<_Span>?>[
+          [
+            ('📡 http-request · ', '$_bold;$_magenta'),
+            (record.method.padRight(4), _methodColor(record.method)),
+            (' ${record.url}', null),
+          ],
+          if (record.note case final n?)
+            [
+              (
+                n
+                    .replaceAll('retry', '↻ retry')
+                    .replaceAll('token refreshed', '🔑 token refreshed'),
+                _note,
+              ),
+            ],
+          if (options.headers && record.headers.isNotEmpty)
+            ..._headers('⇢ headers', record.headers),
+          if (options.requestBody && record.body != null) ...[
+            null,
+            [('⇢ Request Body', _dim)],
+            ..._body(record.body!, highlight: true),
+          ],
+        ];
+        _emitLines(_renderBox(_magenta, rows, headerTimestamp: now));
+
+      case NetworkLogKind.response || NetworkLogKind.error:
+        final req = _open.remove(record.requestId);
+        final took = formatDuration(record.duration);
+        final method = req?.method ?? record.method;
+        final url = req?.url ?? record.url;
+        final color = _outcomeColor(record);
+
+        if (record.kind == NetworkLogKind.response) {
+          final status = record.statusCode ?? 0;
+          final reason = httpReasonPhrase(status);
+          final ms = record.duration?.inMilliseconds ?? 0;
+          final speed = status < 400
+              ? (ms < 300 ? '⚡ FAST ($took)' : ms >= 1200 ? '🐢 SLOW ($took)' : took)
+              : took;
+          final sourceTag =
+              record.source != null && record.source != ResponseSource.network
+                  ? '⚡ ${record.source!.name.toUpperCase()}'
+                  : 'NETWORK';
+          final badge = status >= 500
+              ? '⛔ http-error · $status${reason == null ? '' : ' $reason'}'
+              : status >= 400
+              ? '⚠️ http-warning · $status${reason == null ? '' : ' $reason'}'
+              : status >= 300
+              ? '↪ http-redirect · $status${reason == null ? '' : ' $reason'}'
+              : '💡 http-response · $status${reason == null ? '' : ' $reason'}';
+
+          final headerRows = <List<_Span>?>[
+            [(badge, '$_bold;$color')],
+            [
+              (
+                [
+                  method,
+                  url,
+                ].join('  '),
+                null,
+              ),
+            ],
+            [
+              (
+                [
+                  speed,
+                  if (record.bytes case final n? when n > 0) _size(n),
+                  sourceTag,
+                ].join(' · '),
+                _dim,
+              ),
+            ],
+          ];
+          final resBytes = record.bytes;
+          final shape = !options.responseBody
+              ? (resBytes != null && resBytes > 0
+                    ? '🙈 Body hidden (logResponse: false · ${_size(resBytes)})'
+                    : null)
+              : _payloadSummary(record.body);
+          if (shape != null) headerRows.add([(shape, _note)]);
+          if (options.headers && record.headers.isNotEmpty) {
+            headerRows
+              ..add(null)
+              ..addAll(_headers('⇠ headers', record.headers));
+          }
+          _emitLines(
+            _renderBox(color, headerRows, headerTimestamp: '$now (+$took)'),
+          );
+
+          final resBody = options.responseBody ? record.body : null;
+          if (resBody != null && resBody.trim().isNotEmpty) {
+            _emitLines(
+              _renderBox(
+                _dim,
+                _body(resBody, highlight: true),
+              ),
+            );
+          }
+        } else {
+          final rows = <List<_Span>?>[
+            [('⛔ http-error · FAILED · $took', '$_bold;$_red')],
+            [('$method  $url', null)],
+            [('Error: ${record.error ?? 'Connection failed'}', _red)],
+          ];
+          _emitLines(_renderBox(_red, rows, headerTimestamp: '$now (+$took)'));
+        }
+    }
+  }
+
   // ── Colours (xterm 256) ──────────────────────────────────────────────
 
   static const _greenFg = 40;
+  static const _amberFg = 214;
   static const _redFg = 196;
   static const _green = '38;5;$_greenFg';
+  static const _amber = '38;5;$_amberFg';
+  static const _blue = '38;5;39';
   static const _red = '38;5;$_redFg';
   static const _key = '38;5;81'; // JSON keys: cyan
   static const _string = '38;5;186'; // JSON strings: soft yellow
@@ -198,6 +377,14 @@ final class PrettyLogSink implements LogSink {
   static const _dim = '38;5;244'; // labels, header values
   static const _note = '38;5;45'; // retry / token notes
   static const _bold = '1';
+
+  static String _methodColor(String method) => switch (method.trim()) {
+    'GET' => '$_bold;$_blue',
+    'POST' => '$_bold;$_green',
+    'PUT' || 'PATCH' => '$_bold;$_amber',
+    'DELETE' => '$_bold;$_red',
+    _ => '$_bold;$_note',
+  };
 
   static bool _failed(NetworkLogRecord r) =>
       r.kind != NetworkLogKind.response || (r.statusCode ?? 0) >= 400;
@@ -250,7 +437,7 @@ final class PrettyLogSink implements LogSink {
   /// time and line colour). Visible for tests.
   @visibleForTesting
   String message(NetworkLogRecord? request, NetworkLogRecord result) {
-    final base = _failed(result) ? _red : _green;
+    final base = _outcomeColor(result);
     return [
       for (final row in _rows(request, result))
         if (row != null) _paintRow(row, base),
@@ -260,7 +447,7 @@ final class PrettyLogSink implements LogSink {
   /// Renders one classic self-framed block. Visible for tests.
   @visibleForTesting
   String format(NetworkLogRecord? request, NetworkLogRecord result) {
-    final base = _failed(result) ? _red : _green;
+    final base = _outcomeColor(result);
     String paint(String s) => _colors ? '\x1B[${base}m$s\x1B[0m' : s;
     final rule = '─' * options.width;
     final out = <String>[paint('┌$rule')];
@@ -303,12 +490,19 @@ final class PrettyLogSink implements LogSink {
     NetworkLogRecord result,
   ) {
     final failed = _failed(result);
-    final base = failed ? _red : _green;
+    final base = _outcomeColor(result);
     final out = <List<_Span>?>[];
-    final method = (request?.method ?? result.method).padRight(4);
+    final rawMethod = request?.method ?? result.method;
+    final method = rawMethod.padRight(4);
     out.add([
-      (method, '$_bold;$base'),
-      (' ${request?.url ?? result.url}', null),
+      if (options.summary) ...[
+        ('🌐 ', null),
+        (method, _methodColor(rawMethod)),
+        (' ${request?.url ?? result.url}', null),
+      ] else ...[
+        (method, '$_bold;$base'),
+        (' ${request?.url ?? result.url}', null),
+      ],
     ]);
     if (request?.note case final n?) {
       out.add([
@@ -326,7 +520,7 @@ final class PrettyLogSink implements LogSink {
     final reqBody = options.requestBody ? request?.body : null;
     if (reqBody case final b?) {
       out.add([('⇢ body', _dim)]);
-      for (final row in _body(b, highlight: !failed)) {
+      for (final row in _body(b, highlight: !failed || options.summary)) {
         out.add([('  ', null), ...row]);
       }
     }
@@ -335,27 +529,105 @@ final class PrettyLogSink implements LogSink {
     if (result.kind == NetworkLogKind.response) {
       final status = result.statusCode ?? 0;
       final reason = httpReasonPhrase(status);
-      out.add([
-        (
-          [
-            '${failed ? '✖' : '✔'} $status${reason == null ? '' : ' $reason'}',
-            took,
-            if (result.bytes case final n? when n > 0) _size(n),
-            if (result.source case final s? when s != ResponseSource.network)
-              s.name,
-          ].join(' · '),
-          '$_bold;$base',
-        ),
-      ]);
+      if (options.summary) {
+        final verdict = status >= 500
+            ? '🔴 ✖ $status${reason == null ? '' : ' $reason'} · SERVER ERROR'
+            : status >= 400
+            ? '🟠 ⚠ $status${reason == null ? '' : ' $reason'} · CLIENT WARNING'
+            : status >= 300
+            ? '🔵 ↪ $status${reason == null ? '' : ' $reason'} · REDIRECT'
+            : '🟢 ✔ $status${reason == null ? '' : ' $reason'} · SUCCESS';
+        final ms = result.duration?.inMilliseconds ?? 0;
+        final speed = status < 400
+            ? (ms < 300 ? '⚡ FAST ($took)' : ms >= 1200 ? '🐢 SLOW ($took)' : took)
+            : took;
+        final sourceTag = result.source != null && result.source != ResponseSource.network
+            ? '⚡ ${result.source!.name.toUpperCase()}'
+            : 'NETWORK';
+        out.add([
+          (
+            [
+              verdict,
+              speed,
+              if (result.bytes case final n? when n > 0) _size(n),
+              sourceTag,
+            ].join(' · '),
+            '$_bold;$base',
+          ),
+        ]);
+        final resBytes = result.bytes;
+        final shape = !options.responseBody
+            ? (resBytes != null && resBytes > 0
+                  ? '🙈 Body hidden (logResponse: false · ${_size(resBytes)})'
+                  : null)
+            : _payloadSummary(result.body);
+        if (shape != null) out.add([(shape, _note)]);
+      } else {
+        out.add([
+          (
+            [
+              '${failed ? '✖' : '✔'} $status${reason == null ? '' : ' $reason'}',
+              took,
+              if (result.bytes case final n? when n > 0) _size(n),
+              if (result.source case final s? when s != ResponseSource.network)
+                s.name,
+            ].join(' · '),
+            '$_bold;$base',
+          ),
+        ]);
+      }
       if (options.headers && result.headers.isNotEmpty) {
         out.addAll(_headers('⇠ headers', result.headers));
       }
       final resBody = options.responseBody ? result.body : null;
-      if (resBody case final b?) out.addAll(_body(b, highlight: !failed));
+      if (resBody case final b?) {
+        out.addAll(_body(b, highlight: !failed || options.summary));
+      }
     } else {
-      out.add([('✖ ${result.error ?? 'failed'} · $took', '$_bold;$_red')]);
+      final errLabel = options.summary
+          ? '🔴 ✖ FAILED: ${result.error ?? 'failed'} · $took'
+          : '✖ ${result.error ?? 'failed'} · $took';
+      out.add([(errLabel, '$_bold;$_red')]);
     }
     return out;
+  }
+
+  String _outcomeColor(NetworkLogRecord r) {
+    if (r.kind != NetworkLogKind.response) return _red;
+    final status = r.statusCode ?? 0;
+    if (!options.summary) return status >= 400 ? _red : _green;
+    if (status >= 500) return _red;
+    if (status >= 400) return _amber;
+    if (status >= 300) return _blue;
+    return _green;
+  }
+
+  static String? _payloadSummary(String? body) {
+    if (body == null || body.trim().isEmpty) return '📭 Body: Empty';
+    final trimmed = body.trimLeft();
+    if (trimmed.startsWith('<') && trimmed.contains('bytes,')) {
+      return '🗜️ Body: Binary $trimmed';
+    }
+    try {
+      final decoded = jsonDecode(trimmed);
+      if (decoded is Map) {
+        if (decoded.isEmpty) return '📦 Body: JSON Object (empty {})';
+        final keys = decoded.keys.take(4).join(', ');
+        final more = decoded.length > 4 ? ', …' : '';
+        final keyWord = decoded.length == 1 ? 'key' : 'keys';
+        return '📦 Body: JSON Object (${decoded.length} $keyWord: $keys$more)';
+      }
+      if (decoded is List) {
+        if (decoded.isEmpty) return '📋 Body: JSON Array (empty [])';
+        final itemWord = decoded.length == 1 ? 'item' : 'items';
+        return '📋 Body: JSON Array (${decoded.length} $itemWord)';
+      }
+    } on FormatException {
+      // Fall back below for non-JSON or truncated responses.
+    }
+    if (trimmed.startsWith('{')) return '📦 Body: JSON Object';
+    if (trimmed.startsWith('[')) return '📋 Body: JSON Array';
+    return '📄 Body: Text (${body.length} chars)';
   }
 
   static List<List<_Span>> _headers(String label, Map<String, String> h) => [

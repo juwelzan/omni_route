@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:omni_network_flutter/omni_network_flutter.dart';
@@ -10,6 +11,94 @@ import 'api_lab_screens.dart';
 void main() {
   OmniRoute.usePathUrls();
   runApp(const ExampleApp());
+}
+
+// =============================================================================
+// Separate Colored Bloc & Route Logger -> Terminal + OmniInspector
+// =============================================================================
+
+void _printSeparateBox({
+  required String colorCode,
+  required String header,
+  String? detail,
+}) {
+  final rule = '─' * 60;
+  final paint = '\x1B[${colorCode}m';
+  const reset = '\x1B[0m';
+  final lines = <String>[
+    '$paint┌$rule$reset',
+    '$paint│$reset $paint$header$reset',
+    if (detail != null && detail.isNotEmpty) '$paint│$reset $detail',
+    '$paint└$rule$reset',
+  ];
+  for (final l in lines) {
+    debugPrint(l);
+  }
+}
+
+class _ExampleBlocObserver extends BlocObserver {
+  _ExampleBlocObserver({required this.printTerminal});
+
+  final bool printTerminal;
+  OmniInspector? inspector;
+
+  @override
+  void onCreate(BlocBase<dynamic> bloc) {
+    super.onCreate(bloc);
+    final name = bloc.runtimeType.toString();
+    if (printTerminal && kDebugMode) {
+      _printSeparateBox(
+        colorCode: '38;5;78',
+        header: '🟩 bloc-create · $name',
+      );
+    }
+    scheduleMicrotask(() {
+      inspector?.logBloc(
+        'bloc-create',
+        '$name created',
+        kind: InspectorLogKind.blocCreate,
+      );
+    });
+  }
+
+  @override
+  void onChange(BlocBase<dynamic> bloc, Change<dynamic> change) {
+    super.onChange(bloc, change);
+    final name = bloc.runtimeType.toString();
+    final nextSummary = change.nextState.toString();
+    if (printTerminal && kDebugMode && name != 'ApiLabCubit') {
+      _printSeparateBox(
+        colorCode: '38;5;43',
+        header: '🔄 bloc-transition · $name',
+        detail: 'nextState: $nextSummary',
+      );
+    }
+    scheduleMicrotask(() {
+      inspector?.logBloc(
+        'bloc-transition',
+        '$name state updated',
+        kind: InspectorLogKind.blocTransition,
+        subtitle: nextSummary,
+        copyText: '[bloc-transition] $name\nfrom: ${change.currentState}\nto:   ${change.nextState}',
+      );
+    });
+  }
+
+  @override
+  void onError(BlocBase<dynamic> bloc, Object error, StackTrace stackTrace) {
+    super.onError(bloc, error, stackTrace);
+    final name = bloc.runtimeType.toString();
+    if (printTerminal && kDebugMode) {
+      _printSeparateBox(
+        colorCode: '38;5;196',
+        header: '⛔ bloc-error · $name',
+        detail: '$error',
+      );
+    }
+    scheduleMicrotask(() {
+      inspector?.logError('$name error', subtitle: '$error');
+    });
+  }
 }
 
 // =============================================================================
@@ -102,7 +191,7 @@ class AuthGuard extends OmniGuard {
 // Application Root
 // =============================================================================
 
-class ExampleApp extends StatelessWidget {
+class ExampleApp extends StatefulWidget {
   const ExampleApp({super.key, this.useLiveNetwork = true});
 
   /// Defaults to `true` so running the app calls real public developer APIs
@@ -112,16 +201,60 @@ class ExampleApp extends StatelessWidget {
   final bool useLiveNetwork;
 
   @override
+  State<ExampleApp> createState() => _ExampleAppState();
+}
+
+class _ExampleAppState extends State<ExampleApp> {
+  BlocObserver? _previousObserver;
+  late final _ExampleBlocObserver _blocObserver;
+
+  @override
+  void initState() {
+    super.initState();
+    _previousObserver = Bloc.observer;
+    _blocObserver = _ExampleBlocObserver(printTerminal: widget.useLiveNetwork);
+    Bloc.observer = _blocObserver;
+  }
+
+  @override
+  void dispose() {
+    _blocObserver.inspector = null;
+    if (identical(Bloc.observer, _blocObserver) && _previousObserver != null) {
+      Bloc.observer = _previousObserver!;
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return OmniApp(
       initialRoute: '/dashboard',
       transition: OmniPages.fadeSlide,
       guards: const [AuthGuard()],
+      logNavigation: false,
+      onNavigate: (nav) {
+        final from = nav.from?.location ?? '(start)';
+        final to = nav.to.location;
+        if (widget.useLiveNetwork && kDebugMode) {
+          _printSeparateBox(
+            colorCode: '38;5;141',
+            header: '🧭 route · $from -> $to',
+            detail: 'uri: ${nav.uri}',
+          );
+        }
+        scheduleMicrotask(() {
+          _blocObserver.inspector?.logRoute(
+            '$from -> $to',
+            subtitle: 'uri: ${nav.uri}',
+            copyText: '[route]\nfrom: $from\nto:   $to\nuri:  ${nav.uri}',
+          );
+        });
+      },
       blocs: [
         OmniBloc((_) => AuthBloc(), global: true),
         OmniBloc((_) => ThemeBloc(), global: true),
         OmniBloc(
-          (_) => ApiLabCubit(useLiveNetwork: useLiveNetwork),
+          (_) => ApiLabCubit(useLiveNetwork: widget.useLiveNetwork),
           global: true,
         ),
         // Classic pre-registered style kept alongside page-entry registration:
@@ -224,6 +357,7 @@ class ExampleApp extends StatelessWidget {
       builder: (context, router) {
         final dark = context.watch<ThemeBloc>().state;
         final inspector = context.read<ApiLabCubit>().inspector;
+        _blocObserver.inspector = inspector;
         return MaterialApp.router(
           title: 'OmniRoute & OmniNetwork Example',
           themeMode: dark ? ThemeMode.dark : ThemeMode.light,
@@ -232,6 +366,7 @@ class ExampleApp extends StatelessWidget {
           routerConfig: router,
           builder: (context, child) => OmniInspectorLauncher(
             inspector: inspector,
+            initialTab: InspectorTab.logs,
             child: child ?? const SizedBox.shrink(),
           ),
         );

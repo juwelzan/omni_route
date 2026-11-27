@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:omni_network/omni_network.dart';
 import 'package:omni_route_example/demo_backend.dart';
 
 Future<void> main() async {
@@ -52,8 +53,9 @@ Future<void> main() async {
     stdout.writeln();
 
     stdout.writeln(
-      '--- [5] RUNTIME TOGGLES: logResponse=false then enableLogging=false ---',
+      '--- [5] RUNTIME TOGGLES (logResponse=false / enableLogging=false) & 404 WARN ---',
     );
+    await demo.modifiedClient.get<Map<String, dynamic>>('/users/999').asResult();
     demo.modifiedClient.logResponse = false;
     await demo.callModifiedApi(id: 3);
     demo.modifiedClient.enableLogging = false;

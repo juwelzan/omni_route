@@ -426,7 +426,11 @@ class ApiComparisonCoordinator {
       enableLogging: true,
       logResponse: true,
       timeout: const Duration(seconds: 15),
-      logColors: true,
+      logColors: enableColors,
+      logOptions: LogOptions(separate: true, colors: enableColors),
+    );
+    _normalLogSub = normalClient.logStream.listen(
+      (r) => _emitLabelledLog('normal', r),
     );
 
     // 2. MODIFIED API STYLE:
@@ -450,6 +454,7 @@ class ApiComparisonCoordinator {
       enableLogging: true,
       logResponse: true,
       logColors: enableColors,
+      logOptions: LogOptions(summary: true, separate: true, colors: enableColors),
       logInRelease: true,
       wsConnector: useLiveNetwork
           ? null
@@ -502,7 +507,10 @@ class ApiComparisonCoordinator {
       ),
     );
 
-    _logSub = modifiedClient.logStream.listen(_recordTerminalBox);
+    _logSub = modifiedClient.logStream.listen((r) {
+      _recordTerminalBox(r);
+      _emitLabelledLog('modified', r);
+    });
 
     // 3. MULTI-WEBSITE PUBLIC API HUB:
     //    Manages 4 distinct real developer APIs simultaneously + env switching.
@@ -552,9 +560,15 @@ class ApiComparisonCoordinator {
           decoders: const {PokemonInfo: PokemonInfo.fromJson},
         ),
       },
-      logOptions: LogOptions(responseBody: true, colors: enableColors),
+      logOptions: LogOptions(
+        summary: true,
+        separate: true,
+        responseBody: true,
+        colors: enableColors,
+      ),
       transportOverride: offlineMirror,
     );
+    _attachHubLogStreams();
 
     // Dedicated in-memory chat room backend for instant message acks & `@ai`.
     chatClient = OmniNetwork(
@@ -592,28 +606,110 @@ class ApiComparisonCoordinator {
   late final OmniApiHub hub;
   late final OmniAiThread aiThread;
   late final OmniChatRoom chatRoom;
+  late final StreamSubscription<NetworkLogRecord> _normalLogSub;
   late final StreamSubscription<NetworkLogRecord> _logSub;
+  final List<StreamSubscription<NetworkLogRecord>> _hubLogSubs = [];
+  final StreamController<({String label, NetworkLogRecord record})>
+  _allLogRecords = StreamController.broadcast();
+
+  /// Unified labelled log stream from `normalClient`, `modifiedClient`, and
+  /// every `OmniApiHub` service so an inspector receives all API calls without
+  /// `requestId` collisions across clients.
+  Stream<({String label, NetworkLogRecord record})> get networkLogs =>
+      _allLogRecords.stream;
+
+  late final PrettyLogSink _uiPreviewWithBodySink = PrettyLogSink(
+    options: const LogOptions(summary: true, responseBody: true, colors: true),
+    printer: (formatted) {
+      if (modifiedClient.logResponse) {
+        lastModifiedTerminalBlock = formatted;
+        modifiedOutputLog.add(formatted);
+      }
+    },
+  );
+
+  late final PrettyLogSink _uiPreviewCompactSink = PrettyLogSink(
+    options: const LogOptions(summary: true, responseBody: false, colors: true),
+    printer: (formatted) {
+      if (!modifiedClient.logResponse) {
+        lastModifiedTerminalBlock = formatted;
+        modifiedOutputLog.add(formatted);
+      }
+    },
+  );
 
   String lastNormalOutput = '';
+  String lastNormalJson = '';
   String lastModifiedOutput = '';
+  String lastModifiedJson = '';
   String lastModifiedTerminalBlock = '';
   String lastMultiApiOutput = '';
+  String lastMultiApiJson = '';
   String lastWsOutput = '';
   String lastAiOutput = '';
   final List<String> modifiedOutputLog = [];
 
+  static const JsonEncoder _prettyJson = JsonEncoder.withIndent('  ');
+
+  void _emitLabelledLog(String label, NetworkLogRecord record) {
+    if (!_allLogRecords.isClosed) {
+      _allLogRecords.add((label: label, record: record));
+    }
+    if (record.kind == NetworkLogKind.response && record.body != null) {
+      final body = record.body!;
+      final formatted = _formatBodyForCopy(body);
+      if (label == 'normal') {
+        lastNormalJson = formatted;
+      } else if (label == 'modified') {
+        lastModifiedJson = formatted;
+      }
+    }
+  }
+
+  static String _formatBodyForCopy(String raw) {
+    try {
+      return _prettyJson.convert(jsonDecode(raw));
+    } catch (_) {
+      return raw;
+    }
+  }
+
+  void _attachHubLogStreams() {
+    for (final sub in _hubLogSubs) {
+      unawaited(sub.cancel());
+    }
+    _hubLogSubs.clear();
+    for (final name in const ['jsonplaceholder', 'dummyjson', 'weather', 'pokeapi']) {
+      _hubLogSubs.add(
+        hub.service(name).logStream.listen((r) {
+          _recordTerminalBox(r);
+          _emitLabelledLog(name, r);
+        }),
+      );
+    }
+  }
+
+  /// Updates `logColors` (`null` = auto, `true` = force ANSI, `false` = off)
+  /// across `normalClient`, `modifiedClient`, and active `hub` services.
+  void setLogColors(bool? colors) {
+    normalClient.logColors = colors;
+    modifiedClient.logColors = colors;
+    for (final name in const ['jsonplaceholder', 'dummyjson', 'weather', 'pokeapi']) {
+      hub.service(name).logColors = colors;
+    }
+  }
+
+  /// Switches [hub] environment and keeps log streams attached.
+  Future<void> switchHubEnvironment(String env) async {
+    await hub.useEnvironment(env);
+    _attachHubLogStreams();
+    setLogColors(modifiedClient.logColors);
+  }
+
   void _recordTerminalBox(NetworkLogRecord record) {
     if (!modifiedClient.isLogging) return;
-    PrettyLogSink(
-      options: LogOptions(
-        responseBody: modifiedClient.logResponse,
-        colors: false,
-      ),
-      printer: (formatted) {
-        lastModifiedTerminalBlock = formatted;
-        modifiedOutputLog.add(formatted);
-      },
-    ).log(record);
+    _uiPreviewWithBodySink.log(record);
+    _uiPreviewCompactSink.log(record);
   }
 
   /// Normal / Classic API call (`normalClient` -> `jsonplaceholder.typicode.com`).
@@ -623,6 +719,7 @@ class ApiComparisonCoordinator {
       cache: CachePolicy.noCache,
     );
     final decoded = PublicUser.fromJson(raw);
+    lastNormalJson = _prettyJson.convert(raw);
     final output =
         '[NORMAL API RESULT -> jsonplaceholder.typicode.com/users/$id]\n'
         'Raw JSON keys: ${raw.keys.take(5).join(', ')}...\n'
@@ -701,6 +798,12 @@ class ApiComparisonCoordinator {
         '• open-meteo.com -> $weather\n'
         '• pokeapi.co -> $poke';
     lastMultiApiOutput = summary;
+    lastMultiApiJson = _prettyJson.convert({
+      'environment': hub.activeEnvironmentName,
+      'dummyjson': {'id': product.id, 'title': product.title, 'price': product.price},
+      'open_meteo': {'temperatureC': weather.temperatureC, 'windSpeedKmh': weather.windSpeedKmh},
+      'pokeapi': {'name': poke.name, 'height': poke.height, 'weight': poke.weight},
+    });
     return summary;
   }
 
@@ -744,7 +847,12 @@ class ApiComparisonCoordinator {
   }
 
   Future<void> dispose() async {
+    await _normalLogSub.cancel();
     await _logSub.cancel();
+    for (final sub in _hubLogSubs) {
+      await sub.cancel();
+    }
+    await _allLogRecords.close();
     await aiThread.close();
     await chatRoom.close();
     await chatClient.close();

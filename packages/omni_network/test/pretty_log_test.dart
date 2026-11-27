@@ -321,5 +321,92 @@ void main() {
         );
       },
     );
+
+    test('summary: true prints instant outcome badge, speed & JSON shape', () async {
+      final summaryOut = <String>[];
+      final summaryMock = OmniMock(basePath: '/v1')
+        ..get('/users/1', (_) => MockResponse.json({'id': 1, 'name': 'Ana'}))
+        ..get('/posts', (_) => MockResponse.json([1, 2, 3]))
+        ..get('/missing', (_) => MockResponse.json({'error': 'none'}, status: 404))
+        ..get('/crash', (_) => MockResponse.json({'err': 'down'}, status: 503));
+      final api = OmniNetwork(
+        baseUrl: 'https://api.test/v1',
+        transport: summaryMock,
+        enableLogging: true,
+        logSink: PrettyLogSink(
+          options: const LogOptions(summary: true, colors: true),
+          printer: summaryOut.add,
+        ),
+      );
+      addTearDown(api.close);
+
+      await api.get<void>('/users/1');
+      await api.get<void>('/posts');
+      await api.get<void>('/missing').asResult();
+      await api.get<void>('/crash').asResult();
+
+      expect(plain(summaryOut[0]), contains('🟢 ✔ 200 OK · SUCCESS · ⚡ FAST'));
+      expect(plain(summaryOut[0]), contains('📦 Body: JSON Object (2 keys: id, name)'));
+      expect(plain(summaryOut[1]), contains('📋 Body: JSON Array (3 items)'));
+      expect(plain(summaryOut[2]), contains('🟠 ⚠ 404 Not Found · CLIENT WARNING'));
+      expect(summaryOut[2], contains('\x1B[38;5;214m'));
+      expect(plain(summaryOut[3]), contains('🔴 ✖ 503 Service Unavailable · SERVER ERROR'));
+      expect(summaryOut[3], contains('\x1B[38;5;196m'));
+    });
+
+    test(
+      'separate: true emits distinct colored request, response & grey-framed JSON boxes',
+      () async {
+        final blocks = <String>[];
+        final sepMock = OmniMock(basePath: '/v1')
+          ..get('/users/1', (_) => MockResponse.json({'id': 1, 'name': 'Ana'}))
+          ..get(
+            '/missing',
+            (_) => MockResponse.json({'error': 'missing'}, status: 404),
+          );
+        final api = OmniNetwork(
+          baseUrl: 'https://api.test/v1',
+          transport: sepMock,
+          enableLogging: true,
+          logSink: PrettyLogSink(
+            options: const LogOptions(
+              summary: true,
+              separate: true,
+              colors: true,
+            ),
+            printer: blocks.add,
+          ),
+        );
+        addTearDown(api.close);
+
+        await api.get<void>('/users/1');
+        await api.get<void>('/missing').asResult();
+
+        // Expect 3 blocks per JSON call: request + response header + JSON body.
+        expect(blocks, hasLength(6));
+
+        // 1. Separate magenta http-request box.
+        expect(blocks[0], contains('\x1B[38;5;171m'));
+        expect(plain(blocks[0]), contains('📡 http-request · GET'));
+        expect(plain(blocks[0]), contains('https://api.test/v1/users/1'));
+
+        // 2. Separate green 200 OK header box.
+        expect(blocks[1], contains('\x1B[38;5;40m'));
+        expect(plain(blocks[1]), contains('💡 http-response · 200 OK'));
+        expect(plain(blocks[1]), contains('📦 Body: JSON Object'));
+
+        // 3. Separate grey-framed pretty JSON body box without per-line emojis.
+        expect(blocks[2], contains('\x1B[38;5;244m┌'));
+        expect(plain(blocks[2]), contains('"id": 1'));
+        expect(plain(blocks[2]), contains('"name": "Ana"'));
+        expect(plain(blocks[2]), isNot(contains('💡')));
+
+        // 4. Separate amber 404 warning box + separate 404 JSON body box.
+        expect(blocks[3], contains('\x1B[38;5;171m'));
+        expect(blocks[4], contains('\x1B[38;5;214m'));
+        expect(plain(blocks[4]), contains('⚠️ http-warning · 404 Not Found'));
+        expect(plain(blocks[5]), contains('"error": "missing"'));
+      },
+    );
   });
 }

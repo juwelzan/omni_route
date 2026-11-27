@@ -257,6 +257,85 @@ void main() {
       );
       expect(find.byTooltip('Open network inspector'), findsNothing);
     });
+
+    testWidgets(
+      'Talker-style Logs tab shows color-coded cards & 1-click copy per item',
+      (tester) async {
+        String? copied;
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+              if (call.method == 'Clipboard.setData') {
+                copied = (call.arguments as Map)['text'] as String?;
+              }
+              return null;
+            });
+        addTearDown(
+          () => TestDefaultBinaryMessengerBinding
+              .instance
+              .defaultBinaryMessenger
+              .setMockMethodCallHandler(SystemChannels.platform, null),
+        );
+
+        final inspector = OmniInspector(enabled: true);
+        addTearDown(inspector.dispose);
+        final api = client(inspector);
+        await tester.runAsync(() => api.get<dynamic>('/users'));
+        await tester.runAsync(api.close);
+
+        inspector
+          ..logRoute('/dashboard -> /api', subtitle: 'uri: /api?id=1')
+          ..logBloc(
+            'bloc-create',
+            'AuthBloc created',
+            kind: InspectorLogKind.blocCreate,
+          )
+          ..logWarning('Cache nearly full', subtitle: '85%');
+
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Scaffold(
+              body: OmniInspectorView(
+                inspector: inspector,
+                initialTab: InspectorTab.logs,
+              ),
+            ),
+          ),
+        );
+
+        // 1 http-request + 1 http-response + 1 route + 1 bloc-create + 1 warning
+        expect(find.text('All Logs (5)'), findsOneWidget);
+        expect(find.text('1 http-response'), findsOneWidget);
+        expect(find.text('1 route'), findsOneWidget);
+        expect(find.text('1 bloc-create'), findsOneWidget);
+
+        // 1-click copy on the http-response card copies pretty JSON directly.
+        await tester.tap(find.byTooltip('Copy http-response'));
+        await tester.pump();
+        expect(copied, contains('"id": 1'));
+
+        // Category chip filters down to matching cards.
+        await tester.tap(find.text('1 route'));
+        await tester.pump();
+        expect(find.textContaining('/dashboard -> /api'), findsOneWidget);
+        expect(find.textContaining('AuthBloc created'), findsNothing);
+
+        // Copy all logs exports the complete timeline in one tap.
+        await tester.tap(find.byTooltip('Copy all logs'));
+        await tester.pump();
+        expect(copied, contains('http-response'));
+        expect(copied, contains('bloc-create'));
+        expect(copied, contains('/dashboard -> /api'));
+
+        // HTTP Detail also exposes 1-click Copy Full Response.
+        await tester.tap(find.text('HTTP (1)'));
+        await tester.pump();
+        await tester.tap(find.byType(ListTile));
+        await tester.pump();
+        await tester.tap(find.text('Copy Full Response'));
+        await tester.pump();
+        expect(copied, contains('"id": 1'));
+      },
+    );
   });
 }
 

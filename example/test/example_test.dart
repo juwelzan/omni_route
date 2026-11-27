@@ -78,9 +78,11 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Run POST /posts (201 Created) and Print 100 Posts JSON.
+      // Run POST /posts (201 Created), verify 1-click Copy Full JSON, then Print 100 Posts JSON.
       await tapInApiLab(find.text('POST /posts (201)'));
       expect(find.textContaining('[POST 201 CREATED]'), findsOneWidget);
+      await tapInApiLab(find.text('Copy Full JSON'));
+      expect(find.textContaining('Copied Modified API JSON'), findsOneWidget);
 
       await tapInApiLab(find.text('Print 100 Posts JSON'));
       expect(find.textContaining('totalPosts=100'), findsOneWidget);
@@ -101,6 +103,13 @@ void main() {
       // WebSocket Echo + Correlated RPC.
       await tapInApiLab(find.text('Run Live WS Echo + RPC'));
       expect(find.textContaining('RPC echo_rpc(18+24) = 42'), findsOneWidget);
+
+      // Separate Logs & Talker Inspector (Card 5).
+      await tapInApiLab(find.text('All Logs'));
+      expect(find.textContaining('All Logs ('), findsOneWidget);
+      expect(find.textContaining('http-response'), findsWidgets);
+      await tester.tap(find.byTooltip('Close inspector'));
+      await tester.pumpAndSettle();
 
       // Classic Named Route (`/classic-student/:id`).
       await tapInApiLab(find.text('Classic Named Route'));
@@ -169,6 +178,8 @@ void main() {
       final modified = await coordinator.callModifiedApi(id: 2);
       final created = await coordinator.callCreatePostDemo();
       final posts = await coordinator.callLargePayloadApi();
+      final largePayloadLines =
+          coordinator.lastModifiedTerminalBlock.split('\n').length;
       final multi = await coordinator.callMultiWebsitePublicApis();
       final wsSum = await coordinator.callWebSocketDemo(a: 18, b: 24);
       final aiReply = await coordinator.callAiStreamingDemo('Hello');
@@ -177,9 +188,11 @@ void main() {
       expect(modified.valueOrNull?.name, 'Ervin Howell');
       expect(created.id, 101);
       expect(posts.length, 100);
+      expect(largePayloadLines, greaterThan(500));
+      expect(coordinator.lastModifiedTerminalBlock, contains('🟢 ✔ 200 OK'));
       expect(
-        coordinator.lastModifiedTerminalBlock.split('\n').length,
-        greaterThan(500),
+        coordinator.lastModifiedTerminalBlock,
+        contains('📦 Body: JSON Object'),
       );
       expect(multi, contains('dummyjson.com'));
       expect(multi, contains('open-meteo.com'));

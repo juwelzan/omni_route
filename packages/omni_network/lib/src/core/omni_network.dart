@@ -854,6 +854,8 @@ final class OmniNetwork {
     responseBody: _logResponse && _logBodies,
     maxLines: _baseLogOptions.maxLines,
     colors: _logColors,
+    summary: _baseLogOptions.summary,
+    separate: _baseLogOptions.separate,
     width: _baseLogOptions.width,
     maxLineLength: _baseLogOptions.maxLineLength,
   );
