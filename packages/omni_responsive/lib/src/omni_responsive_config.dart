@@ -630,6 +630,7 @@ class OmniResponsiveConfig {
     this.adaptTextScaling = true,
     this.tokens = const OmniResponsiveTokenSet(),
   }) : assert(smallPhoneMaxWidth >= 0),
+       assert(smallPhoneMaxWidth <= mobileMaxWidth),
        assert(mobileMaxWidth > 0),
        assert(tabletMaxWidth >= mobileMaxWidth),
        assert(desktopMaxWidth >= tabletMaxWidth);
@@ -644,7 +645,12 @@ class OmniResponsiveConfig {
     this.useShortestSide = false,
     this.tokens = const OmniResponsiveTokenSet(),
   }) : enabled = false,
-       adaptTextScaling = false;
+       adaptTextScaling = false,
+       assert(smallPhoneMaxWidth >= 0),
+       assert(smallPhoneMaxWidth <= mobileMaxWidth),
+       assert(mobileMaxWidth > 0),
+       assert(tabletMaxWidth >= mobileMaxWidth),
+       assert(desktopMaxWidth >= tabletMaxWidth);
 
   /// Keeps handheld phones strictly in [OmniDeviceType.mobile] even when
   /// rotated to landscape (checks `shortestSide` instead of `width`).
@@ -656,7 +662,12 @@ class OmniResponsiveConfig {
     this.adaptTextScaling = true,
     this.tokens = const OmniResponsiveTokenSet(),
   }) : enabled = true,
-       useShortestSide = true;
+       useShortestSide = true,
+       assert(smallPhoneMaxWidth >= 0),
+       assert(smallPhoneMaxWidth <= mobileMaxWidth),
+       assert(mobileMaxWidth > 0),
+       assert(tabletMaxWidth >= mobileMaxWidth),
+       assert(desktopMaxWidth >= tabletMaxWidth);
 
   /// Desktop/admin dashboard preset promoting desktop layout earlier (`900dp`)
   /// with comfortable spacing tokens for data-dense screens.
@@ -668,7 +679,12 @@ class OmniResponsiveConfig {
     this.useShortestSide = false,
     this.adaptTextScaling = true,
     this.tokens = const OmniResponsiveTokenSet(),
-  }) : enabled = true;
+  }) : enabled = true,
+       assert(smallPhoneMaxWidth >= 0),
+       assert(smallPhoneMaxWidth <= mobileMaxWidth),
+       assert(mobileMaxWidth > 0),
+       assert(tabletMaxWidth >= mobileMaxWidth),
+       assert(desktopMaxWidth >= tabletMaxWidth);
 
   /// Whether built-in responsive handling & tier text scaling are active.
   final bool enabled;
