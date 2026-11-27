@@ -35,12 +35,6 @@ dependencies:
   # Use with the CupertinoIcons class for iOS style icons.
   omni_route:
     path: ../
-  omni_network:
-    path: ../packages/omni_network
-  omni_network_flutter:
-    path: ../packages/omni_network_flutter
-  flutter_bloc: ^9.1.1
-  web_socket_channel: ^3.0.3
   stream_channel: ^2.1.4
   cupertino_icons: ^1.0.8
 

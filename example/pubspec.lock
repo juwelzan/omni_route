@@ -143,7 +143,7 @@ packages:
     source: sdk
     version: "0.0.0"
   flutter_bloc:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: flutter_bloc
       sha256: cf51747952201a455a1c840f8171d273be009b932c75093020f9af64f2123e38
@@ -361,16 +361,23 @@ packages:
     source: hosted
     version: "9.5.0"
   omni_network:
-    dependency: "direct main"
+    dependency: transitive
     description:
       path: "../packages/omni_network"
       relative: true
     source: path
     version: "0.1.1"
   omni_network_flutter:
-    dependency: "direct main"
+    dependency: transitive
     description:
       path: "../packages/omni_network_flutter"
+      relative: true
+    source: path
+    version: "0.1.0"
+  omni_network_ws:
+    dependency: transitive
+    description:
+      path: "../packages/omni_network_ws"
       relative: true
     source: path
     version: "0.1.0"
@@ -635,7 +642,7 @@ packages:
     source: hosted
     version: "1.0.1"
   web_socket_channel:
-    dependency: "direct main"
+    dependency: transitive
     description:
       name: web_socket_channel
       sha256: d645757fb0f4773d602444000a8131ff5d48c9e47adfe9772652dd1a4f2d45c8

@@ -1,5 +1,5 @@
 name: omni_route
-description: "Fast, zero-lag routing, transitions, and Bloc scoping for Flutter."
+description: "All-in-one Flutter plugin for routing, transitions, Bloc scoping, onboarding persistence, networking, and native utilities."
 version: 0.4.0
 repository: https://github.com/juwelzan/omni_route
 homepage: https://github.com/juwelzan/omni_route
@@ -10,7 +10,8 @@ topics:
   - navigation
   - routing
   - bloc
-  - go-router
+  - networking
+  - plugin
 
 platforms:
   android:
@@ -30,19 +31,49 @@ workspace:
   - packages/omni_network_ws
   - packages/omni_network_openapi
 
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.omniroute.omni_route
+        pluginClass: OmniRoutePlugin
+      ios:
+        pluginClass: OmniRoutePlugin
+        sharedDarwinSource: true
+      macos:
+        pluginClass: OmniRoutePlugin
+        sharedDarwinSource: true
+      linux:
+        pluginClass: OmniRoutePlugin
+      windows:
+        pluginClass: OmniRoutePluginCApi
+      web:
+        pluginClass: OmniRouteWeb
+        fileName: omni_route_web.dart
+
 dependencies:
   flutter:
     sdk: flutter
   flutter_web_plugins:
     sdk: flutter
+  plugin_platform_interface: ^2.1.8
   meta: ^1.18.0
   flutter_bloc: ^9.1.1
   logger: ^2.8.0
   shared_preferences: ^2.5.4
+  flutter_secure_storage: ^11.2.0
+  dio: ^5.11.1
+  web_socket_channel: ^3.0.3
+  web: ">=0.5.1 <2.0.0"
+  omni_network:
+    path: packages/omni_network
+  omni_network_flutter:
+    path: packages/omni_network_flutter
+  omni_network_ws:
+    path: packages/omni_network_ws
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
   leak_tracker_flutter_testing: ^3.0.10
-

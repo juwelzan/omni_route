@@ -5,10 +5,8 @@ import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_route/omni_route.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class SessionBloc extends Bloc<bool, bool> {
   SessionBloc() : super(false) {
@@ -697,7 +695,7 @@ void main() {
     );
 
     testWidgets(
-      'OmniAuth(loginScreen/signupScreen) + publicScreens/publicPages/publicRoutes, pushPublic, ?from= return & logout',
+      'OmniAuthConfig(loginScreen/signupScreen) + publicScreens/publicPages/publicRoutes, pushPublic, ?from= return & logout',
       (t) async {
         final authed = ValueNotifier<bool>(false);
         addTearDown(authed.dispose);
@@ -705,7 +703,7 @@ void main() {
         await t.pumpWidget(
           OmniApp.material(
             config: OmniConfig(
-              auth: OmniAuth(
+              auth: OmniAuthConfig(
                 isAuthenticated: (_) => authed.value,
                 refreshListenable: authed,
                 homeRoute: '/home',
@@ -876,7 +874,7 @@ void main() {
                 routes: const ['/ob-1', '/ob-2'],
                 shouldShow: (_) => true,
               ),
-              auth: OmniAuth(
+              auth: OmniAuthConfig(
                 isAuthenticated: (_) => loggedIn,
                 refreshStream: (_) => authStream.stream,
                 loginRoute: '/login',
@@ -1045,7 +1043,7 @@ void main() {
                 const S('Install-Slide-2'),
               ],
             ),
-            auth: OmniAuth(
+            auth: OmniAuthConfig(
               isAuthenticated: (_) => authed.value,
               refreshListenable: authed,
               homeRoute: '/home',
@@ -1129,7 +1127,7 @@ void main() {
                 ),
               ],
             ),
-            auth: OmniAuth(
+            auth: OmniAuthConfig(
               isAuthenticated: (_) => authed.value,
               refreshListenable: authed,
               homeRoute: '/home',

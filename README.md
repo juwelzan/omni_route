@@ -44,9 +44,9 @@
 
 ---
 
-## ১. ইনস্টলেশন
+## ১. ইনস্টলেশন (All-in-One Flutter Plugin)
 
-omni_route এখনো pub.dev-এ নেই, তাই GitHub থেকে নির্দিষ্ট release tag দিয়ে যোগ করুন:
+`omni_route` এখন একটি **All-in-One Flutter Plugin** (Android, iOS, macOS, Linux, Windows, Web)। শুধু এটি যোগ করলেই `flutter_bloc`, `omni_network`, `omni_network_flutter`, `shared_preferences`, `flutter_secure_storage` এবং নেটিভ `OmniNative` সব **অটো ইনস্টল** হয়ে যায় — আলাদা কোনো প্যাকেজ বা মাইগ্রেশন দরকার হয় না:
 
 ```yaml
 dependencies:
@@ -54,14 +54,15 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       ref: v0.4.0          # release tag — নতুন version এলে শুধু এটা বদলান
-  flutter_bloc: ^9.1.1     # context.read / BlocBuilder ব্যবহারের জন্য
 ```
 
-প্রয়োজন: Dart ≥ 3.12, Flutter ≥ 3.44 (`go_router`-এর আর কোনো প্রয়োজন নেই)।
+প্রয়োজন: Dart ≥ 3.12, Flutter ≥ 3.44 (`go_router` বা বাড়তি কোনো প্লাগিনের আর প্রয়োজন নেই)।
 
 ```dart
-import 'package:omni_route/omni_route.dart';
+import 'package:omni_route/omni_route.dart'; // Routing, Bloc, Network, Inspector, Native সব এক ইমপোর্টেই!
 ```
+
+> অ্যাডভান্সড নেটওয়ার্ক/ক্যাশ/অফলাইন কিউয়ের জন্য `package:omni_route/advanced.dart` এবং মক টেস্টের জন্য `package:omni_route/testing.dart` ব্যবহার করতে পারেন।
 
 ---
 
@@ -69,7 +70,6 @@ import 'package:omni_route/omni_route.dart';
 
 ```dart
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:omni_route/omni_route.dart';
 
 void main() {
@@ -155,7 +155,7 @@ class StudentScreen extends OmniStatelessWidget {
 | সব child route-এর চারপাশে একই layout | `OmniShell` |
 | Bottom navigation / tab, প্রতিটা tab নিজের stack রাখবে | `OmniStatefulShell` + `OmniBranch` |
 | পেজ খোলার animation (fade, slide, scale…) বা নিজের transition | `OmniPages.adaptive`, `OmniPages.fadeSlide`, `OmniPages.transition(...)`, `OmniPages.custom(...)` |
-| Login ছাড়া ঢুকতে না দেওয়া, role check | `OmniGuard` বা `OmniConfig(auth: OmniAuth(...), publicScreens: ...)` |
+| Login ছাড়া ঢুকতে না দেওয়া, role check | `OmniGuard` বা `OmniConfig(auth: OmniAuthConfig(...), publicScreens: ...)` |
 | পেজ ছাড়ার আগে নিশ্চিত করা (unsaved form ইত্যাদি) | `OmniPage(..., onExit: (ctx) => ...)` |
 | App resume/pause, screen দেখা যাচ্ছে কি না | `OmniLifecycle` mixin |
 | কাস্টম Splash, Onboarding, Login/Signup ও Public রুট ফ্লো | `OmniApp(..., config: OmniConfig(...))` ও `context.flow` (৪.১) |
@@ -288,7 +288,7 @@ OmniApp.material(
       // enabled: false দিয়ে চাইলে বন্ধ রাখা যায়
       mode: OmniOnboardingMode.onceUntilLoginScreen,
     ),
-    auth: OmniAuth(
+    auth: OmniAuthConfig(
       isAuthenticated: (context) => context.read<AuthBloc>().state is Authenticated,
       refreshStream: (context) => context.read<AuthBloc>().stream,
       homeRoute: '/home',
@@ -329,7 +329,8 @@ OmniApp.material(
 | Parameter | আগে হাতে যা লিখতে হতো | নোট |
 |---|---|---|
 | `OmniApp.material` / `.cupertino` / `OmniApp` | প্রতিবার `builder: (_, r) => MaterialApp.router(...)` | সবগুলোতে সরাসরি `config: OmniConfig(...)` বসানো যায় |
-| `config` (`OmniConfig`) + `context.flow` | আলাদা `FutureBuilder`, `PageView`, Auth গার্ড ও প্রি-লগইন পাবলিক রুট চেক | `OmniSplash`, একাধিক স্ক্রিনের `OmniOnboarding` (`screens:`), `OmniAuth` ও `publicScreens`/`publicPages`/`publicRoutes` |
+| `config` (`OmniConfig`) + `context.flow` | আলাদা `FutureBuilder`, `PageView`, Auth গার্ড ও প্রি-লগইন পাবলিক রুট চেক | `OmniSplash`, একাধিক স্ক্রিনের `OmniOnboarding` (`screens:`), `OmniAuthConfig` ও `publicScreens`/`publicPages`/`publicRoutes` |
+| `OmniNative` | `device_info`, `wakelock`, keyboard hide, native cache আলাদা প্লাগিন | `OmniNative.getDeviceInfo()`, `hideKeyboard()`, `keepScreenOn()`, `clearNativeCache()` — বিল্ট-ইন নেটিভ প্লাগিনে রেডি |
 | `repositories` (`OmniRepo`) | বাইরে আলাদা `MultiRepositoryProvider` র‍্যাপিং | গ্লোবাল ও পেজ Bloc-এর উপরে মাউন্ট হয় (`dispose:` সহ) |
 | `lifecycle` | root widget-এ `WidgetsBindingObserver` + `addObserver`/`removeObserver` | context দিয়ে global Bloc পড়া যায় |
 | `onInit` + `initTimeout` + `onInitError` + `resolveInitialRoute` | `FutureBuilder` + splash + timeout/retry + প্রথম ফ্রেমের redirect | `config:` বা সরাসরি `OmniApp` দুইভাবেই কাজ করে |

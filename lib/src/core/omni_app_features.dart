@@ -145,7 +145,7 @@ void collectOmniConfigRoutePaths(
 }
 
 /// Combines developer [routes] with optional `publicScreens`, `publicPages`,
-/// and [OmniAuth] `login` / `signup` screens declared on [config].
+/// and [OmniAuthConfig] `login` / `signup` screens declared on [config].
 @internal
 List<OmniRouteBase> buildOmniConfigRoutes(
   List<OmniRouteBase> routes,
@@ -210,7 +210,7 @@ List<OmniRouteBase> buildOmniConfigRoutes(
   return out;
 }
 
-/// Guard implementing [OmniConfig] rules for route-based onboarding, [OmniAuth]
+/// Guard implementing [OmniConfig] rules for route-based onboarding, [OmniAuthConfig]
 /// login/signup/home protection, automatic onboarding persistence triggers, and
 /// pre-login public screens/routes.
 @internal
@@ -375,7 +375,7 @@ class OmniConfigGuard extends OmniGuard {
   }
 
   String _defaultLoginRedirect(
-    OmniAuth auth,
+    OmniAuthConfig auth,
     OmniRouteState state,
     String loginLoc,
     String homeLoc,
@@ -391,7 +391,7 @@ class OmniConfigGuard extends OmniGuard {
   }
 
   String _defaultPostLoginTarget(
-    OmniAuth auth,
+    OmniAuthConfig auth,
     OmniRouteState state,
     String homeLoc,
     String loginLoc,

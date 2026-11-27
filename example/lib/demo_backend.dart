@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:omni_network/advanced.dart';
-import 'package:omni_network/testing.dart';
+import 'package:omni_route/advanced.dart';
+import 'package:omni_route/testing.dart';
 import 'package:stream_channel/stream_channel.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 /// User record from JSONPlaceholder (`https://jsonplaceholder.typicode.com/users/{id}`).
 class PublicUser {

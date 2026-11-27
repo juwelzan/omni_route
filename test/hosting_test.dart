@@ -1,7 +1,6 @@
 // Regression tests for audit v2 findings A (screens outside routes) and
 // B (duplicate route names).
 import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:leak_tracker_flutter_testing/leak_tracker_flutter_testing.dart';
 import 'package:omni_route/omni_route.dart';

@@ -57,7 +57,9 @@
 
 ## ২. শুরু করার ধাপ (ইনস্টলেশন ও প্রথম অ্যাপ)
 
-### ধাপ ১: প্যাকেজ যোগ করুন (`pubspec.yaml`)
+### ধাপ ১: শুধু একটি প্লাগিন যোগ করুন (`pubspec.yaml`)
+
+`omni_route` একটি **All-in-One Flutter Plugin** (Android, iOS, macOS, Linux, Windows, Web)। শুধুমাত্র `omni_route` যোগ করলেই ভেতরে থাকা সবগুলো প্যাকেজ ও নেটিভ ফিচার **স্বয়ংক্রিয়ভাবে ইনস্টল** হয়ে যায় — আলাদা করে `flutter_bloc`, `omni_network`, `omni_network_flutter`, `shared_preferences` বা `flutter_secure_storage` যোগ করতে হয় না:
 
 ```yaml
 dependencies:
@@ -65,19 +67,8 @@ dependencies:
     git:
       url: https://github.com/juwelzan/omni_route.git
       ref: v0.4.0
-
-  # API কল ও ইন-অ্যাপ ইন্সপেক্টর চাইলে এ দুটিও যোগ করুন:
-  omni_network:
-    git:
-      url: https://github.com/juwelzan/omni_route.git
-      path: packages/omni_network
-      ref: omni_network-v0.1.1
-  omni_network_flutter:
-    git:
-      url: https://github.com/juwelzan/omni_route.git
-      path: packages/omni_network_flutter
-      ref: omni_network_flutter-v0.1.0
 ```
+> তারপর শুধু `import 'package:omni_route/omni_route.dart';` লিখলেই Routing, Bloc/Cubit, Onboarding + Local DB, HTTP/WebSocket/AI Networking, Inspector ও নেটিভ `OmniNative` সব পাওয়া যাবে। (চাইলে অ্যাডভান্সড নেটওয়ার্কিংয়ের জন্য `package:omni_route/advanced.dart` ও টেস্টের জন্য `package:omni_route/testing.dart` রয়েছে।)
 
 ### ধাপ ২: একটি ছোট পূর্ণাঙ্গ অ্যাপ (`main.dart`)
 
@@ -410,7 +401,7 @@ URL-এর `/users/7?age=25&rate=4.5&active=true&sort=newest&tag=a&tag=b` থে
      - `enabled: false` (বা `mode: OmniOnboardingMode.disabled`) — পুরো অনবোর্ডিং বন্ধ রাখতে। আর `persist: false` দিলে লোকাল ডাটাবেজে সেভ বন্ধ থাকবে।
      - `storageKey` / `storage` — চাইলে ভার্সন (`'v2'`) বদলাতে বা কাস্টম লোকাল স্টোর (`OmniLocalStore`) দিতে পারবেন।
    - **কন্ট্রোল ও কলব্যাক:** `shouldShow`, `alwaysShow`, `swipeable`, `onStepChanged`, `onDone`, `onSkip`, `afterDone`।
-3. **`auth: OmniAuth(...)`** — সরাসরি `loginScreen: const LoginScreen()` (বা `loginBuilder`), `signupScreen: const SignupScreen()` (বা `signupBuilder`), `homeRoute`, `isAuthenticated`, `refreshStream` / `refreshListenable`, `afterLogin`, `afterLogout`, `onUnauthenticated`, `blockAuthWhenLoggedIn` (লগইনের পর Web Back/URL দিয়ে Login/Signup-এ ফেরা আটকায়), `preserveRedirectQuery` (`?from=`)।
+3. **`auth: OmniAuthConfig(...)`** — সরাসরি `loginScreen: const LoginScreen()` (বা `loginBuilder`), `signupScreen: const SignupScreen()` (বা `signupBuilder`), `homeRoute`, `isAuthenticated`, `refreshStream` / `refreshListenable`, `afterLogin`, `afterLogout`, `onUnauthenticated`, `blockAuthWhenLoggedIn` (লগইনের পর Web Back/URL দিয়ে Login/Signup-এ ফেরা আটকায়), `preserveRedirectQuery` (`?from=`)।
 4. **লগইন ছাড়া ভিজিটযোগ্য পাবলিক স্ক্রিন:**
    - **`publicScreens: {'/about': const AboutScreen(), '/terms': const TermsScreen()}`** — একদম সরাসরি রুট ও স্ক্রিন ম্যাপে দিয়ে দিন (আলাদা `routes:`-এ লেখা বা গার্ড কনফিগ করার দরকার নেই)।
    - **`publicPages`** — প্যারামিটারসহ (`/article/:id`) বা `provide:` যুক্ত পাবলিক `OmniPage`।
@@ -462,7 +453,7 @@ OmniApp.material(
     ),
 
     // ৩. Login, Signup ও Home কন্ট্রোল
-    auth: OmniAuth(
+    auth: OmniAuthConfig(
       isAuthenticated: (c) => c.read<AuthBloc>().state.isLoggedIn,
       refreshStream: (c) => c.read<AuthBloc>().stream,
       homeRoute: '/home',
@@ -616,8 +607,9 @@ OmniApp.material(
 
 | প্যারামিটার | কী কাজে লাগে ও কীভাবে কাজ করে | ব্যবহার উদাহরণ |
 |---|---|---|
-| `config` (`OmniConfig?`) | `OmniApp`, `OmniApp.material` ও `OmniApp.cupertino`-এ সরাসরি `OmniSplash`, `OmniOnboarding` (`screens:`, অটো লোকাল DB ও `OmniOnboardingMode`), `OmniAuth` এবং `publicScreens`/`publicPages`/`publicRoutes` সেটআপ করে। | `config: OmniConfig(...)` |
+| `config` (`OmniConfig?`) | `OmniApp`, `OmniApp.material` ও `OmniApp.cupertino`-এ সরাসরি `OmniSplash`, `OmniOnboarding` (`screens:`, অটো লোকাল DB ও `OmniOnboardingMode`), `OmniAuthConfig` এবং `publicScreens`/`publicPages`/`publicRoutes` সেটআপ করে। | `config: OmniConfig(...)` |
 | `context.flow` (`OmniFlowController?`) | যেকোনো স্ক্রিন থেকে `finishSplash()`, `nextOnboarding()`, `previousOnboarding()`, `goToOnboardingStep()`, `completeOnboarding()`, `skipOnboarding()`, `replayOnboarding()`, `resetOnboarding()`, `goToLogin()`, `goToSignup()`, `goToHome()`, `goToPublic()`, `pushPublic()`, `logout()`, `refresh()` চালায়। | `onPressed: () => context.flow?.logout()` |
+| `OmniNative` | নেটিভ প্লাগিন হেল্পার: `getPlatformVersion()`, `getDeviceInfo()`, `hideKeyboard()`, `keepScreenOn(true)`, `clearNativeCache()` (Android/iOS/macOS/Linux/Windows/Web)। | `final info = await OmniNative.getDeviceInfo();` |
 | `onInit` (`Future<void> Function(BuildContext)?`) | রুট দেখানোর আগে একবার async কাজ (যেমন সেভ করা টোকেন/কনফিগ পড়া) চালায় (`OmniSplash(onInit:)` বা সরাসরি `OmniApp`)। | `onInit: (c) => c.read<AppInit>().load()` |
 | `initTimeout` (`Duration?`) | `onInit` অতিরিক্ত দেরি করলে নির্দিষ্ট সময় পর টাইমআউট এরর দেয়, স্প্ল্যাশ আটকে থাকে না। | `initTimeout: const Duration(seconds: 8)` |
 | `splash` (`WidgetBuilder?`) | সম্পূর্ণ নিজের ডিজাইন করা কাস্টম স্প্ল্যাশ উইজেট দিতে। | `splash: (_) => const MySplashScreen()` |

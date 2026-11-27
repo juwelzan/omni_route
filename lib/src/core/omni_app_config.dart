@@ -310,9 +310,9 @@ class OmniOnboarding {
 /// [signupBuilder] if they need URL parameters), plus [isAuthenticated] and
 /// optional reactive [refreshStream] / [refreshListenable].
 @immutable
-class OmniAuth {
+class OmniAuthConfig {
   /// Creates Auth & Login/Signup flow configuration for `OmniConfig(auth: ...)`.
-  const OmniAuth({
+  const OmniAuthConfig({
     this.isAuthenticated,
     this.refreshStream,
     this.refreshListenable,
@@ -385,7 +385,7 @@ class OmniAuth {
   final bool preserveRedirectQuery;
 
   /// Returns a copy with selected fields replaced.
-  OmniAuth copyWith({
+  OmniAuthConfig copyWith({
     bool Function(BuildContext context)? isAuthenticated,
     Stream<Object?> Function(BuildContext context)? refreshStream,
     Listenable? refreshListenable,
@@ -401,7 +401,7 @@ class OmniAuth {
     OmniFlowRedirect? onUnauthenticated,
     bool? blockAuthWhenLoggedIn,
     bool? preserveRedirectQuery,
-  }) => OmniAuth(
+  }) => OmniAuthConfig(
     isAuthenticated: isAuthenticated ?? this.isAuthenticated,
     refreshStream: refreshStream ?? this.refreshStream,
     refreshListenable: refreshListenable ?? this.refreshListenable,
@@ -446,7 +446,7 @@ class OmniConfig {
   final OmniOnboarding? onboarding;
 
   /// Login, Sign Up, Home, and authentication guard configuration.
-  final OmniAuth? auth;
+  final OmniAuthConfig? auth;
 
   /// Map of `routePath -> Widget` screens automatically registered AND
   /// accessible without logging in (e.g. `{'/about': const AboutScreen()}`).
@@ -480,7 +480,7 @@ class OmniConfig {
   OmniConfig copyWith({
     OmniSplash? splash,
     OmniOnboarding? onboarding,
-    OmniAuth? auth,
+    OmniAuthConfig? auth,
     Map<String, Widget>? publicScreens,
     List<OmniRouteBase>? publicPages,
     List<String>? publicRoutes,
