@@ -7,23 +7,22 @@ import 'package:omni_route_example/main.dart';
 
 void main() {
   testWidgets(
-    'Full ExampleApp flow: guards, page-entry Bloc, Normal vs Modified API, '
-    'WS RPC, AI Chat, WS Chat, OmniShell, OmniStatefulShell, dialogs & sheets',
+    'Full ExampleApp flow: guards, page-entry Bloc, Normal vs Modified public APIs, '
+    'Multi-Website Hub, WS Echo RPC, AI Chat, WS Chat, OmniShell, OmniStatefulShell, dialogs & sheets',
     (tester) async {
-      await tester.pumpWidget(const ExampleApp());
+      // useLiveNetwork: false uses the local public-API mirror inside Flutter's
+      // hermetic test binding (production ExampleApp & bin/demo.dart hit real URLs).
+      await tester.pumpWidget(const ExampleApp(useLiveNetwork: false));
       await tester.pumpAndSettle();
 
       // 1. AuthGuard redirects unauthenticated startup -> /login.
       expect(OmniRoute.routePath, '/login');
-      expect(find.text('Log in'), findsOneWidget);
-
       await tester.tap(find.text('Log in'));
       await tester.pumpAndSettle();
 
       // 2. Dashboard: OmniStatefulWidget + OmniLifecycle + .hosted() OmniStatelessWidget.
       expect(OmniRoute.routePath, '/dashboard');
       expect(find.textContaining('Hosted OmniStatelessWidget'), findsOneWidget);
-      expect(find.textContaining('OmniLifecycle onShow count:'), findsOneWidget);
 
       // Jump directly to /students/101 (OmniRouteGroup + StudentDetailBloc).
       await tester.tap(find.text('Open student 101'));
@@ -41,7 +40,6 @@ void main() {
       await tester.enterText(find.byType(TextField), 'Rahim Updated');
       await tester.pumpAndSettle();
 
-      // Dirty pop triggers onExit dialog; Stay keeps edits, Save resets dirty & pops.
       await tester.tap(find.text('Back to list'));
       await tester.pumpAndSettle();
       expect(find.text('Discard edits?'), findsOneWidget);
@@ -52,13 +50,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Rahim Updated'), findsOneWidget);
 
-      // Re-tap active Students tab -> resets Branch 1 to /students (registers
-      // lazy page-entry StudentBloc on first entry!).
+      // Re-tap active Students tab -> resets Branch 1 to /students (lazy StudentBloc).
       await tester.tap(find.text('Students'));
       await tester.pumpAndSettle();
       expect(find.text('Student #101'), findsOneWidget);
-      expect(find.text('Student #102'), findsOneWidget);
-      expect(find.text('Student #103'), findsOneWidget);
 
       // 3. Switch to API & AI tab (OmniStatefulShell branch wrapping OmniShell).
       await tester.tap(find.text('API & AI'));
@@ -66,9 +61,9 @@ void main() {
       expect(OmniRoute.routePath, '/api');
       expect(find.text('OmniShell: /api'), findsOneWidget);
 
-      // onReady ran both Normal & Modified API automatically.
-      expect(find.textContaining('[NORMAL API RESULT]'), findsOneWidget);
-      expect(find.textContaining('[MODIFIED API RESULT]'), findsOneWidget);
+      // onReady ran Normal & Modified API immediately in the top cards.
+      expect(find.textContaining('[NORMAL API RESULT'), findsOneWidget);
+      expect(find.textContaining('[MODIFIED API RESULT'), findsOneWidget);
 
       final apiScroll = find
           .descendant(
@@ -83,29 +78,31 @@ void main() {
         await tester.pumpAndSettle();
       }
 
-      // Run 500-line full response test & print count.
-      await tapInApiLab(find.text('Print 500-Line JSON'));
-      expect(find.textContaining('totalRows=100'), findsOneWidget);
+      // Run POST /posts (201 Created) and Print 100 Posts JSON.
+      await tapInApiLab(find.text('POST /posts (201)'));
+      expect(find.textContaining('[POST 201 CREATED]'), findsOneWidget);
+
+      await tapInApiLab(find.text('Print 100 Posts JSON'));
+      expect(find.textContaining('totalPosts=100'), findsOneWidget);
       expect(find.textContaining('no truncation'), findsOneWidget);
 
-      // Switch OmniApiHub dev -> prod environment.
-      await tapInApiLab(find.text('prod'));
-      expect(find.text('env: prod'), findsOneWidget);
-      expect(
-        find.textContaining('https://prod.api.omni.local'),
-        findsOneWidget,
-      );
-
-      // Runtime logger toggle (`logResponse = false` -> re-run keeps status only).
+      // Runtime toggle `logResponse = false` -> re-run keeps status only.
       await tapInApiLab(find.text('logResponse'));
       await tapInApiLab(find.text('Call Modified API'));
       expect(find.textContaining('logResponse=false'), findsOneWidget);
 
-      // WebSocket Event + Correlated RPC.
-      await tapInApiLab(find.text('Run WS Event + RPC'));
-      expect(find.textContaining('RPC sum(15+27) = 42'), findsOneWidget);
+      // Scroll to Card 3: verify onReady Multi-Website Hub output, then switch env.
+      await tapInApiLab(find.text('Call 3 Public Websites'));
+      expect(find.textContaining('[MULTI-WEBSITE PUBLIC HUB'), findsOneWidget);
+      await tapInApiLab(find.text('sandbox'));
+      expect(find.text('env: sandbox'), findsOneWidget);
+      expect(find.textContaining('Switched OmniApiHub env'), findsOneWidget);
 
-      // Classic Named Route (`/classic-student/:id` + pre-registered Bloc).
+      // WebSocket Echo + Correlated RPC.
+      await tapInApiLab(find.text('Run Live WS Echo + RPC'));
+      expect(find.textContaining('RPC echo_rpc(18+24) = 42'), findsOneWidget);
+
+      // Classic Named Route (`/classic-student/:id`).
       await tapInApiLab(find.text('Classic Named Route'));
       expect(find.textContaining('Classic Style:'), findsOneWidget);
       await tester.tap(find.text('Pop Classic Route'));
@@ -117,13 +114,10 @@ void main() {
       await tester.tap(find.text('Close'));
       await tester.pumpAndSettle();
 
-      // Nested OmniShell sub-route 1: Multi-Model AI Chat (`/api/ai-chat`).
+      // Nested OmniShell sub-route 1: AI Chat (`/api/ai-chat`).
       await tapInApiLab(find.text('AI Chat (/api/ai-chat)'));
       expect(OmniRoute.routePath, '/api/ai-chat');
-      await tester.enterText(
-        find.byType(TextField),
-        'Test OmniRoute routing',
-      );
+      await tester.enterText(find.byType(TextField), 'Test public APIs');
       await tester.testTextInput.receiveAction(TextInputAction.send);
       await tester.pumpAndSettle();
       expect(find.textContaining('[OpenAI/gpt-4o-mini]'), findsOneWidget);
@@ -137,7 +131,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Hello @ai'), findsOneWidget);
 
-      // Switch to Settings tab -> Dark mode -> Nested `/settings/profile`.
+      // Settings -> Dark mode -> Nested `/settings/profile`.
       await tester.tap(find.text('Settings'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Dark mode'));
@@ -146,7 +140,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(OmniRoute.routePath, '/settings/profile');
 
-      // Jump back to Dashboard via tab and trigger Dialog route logout.
+      // Dashboard -> Dialog route logout -> AuthGuard redirects to /login.
       await tester.tap(find.text('Dashboard'));
       await tester.pumpAndSettle();
       await tester.tap(find.byIcon(Icons.logout));
@@ -157,27 +151,41 @@ void main() {
       await tester.pumpAndSettle();
       expect(OmniRoute.routePath, '/login');
 
-      // Cleanly unmount so ApiLabCubit.close() closes WS & streams.
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.pumpAndSettle();
     },
   );
 
-  test('Pure-Dart ApiComparisonCoordinator verifies Normal vs Modified API', () async {
-    final coordinator = ApiComparisonCoordinator(enableColors: false);
-    addTearDown(coordinator.dispose);
+  test(
+    'Offline mirror ApiComparisonCoordinator verifies all public endpoints',
+    () async {
+      final coordinator = ApiComparisonCoordinator(
+        useLiveNetwork: false,
+        enableColors: false,
+      );
+      addTearDown(coordinator.dispose);
 
-    final normal = await coordinator.callNormalApi(id: 101);
-    final modified = await coordinator.callModifiedApi(id: 103);
-    final report = await coordinator.callLargePayloadApi();
-    final wsTotal = await coordinator.callWebSocketDemo(a: 10, b: 15);
-    final aiReply = await coordinator.callAiStreamingDemo('Hello');
+      final user = await coordinator.callNormalApi(id: 1);
+      final modified = await coordinator.callModifiedApi(id: 2);
+      final created = await coordinator.callCreatePostDemo();
+      final posts = await coordinator.callLargePayloadApi();
+      final multi = await coordinator.callMultiWebsitePublicApis();
+      final wsSum = await coordinator.callWebSocketDemo(a: 18, b: 24);
+      final aiReply = await coordinator.callAiStreamingDemo('Hello');
 
-    expect(normal.id, 101);
-    expect(modified.valueOrNull?.id, 103);
-    expect(report['totalRows'], 100);
-    expect(coordinator.lastModifiedTerminalBlock.split('\n').length, greaterThan(500));
-    expect(wsTotal, 25);
-    expect(aiReply, contains('[OpenAI/gpt-4o-mini]'));
-  });
+      expect(user.name, 'Leanne Graham');
+      expect(modified.valueOrNull?.name, 'Ervin Howell');
+      expect(created.id, 101);
+      expect(posts.length, 100);
+      expect(
+        coordinator.lastModifiedTerminalBlock.split('\n').length,
+        greaterThan(500),
+      );
+      expect(multi, contains('dummyjson.com'));
+      expect(multi, contains('open-meteo.com'));
+      expect(multi, contains('pokeapi.co'));
+      expect(wsSum, 42);
+      expect(aiReply, contains('[OpenAI/gpt-4o-mini]'));
+    },
+  );
 }

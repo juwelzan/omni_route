@@ -7,84 +7,94 @@ Future<void> main() async {
     '======================================================================',
   );
   stdout.writeln(
-    '  OmniRoute + OmniNetwork Live Demo: Normal API vs Modified API',
+    '  OmniRoute + OmniNetwork REAL PUBLIC APIs: Normal vs Modified Demo',
   );
   stdout.writeln(
     '======================================================================\n',
   );
 
+  // useLiveNetwork: true -> Real HTTPS & WebSocket calls to public websites!
   final demo = ApiComparisonCoordinator(
+    useLiveNetwork: true,
     enableColors: true,
     onTerminalOutput: (line) => stdout.writeln(line),
   );
 
-  stdout.writeln('--- [1] NORMAL / CLASSIC API CALL (No Auto Color Log) ---');
-  await demo.callNormalApi(id: 101);
-  stdout.writeln();
+  try {
+    stdout.writeln(
+      '--- [1] NORMAL API CALL -> https://jsonplaceholder.typicode.com/users/1 ---',
+    );
+    await demo.callNormalApi(id: 1);
+    stdout.writeln();
 
-  stdout.writeln(
-    '--- [2] MODIFIED API CALL (enableLogging: true, logResponse: true, ANSI Colors) ---',
-  );
-  await demo.callModifiedApi(id: 103);
-  stdout.writeln(demo.lastModifiedOutput);
-  stdout.writeln();
+    stdout.writeln(
+      '--- [2] MODIFIED API GET -> https://jsonplaceholder.typicode.com/users/2 ---',
+    );
+    await demo.callModifiedApi(id: 2);
+    stdout.writeln(demo.lastModifiedOutput);
+    stdout.writeln();
 
-  stdout.writeln(
-    '--- [3] MODIFIED API: Full 500-Line JSON Response Print Test ---',
-  );
-  final report = await demo.callLargePayloadApi();
-  final prettyLines = demo.lastModifiedTerminalBlock.split('\n').length;
-  stdout.writeln(
-    'Printed full /long-report lines count: $prettyLines lines (totalRows=${report['totalRows']})',
-  );
-  stdout.writeln();
+    stdout.writeln(
+      '--- [3] MODIFIED API POST (HTTP 201) -> jsonplaceholder.typicode.com/posts ---',
+    );
+    final created = await demo.callCreatePostDemo();
+    stdout.writeln('Created on public server: $created');
+    stdout.writeln();
 
-  stdout.writeln(
-    '--- [4] RUNTIME TOGGLE: logResponse = false (Hide Body, Keep Status) ---',
-  );
-  demo.modifiedClient.logResponse = false;
-  await demo.callModifiedApi(id: 102);
-  stdout.writeln(demo.lastModifiedOutput);
-  stdout.writeln();
+    stdout.writeln(
+      '--- [4] FULL PUBLIC JSON LIST (/posts -> 100 items, NO truncation) ---',
+    );
+    final posts = await demo.callLargePayloadApi();
+    final prettyLines = demo.lastModifiedTerminalBlock.split('\n').length;
+    stdout.writeln(
+      'Printed full /posts response lines count: $prettyLines lines (posts=${posts.length})',
+    );
+    stdout.writeln();
 
-  stdout.writeln('--- [5] RUNTIME TOGGLE: enableLogging = false (Silent) ---');
-  demo.modifiedClient.enableLogging = false;
-  await demo.callModifiedApi(id: 104);
-  stdout.writeln(
-    'Silent call finished cleanly -> ${demo.lastModifiedOutput.split('\n').first}',
-  );
-  stdout.writeln();
+    stdout.writeln(
+      '--- [5] RUNTIME TOGGLES: logResponse=false then enableLogging=false ---',
+    );
+    demo.modifiedClient.logResponse = false;
+    await demo.callModifiedApi(id: 3);
+    demo.modifiedClient.enableLogging = false;
+    await demo.callModifiedApi(id: 4);
+    stdout.writeln(
+      'Silent call finished cleanly -> ${demo.lastModifiedOutput.split('\n').first}',
+    );
+    stdout.writeln();
 
-  stdout.writeln(
-    '--- [6] OmniApiHub Multi-Env (dev -> prod) + Typed Endpoint ---',
-  );
-  final devRes = await demo.hub.primary.get<Map<String, dynamic>>(
-    '/students/101',
-  );
-  await demo.hub.useEnvironment('prod');
-  final prodRes = await demo.hub.callEndpoint(
-    StudentApiEndpoints.byId,
-    serviceName: 'core',
-    path: {'id': 102},
-  );
-  stdout.writeln('dev response: $devRes');
-  stdout.writeln(
-    'prod response (${demo.hub.activeEnvironmentName}, baseUrl=${demo.hub.currentEnvironment?.variables['core']}): $prodRes',
-  );
-  stdout.writeln();
+    stdout.writeln(
+      '--- [6] OmniApiHub REAL PUBLIC APIs (DummyJSON + Open-Meteo + PokeAPI) ---',
+    );
+    final multiSummary = await demo.callMultiWebsitePublicApis(
+      productId: 1,
+      pokemon: 'pikachu',
+    );
+    stdout.writeln(multiSummary);
+    await demo.hub.useEnvironment('sandbox');
+    final product2 = await demo.hub.callEndpoint(
+      PublicApiEndpoints.productById,
+      serviceName: 'dummyjson',
+      path: {'id': 2},
+    );
+    stdout.writeln('Switched hub env -> ${demo.hub.activeEnvironmentName}: $product2');
+    stdout.writeln();
 
-  stdout.writeln('--- [7] WebSocket Event + Correlated RPC Demo ---');
-  final wsTotal = await demo.callWebSocketDemo(a: 18, b: 24);
-  stdout.writeln('${demo.lastWsOutput} (verified total=$wsTotal)');
-  stdout.writeln();
+    stdout.writeln(
+      '--- [7] REAL PUBLIC WEBSOCKET -> wss://ws.postman-echo.com/raw ---',
+    );
+    final wsTotal = await demo.callWebSocketDemo(a: 18, b: 24);
+    stdout.writeln('${demo.lastWsOutput} (verified=$wsTotal)');
+    stdout.writeln();
 
-  stdout.writeln(
-    '--- [8] Multi-Model AI (OpenAI/Gemini router + Streaming) ---',
-  );
-  await demo.callAiStreamingDemo(
-    'Explain OmniPage.screen and page-entry Bloc registration',
-  );
-  stdout.writeln(demo.lastAiOutput);
-
-  await demo.dispose();
+    stdout.writeln(
+      '--- [8] Multi-Model AI (OpenAI/Gemini router + Streaming) ---',
+    );
+    await demo.callAiStreamingDemo(
+      'Summarize JSONPlaceholder, DummyJSON, Open-Meteo & PokeAPI',
+    );
+    stdout.writeln(demo.lastAiOutput);
+  } finally {
+    await demo.dispose();
+  }
 }

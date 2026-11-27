@@ -7,27 +7,31 @@ import 'package:omni_route/omni_route.dart';
 
 import 'demo_backend.dart';
 
-/// State exposed by [ApiLabCubit] to drive live side-by-side API comparison,
-/// logging toggles, `OmniApiHub` environment switching, WebSocket RPC, and AI.
+/// State exposed by [ApiLabCubit] driving side-by-side Normal vs Modified API
+/// comparison across real public websites, logger toggles, `OmniApiHub`,
+/// live Postman WebSocket Echo RPC, and Multi-Model AI.
 @immutable
 class ApiLabState {
   const ApiLabState({
-    this.studentId = 101,
+    this.userId = 1,
     this.busy = false,
     this.enableLogging = true,
     this.logResponse = true,
-    this.logColors = true,
-    this.activeEnv = 'dev',
-    this.normalResponse = 'Tap "Call Normal API" to run classic client.',
-    this.modifiedResponse = 'Tap "Call Modified API" to run upgraded client.',
+    this.logColors = false,
+    this.activeEnv = 'live',
+    this.normalResponse =
+        'Tap "Call Normal API" -> https://jsonplaceholder.typicode.com/users/1',
+    this.modifiedResponse =
+        'Tap "Call Modified API" -> https://jsonplaceholder.typicode.com/users/1',
     this.modifiedTerminalBox = '',
-    this.hubOutput = '',
-    this.wsOutput = 'Tap "Run WS Event + RPC" to test WebSocket & RPC.',
-    this.aiQuickOutput = '',
+    this.hubOutput =
+        'Tap "Call 3 Public Websites" -> DummyJSON + Open-Meteo + PokeAPI',
+    this.wsOutput =
+        'Tap "Run Live WS Echo + RPC" -> wss://ws.postman-echo.com/raw',
     this.totalCapturedLogs = 0,
   });
 
-  final int studentId;
+  final int userId;
   final bool busy;
   final bool enableLogging;
   final bool logResponse;
@@ -38,11 +42,10 @@ class ApiLabState {
   final String modifiedTerminalBox;
   final String hubOutput;
   final String wsOutput;
-  final String aiQuickOutput;
   final int totalCapturedLogs;
 
   ApiLabState copyWith({
-    int? studentId,
+    int? userId,
     bool? busy,
     bool? enableLogging,
     bool? logResponse,
@@ -53,10 +56,9 @@ class ApiLabState {
     String? modifiedTerminalBox,
     String? hubOutput,
     String? wsOutput,
-    String? aiQuickOutput,
     int? totalCapturedLogs,
   }) => ApiLabState(
-    studentId: studentId ?? this.studentId,
+    userId: userId ?? this.userId,
     busy: busy ?? this.busy,
     enableLogging: enableLogging ?? this.enableLogging,
     logResponse: logResponse ?? this.logResponse,
@@ -67,17 +69,17 @@ class ApiLabState {
     modifiedTerminalBox: modifiedTerminalBox ?? this.modifiedTerminalBox,
     hubOutput: hubOutput ?? this.hubOutput,
     wsOutput: wsOutput ?? this.wsOutput,
-    aiQuickOutput: aiQuickOutput ?? this.aiQuickOutput,
     totalCapturedLogs: totalCapturedLogs ?? this.totalCapturedLogs,
   );
 }
 
 /// Coordinates [ApiComparisonCoordinator] and [OmniInspector] inside the
-/// Flutter example app.
+/// Flutter example app (`useLiveNetwork: true` by default).
 class ApiLabCubit extends Cubit<ApiLabState> {
-  ApiLabCubit() : super(const ApiLabState()) {
+  ApiLabCubit({bool useLiveNetwork = true}) : super(const ApiLabState()) {
     demo = ApiComparisonCoordinator(
-      enableColors: true,
+      useLiveNetwork: useLiveNetwork,
+      enableColors: false,
       onTerminalOutput: (line) => debugPrint(line),
     );
     inspector = OmniInspector(enabled: true)..attachClient(demo.modifiedClient);
@@ -88,17 +90,17 @@ class ApiLabCubit extends Cubit<ApiLabState> {
   late final OmniInspector inspector;
   late final StreamSubscription<Object?> _inspectorSub;
 
-  void selectStudentId(int id) {
+  void selectUserId(int id) {
     if (isClosed) return;
-    emit(state.copyWith(studentId: id));
+    emit(state.copyWith(userId: id));
   }
 
-  /// Runs the Normal / Classic API style (`normalClient` with manual JSON decode).
+  /// Normal / Classic API call (`normalClient` -> JSONPlaceholder).
   Future<void> runNormalApi() async {
     if (isClosed) return;
     emit(state.copyWith(busy: true));
     try {
-      await demo.callNormalApi(id: state.studentId);
+      await demo.callNormalApi(id: state.userId);
       if (isClosed) return;
       emit(state.copyWith(busy: false, normalResponse: demo.lastNormalOutput));
     } catch (e) {
@@ -107,30 +109,22 @@ class ApiLabCubit extends Cubit<ApiLabState> {
     }
   }
 
-  /// Runs the Modified API style (`modifiedClient`, typed `Endpoint`, global
-  /// `decoders`, `Result`, and colored/configurable full-body logging).
+  /// Modified API call (`modifiedClient`, `Endpoint`, global `decoders`,
+  /// `Result`, and colored/configurable terminal logger).
   Future<void> runModifiedApi() async {
     if (isClosed) return;
     emit(state.copyWith(busy: true));
     try {
-      await demo.callModifiedApi(id: state.studentId);
-      await demo.hub.callEndpoint(
-        StudentApiEndpoints.byId,
-        serviceName: 'core',
-        path: {'id': state.studentId},
-      );
+      await demo.callModifiedApi(id: state.userId);
       final terminalBox = demo.modifiedClient.enableLogging
           ? demo.lastModifiedTerminalBlock
-          : '(enableLogging is false — request stayed completely silent)';
+          : '(enableLogging is false — request stayed silent)';
       if (isClosed) return;
       emit(
         state.copyWith(
           busy: false,
           modifiedResponse: demo.lastModifiedOutput,
           modifiedTerminalBox: terminalBox,
-          hubOutput:
-              'OmniApiHub env=${demo.hub.activeEnvironmentName} -> '
-              '${demo.hub.currentEnvironment?.variables['core']}',
           totalCapturedLogs: demo.modifiedOutputLog.length,
         ),
       );
@@ -140,21 +134,17 @@ class ApiLabCubit extends Cubit<ApiLabState> {
     }
   }
 
-  /// Runs the 100-row (~600 lines pretty-printed) JSON endpoint to prove full
-  /// unclipped terminal response printing.
-  Future<void> runLargePayloadApi() async {
+  /// Real `POST https://jsonplaceholder.typicode.com/posts` (HTTP 201).
+  Future<void> runCreatePost() async {
     if (isClosed) return;
     emit(state.copyWith(busy: true));
     try {
-      final report = await demo.callLargePayloadApi();
-      final lines = demo.lastModifiedTerminalBlock.split('\n').length;
+      final created = await demo.callCreatePostDemo();
       if (isClosed) return;
       emit(
         state.copyWith(
           busy: false,
-          modifiedResponse:
-              '[FULL PAYLOAD TEST]\n'
-              'totalRows=${report['totalRows']} | Printed $lines lines in log (no truncation)',
+          modifiedResponse: '[POST 201 CREATED]\n$created',
           modifiedTerminalBox: demo.modifiedClient.enableLogging
               ? demo.lastModifiedTerminalBlock
               : '(enableLogging is false — silent)',
@@ -167,13 +157,57 @@ class ApiLabCubit extends Cubit<ApiLabState> {
     }
   }
 
-  /// Connects WebSocket, sends event `hello` -> receives `server_notice`, and
-  /// performs correlated RPC `sum`.
+  /// Fetches `/posts` (100 real items -> ~600+ lines pretty JSON) to verify
+  /// full unclipped terminal printing.
+  Future<void> runLargePayloadApi() async {
+    if (isClosed) return;
+    emit(state.copyWith(busy: true));
+    try {
+      final posts = await demo.callLargePayloadApi();
+      final lines = demo.lastModifiedTerminalBlock.split('\n').length;
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          busy: false,
+          modifiedResponse:
+              '[FULL PUBLIC PAYLOAD TEST]\n'
+              'totalPosts=${posts.length} | Printed $lines lines in log (no truncation)',
+          modifiedTerminalBox: demo.modifiedClient.enableLogging
+              ? demo.lastModifiedTerminalBlock
+              : '(enableLogging is false — silent)',
+          totalCapturedLogs: demo.modifiedOutputLog.length,
+        ),
+      );
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(busy: false, modifiedResponse: 'Error: $e'));
+    }
+  }
+
+  /// Queries 3 distinct free public websites concurrently via `OmniApiHub`.
+  Future<void> runMultiWebsiteHub() async {
+    if (isClosed) return;
+    emit(state.copyWith(busy: true));
+    try {
+      final summary = await demo.callMultiWebsitePublicApis(
+        productId: state.userId,
+        pokemon: 'pikachu',
+      );
+      if (isClosed) return;
+      emit(state.copyWith(busy: false, hubOutput: summary));
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(busy: false, hubOutput: 'Hub error: $e'));
+    }
+  }
+
+  /// Connects WebSocket (`wss://ws.postman-echo.com/raw`), sends `hello_live`
+  /// and performs correlated RPC `echo_rpc`.
   Future<void> runWebSocketRpc() async {
     if (isClosed) return;
     emit(state.copyWith(busy: true));
     try {
-      final total = await demo.callWebSocketDemo(a: 15, b: 27);
+      final total = await demo.callWebSocketDemo(a: 18, b: 24);
       if (isClosed) return;
       emit(
         state.copyWith(
@@ -187,10 +221,10 @@ class ApiLabCubit extends Cubit<ApiLabState> {
     }
   }
 
-  /// Runs BOTH Normal and Modified API side by side in one tap.
   Future<void> runCompareBoth() async {
     await runNormalApi();
     await runModifiedApi();
+    await runMultiWebsiteHub();
   }
 
   Future<void> switchEnvironment(String env) async {
@@ -200,7 +234,7 @@ class ApiLabCubit extends Cubit<ApiLabState> {
       state.copyWith(
         activeEnv: env,
         hubOutput:
-            'Switched OmniApiHub to "$env" -> ${demo.hub.currentEnvironment?.variables['core']}',
+            'Switched OmniApiHub env -> "$env" (jsonplaceholder=${demo.hub.currentEnvironment?.variables['jsonplaceholder']})',
       ),
     );
   }
@@ -228,20 +262,13 @@ class ApiLabCubit extends Cubit<ApiLabState> {
   }
 }
 
-/// Classic Bloc kept solely to demonstrate pre-registered classic `OmniBloc`
-/// + string `OmniPage('/classic-student/:id', ..., name: 'classic_student')`.
-class ClassicStudentBloc extends Cubit<StudentRecord?> {
+/// Classic pre-registered Bloc kept solely to demonstrate traditional
+/// `OmniPage('/classic-student/:id', ..., name: 'classic_student')`.
+class ClassicStudentBloc extends Cubit<String?> {
   ClassicStudentBloc() : super(null);
 
   void load(int id) {
-    emit(
-      StudentRecord(
-        id: id,
-        name: 'Classic Student #$id',
-        department: 'CSE',
-        score: 92.5,
-      ),
-    );
+    emit('ClassicStudent(id: $id, name: "Classic #$id", dept: "CSE")');
   }
 }
 
@@ -306,8 +333,9 @@ class ApiLabShellFrame extends StatelessWidget {
 }
 
 /// Demonstrates [OmniStatefulWidget] + [OmniState] (`onReady`, `onRouteChanged`,
-/// `readBloc`, `watchBloc`, `safeSetState`), Normal vs Modified API response
-/// printing, runtime logger toggles, `OmniApiHub`, WebSocket RPC, and routing.
+/// `readBloc`, `watchBloc`, `safeSetState`), real multi-website public APIs,
+/// Normal vs Modified comparison, runtime logger toggles, WebSocket RPC,
+/// and all routing helpers.
 class ApiCompareScreen extends OmniStatefulWidget {
   const ApiCompareScreen({super.key});
 
@@ -315,7 +343,7 @@ class ApiCompareScreen extends OmniStatefulWidget {
   String get routePath => '/api';
 
   @override
-  String get title => 'API, WS & AI Lab';
+  String get title => 'Public APIs, WS & AI Lab';
 
   @override
   State<ApiCompareScreen> createState() => _ApiCompareState();
@@ -328,7 +356,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
   void onReady(BuildContext context) {
     final queryId = maybeParams?.queryInt('id');
     if (queryId != null) {
-      readBloc<ApiLabCubit>().selectStudentId(queryId);
+      readBloc<ApiLabCubit>().selectUserId(queryId);
     }
     unawaited(readBloc<ApiLabCubit>().runCompareBoth());
   }
@@ -337,11 +365,10 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
   void onRouteChanged(OmniRouteState previous, OmniRouteState current) {
     final queryId = current.params.queryInt('id');
     safeSetState(() {
-      _routeChangeNote =
-          'Route updated ${previous.uri} -> ${current.uri}';
+      _routeChangeNote = 'Route updated ${previous.uri} -> ${current.uri}';
     });
     if (queryId != null) {
-      readBloc<ApiLabCubit>().selectStudentId(queryId);
+      readBloc<ApiLabCubit>().selectUserId(queryId);
     }
   }
 
@@ -367,29 +394,29 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
           Text(_routeChangeNote, style: Theme.of(context).textTheme.bodySmall),
           const SizedBox(height: 8),
 
-          // Student ID + Compare Both controls
+          // Public User / Product ID + Run All controls
           Wrap(
             spacing: 8,
             runSpacing: 8,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              const Text('Student ID:'),
-              for (final id in [101, 102, 103, 104])
+              const Text('Public ID:'),
+              for (final id in [1, 2, 3, 4])
                 ChoiceChip(
                   label: Text('$id'),
-                  selected: lab.studentId == id,
+                  selected: lab.userId == id,
                   onSelected: (_) => go('/api?id=$id'),
                 ),
               FilledButton.icon(
                 onPressed: lab.busy ? null : cubit.runCompareBoth,
                 icon: const Icon(Icons.compare_arrows),
-                label: const Text('Run Normal + Modified'),
+                label: const Text('Run Normal + Modified + Hub'),
               ),
             ],
           ),
           const SizedBox(height: 12),
 
-          // Normal vs Modified cards
+          // 1. Normal / Classic API Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -400,7 +427,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          '1. Normal / Classic API (No Auto Decoder / Logger)',
+                          '1. Normal / Classic API (jsonplaceholder.typicode.com)',
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ),
@@ -421,6 +448,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
           ),
           const SizedBox(height: 12),
 
+          // 2. Modified API Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -428,7 +456,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '2. Modified API (Endpoint + Global Decoder + Pretty Logger + Hub)',
+                    '2. Modified API (Endpoint + Global Decoder + Pretty Logger + POST)',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 8),
@@ -441,17 +469,12 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                         child: const Text('Call Modified API'),
                       ),
                       OutlinedButton(
-                        onPressed: lab.busy ? null : cubit.runLargePayloadApi,
-                        child: const Text('Print 500-Line JSON'),
+                        onPressed: lab.busy ? null : cubit.runCreatePost,
+                        child: const Text('POST /posts (201)'),
                       ),
-                      SegmentedButton<String>(
-                        segments: const [
-                          ButtonSegment(value: 'dev', label: Text('dev')),
-                          ButtonSegment(value: 'prod', label: Text('prod')),
-                        ],
-                        selected: {lab.activeEnv},
-                        onSelectionChanged: (s) =>
-                            cubit.switchEnvironment(s.first),
+                      OutlinedButton(
+                        onPressed: lab.busy ? null : cubit.runLargePayloadApi,
+                        child: const Text('Print 100 Posts JSON'),
                       ),
                     ],
                   ),
@@ -481,14 +504,10 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     lab.modifiedResponse,
                     style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
                   ),
-                  if (lab.hubOutput.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(lab.hubOutput),
-                  ],
                   if (lab.modifiedTerminalBox.isNotEmpty) ...[
                     const Divider(),
                     Text(
-                      'Formatted Terminal Output Preview (Captured ${lab.totalCapturedLogs} calls):',
+                      'Formatted Terminal Log Preview (Captured ${lab.totalCapturedLogs} calls):',
                       style: Theme.of(context).textTheme.labelMedium,
                     ),
                     const SizedBox(height: 4),
@@ -519,7 +538,50 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
           ),
           const SizedBox(height: 12),
 
-          // WebSocket RPC Card
+          // 3. OmniApiHub Multi-Website Public APIs Card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '3. OmniApiHub Multi-Website Public APIs',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      FilledButton.tonal(
+                        onPressed: lab.busy ? null : cubit.runMultiWebsiteHub,
+                        child: const Text('Call 3 Public Websites'),
+                      ),
+                      SegmentedButton<String>(
+                        segments: const [
+                          ButtonSegment(value: 'live', label: Text('live')),
+                          ButtonSegment(value: 'sandbox', label: Text('sandbox')),
+                        ],
+                        selected: {lab.activeEnv},
+                        onSelectionChanged: (s) =>
+                            cubit.switchEnvironment(s.first),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    lab.hubOutput,
+                    style: const TextStyle(fontFamily: 'monospace', fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+
+          // 4. WebSocket Live Echo + RPC Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -530,13 +592,13 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          '3. WebSocket Event + Correlated RPC',
+                          '4. Public WebSocket (wss://ws.postman-echo.com/raw)',
                           style: Theme.of(context).textTheme.titleSmall,
                         ),
                       ),
                       OutlinedButton(
                         onPressed: lab.busy ? null : cubit.runWebSocketRpc,
-                        child: const Text('Run WS Event + RPC'),
+                        child: const Text('Run Live WS Echo + RPC'),
                       ),
                     ],
                   ),
@@ -548,7 +610,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
           ),
           const SizedBox(height: 12),
 
-          // Routing Showcase Card
+          // 5. Routing Systems Showcase Card
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -556,7 +618,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    '4. Routing Systems Showcase',
+                    '5. Routing Systems Showcase',
                     style: Theme.of(context).textTheme.titleSmall,
                   ),
                   const SizedBox(height: 8),
@@ -579,7 +641,7 @@ class _ApiCompareState extends OmniState<ApiCompareScreen> {
                       OutlinedButton(
                         onPressed: () => OmniRoute.pushNamed(
                           'classic_student',
-                          path: {'id': lab.studentId},
+                          path: {'id': lab.userId},
                         ),
                         child: const Text('Classic Named Route'),
                       ),
@@ -639,7 +701,7 @@ class RealtimeChatScreen extends OmniStatelessWidget {
       appBar: AppBar(title: Text('$title ($routePath)')),
       body: OmniChatView(
         room: cubit.demo.chatRoom,
-        hintText: 'Message classroom (tip: mention @ai)…',
+        hintText: 'Message room (tip: mention @ai)…',
       ),
     );
   }
@@ -706,10 +768,10 @@ class ClassicStudentDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bloc = context.read<ClassicStudentBloc>()..load(id);
-    return BlocBuilder<ClassicStudentBloc, StudentRecord?>(
+    return BlocBuilder<ClassicStudentBloc, String?>(
       bloc: bloc,
       builder: (context, student) => Scaffold(
-        appBar: AppBar(title: Text('Classic Route #${student?.id ?? id}')),
+        appBar: AppBar(title: Text('Classic Route #$id')),
         body: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(

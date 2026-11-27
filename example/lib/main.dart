@@ -103,7 +103,13 @@ class AuthGuard extends OmniGuard {
 // =============================================================================
 
 class ExampleApp extends StatelessWidget {
-  const ExampleApp({super.key});
+  const ExampleApp({super.key, this.useLiveNetwork = true});
+
+  /// Defaults to `true` so running the app calls real public developer APIs
+  /// (JSONPlaceholder, DummyJSON, Open-Meteo, PokeAPI, Postman WS Echo).
+  /// Hermetic widget tests pass `false` since Flutter's test binding blocks
+  /// real sockets.
+  final bool useLiveNetwork;
 
   @override
   Widget build(BuildContext context) {
@@ -114,7 +120,10 @@ class ExampleApp extends StatelessWidget {
       blocs: [
         OmniBloc((_) => AuthBloc(), global: true),
         OmniBloc((_) => ThemeBloc(), global: true),
-        OmniBloc((_) => ApiLabCubit(), global: true),
+        OmniBloc(
+          (_) => ApiLabCubit(useLiveNetwork: useLiveNetwork),
+          global: true,
+        ),
         // Classic pre-registered style kept alongside page-entry registration:
         OmniBloc((_) => ClassicStudentBloc()),
       ],

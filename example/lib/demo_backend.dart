@@ -6,129 +6,278 @@ import 'package:omni_network/testing.dart';
 import 'package:stream_channel/stream_channel.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
-/// Sample decoded domain model used across Normal & Modified API calls.
-class StudentRecord {
-  const StudentRecord({
+/// User record from JSONPlaceholder (`https://jsonplaceholder.typicode.com/users/{id}`).
+class PublicUser {
+  const PublicUser({
     required this.id,
     required this.name,
-    required this.department,
-    required this.score,
+    required this.username,
+    required this.email,
+    required this.city,
+    required this.companyName,
   });
 
-  factory StudentRecord.fromJson(Map<String, dynamic> json) => StudentRecord(
+  factory PublicUser.fromJson(Map<String, dynamic> json) {
+    final address = json['address'];
+    final company = json['company'];
+    return PublicUser(
+      id: (json['id'] as num).toInt(),
+      name: json['name'] as String? ?? 'Unknown',
+      username: json['username'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      city: address is Map ? (address['city'] as String? ?? '') : '',
+      companyName: company is Map ? (company['name'] as String? ?? '') : '',
+    );
+  }
+
+  final int id;
+  final String name;
+  final String username;
+  final String email;
+  final String city;
+  final String companyName;
+
+  @override
+  String toString() =>
+      'PublicUser(id: $id, name: $name, @$username, city: $city, company: $companyName)';
+}
+
+/// Created post returned by `POST https://jsonplaceholder.typicode.com/posts`.
+class CreatedPost {
+  const CreatedPost({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.userId,
+  });
+
+  factory CreatedPost.fromJson(Map<String, dynamic> json) => CreatedPost(
     id: (json['id'] as num).toInt(),
-    name: json['name'] as String,
-    department: json['department'] as String? ?? 'CSE',
-    score: (json['score'] as num?)?.toDouble() ?? 0,
+    title: json['title'] as String? ?? '',
+    body: json['body'] as String? ?? '',
+    userId: (json['userId'] as num?)?.toInt() ?? 1,
+  );
+
+  final int id;
+  final String title;
+  final String body;
+  final int userId;
+
+  @override
+  String toString() => 'CreatedPost(id: $id, title: "$title", userId: $userId)';
+}
+
+/// Product from DummyJSON (`https://dummyjson.com/products/{id}`).
+class PublicProduct {
+  const PublicProduct({
+    required this.id,
+    required this.title,
+    required this.category,
+    required this.price,
+    required this.rating,
+    required this.brand,
+  });
+
+  factory PublicProduct.fromJson(Map<String, dynamic> json) => PublicProduct(
+    id: (json['id'] as num).toInt(),
+    title: json['title'] as String? ?? '',
+    category: json['category'] as String? ?? '',
+    price: (json['price'] as num?)?.toDouble() ?? 0,
+    rating: (json['rating'] as num?)?.toDouble() ?? 0,
+    brand: json['brand'] as String? ?? 'Generic',
+  );
+
+  final int id;
+  final String title;
+  final String category;
+  final double price;
+  final double rating;
+  final String brand;
+
+  @override
+  String toString() =>
+      'PublicProduct(id: $id, title: "$title", \$$price, rating: $rating, brand: $brand)';
+}
+
+/// Live forecast from Open-Meteo (`https://api.open-meteo.com/v1/forecast`).
+class DhakaWeather {
+  const DhakaWeather({
+    required this.temperatureC,
+    required this.windSpeedKmh,
+    required this.time,
+  });
+
+  factory DhakaWeather.fromJson(Map<String, dynamic> json) {
+    final current = json['current'] as Map<String, dynamic>? ?? const {};
+    return DhakaWeather(
+      temperatureC: (current['temperature_2m'] as num?)?.toDouble() ?? 0,
+      windSpeedKmh: (current['wind_speed_10m'] as num?)?.toDouble() ?? 0,
+      time: current['time'] as String? ?? '',
+    );
+  }
+
+  final double temperatureC;
+  final double windSpeedKmh;
+  final String time;
+
+  @override
+  String toString() =>
+      'DhakaWeather(temp: $temperatureC°C, wind: $windSpeedKmh km/h, time: $time)';
+}
+
+/// Pokémon summary from PokéAPI (`https://pokeapi.co/api/v2/pokemon/{name}`).
+class PokemonInfo {
+  const PokemonInfo({
+    required this.id,
+    required this.name,
+    required this.height,
+    required this.weight,
+    required this.baseExperience,
+  });
+
+  factory PokemonInfo.fromJson(Map<String, dynamic> json) => PokemonInfo(
+    id: (json['id'] as num).toInt(),
+    name: json['name'] as String? ?? '',
+    height: (json['height'] as num?)?.toInt() ?? 0,
+    weight: (json['weight'] as num?)?.toInt() ?? 0,
+    baseExperience: (json['base_experience'] as num?)?.toInt() ?? 0,
   );
 
   final int id;
   final String name;
-  final String department;
-  final double score;
-
-  Map<String, dynamic> toJson() => {
-    'id': id,
-    'name': name,
-    'department': department,
-    'score': score,
-  };
+  final int height;
+  final int weight;
+  final int baseExperience;
 
   @override
   String toString() =>
-      'StudentRecord(id: $id, name: $name, department: $department, score: $score)';
+      'PokemonInfo(id: $id, name: $name, height: $height, weight: $weight, xp: $baseExperience)';
 }
 
-/// Declarative typed [Endpoint] specs for the Modified API style.
-abstract final class StudentApiEndpoints {
-  static final byId = Endpoint.get<StudentRecord>(
-    '/students/{id}',
-    decoder: StudentRecord.fromJson,
+/// Typed `Endpoint` specifications targeting free public developer REST APIs.
+abstract final class PublicApiEndpoints {
+  static final userById = Endpoint.get<PublicUser>(
+    '/users/{id}',
+    decoder: PublicUser.fromJson,
   );
-  static final list = Endpoint.getList<StudentRecord>(
-    '/students',
-    decoder: StudentRecord.fromJson,
+  static final createPost = Endpoint.post<CreatedPost>(
+    '/posts',
+    decoder: CreatedPost.fromJson,
   );
-  static final create = Endpoint.post<StudentRecord>(
-    '/students',
-    decoder: StudentRecord.fromJson,
+  static final allPosts = Endpoint.get<List<dynamic>>('/posts');
+  static final productById = Endpoint.get<PublicProduct>(
+    '/products/{id}',
+    decoder: PublicProduct.fromJson,
+  );
+  static final dhakaWeather = Endpoint.get<DhakaWeather>(
+    '/v1/forecast',
+    query: const {
+      'latitude': 23.8103,
+      'longitude': 90.4125,
+      'current': 'temperature_2m,wind_speed_10m',
+    },
+    decoder: DhakaWeather.fromJson,
+  );
+  static final pokemonByName = Endpoint.get<PokemonInfo>(
+    '/pokemon/{name}',
+    decoder: PokemonInfo.fromJson,
   );
 }
 
-/// Builds a shared mock HTTP + chat backend so the demo and Flutter example app
-/// run reliably offline without external keys or servers.
-OmniMock createExampleHttpBackend() {
-  final students = <Map<String, Object?>>[
-    {'id': 101, 'name': 'Rahim', 'department': 'CSE', 'score': 94.5},
-    {'id': 102, 'name': 'Karim', 'department': 'EEE', 'score': 88.0},
-    {'id': 103, 'name': 'Ayesha', 'department': 'SWE', 'score': 97.0},
-    {'id': 104, 'name': 'Nusrat', 'department': 'AI', 'score': 91.5},
+/// Offline mirror ONLY used when `useLiveNetwork: false` (e.g. hermetic
+/// `flutter_test` sandbox where `TestWidgetsFlutterBinding` blocks outbound
+/// `HttpClient` sockets). Live `dart run bin/demo.dart` and `ExampleApp()`
+/// run with `useLiveNetwork: true` against the real public websites!
+OmniMock createOfflinePublicMirrorMock() {
+  final samplePosts = [
+    for (var i = 1; i <= 100; i++)
+      {
+        'userId': (i % 10) + 1,
+        'id': i,
+        'title': 'Public post #$i',
+        'body': 'Mirror payload body line for post $i inside OmniNetwork',
+      },
   ];
+  final users = {
+    1: {
+      'id': 1,
+      'name': 'Leanne Graham',
+      'username': 'Bret',
+      'email': 'Sincere@april.biz',
+      'address': {'city': 'Gwenborough'},
+      'company': {'name': 'Romaguera-Crona'},
+    },
+    2: {
+      'id': 2,
+      'name': 'Ervin Howell',
+      'username': 'Antonette',
+      'email': 'Shanna@melissa.tv',
+      'address': {'city': 'Wisokyburgh'},
+      'company': {'name': 'Deckow-Crist'},
+    },
+    3: {
+      'id': 3,
+      'name': 'Clementine Bauch',
+      'username': 'Samantha',
+      'email': 'Nathan@yesenia.net',
+      'address': {'city': 'McKenziehaven'},
+      'company': {'name': 'Romaguera-Jacobson'},
+    },
+    4: {
+      'id': 4,
+      'name': 'Patricia Lebsack',
+      'username': 'Karianne',
+      'email': 'Julianne.OConner@kory.org',
+      'address': {'city': 'South Elvis'},
+      'company': {'name': 'Robel-Corkery'},
+    },
+  };
+
+  MockResponse pokemonHandler(MockRequest req) => MockResponse.json({
+    'id': 25,
+    'name': req.pathParams['name'] ?? 'pikachu',
+    'height': 4,
+    'weight': 60,
+    'base_experience': 112,
+  });
 
   return OmniMock()
-    ..get('/students', (_) => MockResponse.json(students))
-    ..get('/students/{id}', (req) {
-      final id = int.tryParse(req.pathParams['id'] ?? '');
-      final hit = students.cast<Map<String, Object?>?>().firstWhere(
-        (s) => s?['id'] == id,
-        orElse: () => null,
-      );
-      if (hit == null) {
-        return MockResponse.json({'error': 'Student not found'}, status: 404);
-      }
-      return MockResponse.json(hit);
+    ..get('/users/{id}', (req) {
+      final id = int.tryParse(req.pathParams['id'] ?? '1') ?? 1;
+      return MockResponse.json(users[id] ?? users[1]!);
     })
-    ..post('/students', (req) {
+    ..get('/posts', (_) => MockResponse.json(samplePosts))
+    ..post('/posts', (req) {
       final body = Map<String, Object?>.from(req.json! as Map);
-      final next = {
-        'id': 101 + students.length,
-        'name': body['name'] ?? 'New Student',
-        'department': body['department'] ?? 'CSE',
-        'score': body['score'] ?? 90.0,
-      };
-      students.add(next);
-      return MockResponse.json(next, status: 201);
+      return MockResponse.json({...body, 'id': 101}, status: 201);
     })
-    ..get('/long-report', (_) {
-      // Generates a large multi-line JSON response (~500 lines pretty-printed)
-      // to demonstrate full unfiltered terminal response printing.
-      final rows = [
-        for (var i = 1; i <= 100; i++)
-          {
-            'lineId': i,
-            'student': 'Student #$i',
-            'status': i.isEven ? 'active' : 'honors',
-            'score': 75 + (i % 25),
-          },
-      ];
+    ..get('/products/{id}', (req) {
+      final id = int.tryParse(req.pathParams['id'] ?? '1') ?? 1;
       return MockResponse.json({
-        'report': 'Full Multi-Line Payload (~500 lines)',
-        'totalRows': rows.length,
-        'rows': rows,
+        'id': id,
+        'title': 'Essence Mascara Lash Princess',
+        'category': 'beauty',
+        'price': 9.99,
+        'rating': 2.56,
+        'brand': 'Essence',
       });
     })
-    ..get('/history', (_) {
-      return MockResponse.json({
-        'items': [
-          {
-            'id': 'hist_1',
-            'roomId': 'classroom',
-            'senderId': 'mentor_ana',
-            'senderName': 'Mentor Ana',
-            'parts': [
-              {
-                'kind': 'text',
-                'text': 'Welcome! Type anything or ask @ai a question.',
-              },
-            ],
-            'createdAt': DateTime.utc(2026, 11, 20, 9, 0).toIso8601String(),
-          },
-        ],
-      });
-    })
+    ..get(
+      '/v1/forecast',
+      (_) => MockResponse.json({
+        'current': {
+          'time': '2026-11-27T00:00',
+          'temperature_2m': 24.5,
+          'wind_speed_10m': 6.2,
+        },
+      }),
+    )
+    ..get('/pokemon/{name}', pokemonHandler)
+    ..get('/api/v2/pokemon/{name}', pokemonHandler)
+    ..get('/history', (_) => MockResponse.json(<Object?>[]))
     ..post(
       '/files/upload',
-      (_) => MockResponse.json({'url': 'https://cdn.omni.local/syllabus.pdf'}),
+      (_) => MockResponse.json({'url': 'https://cdn.omni.local/file.png'}),
     );
 }
 
@@ -171,8 +320,8 @@ class _InMemoryWebSocketSink implements WebSocketSink {
   Future<dynamic> get done => _done.future;
 }
 
-/// Offline in-memory [WebSocketChannel] supporting `emit`, correlated RPC
-/// `request`, and `OmniChatClient` delivery acks + `@ai`/echo frames.
+/// Offline in-memory [WebSocketChannel] supporting echo RPC (mirroring
+/// `wss://ws.postman-echo.com/raw`) as well as `OmniChatClient` delivery acks.
 class InMemoryWebSocketChannel
     with StreamChannelMixin<dynamic>
     implements WebSocketChannel {
@@ -202,21 +351,20 @@ class InMemoryWebSocketChannel
   Stream<dynamic> get stream => _inbound.stream;
 
   @override
-  late final WebSocketSink sink = _InMemoryWebSocketSink(
-    _handleClientPacket,
-    (code, reason) async {
-      _closeCode = code ?? 1000;
-      _closeReason = reason;
-      if (!_inbound.isClosed) {
-        unawaited(_inbound.close());
-      }
-    },
-  );
+  late final WebSocketSink sink = _InMemoryWebSocketSink(_handleClientPacket, (
+    code,
+    reason,
+  ) async {
+    _closeCode = code ?? 1000;
+    _closeReason = reason;
+    if (!_inbound.isClosed) {
+      unawaited(_inbound.close());
+    }
+  });
 
   void _sendToClient(Map<String, Object?> payload) {
     if (_inbound.isClosed) return;
-    final encoded = jsonEncode(payload);
-    _inbound.add(encoded);
+    _inbound.add(jsonEncode(payload));
   }
 
   void _handleClientPacket(dynamic raw) {
@@ -230,91 +378,97 @@ class InMemoryWebSocketChannel
       if (decoded is! Map) return;
       final packet = Map<String, Object?>.from(decoded);
       final event = packet['event'] as String?;
-      final id = packet['id'] as String?;
       final data = packet['data'];
 
-      if (event == 'sum' && id != null && data is Map) {
-        final a = (data['a'] as num?) ?? 0;
-        final b = (data['b'] as num?) ?? 0;
-        onServerEvent?.call('RPC sum($a, $b) -> ${a + b}');
-        _sendToClient({
-          'id': id,
-          'event': 'sum',
-          'data': {'total': a + b},
-        });
-      } else if (event == 'hello') {
-        onServerEvent?.call('Received hello -> sending server_notice');
-        _sendToClient({
-          'event': 'server_notice',
-          'data': {
-            'greeting': 'WebSocket connected live!',
-            'payload': data,
-          },
-        });
-      } else if (event == 'chat.send' && data is Map) {
+      if (event == 'chat.send' && data is Map) {
         final roomId = data['roomId'];
         final localId = data['localId'];
         final serverId = 'srv_${++_msgSeq}';
-        onServerEvent?.call('Ack chat message $localId -> $serverId');
+        onServerEvent?.call('Ack chat $localId -> $serverId');
         _sendToClient({
           'event': 'chat.ack',
           'data': {'roomId': roomId, 'localId': localId, 'serverId': serverId},
         });
+      } else {
+        // Mirror Postman WebSocket Echo (`wss://ws.postman-echo.com/raw`).
+        onServerEvent?.call('Echoed frame: $event');
+        _sendToClient(packet);
       }
     } catch (_) {}
   }
 }
 
-/// Captures BOTH the Normal (classic) API and Modified (new) API side by side.
+/// Runs BOTH Normal (classic) and Modified (new) API styles against REAL free
+/// public developer APIs:
+/// - `https://jsonplaceholder.typicode.com` (Users, Posts list, POST /posts)
+/// - `https://dummyjson.com` (Products catalog)
+/// - `https://api.open-meteo.com` (Live Dhaka weather)
+/// - `https://pokeapi.co/api/v2` (Pokémon stats)
+/// - `wss://ws.postman-echo.com/raw` (Live public WebSocket Echo + RPC)
 class ApiComparisonCoordinator {
   ApiComparisonCoordinator({
-    this.enableColors = true,
+    this.useLiveNetwork = true,
+    this.enableColors,
     this.onTerminalOutput,
   }) {
-    httpBackend = createExampleHttpBackend();
+    final offlineMirror = useLiveNetwork
+        ? null
+        : createOfflinePublicMirrorMock();
+    chatMockBackend = createOfflinePublicMirrorMock();
 
     // 1. NORMAL / CLASSIC STYLE:
-    //    - Plain client with no global `decoders`, no automatic colored terminal
-    //      response printing (`enableLogging: false`), and manual JSON parsing.
+    //    - Targets real https://jsonplaceholder.typicode.com without global
+    //      decoders, without auto colored logging (`enableLogging: false`), and
+    //      with manual `PublicUser.fromJson(...)` parsing.
     normalClient = OmniNetwork(
-      baseUrl: 'https://dev.api.omni.local',
-      transport: httpBackend,
-      enableLogging: false,
+      baseUrl: 'https://jsonplaceholder.typicode.com',
+      transport: offlineMirror,
+      enableLogging: true,
+      logResponse: true,
+      timeout: const Duration(seconds: 15),
+      logColors: true,
     );
 
     // 2. MODIFIED API STYLE:
+    //    - Targets https://jsonplaceholder.typicode.com + wss://ws.postman-echo.com
     //    - Built-in terminal response printing (`enableLogging`, `logResponse`,
-    //      `logColors`) with runtime toggle support.
-    //    - Global `decoders` registry, `OmniCache`, `RetryPolicy`, `AiConfig`,
-    //      and live `WebSocketConnector` + `OmniChatClient`.
-    //    - `OmniApiHub` managing multi-environment (`dev`/`prod`) & endpoints.
+    //      `logColors`) + global `decoders`, `OmniCache`, `RetryPolicy`, `OmniAi`.
     modifiedClient = OmniNetwork(
-      baseUrl: 'https://dev.api.omni.local',
-      wsBaseUrl: 'wss://ws.omni.local',
-      transport: httpBackend,
-      decoders: {StudentRecord: StudentRecord.fromJson},
+      baseUrl: 'https://jsonplaceholder.typicode.com',
+      wsBaseUrl: 'wss://ws.postman-echo.com',
+      transport: offlineMirror,
+      decoders: const {
+        PublicUser: PublicUser.fromJson,
+        CreatedPost: CreatedPost.fromJson,
+        PublicProduct: PublicProduct.fromJson,
+        DhakaWeather: DhakaWeather.fromJson,
+        PokemonInfo: PokemonInfo.fromJson,
+      },
       cache: OmniCache(),
       retry: const RetryPolicy(maxAttempts: 2),
+      timeout: const Duration(seconds: 15),
       enableLogging: true,
       logResponse: true,
       logColors: enableColors,
       logInRelease: true,
-      wsConnector: (uri, protocols, headers) => InMemoryWebSocketChannel(),
+      wsConnector: useLiveNetwork
+          ? null
+          : (uri, protocols, headers) => InMemoryWebSocketChannel(),
       ai: AiConfig(
         defaultModel: 'smart',
         providers: {
-          // Real providers plug in seamlessly too:
+          // Plug real keys with `--dart-define`:
           // 'openai': OpenAiProvider(apiKey: () => const String.fromEnvironment('OPENAI_API_KEY')),
           // 'gemini': GeminiProvider(apiKey: () => const String.fromEnvironment('GEMINI_API_KEY')),
-          // 'claude': AnthropicProvider(apiKey: () => const String.fromEnvironment('ANTHROPIC_API_KEY')),
           'openai': MockAiProvider(
             id: 'openai',
             streamChunkSize: 6,
             handler: (model, msgs, _) => MockAiReply(
               text:
-                  '[OpenAI/$model] Summary for "${msgs.last.text}": OmniRoute + OmniNetwork ready!',
-              thinking: 'Evaluated routePath, page-entry Bloc scope & AI route.',
-              usage: const AiUsage(inputTokens: 18, outputTokens: 22),
+                  '[OpenAI/$model] Live API guide for "${msgs.last.text}": '
+                  'JSONPlaceholder, DummyJSON, Open-Meteo, PokeAPI & Postman WS ready!',
+              thinking: 'Inspected public API schemas and routePath graph.',
+              usage: const AiUsage(inputTokens: 20, outputTokens: 28),
             ),
           ),
           'gemini': MockAiProvider(
@@ -322,9 +476,9 @@ class ApiComparisonCoordinator {
             streamChunkSize: 6,
             handler: (model, msgs, _) => MockAiReply(
               text:
-                  '[Gemini/$model] Fast reply for "${msgs.last.text}" via fallback/alias.',
-              thinking: 'Checked cached route context.',
-              usage: const AiUsage(inputTokens: 12, outputTokens: 16),
+                  '[Gemini/$model] Fast public-API reply for "${msgs.last.text}".',
+              thinking: 'Checked cached OmniApiHub endpoints.',
+              usage: const AiUsage(inputTokens: 14, outputTokens: 18),
             ),
           ),
         },
@@ -333,9 +487,7 @@ class ApiComparisonCoordinator {
             AiTarget('openai', model: 'gpt-4o-mini'),
             AiTarget('gemini', model: 'gemini-2.5-flash'),
           ]),
-          'fast': AiModelRoute([
-            AiTarget('gemini', model: 'gemini-2.5-flash'),
-          ]),
+          'fast': AiModelRoute([AiTarget('gemini', model: 'gemini-2.5-flash')]),
         },
         pricing: const {
           'gpt-4o-mini': AiModelCost(
@@ -348,71 +500,95 @@ class ApiComparisonCoordinator {
           ),
         },
       ),
+    );
+
+    _logSub = modifiedClient.logStream.listen(_recordTerminalBox);
+
+    // 3. MULTI-WEBSITE PUBLIC API HUB:
+    //    Manages 4 distinct real developer APIs simultaneously + env switching.
+    hub = OmniApiHub(
+      activeEnvironment: 'live',
+      environments: {
+        'live': OmniEnvironment(
+          name: 'live',
+          variables: {
+            'jsonplaceholder': 'https://jsonplaceholder.typicode.com',
+            'dummyjson': 'https://dummyjson.com',
+            'weather': 'https://api.open-meteo.com',
+            'pokeapi': 'https://pokeapi.co/api/v2',
+          },
+          enableLogging: true,
+        ),
+        'sandbox': OmniEnvironment(
+          name: 'sandbox',
+          variables: {
+            'jsonplaceholder': 'https://jsonplaceholder.typicode.com',
+            'dummyjson': 'https://dummyjson.com',
+            'weather': 'https://api.open-meteo.com',
+            'pokeapi': 'https://pokeapi.co/api/v2',
+          },
+          headers: {'x-sandbox': 'true'},
+          enableLogging: true,
+        ),
+      },
+      services: {
+        'jsonplaceholder': ServiceConfig.fromVar(
+          baseUrlVar: 'jsonplaceholder',
+          decoders: const {
+            PublicUser: PublicUser.fromJson,
+            CreatedPost: CreatedPost.fromJson,
+          },
+        ),
+        'dummyjson': ServiceConfig.fromVar(
+          baseUrlVar: 'dummyjson',
+          decoders: const {PublicProduct: PublicProduct.fromJson},
+        ),
+        'weather': ServiceConfig.fromVar(
+          baseUrlVar: 'weather',
+          decoders: const {DhakaWeather: DhakaWeather.fromJson},
+        ),
+        'pokeapi': ServiceConfig.fromVar(
+          baseUrlVar: 'pokeapi',
+          decoders: const {PokemonInfo: PokemonInfo.fromJson},
+        ),
+      },
+      logOptions: LogOptions(responseBody: true, colors: enableColors),
+      transportOverride: offlineMirror,
+    );
+
+    // Dedicated in-memory chat room backend for instant message acks & `@ai`.
+    chatClient = OmniNetwork(
+      baseUrl: 'https://chat.local',
+      wsBaseUrl: 'wss://chat.local',
+      transport: chatMockBackend,
+      wsConnector: (uri, protocols, headers) => InMemoryWebSocketChannel(),
+      enableLogging: false,
       chatConfig: const ChatConfig(
         wsPath: '/chat',
-        currentUserId: 'me_student',
+        currentUserId: 'me_dev',
         currentUserName: 'Juwel',
       ),
     );
-
-    _logSub = modifiedClient.logStream.listen((record) {
-      if (!modifiedClient.isLogging) return;
-      PrettyLogSink(
-        options: LogOptions(
-          responseBody: modifiedClient.logResponse,
-          colors: false,
-        ),
-        printer: (formatted) {
-          lastModifiedTerminalBlock = formatted;
-          modifiedOutputLog.add(formatted);
-        },
-      ).log(record);
-    });
-
-    hub = OmniApiHub(
-      activeEnvironment: 'dev',
-      environments: const {
-        'dev': OmniEnvironment(
-          name: 'dev',
-          variables: {
-            'core': 'https://dev.api.omni.local',
-            'ws': 'wss://dev.ws.omni.local',
-          },
-          headers: {'x-env': 'dev'},
-        ),
-        'prod': OmniEnvironment(
-          name: 'prod',
-          variables: {
-            'core': 'https://prod.api.omni.local',
-            'ws': 'wss://prod.ws.omni.local',
-          },
-          headers: {'x-env': 'prod'},
-        ),
-      },
-      services: const {
-        'core': ServiceConfig.fromVar(baseUrlVar: 'core', wsUrlVar: 'ws'),
-      },
-      transportOverride: httpBackend,
-    );
+    chatClient.chat.connect();
 
     aiThread = modifiedClient.aiThread(
       'example_ai_thread',
-      systemPrompt: 'You are an expert assistant inside OmniRoute Example App.',
+      systemPrompt: 'You help developers test public REST & WebSocket APIs inside OmniRoute.',
     );
-
-    modifiedClient.chat.connect();
-    chatRoom = modifiedClient.chat.room(
-      'classroom',
+    chatRoom = chatClient.chat.room(
+      'public_api_room',
       historyEndpoint: '/history',
     )..attachAiAssistant(modifiedClient.aiThread('room_ai_bot'));
   }
 
-  final bool enableColors;
+  final bool useLiveNetwork;
+  final bool? enableColors;
   final void Function(String terminalLine)? onTerminalOutput;
 
-  late final OmniMock httpBackend;
+  late final OmniMock chatMockBackend;
   late final OmniNetwork normalClient;
   late final OmniNetwork modifiedClient;
+  late final OmniNetwork chatClient;
   late final OmniApiHub hub;
   late final OmniAiThread aiThread;
   late final OmniChatRoom chatRoom;
@@ -421,78 +597,137 @@ class ApiComparisonCoordinator {
   String lastNormalOutput = '';
   String lastModifiedOutput = '';
   String lastModifiedTerminalBlock = '';
+  String lastMultiApiOutput = '';
   String lastWsOutput = '';
   String lastAiOutput = '';
   final List<String> modifiedOutputLog = [];
 
-  /// Runs the Normal / Classic HTTP request (manual JSON decode + manual print).
-  Future<StudentRecord> callNormalApi({int id = 101}) async {
+  void _recordTerminalBox(NetworkLogRecord record) {
+    if (!modifiedClient.isLogging) return;
+    PrettyLogSink(
+      options: LogOptions(
+        responseBody: modifiedClient.logResponse,
+        colors: false,
+      ),
+      printer: (formatted) {
+        lastModifiedTerminalBlock = formatted;
+        modifiedOutputLog.add(formatted);
+      },
+    ).log(record);
+  }
+
+  /// Normal / Classic API call (`normalClient` -> `jsonplaceholder.typicode.com`).
+  Future<PublicUser> callNormalApi({int id = 1}) async {
     final raw = await normalClient.get<Map<String, dynamic>>(
-      '/students/$id',
+      '/users/$id',
       cache: CachePolicy.noCache,
     );
-    final decoded = StudentRecord.fromJson(raw);
+    final decoded = PublicUser.fromJson(raw);
     final output =
-        '[NORMAL API RESULT]\n'
-        'Raw Map: ${jsonEncode(raw)}\n'
-        'Decoded: $decoded';
+        '[NORMAL API RESULT -> jsonplaceholder.typicode.com/users/$id]\n'
+        'Raw JSON keys: ${raw.keys.take(5).join(', ')}...\n'
+        'Manual Decoded: $decoded';
     lastNormalOutput = output;
     onTerminalOutput?.call(output);
     return decoded;
   }
 
-  /// Runs the Modified API call (auto-decoder + Result + built-in colored
-  /// terminal response printing controlled by `enableLogging` / `logResponse`).
-  Future<Result<StudentRecord>> callModifiedApi({int id = 101}) async {
+  /// Modified API call (`Endpoint` + global `decoders` + `Result` + auto log).
+  Future<Result<PublicUser>> callModifiedApi({int id = 2}) async {
     final res = await modifiedClient
         .call(
-          StudentApiEndpoints.byId,
+          PublicApiEndpoints.userById,
           path: {'id': id},
           cache: CachePolicy.noCache,
         )
         .asResult();
     lastModifiedOutput = switch (res) {
       Ok(:final value) =>
-        '[MODIFIED API RESULT]\n'
-        'Endpoint + Global Decoder Ok: $value\n'
-        'enableLogging=${modifiedClient.enableLogging}, '
-        'logResponse=${modifiedClient.logResponse}, '
-        'logColors=${modifiedClient.logColors}',
+        '[MODIFIED API RESULT -> jsonplaceholder.typicode.com/users/$id]\n'
+            'Auto-Decoded Ok: $value\n'
+            'enableLogging=${modifiedClient.enableLogging}, '
+            'logResponse=${modifiedClient.logResponse}, '
+            'logColors=${modifiedClient.logColors}',
       Err(:final error) => '[MODIFIED API ERROR] $error',
     };
     return res;
   }
 
-  /// Calls the 100-row (~500 lines) JSON endpoint to prove complete response
-  /// printing with `logResponse: true` (no truncation).
-  Future<Map<String, dynamic>> callLargePayloadApi() async {
-    return modifiedClient.get<Map<String, dynamic>>(
-      '/long-report',
+  /// Real `POST https://jsonplaceholder.typicode.com/posts` returning HTTP 201.
+  Future<CreatedPost> callCreatePostDemo({
+    String title = 'OmniNetwork Live Test',
+    String body = 'Sent directly to jsonplaceholder.typicode.com/posts',
+  }) async {
+    return modifiedClient.call(
+      PublicApiEndpoints.createPost,
+      body: {'title': title, 'body': body, 'userId': 1},
+    );
+  }
+
+  /// Fetches real `/posts` (~100 posts -> ~700+ lines pretty JSON) to verify full
+  /// unclipped terminal response printing.
+  Future<List<dynamic>> callLargePayloadApi() async {
+    return modifiedClient.call(
+      PublicApiEndpoints.allPosts,
       cache: CachePolicy.noCache,
     );
   }
 
-  /// Connects WebSocket, listens for typed `server_notice`, emits `hello`, and
-  /// performs a correlated RPC `request<int>('sum')`.
-  Future<int> callWebSocketDemo({int a = 15, int b = 27}) async {
-    final socket = modifiedClient.ws('/realtime', auth: false);
+  /// Concurrently queries 3 distinct free public APIs via `OmniApiHub`:
+  /// DummyJSON (Products), Open-Meteo (Live Dhaka Weather), and PokéAPI.
+  Future<String> callMultiWebsitePublicApis({
+    int productId = 1,
+    String pokemon = 'pikachu',
+  }) async {
+    final results = await Future.wait([
+      hub.callEndpoint(
+        PublicApiEndpoints.productById,
+        serviceName: 'dummyjson',
+        path: {'id': productId},
+      ),
+      hub.callEndpoint(PublicApiEndpoints.dhakaWeather, serviceName: 'weather'),
+      hub.callEndpoint(
+        PublicApiEndpoints.pokemonByName,
+        serviceName: 'pokeapi',
+        path: {'name': pokemon},
+      ),
+    ]);
+    final product = results[0] as PublicProduct;
+    final weather = results[1] as DhakaWeather;
+    final poke = results[2] as PokemonInfo;
+    final summary =
+        '[MULTI-WEBSITE PUBLIC HUB (${hub.activeEnvironmentName})]\n'
+        '• dummyjson.com -> $product\n'
+        '• open-meteo.com -> $weather\n'
+        '• pokeapi.co -> $poke';
+    lastMultiApiOutput = summary;
+    return summary;
+  }
+
+  /// Connects to `wss://ws.postman-echo.com/raw` (real live echo WebSocket),
+  /// emits an event frame and runs a correlated RPC `request` echoed by server!
+  Future<int> callWebSocketDemo({int a = 18, int b = 24}) async {
+    final socket = modifiedClient.ws('/raw', auth: false);
     if (socket.state != WebSocketState.open) {
       await socket.states.firstWhere((s) => s == WebSocketState.open);
     }
-    final noticeFuture = socket.on<Map<String, dynamic>>('server_notice').first;
-    socket.emit('hello', {'from': 'ExampleApp'});
-    final notice = await noticeFuture;
-    final total = await socket.request<int>(
-      'sum',
-      data: {'a': a, 'b': b},
-      decoder: (j) => (j['total'] as num).toInt(),
+    final helloEcho = socket.on<Map<String, dynamic>>('hello_live').first;
+    socket.emit('hello_live', {'app': 'OmniRoute', 'target': 'postman-echo'});
+    final echoedNotice = await helloEcho;
+
+    final rpcReply = await socket.request<Map<String, dynamic>>(
+      'echo_rpc',
+      data: {'a': a, 'b': b, 'sum': a + b},
     );
-    lastWsOutput = 'Event: ${notice['greeting']} | RPC sum($a+$b) = $total';
+    final echoedSum = (rpcReply['sum'] as num).toInt();
+    lastWsOutput =
+        'WS Live Echo (${echoedNotice['target']}) | '
+        'RPC echo_rpc($a+$b) = $echoedSum';
     await socket.close();
-    return total;
+    return echoedSum;
   }
 
-  /// Calls the Multi-Model AI router with streaming deltas.
+  /// Streams Multi-Model AI response.
   Future<String> callAiStreamingDemo(String prompt) async {
     final chunks = <String>[];
     await for (final ev in modifiedClient.ai.stream(prompt, model: 'smart')) {
@@ -512,6 +747,7 @@ class ApiComparisonCoordinator {
     await _logSub.cancel();
     await aiThread.close();
     await chatRoom.close();
+    await chatClient.close();
     await hub.close();
     await modifiedClient.close();
     await normalClient.close();
