@@ -422,9 +422,98 @@ class OmniAuthConfig {
   );
 }
 
+/// Outcome status returned by [OmniAppGate.check].
+enum OmniGateStatus {
+  /// App is healthy and allowed to proceed normally.
+  ready,
+
+  /// App is temporarily paused for backend maintenance.
+  maintenance,
+
+  /// User must update (or optionally dismiss when `canDismiss` is `true`).
+  updateRequired,
+}
+
+/// Decision returned by [OmniAppGate.check] during startup or `context.flow?.refresh()`.
+@immutable
+class OmniGateDecision {
+  /// Creates an app gate decision.
+  const OmniGateDecision({
+    required this.status,
+    this.title,
+    this.message,
+    this.minVersion,
+    this.currentVersion,
+    this.storeUrl,
+    this.canDismiss = false,
+  });
+
+  /// Normal healthy startup shortcut.
+  static const ready = OmniGateDecision(status: OmniGateStatus.ready);
+
+  /// Gate outcome (`ready`, `maintenance`, or `updateRequired`).
+  final OmniGateStatus status;
+
+  /// Optional heading rendered in default maintenance / update views.
+  final String? title;
+
+  /// Optional description rendered in default maintenance / update views.
+  final String? message;
+
+  /// Optional required version string for update prompts.
+  final String? minVersion;
+
+  /// Optional currently installed version string for display.
+  final String? currentVersion;
+
+  /// Optional app-store link or metadata passed to custom builders.
+  final String? storeUrl;
+
+  /// Whether user can dismiss an update gate temporarily and continue into
+  /// the app. Always ignored for [OmniGateStatus.maintenance].
+  final bool canDismiss;
+}
+
+/// Optional Maintenance & Force-Update startup gate checked inside `OmniConfig`
+/// after `splash.onInit` finishes (zero cost when omitted).
+@immutable
+class OmniAppGate {
+  /// Creates a maintenance / force-update gate configuration.
+  const OmniAppGate({
+    required this.check,
+    this.maintenanceBuilder,
+    this.updateBuilder,
+  });
+
+  /// Checks whether the app can proceed, is under maintenance, or requires an
+  /// update. Can safely read `OmniRepo` clients via `context`.
+  final FutureOr<OmniGateDecision?> Function(BuildContext context) check;
+
+  /// Custom widget shown when `status == OmniGateStatus.maintenance`. Receives
+  /// [retry] callback to re-run the check.
+  final Widget Function(
+    BuildContext context,
+    OmniGateDecision decision,
+    VoidCallback retry,
+  )?
+  maintenanceBuilder;
+
+  /// Custom widget shown when `status == OmniGateStatus.updateRequired`.
+  /// Receives [continueAnyway] (non-null only when `decision.canDismiss` is
+  /// `true`) and [retry].
+  final Widget Function(
+    BuildContext context,
+    OmniGateDecision decision,
+    VoidCallback? continueAnyway,
+    VoidCallback retry,
+  )?
+  updateBuilder;
+}
+
 /// Centralized, user-friendly configuration for **Splash**, **Onboarding**,
-/// **Auth (Login / Sign Up / Home)**, and **Public pre-login screens** inside
-/// [OmniApp], [OmniApp.material], and [OmniApp.cupertino].
+/// **Auth (Login / Sign Up / Home)**, **Public pre-login screens**, and
+/// optional **Maintenance / Force-Update Gate** inside [OmniApp],
+/// [OmniApp.material], and [OmniApp.cupertino].
 @immutable
 class OmniConfig {
   /// Creates an entry-flow & auth configuration passed via `OmniApp(config:)`.
@@ -432,6 +521,7 @@ class OmniConfig {
     this.splash,
     this.onboarding,
     this.auth,
+    this.gate,
     this.publicScreens = const {},
     this.publicPages = const [],
     this.publicRoutes = const [],
@@ -447,6 +537,9 @@ class OmniConfig {
 
   /// Login, Sign Up, Home, and authentication guard configuration.
   final OmniAuthConfig? auth;
+
+  /// Optional Maintenance & Force-Update gate evaluated cleanly on startup.
+  final OmniAppGate? gate;
 
   /// Map of `routePath -> Widget` screens automatically registered AND
   /// accessible without logging in (e.g. `{'/about': const AboutScreen()}`).
@@ -464,10 +557,12 @@ class OmniConfig {
   /// Optional async callback choosing the initial route after Splash/Onboarding.
   final OmniInitialRouteResolver? resolveInitialRoute;
 
-  /// Whether any Splash, Onboarding, or dynamic initial route gate is active.
+  /// Whether any Splash, Onboarding, App Gate, or dynamic initial route gate is
+  /// active.
   bool get hasStartupGate =>
       (splash?.hasWork ?? false) ||
       (onboarding?.hasContent ?? false) ||
+      gate != null ||
       resolveInitialRoute != null;
 
   /// Whether Auth protection or route-based Onboarding gating is active.
@@ -481,6 +576,7 @@ class OmniConfig {
     OmniSplash? splash,
     OmniOnboarding? onboarding,
     OmniAuthConfig? auth,
+    OmniAppGate? gate,
     Map<String, Widget>? publicScreens,
     List<OmniRouteBase>? publicPages,
     List<String>? publicRoutes,
@@ -489,6 +585,7 @@ class OmniConfig {
     splash: splash ?? this.splash,
     onboarding: onboarding ?? this.onboarding,
     auth: auth ?? this.auth,
+    gate: gate ?? this.gate,
     publicScreens: publicScreens ?? this.publicScreens,
     publicPages: publicPages ?? this.publicPages,
     publicRoutes: publicRoutes ?? this.publicRoutes,

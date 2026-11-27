@@ -34,6 +34,7 @@ export 'src/core/omni_app.dart';
 export 'src/core/omni_app_config.dart';
 export 'src/core/omni_app_features.dart'
     show OmniInitErrorBuilder, OmniInitialRouteResolver;
+export 'src/core/omni_breadcrumbs.dart' show OmniBreadcrumb;
 export 'src/core/omni_onboarding_store.dart' show OmniLocalStore;
 export 'src/core/omni_route.dart';
 export 'src/core/omni_route_entry.dart'
@@ -75,6 +76,8 @@ export 'src/screens/omni_stateful_widget.dart';
 export 'src/screens/omni_stateless_widget.dart';
 
 // ── Responsive Engine ───────────────────────────────────────────────────────
+export 'src/responsive/omni_adaptive_extras.dart'
+    show OmniBreadcrumbBar, OmniPrefetch, OmniResponsiveSliverGrid;
 export 'src/responsive/omni_adaptive_shell.dart'
     show OmniAdaptiveDestination, OmniAdaptiveShellScaffold;
 export 'src/responsive/omni_responsive_config.dart'
@@ -96,3 +99,27 @@ export 'src/responsive/omni_responsive_widgets.dart'
         OmniResponsiveRowColumn,
         OmniResponsiveVisibility,
         OmniResponsiveWidgetBuilder;
+export 'src/responsive/omni_split_view.dart'
+    show
+        OmniDetailBuilder,
+        OmniFoldableSplit,
+        OmniMasterBuilder,
+        OmniMasterDetail,
+        OmniMasterDetailController;
+export 'src/responsive/omni_colors.dart' show OmniColors, OmniColorsContext;
+export 'src/responsive/omni_styles.dart'
+    show OmniInputVariant, OmniStyles, OmniStylesContext, OmniTextStyles;
+export 'src/responsive/omni_theme.dart'
+    show
+        OmniResponsiveThemeHost,
+        OmniTheme,
+        OmniThemeButton,
+        OmniThemeContext,
+        OmniThemeController,
+        OmniThemeCustomizer,
+        OmniThemeModeButton,
+        OmniThemeModeSwitch,
+        OmniThemePanel,
+        OmniThemePicker,
+        OmniThemeScope,
+        OmniThemeSelection;

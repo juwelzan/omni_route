@@ -1,0 +1,780 @@
+import 'package:flutter/material.dart';
+
+/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৪৪টি সেমান্টিক কালার প্যালেট (`context.colors`)।
+///
+/// Material-এর জটিল নাম (`onPrimaryContainer`, `surfaceContainerHigh`,
+/// `outlineVariant`) মুখস্থ করার বদলে সরাসরি অর্থপূর্ণ নামে সব রঙ ব্যবহার করুন।
+/// IDE-তে প্রতিটি নামের ওপর মাউস হোভার করলেই দেখতে পারবেন কালারটি কোথায় ও
+/// কী কাজে ব্যবহার করা হয়।
+///
+/// হালকা থেকে ডার্ক বা এক থিম থেকে অন্য থিমে সুইচ করলে ফ্লাটারের নেটিভ
+/// [ThemeExtension.lerp] স্বয়ংক্রিয়ভাবে রঙগুলো স্মুথলি পরিবর্তন করে দেয়।
+@immutable
+class OmniColors extends ThemeExtension<OmniColors> {
+  /// প্রতিটি সেমান্টিক রোলের জন্য সুস্পষ্ট রঙসহ [OmniColors] তৈরি করে।
+  const OmniColors({
+    required this.primaryColor,
+    required this.secondaryColor,
+    required this.surfaceColor,
+    required this.cardColor,
+    required this.appBarColor,
+    required this.appBarTextColor,
+    required this.navBarColor,
+    required this.navSelectedColor,
+    required this.navUnselectedColor,
+    required this.buttonColor,
+    required this.buttonTextColor,
+    required this.secondaryButtonColor,
+    required this.secondaryButtonTextColor,
+    required this.dangerButtonColor,
+    required this.dangerButtonTextColor,
+    required this.linkColor,
+    required this.inputFillColor,
+    required this.borderColor,
+    required this.focusedBorderColor,
+    required this.dividerColor,
+    required this.textColor,
+    required this.secondaryTextColor,
+    required this.hintTextColor,
+    required this.iconColor,
+    required this.chipColor,
+    required this.chipTextColor,
+    required this.badgeColor,
+    required this.badgeTextColor,
+    required this.selectedItemColor,
+    required this.hoverColor,
+    required this.disabledColor,
+    required this.disabledTextColor,
+    required this.errorColor,
+    required this.errorBackgroundColor,
+    required this.warningColor,
+    required this.warningBackgroundColor,
+    required this.successColor,
+    required this.successBackgroundColor,
+    required this.infoColor,
+    required this.infoBackgroundColor,
+    required this.shimmerBaseColor,
+    required this.shimmerHighlightColor,
+    required this.overlayColor,
+    required this.shadowColor,
+  });
+
+  /// ব্র্যান্ডের প্রধান প্রাইমারি কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** প্রগ্রেস বার, চেকবক্স/সুইচ অ্যাক্টিভ অবস্থা, সিলেক্টেড
+  /// বর্ডার এবং ব্র্যান্ড হাইলাইট।
+  /// **কী কাজে লাগে:** পুরো অ্যাপে ব্র্যান্ডের মূল পরিচিতি ও ফোকাস ফুটিয়ে তুলতে।
+  final Color primaryColor;
+
+  /// অ্যাপের সেকেন্ডারি বা সহায়ক অ্যাকসেন্ট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** প্রোমো ব্যাজ, চার্ট হাইলাইট ও দ্বিতীয় অ্যাকসেন্ট ট্যাগ।
+  /// **কী কাজে লাগে:** মূল [primaryColor]-এর পাশে দ্বিতীয় পর্যায়ের গুরুত্ব বোঝাতে।
+  final Color secondaryColor;
+
+  /// পুরো স্ক্রিন বা `Scaffold`-এর মূল ব্যাকগ্রাউন্ড কালার (সারফেস)।
+  ///
+  /// **কোথায় ব্যবহার হয়:** পেজের `Scaffold.backgroundColor`, মূল স্ক্রল ভিউ ও
+  /// স্ক্রিনের বেস ক্যানভাস।
+  /// **কী কাজে লাগে:** লাইট ও ডার্ক মোডে চোখের আরামদায়ক মূল পেজ ব্যাকগ্রাউন্ড দিতে।
+  final Color surfaceColor;
+
+  /// কার্ড, কন্টেইনার, ডায়ালগ ও মোডাল শিটের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `Card`, `Dialog`, `BottomSheet`, `Container` বক্স
+  /// এবং ড্যাশবোর্ড টাইল।
+  /// **কী কাজে লাগে:** মূল [surfaceColor] পেজের ওপর থেকে তথ্য ব্লকগুলোকে আলাদা
+  /// করে পরিষ্কারভাবে ফুটিয়ে তুলতে।
+  final Color cardColor;
+
+  /// অ্যাপবারের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** স্ক্রিনের ওপরের `AppBar.backgroundColor`।
+  /// **কী কাজে লাগে:** টপ হেডারকে কন্টেন্ট থেকে পরিচ্ছন্নভাবে আলাদা করতে।
+  final Color appBarColor;
+
+  /// অ্যাপবারের টাইটেল টেক্সট ও অ্যাকশন আইকনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `AppBar` শিরোনাম, ব্যাক বাটন আইকন ও মেনু আইকন।
+  /// **কী কাজে লাগে:** [appBarColor]-এর ওপর স্পষ্ট কনট্রাস্ট নিশ্চিত করতে।
+  final Color appBarTextColor;
+
+  /// বটম নেভিগেশন বার ও সাইড নেভিগেশন রেলের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `NavigationBar`, `BottomNavigationBar` এবং ট্যাবলেট/
+  /// ডেস্কটপ `NavigationRail`।
+  /// **কী কাজে লাগে:** নেভিগেশন মেনু এবং মূল স্ক্রিন কন্টেন্টের মধ্যে লেয়ার আলাদা করতে।
+  final Color navBarColor;
+
+  /// নেভিগেশন বার/রেলে বর্তমানে সিলেক্ট করা ট্যাবের আইকন ও লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** সক্রিয় ট্যাব আইকন, অ্যাক্টিভ লেবেল এবং ড্রয়ার অ্যাক্টিভ আইটেম।
+  /// **কী কাজে লাগে:** ইউজার এখন কোন ট্যাবে আছেন তা সঙ্গে সঙ্গে চিনিয়ে দিতে।
+  final Color navSelectedColor;
+
+  /// নেভিগেশন বার/রেলে আনসিলেক্টেড ট্যাবের আইকন ও লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** নিষ্ক্রিয় ট্যাব আইকন ও সাধারণ মেনু আইটেম টেক্সট।
+  /// **কী কাজে লাগে:** সক্রিয় ট্যাবের তুলনায় বাকি ট্যাবগুলোকে শান্ত ও হালকা রাখতে।
+  final Color navUnselectedColor;
+
+  /// প্রধান অ্যাকশন বাটনের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `FilledButton`, `ElevatedButton`, লগইন/সাবমিট/সেভ
+  /// বাটন এবং `FloatingActionButton`।
+  /// **কী কাজে লাগে:** স্ক্রিনের সবচেয়ে গুরুত্বপূর্ণ ক্লিকেবল বাটন চোখে তুলে ধরতে।
+  final Color buttonColor;
+
+  /// প্রধান বাটনের ভেতরের লেখা ও আইকনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `FilledButton` ও `ElevatedButton`-এর ভেতরের `Text`
+  /// ও `Icon`।
+  /// **কী কাজে লাগে:** [buttonColor]-এর ওপর উচ্চ-কনট্রাস্ট পরিষ্কার লেখা দেখাতে।
+  final Color buttonTextColor;
+
+  /// সেকেন্ডারি বা সহায়ক বাটনের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** "Cancel", "Back", "Filter", "Edit" বা সাবমিটের
+  /// পাশের দ্বিতীয় বাটন (`context.styles.secondaryButton`)।
+  /// **কী কাজে লাগে:** প্রাইমারি বাটনের চেয়ে গুরুত্ব একটু কম কিন্তু পরিষ্কার বাটন দিতে।
+  final Color secondaryButtonColor;
+
+  /// সেকেন্ডারি বাটনের ভেতরের লেখা ও আইকনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** সেকেন্ডারি বাটনের `Text` ও `Icon`।
+  /// **কী কাজে লাগে:** [secondaryButtonColor]-এর ওপর লেখা পড়া সহজ করতে।
+  final Color secondaryButtonTextColor;
+
+  /// ডিলিট, রিমুভ বা লগআউট জাতীয় ঝুঁকিপূর্ণ বাটনের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** "Delete Account", "Remove Item", "Logout" বাটন
+  /// (`context.styles.dangerButton`)।
+  /// **কী কাজে লাগে:** ডেস্ট্রাক্টিভ বাটন চাপার আগে ইউজারকে সতর্ক সংকেত দিতে।
+  final Color dangerButtonColor;
+
+  /// ডিলিট/ডেঞ্জার বাটনের ভেতরের লেখা ও আইকনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** ডিলিট বা লগআউট বাটনের ভেতরের `Text` ও `Icon`।
+  /// **কী কাজে লাগে:** [dangerButtonColor]-এর ওপর স্পষ্ট সাদা/হালকা লেখা দেখাতে।
+  final Color dangerButtonTextColor;
+
+  /// ক্লিকেবল লিংক ও `TextButton`-এর লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** "Forgot Password?", "See All", ব্রেডক্রাম্ব লিংক ও
+  /// সব `TextButton`।
+  /// **কী কাজে লাগে:** টেক্সটটি যে ক্লিক করা যায় তা বোঝাতে।
+  final Color linkColor;
+
+  /// `TextField` ও `TextFormField`-এর ভেতরের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** ফর্ম ইনপুট বক্স, সার্চ বার, ও ড্রপডাউন ফিল্ড।
+  /// **কী কাজে লাগে:** ইউজার কোথায় টাইপ করবেন তা পরিষ্কারভাবে চিহ্নিত করতে।
+  final Color inputFillColor;
+
+  /// সাধারণ কার্ড, বক্স, আউটলাইন বাটন ও টেক্সট ফিল্ডের নরমাল চারপাশের বর্ডার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `BoxDecoration(border: ...)`, `OutlinedButton` এবং
+  /// আনফোকাসড `TextField` বর্ডার।
+  /// **কী কাজে লাগে:** অতিরিক্ত শ্যাডো ছাড়াই উপাদানগুলোর সীমানা সূক্ষ্মভাবে বোঝাতে।
+  final Color borderColor;
+
+  /// ইনপুট ফিল্ড বা কার্ড ফোকাস/সিলেক্ট হলে চারপাশে যে উজ্জ্বল বর্ডার কালার হয়।
+  ///
+  /// **কোথায় ব্যবহার হয়:** টাইপ করার সময় সক্রিয় `TextField` বর্ডার, এবং সিলেক্ট
+  /// করা অপশন কার্ড।
+  /// **কী কাজে লাগে:** ইউজার কোন ফিল্ড বা কার্ডে কাজ করছেন তা হাইলাইট করতে।
+  final Color focusedBorderColor;
+
+  /// দুটি সেকশন, রো বা লিস্ট আইটেমের মাঝের পাতলা বিভাজক লাইন কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `Divider`, `VerticalDivider` এবং `ListView.separated`।
+  /// **কী কাজে লাগে:** পাশাপাশি থাকা ডেটা রো আলাদা করে সাজাতে।
+  final Color dividerColor;
+
+  /// মূল হেডলাইন, টাইটেল ও প্যারাগ্রাফ লেখার সাধারণ টেক্সট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** পেজ টাইটেল, কার্ড শিরোনাম, ইনপুট লেখা ও বডি টেক্সট।
+  /// **কী কাজে লাগে:** [surfaceColor] ও [cardColor]-এর ওপর সর্বোচ্চ পঠনযোগ্যতা দিতে।
+  final Color textColor;
+
+  /// সাবটাইটেল, তারিখ, ক্যাপশন বা দ্বিতীয় পর্যায়ের লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `ListTile.subtitle`, বিবরণ, মেটাডেটা ও সময়/সংখ্যা।
+  /// **কী কাজে লাগে:** মূল লেখার তুলনায় সহায়ক তথ্যকে হালকা ও গোছানো রাখতে।
+  final Color secondaryTextColor;
+
+  /// টেক্সট ফিল্ডের ভেতরের খালি অবস্থার হিন্ট বা প্লেসহোল্ডার টেক্সট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `InputDecoration.hintText` ও সার্চ প্লেসহোল্ডার।
+  /// **কী কাজে লাগে:** আসল ইনপুট আর উদাহরণের লেখার মধ্যে পার্থক্য বোঝাতে।
+  final Color hintTextColor;
+
+  /// সাধারণ আইকন ও টুলবার চিহ্নের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `ListTile` আইকন, সার্চ আইকন, ট্রেলিং অ্যারো।
+  /// **কী কাজে লাগে:** পুরো অ্যাপের আইকনগুলোর সামঞ্জস্য বজায় রাখতে।
+  final Color iconColor;
+
+  /// ট্যাগ, ক্যাটাগরি চিপ ও ফিল্টার পিলের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `Chip`, `FilterChip`, ক্যাটাগরি ট্যাগ ও সার্চ টোকেন।
+  /// **কী কাজে লাগে:** ছোট ফিল্টার বা ট্যাগগুলোকে নরম ব্যাকগ্রাউন্ডে আলাদা দেখাতে।
+  final Color chipColor;
+
+  /// ট্যাগ বা ফিল্টার চিপের ভেতরের লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `Chip` ও ট্যাগের `Text`/`Icon`।
+  /// **কী কাজে লাগে:** [chipColor]-এর ওপর পরিষ্কার কনট্রাস্ট দিতে।
+  final Color chipTextColor;
+
+  /// নোটিফিকেশন কাউন্টার ডট, "NEW" বা ডিসকাউন্ট ব্যাজের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** বেল আইকনের লাল/ব্র্যান্ড ডট, কার্ট কাউন্ট, `"50% OFF"`।
+  /// **কী কাজে লাগে:** গুরুত্বপূর্ণ সংখ্যা বা নতুন নোটিফিকেশনে দৃষ্টি আকর্ষণ করতে।
+  final Color badgeColor;
+
+  /// ব্যাজের ভেতরের সংখ্যা বা ছোট লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** নোটিফিকেশন ব্যাজের ভেতরের টেক্সট (`"9+"`)।
+  /// **কী কাজে লাগে:** ছোট ব্যাজের ভেতরের সংখ্যা স্পষ্ট রাখতে।
+  final Color badgeTextColor;
+
+  /// লিস্ট, ড্রপডাউন বা মাস্টার-ডিটেইল টেবিলে সিলেক্ট করা সারির ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** মাস্টার-ডিটেইল অ্যাক্টিভ রো, সিলেক্টেড ড্রয়ার মেনু আইটেম।
+  /// **কী কাজে লাগে:** কোন আইটেমটি সিলেক্ট করা আছে তা হালকা হাইলাইটে দেখাতে।
+  final Color selectedItemColor;
+
+  /// ডেস্কটপ/ওয়েবে মাউস হোভার করলে কার্ড বা লিস্ট রো-তে হালকা যে রঙ দেখা যায়।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `InkWell.hoverColor`, টেবিল রো হোভার ও বাটন হোভার।
+  /// **কী কাজে লাগে:** মাউস পয়েন্টারে ইন্টার‍্যাক্টিভ ফিডব্যাক দিতে।
+  final Color hoverColor;
+
+  /// নিষ্ক্রিয় বা ডিজেবল অবস্থার বাটন ও ইনপুটের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `onPressed: null` বাটন ও `enabled: false` ফিল্ড।
+  /// **কী কাজে লাগে:** উপাদানটি এখন কাজ করছে না তা স্পষ্টভাবে বোঝাতে।
+  final Color disabledColor;
+
+  /// নিষ্ক্রিয় বা ডিজেবল অবস্থার বাটন/ইনপুটের ভেতরের লেখা ও আইকনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** ডিজেবল বাটনের টেক্সট ও রিড-অনলি ফিল্ডের লেখা।
+  /// **কী কাজে লাগে:** নিষ্ক্রিয় অবস্থা পরিষ্কারভাবে প্রকাশ করতে।
+  final Color disabledTextColor;
+
+  /// ভুল, ফর্ম এরর বা কানেকশন ব্যর্থতার মূল লাল কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** ফর্ম ভ্যালিডেশন মেসেজ, এরর বর্ডার ও ফেইলড আইকন।
+  /// **কী কাজে লাগে:** কোনো সমস্যা বা ভুল তাৎক্ষণিকভাবে ইউজারকে জানাতে।
+  final Color errorColor;
+
+  /// এরর ব্যানার বা অ্যালার্ট বক্সের পেছনের হালকা ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** এরর `SnackBar`/`Card` ব্যাকগ্রাউন্ড (লেখা হবে [errorColor])।
+  /// **কী কাজে লাগে:** চোখে না লেগে পরিষ্কারভাবে এরর অ্যালার্ট বক্স সাজাতে।
+  final Color errorBackgroundColor;
+
+  /// সতর্কতা, পেন্ডিং অবস্থা বা মনোযোগ আকর্ষণের মূল ওয়ার্নিং কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** পেন্ডিং পেমেন্ট, ওয়ার্নিং অ্যালার্ট ও সতর্কতা আইকন।
+  /// **কী কাজে লাগে:** সাবধান থাকা বা অ্যাকশন নেওয়া দরকার এমন সংকেত দিতে।
+  final Color warningColor;
+
+  /// ওয়ার্নিং কার্ড বা নোটিশ ব্যানারের পেছনের হালকা ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** ওয়ার্নিং ট্যাগ বা ব্যানারের ব্যাকগ্রাউন্ড।
+  /// **কী কাজে লাগে:** [warningColor] লেখার নিচে আরামদায়ক ব্যাকগ্রাউন্ড দিতে।
+  final Color warningBackgroundColor;
+
+  /// সফল, ভেরিফাইড, পেইড বা অনলাইন অবস্থার মূল সাকসেস কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** অর্ডার কনফার্ম, ভেরিফাইড চেকমার্ক ও "Paid" ব্যাজ।
+  /// **কী কাজে লাগে:** কাজ সফল হয়েছে বা সবকিছু ঠিক আছে তা জানাতে।
+  final Color successColor;
+
+  /// সাকসেস ব্যানার বা "Paid/Verified" ট্যাগের পেছনের হালকা ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** সফল টোস্ট, স্ট্যাটাস চিপ ও সাকসেস কার্ড।
+  /// **কী কাজে লাগে:** [successColor] টেক্সটের নিচে স্পষ্ট কনট্রাস্ট দিতে।
+  final Color successBackgroundColor;
+
+  /// তথ্য, হিন্ট, গাইড বা নতুন আপডেট নোটিশের মূল ইনফো কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** ইনফরমেশন ব্যানার, টিপস আইকন ও ভার্সন নোটিশ।
+  /// **কী কাজে লাগে:** নিরপেক্ষ গুরুত্বপূর্ণ তথ্য সুন্দরভাবে আলাদা করতে।
+  final Color infoColor;
+
+  /// ইনফরমেশন বক্স বা টিপস ব্যানারের পেছনের হালকা ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** টিউটোরিয়াল ব্যানার ও ইনফো কার্ড।
+  /// **কী কাজে লাগে:** [infoColor] লেখা ও আইকনের নিচে নরম ব্যাকগ্রাউন্ড দিতে।
+  final Color infoBackgroundColor;
+
+  /// ডেটা লোডিং অবস্থায় স্কেলেটন/প্লেসহোল্ডার কার্ডের মূল শিমার বেস কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** লোডিং শিমার কার্ড ও প্লেসহোল্ডার লাইন।
+  /// **কী কাজে লাগে:** ডার্ক ও লাইট দুই মোডেই স্মুথ লোডিং অ্যানিমেশন তৈরি করতে।
+  final Color shimmerBaseColor;
+
+  /// শিমার স্কেলেটনের ভেতর দিয়ে বয়ে যাওয়া উজ্জ্বল হাইলাইট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** স্কেলেটন লোডার শিমার গ্রেডিয়েন্ট।
+  /// **কী কাজে লাগে:** কন্টেন্ট লোড হচ্ছে তা ভিজ্যুয়ালি সুন্দরভাবে দেখাতে।
+  final Color shimmerHighlightColor;
+
+  /// ডায়ালগ, ড্রয়ার ও বটম শিটের পেছনে স্ক্রিন ঢেকে দেওয়া আধা-স্বচ্ছ পর্দার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** মডাল ব্যারিয়ার, লোডিং ওভারলে ও ড্রয়ার স্ক্রিম।
+  /// **কী কাজে লাগে:** খোলা থাকা পপআপ ডায়ালগে ইউজারের মনোযোগ ধরে রাখতে।
+  final Color overlayColor;
+
+  /// কার্ড, মেনু ও ফ্লোটিং বক্সের নিচে ফেলা নরম শ্যাডো (ছায়া) কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `BoxShadow(color: context.colors.shadowColor)`।
+  /// **কী কাজে লাগে:** লাইট মোডে হালকা ও ডার্ক মোডে গভীর এলিভেশন তৈরি করতে।
+  final Color shadowColor;
+
+  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৪৪টি কালার
+  /// তৈরি করে; চাইলে যেকোনো রঙ আলাদা করে ওভাররাইডও করা যায়।
+  factory OmniColors.fromSeed({
+    required Color primaryColor,
+    required Brightness brightness,
+    Color? secondaryColor,
+    Color? surfaceColor,
+    Color? cardColor,
+    Color? appBarColor,
+    Color? appBarTextColor,
+    Color? navBarColor,
+    Color? navSelectedColor,
+    Color? navUnselectedColor,
+    Color? buttonColor,
+    Color? buttonTextColor,
+    Color? secondaryButtonColor,
+    Color? secondaryButtonTextColor,
+    Color? dangerButtonColor,
+    Color? dangerButtonTextColor,
+    Color? linkColor,
+    Color? inputFillColor,
+    Color? borderColor,
+    Color? focusedBorderColor,
+    Color? dividerColor,
+    Color? textColor,
+    Color? secondaryTextColor,
+    Color? hintTextColor,
+    Color? iconColor,
+    Color? chipColor,
+    Color? chipTextColor,
+    Color? badgeColor,
+    Color? badgeTextColor,
+    Color? selectedItemColor,
+    Color? hoverColor,
+    Color? disabledColor,
+    Color? disabledTextColor,
+    Color? errorColor,
+    Color? errorBackgroundColor,
+    Color? warningColor,
+    Color? warningBackgroundColor,
+    Color? successColor,
+    Color? successBackgroundColor,
+    Color? infoColor,
+    Color? infoBackgroundColor,
+    Color? shimmerBaseColor,
+    Color? shimmerHighlightColor,
+    Color? overlayColor,
+    Color? shadowColor,
+  }) {
+    final scheme = ColorScheme.fromSeed(
+      seedColor: primaryColor,
+      brightness: brightness,
+      secondary: secondaryColor,
+    );
+    final isDark = brightness == Brightness.dark;
+
+    final resolvedSurface = surfaceColor ??
+        (isDark ? const Color(0xFF0B1120) : const Color(0xFFF8FAFC));
+    final resolvedCard = cardColor ??
+        (isDark ? const Color(0xFF131C31) : Colors.white);
+    final resolvedPrimary = primaryColor;
+    final resolvedButton = buttonColor ?? resolvedPrimary;
+    final resolvedButtonText = buttonTextColor ??
+        (ThemeData.estimateBrightnessForColor(resolvedButton) == Brightness.dark
+            ? Colors.white
+            : const Color(0xFF0F172A));
+    final resolvedError = errorColor ??
+        (isDark ? const Color(0xFFF87171) : const Color(0xFFDC2626));
+    final resolvedDanger = dangerButtonColor ??
+        (isDark ? const Color(0xFFEF4444) : resolvedError);
+    final resolvedDangerText = dangerButtonTextColor ?? Colors.white;
+    final resolvedWarning = warningColor ??
+        (isDark ? const Color(0xFFFBBF24) : const Color(0xFFD97706));
+    final resolvedSuccess = successColor ??
+        (isDark ? const Color(0xFF34D399) : const Color(0xFF059669));
+    final resolvedInfo = infoColor ??
+        (isDark ? const Color(0xFF60A5FA) : const Color(0xFF2563EB));
+    final resolvedText = textColor ??
+        (isDark ? const Color(0xFFF1F5F9) : const Color(0xFF0F172A));
+    final resolvedSecondaryText = secondaryTextColor ??
+        (isDark ? const Color(0xFF94A3B8) : const Color(0xFF475569));
+    final resolvedSecondaryBtn = secondaryButtonColor ??
+        (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0));
+    final resolvedChip = chipColor ??
+        resolvedPrimary.withValues(alpha: isDark ? 0.18 : 0.10);
+    final resolvedBadge = badgeColor ?? resolvedError;
+
+    return OmniColors(
+      primaryColor: resolvedPrimary,
+      secondaryColor: secondaryColor ?? scheme.secondary,
+      surfaceColor: resolvedSurface,
+      cardColor: resolvedCard,
+      appBarColor: appBarColor ?? resolvedCard,
+      appBarTextColor: appBarTextColor ?? resolvedText,
+      navBarColor: navBarColor ?? resolvedCard,
+      navSelectedColor: navSelectedColor ?? resolvedPrimary,
+      navUnselectedColor: navUnselectedColor ?? resolvedSecondaryText,
+      buttonColor: resolvedButton,
+      buttonTextColor: resolvedButtonText,
+      secondaryButtonColor: resolvedSecondaryBtn,
+      secondaryButtonTextColor: secondaryButtonTextColor ?? resolvedText,
+      dangerButtonColor: resolvedDanger,
+      dangerButtonTextColor: resolvedDangerText,
+      linkColor: linkColor ?? resolvedPrimary,
+      inputFillColor: inputFillColor ??
+          (isDark ? const Color(0xFF1B263B) : const Color(0xFFF1F5F9)),
+      borderColor: borderColor ??
+          (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
+      focusedBorderColor: focusedBorderColor ?? resolvedPrimary,
+      dividerColor: dividerColor ??
+          (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+      textColor: resolvedText,
+      secondaryTextColor: resolvedSecondaryText,
+      hintTextColor: hintTextColor ??
+          (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+      iconColor: iconColor ??
+          (isDark ? const Color(0xFFCBD5E1) : const Color(0xFF334155)),
+      chipColor: resolvedChip,
+      chipTextColor: chipTextColor ?? resolvedPrimary,
+      badgeColor: resolvedBadge,
+      badgeTextColor: badgeTextColor ?? Colors.white,
+      selectedItemColor: selectedItemColor ??
+          resolvedPrimary.withValues(alpha: isDark ? 0.16 : 0.08),
+      hoverColor: hoverColor ??
+          resolvedText.withValues(alpha: isDark ? 0.06 : 0.04),
+      disabledColor: disabledColor ??
+          (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+      disabledTextColor: disabledTextColor ??
+          (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
+      errorColor: resolvedError,
+      errorBackgroundColor: errorBackgroundColor ??
+          resolvedError.withValues(alpha: isDark ? 0.16 : 0.10),
+      warningColor: resolvedWarning,
+      warningBackgroundColor: warningBackgroundColor ??
+          resolvedWarning.withValues(alpha: isDark ? 0.16 : 0.12),
+      successColor: resolvedSuccess,
+      successBackgroundColor: successBackgroundColor ??
+          resolvedSuccess.withValues(alpha: isDark ? 0.16 : 0.10),
+      infoColor: resolvedInfo,
+      infoBackgroundColor: infoBackgroundColor ??
+          resolvedInfo.withValues(alpha: isDark ? 0.16 : 0.10),
+      shimmerBaseColor: shimmerBaseColor ??
+          (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
+      shimmerHighlightColor: shimmerHighlightColor ??
+          (isDark ? const Color(0xFF334155) : const Color(0xFFF8FAFC)),
+      overlayColor: overlayColor ??
+          Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
+      shadowColor: shadowColor ??
+          Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+    );
+  }
+
+  /// ডিফল্ট লাইট [OmniColors] ফলব্যাক।
+  static final OmniColors lightDefault = OmniColors.fromSeed(
+    primaryColor: const Color(0xFF2563EB),
+    brightness: Brightness.light,
+  );
+
+  /// ডিফল্ট ডার্ক [OmniColors] ফলব্যাক।
+  static final OmniColors darkDefault = OmniColors.fromSeed(
+    primaryColor: const Color(0xFF60A5FA),
+    brightness: Brightness.dark,
+  );
+
+  /// নির্দিষ্ট কিছু কালার পরিবর্তন করে নতুন কপি তৈরি করে।
+  @override
+  OmniColors copyWith({
+    Color? primaryColor,
+    Color? secondaryColor,
+    Color? surfaceColor,
+    Color? cardColor,
+    Color? appBarColor,
+    Color? appBarTextColor,
+    Color? navBarColor,
+    Color? navSelectedColor,
+    Color? navUnselectedColor,
+    Color? buttonColor,
+    Color? buttonTextColor,
+    Color? secondaryButtonColor,
+    Color? secondaryButtonTextColor,
+    Color? dangerButtonColor,
+    Color? dangerButtonTextColor,
+    Color? linkColor,
+    Color? inputFillColor,
+    Color? borderColor,
+    Color? focusedBorderColor,
+    Color? dividerColor,
+    Color? textColor,
+    Color? secondaryTextColor,
+    Color? hintTextColor,
+    Color? iconColor,
+    Color? chipColor,
+    Color? chipTextColor,
+    Color? badgeColor,
+    Color? badgeTextColor,
+    Color? selectedItemColor,
+    Color? hoverColor,
+    Color? disabledColor,
+    Color? disabledTextColor,
+    Color? errorColor,
+    Color? errorBackgroundColor,
+    Color? warningColor,
+    Color? warningBackgroundColor,
+    Color? successColor,
+    Color? successBackgroundColor,
+    Color? infoColor,
+    Color? infoBackgroundColor,
+    Color? shimmerBaseColor,
+    Color? shimmerHighlightColor,
+    Color? overlayColor,
+    Color? shadowColor,
+  }) => OmniColors(
+    primaryColor: primaryColor ?? this.primaryColor,
+    secondaryColor: secondaryColor ?? this.secondaryColor,
+    surfaceColor: surfaceColor ?? this.surfaceColor,
+    cardColor: cardColor ?? this.cardColor,
+    appBarColor: appBarColor ?? this.appBarColor,
+    appBarTextColor: appBarTextColor ?? this.appBarTextColor,
+    navBarColor: navBarColor ?? this.navBarColor,
+    navSelectedColor: navSelectedColor ?? this.navSelectedColor,
+    navUnselectedColor: navUnselectedColor ?? this.navUnselectedColor,
+    buttonColor: buttonColor ?? this.buttonColor,
+    buttonTextColor: buttonTextColor ?? this.buttonTextColor,
+    secondaryButtonColor: secondaryButtonColor ?? this.secondaryButtonColor,
+    secondaryButtonTextColor:
+        secondaryButtonTextColor ?? this.secondaryButtonTextColor,
+    dangerButtonColor: dangerButtonColor ?? this.dangerButtonColor,
+    dangerButtonTextColor:
+        dangerButtonTextColor ?? this.dangerButtonTextColor,
+    linkColor: linkColor ?? this.linkColor,
+    inputFillColor: inputFillColor ?? this.inputFillColor,
+    borderColor: borderColor ?? this.borderColor,
+    focusedBorderColor: focusedBorderColor ?? this.focusedBorderColor,
+    dividerColor: dividerColor ?? this.dividerColor,
+    textColor: textColor ?? this.textColor,
+    secondaryTextColor: secondaryTextColor ?? this.secondaryTextColor,
+    hintTextColor: hintTextColor ?? this.hintTextColor,
+    iconColor: iconColor ?? this.iconColor,
+    chipColor: chipColor ?? this.chipColor,
+    chipTextColor: chipTextColor ?? this.chipTextColor,
+    badgeColor: badgeColor ?? this.badgeColor,
+    badgeTextColor: badgeTextColor ?? this.badgeTextColor,
+    selectedItemColor: selectedItemColor ?? this.selectedItemColor,
+    hoverColor: hoverColor ?? this.hoverColor,
+    disabledColor: disabledColor ?? this.disabledColor,
+    disabledTextColor: disabledTextColor ?? this.disabledTextColor,
+    errorColor: errorColor ?? this.errorColor,
+    errorBackgroundColor: errorBackgroundColor ?? this.errorBackgroundColor,
+    warningColor: warningColor ?? this.warningColor,
+    warningBackgroundColor:
+        warningBackgroundColor ?? this.warningBackgroundColor,
+    successColor: successColor ?? this.successColor,
+    successBackgroundColor:
+        successBackgroundColor ?? this.successBackgroundColor,
+    infoColor: infoColor ?? this.infoColor,
+    infoBackgroundColor: infoBackgroundColor ?? this.infoBackgroundColor,
+    shimmerBaseColor: shimmerBaseColor ?? this.shimmerBaseColor,
+    shimmerHighlightColor:
+        shimmerHighlightColor ?? this.shimmerHighlightColor,
+    overlayColor: overlayColor ?? this.overlayColor,
+    shadowColor: shadowColor ?? this.shadowColor,
+  );
+
+  @override
+  OmniColors lerp(covariant ThemeExtension<OmniColors>? other, double t) {
+    if (other is! OmniColors) return this;
+    return OmniColors(
+      primaryColor: Color.lerp(primaryColor, other.primaryColor, t)!,
+      secondaryColor: Color.lerp(secondaryColor, other.secondaryColor, t)!,
+      surfaceColor: Color.lerp(surfaceColor, other.surfaceColor, t)!,
+      cardColor: Color.lerp(cardColor, other.cardColor, t)!,
+      appBarColor: Color.lerp(appBarColor, other.appBarColor, t)!,
+      appBarTextColor: Color.lerp(appBarTextColor, other.appBarTextColor, t)!,
+      navBarColor: Color.lerp(navBarColor, other.navBarColor, t)!,
+      navSelectedColor:
+          Color.lerp(navSelectedColor, other.navSelectedColor, t)!,
+      navUnselectedColor:
+          Color.lerp(navUnselectedColor, other.navUnselectedColor, t)!,
+      buttonColor: Color.lerp(buttonColor, other.buttonColor, t)!,
+      buttonTextColor: Color.lerp(buttonTextColor, other.buttonTextColor, t)!,
+      secondaryButtonColor:
+          Color.lerp(secondaryButtonColor, other.secondaryButtonColor, t)!,
+      secondaryButtonTextColor: Color.lerp(
+        secondaryButtonTextColor,
+        other.secondaryButtonTextColor,
+        t,
+      )!,
+      dangerButtonColor:
+          Color.lerp(dangerButtonColor, other.dangerButtonColor, t)!,
+      dangerButtonTextColor:
+          Color.lerp(dangerButtonTextColor, other.dangerButtonTextColor, t)!,
+      linkColor: Color.lerp(linkColor, other.linkColor, t)!,
+      inputFillColor: Color.lerp(inputFillColor, other.inputFillColor, t)!,
+      borderColor: Color.lerp(borderColor, other.borderColor, t)!,
+      focusedBorderColor:
+          Color.lerp(focusedBorderColor, other.focusedBorderColor, t)!,
+      dividerColor: Color.lerp(dividerColor, other.dividerColor, t)!,
+      textColor: Color.lerp(textColor, other.textColor, t)!,
+      secondaryTextColor:
+          Color.lerp(secondaryTextColor, other.secondaryTextColor, t)!,
+      hintTextColor: Color.lerp(hintTextColor, other.hintTextColor, t)!,
+      iconColor: Color.lerp(iconColor, other.iconColor, t)!,
+      chipColor: Color.lerp(chipColor, other.chipColor, t)!,
+      chipTextColor: Color.lerp(chipTextColor, other.chipTextColor, t)!,
+      badgeColor: Color.lerp(badgeColor, other.badgeColor, t)!,
+      badgeTextColor: Color.lerp(badgeTextColor, other.badgeTextColor, t)!,
+      selectedItemColor:
+          Color.lerp(selectedItemColor, other.selectedItemColor, t)!,
+      hoverColor: Color.lerp(hoverColor, other.hoverColor, t)!,
+      disabledColor: Color.lerp(disabledColor, other.disabledColor, t)!,
+      disabledTextColor:
+          Color.lerp(disabledTextColor, other.disabledTextColor, t)!,
+      errorColor: Color.lerp(errorColor, other.errorColor, t)!,
+      errorBackgroundColor:
+          Color.lerp(errorBackgroundColor, other.errorBackgroundColor, t)!,
+      warningColor: Color.lerp(warningColor, other.warningColor, t)!,
+      warningBackgroundColor:
+          Color.lerp(warningBackgroundColor, other.warningBackgroundColor, t)!,
+      successColor: Color.lerp(successColor, other.successColor, t)!,
+      successBackgroundColor:
+          Color.lerp(successBackgroundColor, other.successBackgroundColor, t)!,
+      infoColor: Color.lerp(infoColor, other.infoColor, t)!,
+      infoBackgroundColor:
+          Color.lerp(infoBackgroundColor, other.infoBackgroundColor, t)!,
+      shimmerBaseColor:
+          Color.lerp(shimmerBaseColor, other.shimmerBaseColor, t)!,
+      shimmerHighlightColor:
+          Color.lerp(shimmerHighlightColor, other.shimmerHighlightColor, t)!,
+      overlayColor: Color.lerp(overlayColor, other.overlayColor, t)!,
+      shadowColor: Color.lerp(shadowColor, other.shadowColor, t)!,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is OmniColors &&
+          primaryColor == other.primaryColor &&
+          secondaryColor == other.secondaryColor &&
+          surfaceColor == other.surfaceColor &&
+          cardColor == other.cardColor &&
+          appBarColor == other.appBarColor &&
+          appBarTextColor == other.appBarTextColor &&
+          navBarColor == other.navBarColor &&
+          navSelectedColor == other.navSelectedColor &&
+          navUnselectedColor == other.navUnselectedColor &&
+          buttonColor == other.buttonColor &&
+          buttonTextColor == other.buttonTextColor &&
+          secondaryButtonColor == other.secondaryButtonColor &&
+          secondaryButtonTextColor == other.secondaryButtonTextColor &&
+          dangerButtonColor == other.dangerButtonColor &&
+          dangerButtonTextColor == other.dangerButtonTextColor &&
+          linkColor == other.linkColor &&
+          inputFillColor == other.inputFillColor &&
+          borderColor == other.borderColor &&
+          focusedBorderColor == other.focusedBorderColor &&
+          dividerColor == other.dividerColor &&
+          textColor == other.textColor &&
+          secondaryTextColor == other.secondaryTextColor &&
+          hintTextColor == other.hintTextColor &&
+          iconColor == other.iconColor &&
+          chipColor == other.chipColor &&
+          chipTextColor == other.chipTextColor &&
+          badgeColor == other.badgeColor &&
+          badgeTextColor == other.badgeTextColor &&
+          selectedItemColor == other.selectedItemColor &&
+          hoverColor == other.hoverColor &&
+          disabledColor == other.disabledColor &&
+          disabledTextColor == other.disabledTextColor &&
+          errorColor == other.errorColor &&
+          errorBackgroundColor == other.errorBackgroundColor &&
+          warningColor == other.warningColor &&
+          warningBackgroundColor == other.warningBackgroundColor &&
+          successColor == other.successColor &&
+          successBackgroundColor == other.successBackgroundColor &&
+          infoColor == other.infoColor &&
+          infoBackgroundColor == other.infoBackgroundColor &&
+          shimmerBaseColor == other.shimmerBaseColor &&
+          shimmerHighlightColor == other.shimmerHighlightColor &&
+          overlayColor == other.overlayColor &&
+          shadowColor == other.shadowColor;
+
+  @override
+  int get hashCode => Object.hashAll([
+    primaryColor,
+    secondaryColor,
+    surfaceColor,
+    cardColor,
+    appBarColor,
+    appBarTextColor,
+    navBarColor,
+    navSelectedColor,
+    navUnselectedColor,
+    buttonColor,
+    buttonTextColor,
+    secondaryButtonColor,
+    secondaryButtonTextColor,
+    dangerButtonColor,
+    dangerButtonTextColor,
+    linkColor,
+    inputFillColor,
+    borderColor,
+    focusedBorderColor,
+    dividerColor,
+    textColor,
+    secondaryTextColor,
+    hintTextColor,
+    iconColor,
+    chipColor,
+    chipTextColor,
+    badgeColor,
+    badgeTextColor,
+    selectedItemColor,
+    hoverColor,
+    disabledColor,
+    disabledTextColor,
+    errorColor,
+    errorBackgroundColor,
+    warningColor,
+    warningBackgroundColor,
+    successColor,
+    successBackgroundColor,
+    infoColor,
+    infoBackgroundColor,
+    shimmerBaseColor,
+    shimmerHighlightColor,
+    overlayColor,
+    shadowColor,
+  ]);
+}
+
+/// যেকোনো `BuildContext` থেকে সহজে সেমান্টিক রঙ পড়ার শর্টকাট (`context.colors`)।
+extension OmniColorsContext on BuildContext {
+  /// সক্রিয় থিম ও ডার্ক/লাইট মোড অনুযায়ী সরাসরি [OmniColors] রিটার্ন করে।
+  OmniColors get colors {
+    final theme = Theme.of(this);
+    final ext = theme.extension<OmniColors>();
+    if (ext != null) return ext;
+    return theme.brightness == Brightness.dark
+        ? OmniColors.darkDefault
+        : OmniColors.lightDefault;
+  }
+}

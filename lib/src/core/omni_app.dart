@@ -16,11 +16,13 @@ import '../routing/omni_swipe_back.dart';
 import '../screens/omni_lifecycle.dart';
 import 'omni_app_config.dart';
 import 'omni_app_features.dart';
+import 'omni_breadcrumbs.dart';
 import 'omni_desktop_back.dart';
 import 'omni_log.dart';
 import 'omni_route.dart';
 import 'omni_route_entry.dart';
 import 'omni_router.dart';
+import '../responsive/omni_theme.dart';
 
 /// Builds your app widget (`MaterialApp.router`, `CupertinoApp.router`, etc.)
 /// around the [OmniRouter] created by [OmniApp].
@@ -88,6 +90,9 @@ class OmniApp extends StatefulWidget {
     this.onError,
     this.overlayBuilder,
     this.responsive = const OmniResponsiveConfig(),
+    this.omniTheme,
+    this.themes = const [],
+    this.maxBreadcrumbs = 25,
   }) : _applyRootOverlay = true;
 
   /// Creates an [OmniApp] pre-configured with `MaterialApp.router`, removing
@@ -131,6 +136,9 @@ class OmniApp extends StatefulWidget {
     this.onError,
     this.overlayBuilder,
     this.responsive = const OmniResponsiveConfig(),
+    this.omniTheme,
+    this.themes = const [],
+    this.maxBreadcrumbs = 25,
     String title = '',
     ThemeData? theme,
     ThemeData? darkTheme,
@@ -148,31 +156,35 @@ class OmniApp extends StatefulWidget {
     Map<Type, Action<Intent>>? actions,
     ScrollBehavior? scrollBehavior,
     TransitionBuilder? appBuilder,
-  }) : builder = ((context, router) => MaterialApp.router(
-         title: title,
-         theme: theme,
-         darkTheme: darkTheme,
-         highContrastTheme: highContrastTheme,
-         highContrastDarkTheme: highContrastDarkTheme,
-         themeMode: themeModeBuilder?.call(context) ?? themeMode,
-         color: color,
-         locale: locale,
-         localizationsDelegates: localizationsDelegates,
-         supportedLocales: supportedLocales,
-         debugShowCheckedModeBanner: debugShowCheckedModeBanner,
-         scaffoldMessengerKey: scaffoldMessengerKey,
-         shortcuts: shortcuts,
-         actions: actions,
-         scrollBehavior: scrollBehavior,
-         routerConfig: router,
-         builder: _chainBuilders(
-           appBuilder,
-           overlayBuilder,
-           responsive,
-           minTextScale,
-           maxTextScale,
-         ),
-       )),
+  }) : builder = ((context, router) {
+         final resolved = OmniThemeScope.maybeThemesOf(context);
+         return MaterialApp.router(
+           title: title,
+           theme: theme ?? resolved?.light,
+           darkTheme: darkTheme ?? resolved?.dark,
+           highContrastTheme: highContrastTheme,
+           highContrastDarkTheme: highContrastDarkTheme,
+           themeMode:
+               themeModeBuilder?.call(context) ?? themeMode ?? resolved?.mode,
+           color: color,
+           locale: locale,
+           localizationsDelegates: localizationsDelegates,
+           supportedLocales: supportedLocales,
+           debugShowCheckedModeBanner: debugShowCheckedModeBanner,
+           scaffoldMessengerKey: scaffoldMessengerKey,
+           shortcuts: shortcuts,
+           actions: actions,
+           scrollBehavior: scrollBehavior,
+           routerConfig: router,
+           builder: _chainBuilders(
+             appBuilder,
+             overlayBuilder,
+             responsive,
+             minTextScale,
+             maxTextScale,
+           ),
+         );
+       }),
        _applyRootOverlay = false;
 
   /// Creates an [OmniApp] pre-configured with `CupertinoApp.router`.
@@ -215,6 +227,7 @@ class OmniApp extends StatefulWidget {
     this.onError,
     this.overlayBuilder,
     this.responsive = const OmniResponsiveConfig(),
+    this.maxBreadcrumbs = 25,
     String title = '',
     CupertinoThemeData? theme,
     Color? color,
@@ -246,6 +259,8 @@ class OmniApp extends StatefulWidget {
            maxTextScale,
          ),
        )),
+       omniTheme = null,
+       themes = const [],
        _applyRootOverlay = false;
 
   static TransitionBuilder? _chainBuilders(
@@ -414,6 +429,18 @@ class OmniApp extends StatefulWidget {
   /// default via discrete breakpoint tiers and pre-cached constant tokens).
   final OmniResponsiveConfig responsive;
 
+  /// Optional responsive Material 3 theming & persisted Dark/Light mode config.
+  final OmniTheme? omniTheme;
+
+  /// Optional theme catalog enabling 1-click switching across multiple named
+  /// themes (`OmniTheme.presets` or custom `OmniTheme(...)` variants).
+  final List<OmniTheme> themes;
+
+  /// Bounded in-memory navigation/error breadcrumb capacity retained for
+  /// `OmniRoute.breadcrumbs` and `OmniRoute.exportDiagnostics()` (`0` disables
+  /// recording completely with zero heap allocations).
+  final int maxBreadcrumbs;
+
   final bool _applyRootOverlay;
 
   @override
@@ -499,12 +526,19 @@ class _OmniAppState extends State<OmniApp> {
       restorationScopeId: widget.restorationScopeId,
       refresh: compiled.refresh,
       onReady: () {
-        if (mounted && (widget.onNavigate != null || widget.logNavigation)) {
+        if (mounted &&
+            (widget.onNavigate != null ||
+                widget.logNavigation ||
+                widget.maxBreadcrumbs > 0)) {
           _navigated();
         }
       },
     );
-    OmniRoute.attach(router, compiled.registry);
+    OmniRoute.attach(
+      router,
+      compiled.registry,
+      maxBreadcrumbs: widget.maxBreadcrumbs,
+    );
     _syncNavListener();
   }
 
@@ -534,7 +568,10 @@ class _OmniAppState extends State<OmniApp> {
   void _syncNavListener() {
     final router = _router;
     if (router == null) return;
-    final want = widget.onNavigate != null || widget.logNavigation;
+    final want =
+        widget.onNavigate != null ||
+        widget.logNavigation ||
+        widget.maxBreadcrumbs > 0;
     if (want && !_navListenerAttached) {
       router.routerDelegate.addListener(_navigated);
       _navListenerAttached = true;
@@ -568,6 +605,12 @@ class _OmniAppState extends State<OmniApp> {
     }
 
     final router = _router!;
+    if (widget.maxBreadcrumbs != oldWidget.maxBreadcrumbs) {
+      OmniRoute.configureRuntime(
+        router,
+        maxBreadcrumbs: widget.maxBreadcrumbs,
+      );
+    }
     _syncNavListener();
 
     final blocsChanged = !identical(widget.blocs, oldWidget.blocs);
@@ -625,6 +668,21 @@ class _OmniAppState extends State<OmniApp> {
     _last = to;
     _lastUri = state.uri;
     _lastPageKey = state.pageKey;
+    if (widget.maxBreadcrumbs > 0) {
+      final ctx = _navKey.currentContext;
+      final device = ctx != null ? OmniResponsiveScope.read(ctx).device : null;
+      OmniRoute.recordBreadcrumbFor(
+        router,
+        OmniBreadcrumb(
+          timestamp: event.timestamp ?? DateTime.now(),
+          category: 'navigation',
+          message: '${event.from?.location ?? 'initial'} -> ${to.location}',
+          routePath: to.routePath,
+          device: device,
+          data: {'kind': router.lastNavigationKind.name},
+        ),
+      );
+    }
     if (widget.logNavigation && kDebugMode) {
       OmniRoute.logger.i(navigationMessage(event));
     }
@@ -642,12 +700,34 @@ class _OmniAppState extends State<OmniApp> {
     if (_ourFlutterOnError != null) return;
     _prevFlutterOnError = FlutterError.onError;
     FlutterError.onError = _ourFlutterOnError = (details) {
+      if (widget.maxBreadcrumbs > 0 && _router != null) {
+        OmniRoute.recordBreadcrumbFor(
+          _router!,
+          OmniBreadcrumb(
+            timestamp: DateTime.now(),
+            category: 'error',
+            message: details.exceptionAsString(),
+            routePath: _router?.state.routePath,
+          ),
+        );
+      }
       widget.onError?.call(details.exception, details.stack ?? StackTrace.empty);
       _prevFlutterOnError?.call(details);
     };
     final dispatcher = PlatformDispatcher.instance;
     _prevPlatformOnError = dispatcher.onError;
     dispatcher.onError = _ourPlatformOnError = (error, stack) {
+      if (widget.maxBreadcrumbs > 0 && _router != null) {
+        OmniRoute.recordBreadcrumbFor(
+          _router!,
+          OmniBreadcrumb(
+            timestamp: DateTime.now(),
+            category: 'error',
+            message: error.toString(),
+            routePath: _router?.state.routePath,
+          ),
+        );
+      }
       widget.onError?.call(error, stack);
       return _prevPlatformOnError?.call(error, stack) ?? false;
     };
@@ -771,6 +851,13 @@ class _OmniAppState extends State<OmniApp> {
         config: config,
         session: _flowSession,
         router: router,
+        child: child,
+      );
+    }
+    if (widget.omniTheme != null || widget.themes.isNotEmpty) {
+      child = OmniResponsiveThemeHost(
+        omniTheme: widget.omniTheme,
+        themes: widget.themes,
         child: child,
       );
     }

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:collection';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,15 +9,37 @@ import 'package:logger/logger.dart';
 
 import '../bloc/omni_bloc.dart';
 import '../errors/omni_route_exception.dart';
+import '../responsive/omni_responsive_scope.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_params.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_trie.dart';
 import 'omni_app_config.dart';
+import 'omni_breadcrumbs.dart';
 import 'omni_log.dart';
 import 'omni_route_entry.dart';
 import 'omni_router.dart';
+
+class _OmniRouterRuntime {
+  _OmniRouterRuntime({int maxBreadcrumbs = 25})
+    : breadcrumbs = OmniBreadcrumbRecorder(maxEntries: maxBreadcrumbs);
+
+  final OmniBreadcrumbRecorder breadcrumbs;
+  final LinkedHashMap<String, DateTime> prefetchedAt =
+      LinkedHashMap<String, DateTime>();
+  final Set<String> inFlightPrefetches = <String>{};
+
+  static const int maxPrefetchEntries = 64;
+
+  void markPrefetched(String uriKey) {
+    prefetchedAt.remove(uriKey);
+    if (prefetchedAt.length >= maxPrefetchEntries) {
+      prefetchedAt.remove(prefetchedAt.keys.first);
+    }
+    prefetchedAt[uriKey] = DateTime.now();
+  }
+}
 
 /// Global navigation facade and router inspection API for the active [OmniApp].
 ///
@@ -29,10 +54,14 @@ import 'omni_router.dart';
 /// nearest ancestor [OmniApp].
 abstract final class OmniRoute {
   static final List<(OmniRouter, OmniRouteRegistry)> _apps = [];
+  static final Map<OmniRouter, _OmniRouterRuntime> _runtimes = {};
 
   static OmniRouter? get _router => _apps.isEmpty ? null : _apps.last.$1;
   static OmniRouteRegistry? get _registry =>
       _apps.isEmpty ? null : _apps.last.$2;
+
+  static _OmniRouterRuntime _runtimeFor(OmniRouter router) =>
+      _runtimes.putIfAbsent(router, _OmniRouterRuntime.new);
 
   /// Use clean path URLs on the web (`/students/101` instead of `/#/students/101`).
   /// Call once in `main()` before `runApp`. No-op on other platforms.
@@ -57,8 +86,14 @@ abstract final class OmniRoute {
 
   /// Registers [r] and [reg] for static helpers. Called by [OmniApp].
   @internal
-  static void attach(OmniRouter r, OmniRouteRegistry reg) =>
-      _apps.add((r, reg));
+  static void attach(
+    OmniRouter r,
+    OmniRouteRegistry reg, {
+    int maxBreadcrumbs = 25,
+  }) {
+    _apps.add((r, reg));
+    _runtimes[r] = _OmniRouterRuntime(maxBreadcrumbs: maxBreadcrumbs);
+  }
 
   /// Updates [reg] during Hot Reload without altering active ordering.
   @internal
@@ -69,8 +104,13 @@ abstract final class OmniRoute {
 
   /// Detaches [r]; the previously mounted app (if any) becomes active.
   @internal
-  static void detach(OmniRouter r) =>
-      _apps.removeWhere((app) => identical(app.$1, r));
+  static void detach(OmniRouter r) {
+    _apps.removeWhere((app) => identical(app.$1, r));
+    final runtime = _runtimes.remove(r);
+    runtime?.breadcrumbs.clear();
+    runtime?.prefetchedAt.clear();
+    runtime?.inFlightPrefetches.clear();
+  }
 
   /// Looks up the [OmniRouteRegistry] associated with [router].
   @internal
@@ -79,6 +119,138 @@ abstract final class OmniRoute {
       if (identical(_apps[i].$1, router)) return _apps[i].$2;
     }
     return _registry!;
+  }
+
+  /// Records a diagnostic breadcrumb scoped cleanly to [r].
+  @internal
+  static void recordBreadcrumbFor(OmniRouter r, OmniBreadcrumb crumb) =>
+      _runtimeFor(r).breadcrumbs.record(crumb);
+
+  /// Updates the retained breadcrumb ring capacity for [r].
+  @internal
+  static void configureRuntime(OmniRouter r, {int maxBreadcrumbs = 25}) {
+    final existing = _runtimes[r];
+    if (existing != null && existing.breadcrumbs.maxEntries == maxBreadcrumbs) {
+      return;
+    }
+    _runtimes[r] = _OmniRouterRuntime(maxBreadcrumbs: maxBreadcrumbs);
+  }
+
+  /// Recent bounded navigation/error breadcrumbs for the active [OmniApp]
+  /// (`maxBreadcrumbs` limit, ordered oldest -> newest).
+  static List<OmniBreadcrumb> get breadcrumbs {
+    final r = _router;
+    if (r == null) return const [];
+    return _runtimes[r]?.breadcrumbs.entries ?? const [];
+  }
+
+  /// Records a custom diagnostic breadcrumb on the active [OmniApp] without
+  /// triggering any widget rebuilds.
+  static void recordBreadcrumb(
+    String message, {
+    String category = 'custom',
+    Map<String, Object?>? data,
+  }) {
+    final r = _router;
+    if (r == null) return;
+    final ctx = r.navigatorKey.currentContext;
+    final device = ctx != null ? OmniResponsiveScope.read(ctx).device : null;
+    _runtimeFor(r).breadcrumbs.add(
+      message,
+      category: category,
+      routePath: r.state.routePath,
+      device: device,
+      data: data,
+    );
+  }
+
+  /// Exports a concise plain-text crash/telemetry snapshot combining platform,
+  /// active device tier, route stack, and recent bounded breadcrumbs.
+  static String exportDiagnostics({Object? error, StackTrace? stackTrace}) {
+    final r = _router;
+    if (r == null) {
+      return OmniBreadcrumbRecorder(maxEntries: 0).export(
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+    final ctx = r.navigatorKey.currentContext;
+    final device = ctx != null ? OmniResponsiveScope.read(ctx).device : null;
+    final stackPaths = [for (final e in r.stackEntries) e.location];
+    return _runtimeFor(r).breadcrumbs.export(
+      currentLocation: r.location.toString(),
+      device: device,
+      stackPaths: stackPaths,
+      error: error,
+      stackTrace: stackTrace,
+    );
+  }
+
+  /// Triggers an `OmniPage.onPrefetch` handler for [location] with automatic
+  /// parameter validation, in-flight deduplication, and bounded [ttl] caching.
+  static Future<void> prefetch(
+    String location, {
+    BuildContext? context,
+    Duration ttl = const Duration(seconds: 30),
+  }) async {
+    final r = (context != null ? OmniRouter.maybeOf(context) : null) ?? _router;
+    if (r == null) return;
+
+    final uri = Uri.tryParse(location);
+    if (uri == null) return;
+
+    final match = registryOf(r).matchUri(uri);
+    if (match == null) return;
+
+    final page = match.route.page;
+    final handler = page.onPrefetch;
+    if (handler == null) return;
+
+    final effectiveContext = (context != null && context.mounted)
+        ? context
+        : r.navigatorKey.currentContext;
+    if (effectiveContext == null || !effectiveContext.mounted) return;
+
+    final key = uri.toString();
+    final runtime = _runtimeFor(r);
+    if (runtime.inFlightPrefetches.contains(key)) return;
+
+    final last = runtime.prefetchedAt[key];
+    if (last != null && DateTime.now().difference(last) < ttl) return;
+
+    final state = OmniRouteState(
+      uri: uri,
+      matchedLocation: uri.path.isEmpty ? '/' : uri.path,
+      path: match.route.fullPath,
+      name: page.name,
+      pathParameters: match.pathParameters,
+      metadata: page.metadata,
+      pageKey: ValueKey<String>('prefetch:$key'),
+    );
+    final params = OmniParams(state);
+
+    if (page.validateParams case final validator?) {
+      try {
+        final invalid = validator(params);
+        if (invalid != null && invalid.isNotEmpty) return;
+      } on Object {
+        return;
+      }
+    }
+
+    runtime.inFlightPrefetches.add(key);
+    try {
+      await Future<void>.sync(() => handler(effectiveContext, params));
+      runtime.markPrefetched(key);
+    } finally {
+      runtime.inFlightPrefetches.remove(key);
+    }
+  }
+
+  /// Clears deduplicated route prefetch timestamps for the active [OmniApp].
+  static void clearPrefetchCache() {
+    final r = _router;
+    if (r != null) _runtimes[r]?.prefetchedAt.clear();
   }
 
   /// Current location URI including query and pushed pages.

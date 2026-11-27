@@ -45,13 +45,59 @@ class OmniParams {
   /// Path parameter parsed as int; an invalid value shows the not-found page.
   int pathInt(String name) => _int(name, path(name));
 
+  /// Path parameter parsed as a strictly positive integer (`>= 1`). Zero,
+  /// negative, or non-integer values trigger the route error/not-found page.
+  int pathPositiveInt(String name) {
+    final n = pathInt(name);
+    if (n <= 0) _fail(name, 'expected positive integer, got $n');
+    return n;
+  }
+
+  /// Required path parameter matched against enum [values].
+  T pathEnum<T extends Enum>(String name, List<T> values) {
+    final v = path(name);
+    for (final e in values) {
+      if (e.name == v) return e;
+    }
+    _fail(name, '"$v" is not one of ${values.map((e) => e.name).join(', ')}');
+  }
+
   /// Optional query parameter (`?class=10`).
   String? query(String name) => state.uri.queryParameters[name];
+
+  /// Required non-empty query parameter; missing or empty → error page.
+  String queryRequired(String name) {
+    final v = query(name);
+    if (v == null || v.isEmpty) _fail(name, 'missing required query parameter');
+    return v;
+  }
 
   /// Optional query parameter parsed as int. Present but not an int → error.
   int? queryInt(String name) {
     final v = query(name);
     return v == null ? null : _int(name, v);
+  }
+
+  /// Optional query parameter parsed as ISO-8601 [DateTime].
+  DateTime? queryDateTime(String name) {
+    final v = query(name);
+    if (v == null) return null;
+    return DateTime.tryParse(v) ?? _fail(name, '"$v" is not an ISO-8601 date');
+  }
+
+  /// Query parameter validated against [allowed] set (or returns
+  /// [defaultValue] when absent).
+  String? queryOneOf(
+    String name,
+    Iterable<String> allowed, {
+    String? defaultValue,
+  }) {
+    final v = query(name);
+    if (v == null) return defaultValue;
+    for (final candidate in allowed) {
+      if (candidate == v) return v;
+    }
+    _fail(name, '"$v" is not one of ${allowed.join(', ')}');
   }
 
   /// Optional query parameter parsed as double (`?lat=23.8`). Present but

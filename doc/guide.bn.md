@@ -2,6 +2,7 @@
 
 এই গাইডটি এমনভাবে সাজানো হয়েছে যেন শুরুতেই বুঝতে পারেন **কখন কোন জিনিসটি ব্যবহার করবেন**, তারপর ধাপে ধাপে **প্রতিটি ক্লাস ও প্রতিটি প্যারামিটারের আসল কাজ, ভেতরের আচরণ ও কোড উদাহরণ** সহজে দেখে নিতে পারেন।
 
+> - **থিমিং মোড গাইড (`OmniTheme` — Dark/Light, TextField, Button ও Custom Setup):** [doc/theming.bn.md](theming.bn.md)
 > - ইংরেজি টেকনিক্যাল ডকুমেন্ট: [architecture.md](architecture.md) · [web.md](web.md) · [platforms.md](platforms.md) · [migration.md](migration.md)
 > - API কল, WebSocket ও AI-এর আলাদা বাংলা গাইড: [omni_network বাংলা গাইড](../packages/omni_network/doc/guide.bn.md)
 > - প্রজেক্ট ওভারভিউ: [মূল README](../README.md)
@@ -815,3 +816,18 @@ OmniApp.material(
   ],
 )
 ```
+
+### গ. এন্টারপ্রাইজ ও সিনিয়র-গ্রেড ফিচারসমূহ (Zero-Overhead Modular APIs)
+
+1. **`OmniMasterDetail<T>` ও `OmniMasterDetailController<T>`:** মোবাইলে শুধু লিস্ট দেখিয়ে ক্লিকে পুশ (`onOpenMobile`) আর ট্যাবলেট/ডেস্কটপে দুই-প্যান স্প্লিট — আইটেম সিলেক্ট করলে **শুধু ডিটেইল প্যান** আপডেট হয়, মূল লিস্ট মোটেও রি-বিল্ড হয় না!
+2. **`OmniFoldableSplit`:** `DisplayFeature` হিঞ্জ ডিটেক্ট করে ফোল্ডেবল ফোনে ভাঁজের দুই পাশে প্যান পরিচ্ছন্নভাবে আলাদা করে।
+3. **`OmniTheme` — ১ লাইনে ডার্ক/লাইট/সিস্টেম থিমিং মোড ও অটো-সেভ (`SharedPreferences`):** *(সম্পূর্ণ গাইড: [doc/theming.bn.md](theming.bn.md))*
+   - `OmniApp.material(omniTheme: const OmniTheme(seedColor: Colors.indigo, mode: ThemeMode.system, persistMode: true))` ব্যবহার করলে আর আলাদা কোনো থিম Bloc/প্যাকেজ লিখতে হয় না (এমনকি `Splash` ও `Onboarding`-ও থিম পায়!)।
+   - **`OmniThemeModeButton()`** (`AppBar`-এর জন্য ১-ট্যাপ বাটন), **`OmniThemeModeSwitch()`** (`System / Light / Dark` সেগমেন্টেড সুইচ), এবং ১-লাইনে `context.toggleTheme()`, `context.setThemeMode(...)`, `context.isDarkMode`, `context.themeMode`।
+   - প্রিসেটসমূহ: `OmniTheme(...)`, `OmniTheme.compact(...)` (`8dp`), `OmniTheme.pill(...)` (`20dp`) — সাথে মেমোইজড `ThemeData` ক্যাশ (`0` এক্সট্রা রি-বিল্ড)।
+4. **`OmniResponsiveSliverGrid`:** `CustomScrollView`-এর ভেতর `O(visible)` মেমরিতে হাজার হাজার আইটেম ১২০fps-এ ভার্চুয়ালাইজ করে।
+5. **`OmniBreadcrumbBar`:** ট্যাবলেট/ডেস্কটপে ইন্টারেক্টিভ পাথ ব্রেডক্রাম্ব (`Home > Shop > Electronics`) দেখায় ও মোবাইলে স্বয়ংক্রিয়ভাবে লুকায়।
+6. **`OmniPrefetch` ও `OmniPage(onPrefetch:)`:** ডেস্কটপে হোভার বা মোবাইলে টাচ-ডাউনের সাথে সাথে `OmniRoute.prefetch(...)` চালিয়ে ব্যাকগ্রাউন্ডে ডেটা আনে (বাউন্ডেড ৬৪-এন্ট্রি `ttl` ডিডুপ্লিকেশনসহ)।
+7. **`OmniPage(validateParams:)` ও `OmniParams` স্ট্রিক্ট ভ্যালিডেশন:** `pathPositiveInt`, `pathEnum`, `queryRequired`, `queryDateTime`, `queryOneOf` দিয়ে **পেইজ বা Bloc তৈরি হওয়ার আগেই** ভুল ডিপ-লিংক নিরাপদে এরর পেজে ফেরত পাঠায়।
+8. **`OmniAppGate` (`OmniConfig(gate:)`):** স্টার্টআপে **Maintenance মোড** (`OmniGateStatus.maintenance`) ও **Force Update / Dismissible Update** (`OmniGateStatus.updateRequired`) নিয়ন্ত্রণ করে (`gate == null` হলে কোনো ওভারহেড নেই)।
+9. **বাউন্ডেড ক্র্যাশ ব্রেডক্রাম্ব (`maxBreadcrumbs = 25`):** `OmniRoute.breadcrumbs`, `OmniRoute.recordBreadcrumb(...)` এবং `OmniRoute.exportDiagnostics()` দিয়ে Crashlytics/Sentry-এর জন্য তাৎক্ষণিক ডায়াগনস্টিক রিপোর্ট পাওয়া যায়।

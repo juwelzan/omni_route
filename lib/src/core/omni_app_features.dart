@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../guards/omni_guard.dart';
 import '../responsive/omni_responsive_scope.dart';
+import '../responsive/omni_theme.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_trie.dart';
@@ -417,7 +418,14 @@ class OmniConfigGuard extends OmniGuard {
   }
 }
 
-enum _StartupPhase { splash, onboarding, app, error }
+enum _StartupPhase {
+  splash,
+  maintenance,
+  updateRequired,
+  onboarding,
+  app,
+  error,
+}
 
 /// Runs [OmniConfig] startup, Splash, multi-screen or single Onboarding,
 /// automatic local DB persistence, and runtime [OmniFlowController] actions
@@ -454,6 +462,8 @@ class _OmniInitGateState extends State<OmniInitGate>
   _StartupPhase _phase = _StartupPhase.app;
   Object? _error;
   StackTrace? _stack;
+  OmniGateDecision? _gateDecision;
+  bool _gateDismissed = false;
   int _runEpoch = 0;
   bool _manualSplashDone = false;
   Completer<void>? _manualSplashCompleter;
@@ -465,7 +475,9 @@ class _OmniInitGateState extends State<OmniInitGate>
 
   bool get _hasAsyncSplashStage {
     final sp = widget.config.splash;
-    return (sp?.hasWork ?? false) || widget.config.resolveInitialRoute != null;
+    return (sp?.hasWork ?? false) ||
+        widget.config.gate != null ||
+        widget.config.resolveInitialRoute != null;
   }
 
   List<String> get _normalizedObRoutes => [
@@ -818,32 +830,66 @@ class _OmniInitGateState extends State<OmniInitGate>
         if (!mounted || epoch != _runEpoch) return;
       }
 
-      if (await _shouldEnterOnboarding(pendingDecision: pendingDecision)) {
+      if (widget.config.gate case final gate? when !_gateDismissed) {
+        final decision = await Future<OmniGateDecision?>.sync(
+          () => gate.check(context),
+        );
         if (!mounted || epoch != _runEpoch) return;
-        final ob = widget.config.onboarding!;
-        if (ob.hasWidgetMode) {
-          _enterWidgetOnboarding();
-          return;
-        }
-        final obRoutes = _normalizedObRoutes;
-        if (obRoutes.isNotEmpty) {
-          widget.session.onboardingPending = true;
-          widget.session.onboardingRouteStep = 0;
-          _stepNotifier.value = 0;
-          widget.router?.go(obRoutes.first, animated: false, replaceHistory: true);
-          setState(() => _phase = _StartupPhase.app);
+        if (decision != null && decision.status != OmniGateStatus.ready) {
+          setState(() {
+            _gateDecision = decision;
+            _phase = decision.status == OmniGateStatus.maintenance
+                ? _StartupPhase.maintenance
+                : _StartupPhase.updateRequired;
+          });
           return;
         }
       }
-      if (!mounted || epoch != _runEpoch) return;
 
-      await _applyPostStartupRoute();
-      if (!mounted || epoch != _runEpoch) return;
-      setState(() => _phase = _StartupPhase.app);
+      await _proceedAfterGate(epoch: epoch, pendingDecision: pendingDecision);
     } catch (e, s) {
       if (!mounted || epoch != _runEpoch) return;
       _handleFailure(e, s, 'in OmniApp startup');
     }
+  }
+
+  Future<void> _proceedAfterGate({
+    required int epoch,
+    Future<bool>? pendingDecision,
+  }) async {
+    if (await _shouldEnterOnboarding(pendingDecision: pendingDecision)) {
+      if (!mounted || epoch != _runEpoch) return;
+      final ob = widget.config.onboarding!;
+      if (ob.hasWidgetMode) {
+        _enterWidgetOnboarding();
+        return;
+      }
+      final obRoutes = _normalizedObRoutes;
+      if (obRoutes.isNotEmpty) {
+        widget.session.onboardingPending = true;
+        widget.session.onboardingRouteStep = 0;
+        _stepNotifier.value = 0;
+        widget.router?.go(obRoutes.first, animated: false, replaceHistory: true);
+        setState(() => _phase = _StartupPhase.app);
+        return;
+      }
+    }
+    if (!mounted || epoch != _runEpoch) return;
+
+    await _applyPostStartupRoute();
+    if (!mounted || epoch != _runEpoch) return;
+    setState(() => _phase = _StartupPhase.app);
+  }
+
+  void _dismissUpdateGate() {
+    if (!mounted) return;
+    _gateDismissed = true;
+    final epoch = ++_runEpoch;
+    _proceedAfterGate(epoch: epoch).catchError((Object e, StackTrace s) {
+      if (mounted && epoch == _runEpoch) {
+        _handleFailure(e, s, 'after update prompt');
+      }
+    });
   }
 
   Future<void> _finishOnboarding({
@@ -1042,6 +1088,8 @@ class _OmniInitGateState extends State<OmniInitGate>
     widget.session.onboardingPending = false;
     widget.session.onboardingRouteStep = 0;
     widget.session.persistedMarkedKey = null;
+    _gateDecision = null;
+    _gateDismissed = false;
     _stepNotifier.value = 0;
     _run();
   }
@@ -1165,8 +1213,12 @@ class _OmniInitGateState extends State<OmniInitGate>
   Widget _wrapStageView(BuildContext context, Widget built) {
     final hasApp = context.findAncestorWidgetOfExactType<WidgetsApp>() != null;
     if (hasApp) return built;
+    final themed = OmniThemeScope.maybeThemesOf(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      theme: themed?.light,
+      darkTheme: themed?.dark,
+      themeMode: themed?.mode,
       builder: (stageContext, child) => child == null
           ? const SizedBox.shrink()
           : OmniResponsiveTextScaleHost.fromScope(stageContext, child: child),
@@ -1227,6 +1279,65 @@ class _OmniInitGateState extends State<OmniInitGate>
     return content;
   }
 
+  Widget _defaultGateView(
+    BuildContext context,
+    OmniGateDecision decision,
+    VoidCallback? continueAnyway,
+    VoidCallback retry,
+  ) {
+    final isMaintenance = decision.status == OmniGateStatus.maintenance;
+    final title =
+        decision.title ??
+        (isMaintenance ? 'Under Maintenance' : 'Update Available');
+    final message =
+        decision.message ??
+        (isMaintenance
+            ? 'We are performing scheduled maintenance. Please check back soon.'
+            : 'Please update to the latest version'
+                  '${decision.minVersion != null ? ' (${decision.minVersion})' : ''}.');
+
+    return Scaffold(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 440),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineSmall,
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(message, textAlign: TextAlign.center),
+                    const SizedBox(height: 20),
+                    FilledButton(
+                      onPressed: retry,
+                      child: const Text('Retry'),
+                    ),
+                    if (continueAnyway != null) ...[
+                      const SizedBox(height: 8),
+                      TextButton(
+                        onPressed: continueAnyway,
+                        child: const Text('Later'),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return OmniFlowScope(
@@ -1244,6 +1355,42 @@ class _OmniInitGateState extends State<OmniInitGate>
                   _stack ?? StackTrace.empty,
                   restartStartup,
                 ),
+              ),
+            ),
+          _StartupPhase.maintenance when _gateDecision != null => KeyedSubtree(
+            key: const ValueKey('_omni_startup_maintenance'),
+            child: _wrapStageView(
+              flowContext,
+              widget.config.gate?.maintenanceBuilder?.call(
+                    flowContext,
+                    _gateDecision!,
+                    restartStartup,
+                  ) ??
+                  _defaultGateView(
+                    flowContext,
+                    _gateDecision!,
+                    null,
+                    restartStartup,
+                  ),
+            ),
+          ),
+          _StartupPhase.updateRequired when _gateDecision != null =>
+            KeyedSubtree(
+              key: const ValueKey('_omni_startup_update'),
+              child: _wrapStageView(
+                flowContext,
+                widget.config.gate?.updateBuilder?.call(
+                      flowContext,
+                      _gateDecision!,
+                      _gateDecision!.canDismiss ? _dismissUpdateGate : null,
+                      restartStartup,
+                    ) ??
+                    _defaultGateView(
+                      flowContext,
+                      _gateDecision!,
+                      _gateDecision!.canDismiss ? _dismissUpdateGate : null,
+                      restartStartup,
+                    ),
               ),
             ),
           _StartupPhase.onboarding

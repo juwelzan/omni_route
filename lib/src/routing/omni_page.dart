@@ -511,6 +511,8 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.provide = const [],
     this.blocs = const [],
     this.onExit,
+    this.validateParams,
+    this.onPrefetch,
     this.routes = const [],
     this.metadata,
     this.parentNavigatorKey,
@@ -529,6 +531,8 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.provide = const [],
     this.blocs = const [],
     this.onExit,
+    this.validateParams,
+    this.onPrefetch,
     this.routes = const [],
     this.metadata,
     this.parentNavigatorKey,
@@ -588,6 +592,18 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   /// Confirmation callback before popping this page via back button or
   /// `maybePop`.
   final OmniPageExit? onExit;
+
+  /// Optional synchronous parameter & Deep Link validator executed BEFORE any
+  /// page-level Bloc or screen widget is constructed. Returning a non-null
+  /// message triggers `OmniRouteException(OmniErrorCode.invalidParameter)` so
+  /// invalid deep links redirect cleanly to the error page without allocating
+  /// Blocs or widget elements.
+  final String? Function(OmniParams params)? validateParams;
+
+  /// Optional predictive prefetch callback invoked on desktop link hover or
+  /// mobile touch-down via [OmniPrefetch] or `OmniRoute.prefetch(...)`.
+  final FutureOr<void> Function(BuildContext context, OmniParams params)?
+  onPrefetch;
 
   /// Nested child routes under this route.
   final List<OmniRouteBase> routes;
@@ -662,6 +678,15 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
         fullRoutePath ?? (path.isNotEmpty ? path : null);
 
     try {
+      if (validateParams case final validator?) {
+        final problem = validator(OmniParams(state));
+        if (problem != null && problem.isNotEmpty) {
+          throw OmniRouteException(
+            OmniErrorCode.invalidParameter,
+            'Route ${state.uri}: $problem',
+          );
+        }
+      }
       // Instantiate screen inside Builder if `provide`/`blocs` has page-level
       // Blocs so screen constructors or initState reading Blocs work
       // immediately, while still resolving synchronous `OmniParams` errors
