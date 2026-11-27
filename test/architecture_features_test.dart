@@ -1868,4 +1868,287 @@ void main() {
       },
     );
   });
+
+  group('Animated Dark/Light Mode & Color Palette Transitions', () {
+    testWidgets(
+      'Switching Dark/Light mode and Color Palette triggers visual screen overlay animations and supports all animation modes',
+      (t) async {
+        SharedPreferences.setMockInitialValues({});
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              id: 'ocean',
+              name: 'Ocean',
+              seedColor: Color(0xFF2563EB),
+              mode: ThemeMode.light,
+              animation: OmniThemeAnimation(
+                mode: OmniThemeAnimationMode.circularReveal,
+                paletteMode: OmniThemeAnimationMode.diagonalSweep,
+                duration: Duration(milliseconds: 300),
+              ),
+            ),
+            themes: OmniTheme.presets,
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Scaffold(
+                  appBar: AppBar(
+                    title: const Text('Animated Theme'),
+                    actions: const [
+                      OmniThemeButton(),
+                      OmniThemeModeButton(allowSystemMode: true),
+                    ],
+                  ),
+                  body: Column(
+                    children: [
+                      Builder(
+                        builder: (c) => Text(
+                          'state:${c.isDarkMode}:${c.activeThemeId}:${c.activeThemeAnimationMode.name}',
+                        ),
+                      ),
+                      const Expanded(
+                        child: SingleChildScrollView(
+                          child: OmniThemePanel(
+                            showStylePicker: true,
+                            showAnimationPicker: true,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.text('state:false:ocean:circularReveal'), findsOneWidget);
+        final overlayFinder = find.byKey(
+          const ValueKey<String>('omni_theme_transition_overlay'),
+        );
+        expect(overlayFinder, findsNothing);
+
+        // 1. Toggle Light -> Dark via button tap -> overlay runs mid-animation then disposes cleanly:
+        await t.tap(find.byType(OmniThemeModeButton));
+        await t.pump(); // Tap triggers deferred/immediate capture
+        await t.pump(const Duration(milliseconds: 80));
+        expect(
+          overlayFinder,
+          findsOneWidget,
+          reason: 'Dark/Light toggle renders screen-over reveal overlay mid-animation',
+        );
+        await t.pumpAndSettle();
+        expect(overlayFinder, findsNothing);
+        expect(find.text('state:true:ocean:circularReveal'), findsOneWidget);
+
+        // 2. Switch Color Palette -> ALSO triggers screen animation cleanly!
+        await t.tap(find.text('Emerald'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 80));
+        expect(
+          overlayFinder,
+          findsOneWidget,
+          reason: 'Palette change animates visually across the screen too',
+        );
+        await t.pumpAndSettle();
+        expect(overlayFinder, findsNothing);
+        expect(find.text('state:true:emerald:circularReveal'), findsOneWidget);
+
+        // 3. Pick multiple animation modes via OmniThemeAnimationPicker:
+        for (final mode in const [
+          OmniThemeAnimationMode.circularShrink,
+          OmniThemeAnimationMode.horizontalWipe,
+          OmniThemeAnimationMode.verticalWipe,
+          OmniThemeAnimationMode.splitShutter,
+          OmniThemeAnimationMode.diamondReveal,
+          OmniThemeAnimationMode.crossfade,
+        ]) {
+          await t.ensureVisible(find.text(mode.label));
+          await t.tap(find.text(mode.label));
+          await t.pumpAndSettle();
+          expect(
+            t.element(find.byType(Scaffold)).activeThemeAnimationMode,
+            mode,
+          );
+          await t.tap(find.byType(OmniThemeModeButton));
+          await t.pump();
+          await t.pump(const Duration(milliseconds: 60));
+          expect(
+            overlayFinder,
+            findsOneWidget,
+            reason: '${mode.name} should animate across screen',
+          );
+          await t.pumpAndSettle();
+          expect(overlayFinder, findsNothing);
+        }
+
+        // 4. Pick Color Morph -> uses MaterialApp AnimatedTheme interpolation without overlay:
+        await t.ensureVisible(find.text(OmniThemeAnimationMode.colorMorph.label));
+        await t.tap(find.text(OmniThemeAnimationMode.colorMorph.label));
+        await t.pumpAndSettle();
+        final ctxMorph = t.element(find.byType(Scaffold));
+        ctxMorph.setTheme('violet', origin: const Offset(100, 200));
+        await t.pump();
+        expect(overlayFinder, findsNothing);
+        expect(
+          t.widget<MaterialApp>(find.byType(MaterialApp)).themeAnimationDuration,
+          const Duration(milliseconds: 300),
+        );
+        await t.pumpAndSettle();
+        expect(ctxMorph.activeThemeId, 'violet');
+
+        // 5. Pick None / Instant -> Duration.zero & no overlay:
+        await t.ensureVisible(find.text(OmniThemeAnimationMode.none.label));
+        await t.tap(find.text(OmniThemeAnimationMode.none.label));
+        await t.pumpAndSettle();
+        t.element(find.byType(Scaffold)).setTheme('rose');
+        await t.pump();
+        expect(overlayFinder, findsNothing);
+        expect(
+          t.widget<MaterialApp>(find.byType(MaterialApp)).themeAnimationDuration,
+          Duration.zero,
+        );
+        await t.pumpAndSettle();
+
+        // 6. Verify persisted animationMode survives cold restart WITHOUT startup wipe overlay:
+        final prefs = await SharedPreferences.getInstance();
+        expect(
+          prefs.getString('omni_route.theme.default.animationMode'),
+          'none',
+        );
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              seedColor: Color(0xFF2563EB),
+              mode: ThemeMode.light,
+            ),
+            themes: OmniTheme.presets,
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (c) => Text('restoredAnim:${c.activeThemeAnimationMode.name}'),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pump();
+        expect(overlayFinder, findsNothing);
+        await t.pumpAndSettle();
+        expect(find.text('restoredAnim:none'), findsOneWidget);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'System brightness change animates screen, unchanged visual state skips flash, and raw MaterialApp themeAnimation works',
+      (t) async {
+        t.platformDispatcher.platformBrightnessTestValue = Brightness.light;
+        addTearDown(t.platformDispatcher.clearPlatformBrightnessTestValue);
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              seedColor: Colors.teal,
+              mode: ThemeMode.system,
+              persistMode: false,
+              animation: OmniThemeAnimation.horizontalWipe(
+                duration: Duration(milliseconds: 280),
+              ),
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Builder(
+                  builder: (c) => Scaffold(
+                    body: Text('sysDark:${c.isDarkMode}:mode:${c.themeMode.name}'),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        final overlayFinder = find.byKey(
+          const ValueKey<String>('omni_theme_transition_overlay'),
+        );
+        expect(find.text('sysDark:false:mode:system'), findsOneWidget);
+
+        // OS brightness switches light -> dark while ThemeMode.system is active:
+        t.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 60));
+        expect(
+          overlayFinder,
+          findsOneWidget,
+          reason: 'OS brightness change while in ThemeMode.system animates smoothly',
+        );
+        await t.pumpAndSettle();
+        expect(find.text('sysDark:true:mode:system'), findsOneWidget);
+
+        // Switching System (currently dark) -> explicit ThemeMode.dark has zero visual delta -> no fake flash:
+        t.element(find.byType(Scaffold)).setThemeMode(ThemeMode.dark);
+        await t.pump();
+        expect(overlayFinder, findsNothing);
+        await t.pumpAndSettle();
+        expect(find.text('sysDark:true:mode:dark'), findsOneWidget);
+
+        // Reduced motion accessibility flag skips screen animation cleanly:
+        t.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: true);
+        addTearDown(t.platformDispatcher.clearAccessibilityFeaturesTestValue);
+        t.element(find.byType(Scaffold)).setThemeMode(ThemeMode.light);
+        await t.pump();
+        expect(overlayFinder, findsNothing);
+        await t.pumpAndSettle();
+        expect(find.text('sysDark:false:mode:light'), findsOneWidget);
+
+        // Raw MaterialApp without omniTheme also supports OmniApp.material(themeAnimation: ...):
+        t.platformDispatcher.accessibilityFeaturesTestValue =
+            const FakeAccessibilityFeatures(disableAnimations: false);
+        var darkModeNotifier = ValueNotifier<ThemeMode>(ThemeMode.light);
+        addTearDown(darkModeNotifier.dispose);
+
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: darkModeNotifier,
+            builder: (_, mode, _) => OmniApp.material(
+              theme: ThemeData.light(useMaterial3: true),
+              darkTheme: ThemeData.dark(useMaterial3: true),
+              themeMode: mode,
+              themeAnimation: const OmniThemeAnimation.splitShutter(
+                duration: Duration(milliseconds: 260),
+              ),
+              routes: [
+                OmniPage(
+                  '/',
+                  (_) => Builder(
+                    builder: (c) => Scaffold(body: Text('raw:${c.isDarkMode}')),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('raw:false'), findsOneWidget);
+
+        darkModeNotifier.value = ThemeMode.dark;
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 60));
+        expect(overlayFinder, findsOneWidget);
+        await t.pumpAndSettle();
+        expect(find.text('raw:true'), findsOneWidget);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+  });
 }

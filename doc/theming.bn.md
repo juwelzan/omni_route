@@ -18,6 +18,7 @@
 8. [পারফরম্যান্স ও মেমরি নীতি (`0` এক্সট্রা রি-বিল্ড)](#৮-পারফরম্যান্স-ও-মেমরি-নীতি-0-এক্সট্রা-রি-বিল্ড)
 9. [পূর্ণাঙ্গ ব্যবহারিক উদাহরণ (Login + Settings + Palette Sheet + Form)](#৯-পূর্ণাঙ্গ-ব্যবহারিক-উদাহরণ-login--settings--palette-sheet--form)
 10. [সিস্টেম স্ট্যাটাস বার, গেস্টচার বার (কালো এরিয়া রিমুভ), ফুলস্ক্রিন ও ওরিয়েন্টেশন মোড](#১০-সিস্টেম-স্ট্যাটাস-বার-গেস্টচার-বার-কালো-এরিয়া-রিমুভ-ফুলস্ক্রিন-ও-ওরিয়েন্টেশন-মোড)
+11. [ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`)](#১১-ডার্কলাইট-মোড-ও-কালার-প্যালেট-বদলানোর-স্ক্রিন-অ্যানিমেশন-omnithemeanimation)
 
 ---
 
@@ -744,3 +745,67 @@ context.allowAutoRotate();
 context.setOrientation(OmniOrientation.portraitOnMobile);
 context.resetSystemUi();
 ```
+
+
+---
+
+## ১১. ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`)
+
+যখন ইউজার **Dark ↔ Light ↔ System** মোড পাল্টান, OS সিস্টেম ব্রাইটনেস বদলায়, অথবা Settings/বাটন থেকে **কালার প্যালেট** (`Ocean`, `Emerald`, `Violet` ইত্যাদি) ও **থিম স্টাইল** পরিবর্তন করেন — তখন পুরো স্ক্রিনের ওপর দিয়ে (অ্যাপবার, কার্ড, বটমশিট, ডায়ালগ ও নেভবারসহ) ৬০/১২০fps অ্যানিমেশনে রঙ ও থিম রূপান্তরিত হয়।
+
+### ক. ১০টি বিল্ট-ইন অ্যানিমেশন মোড (`OmniThemeAnimationMode`)
+
+| মোড | কী ধরনের অ্যানিমেশন হয় |
+|---|---|
+| `OmniThemeAnimationMode.circularReveal` *(ডিফল্ট)* | ট্যাপ করা বাটন/প্যালেট কার্ড (বা কেন্দ্র) থেকে গোল রিপল/ওয়েভ ছড়িয়ে পুরো স্ক্রিনে নতুন থিম ফুটে ওঠে |
+| `OmniThemeAnimationMode.circularShrink` | পুরোনো স্ক্রিন গোল হয়ে ভেতরের দিকে সংকুচিত হয় এবং চারপাশ থেকে নতুন থিম বের হয়ে আসে |
+| `OmniThemeAnimationMode.horizontalWipe` | বাম থেকে ডানে মসৃণ সুইপ ওয়েভে পুরো স্ক্রিনের রঙ পরিবর্তন হয় |
+| `OmniThemeAnimationMode.verticalWipe` | ওপর থেকে নিচে কার্টেইন/পর্দা নামার মতো সুইপ অ্যানিমেশন |
+| `OmniThemeAnimationMode.diagonalSweep` | ওপরের বাম কোণা থেকে নিচের ডান কোণায় ডায়াগোনাল সুইপ |
+| `OmniThemeAnimationMode.splitShutter` | মাঝখান থেকে দুই পাশে শাটার সরে গিয়ে নতুন থিম উন্মোচিত হয় |
+| `OmniThemeAnimationMode.diamondReveal` | ট্যাপ পয়েন্ট/কেন্দ্র থেকে ডায়মন্ড (রম্বস) আকারে ছড়িয়ে থিম বদলায় |
+| `OmniThemeAnimationMode.crossfade` | পুরোনো ও নতুন পুরো স্ক্রিন মসৃণ ক্রসফেডে মিশে যায় |
+| `OmniThemeAnimationMode.colorMorph` | স্ক্রিন ওভারলে ছাড়াই সব রঙ, কার্ড ও বাটন `Color.lerp` ইন্টারপোলেশনে মসৃণভাবে রূপান্তরিত হয় |
+| `OmniThemeAnimationMode.none` | অ্যানিমেশন ছাড়া তাৎক্ষণিক পরিবর্তন |
+
+### খ. থিম/প্যালেট অনুযায়ী সেটআপ (ডার্ক মোড ও প্যালেটের জন্য আলাদা মোড সহ)
+
+```dart
+OmniApp.material(
+  omniTheme: const OmniTheme(
+    id: 'ocean',
+    name: 'Ocean',
+    seedColor: Color(0xFF2563EB),
+    animation: OmniThemeAnimation(
+      mode: OmniThemeAnimationMode.circularReveal,     // Dark/Light মোডে গোল রিপল
+      paletteMode: OmniThemeAnimationMode.diagonalSweep, // কালার প্যালেট বদলালে ডায়াগোনাল সুইপ!
+      duration: Duration(milliseconds: 480),
+      showEdgeGlow: true, // সুইপ বর্ডারে নতুন থিমের ব্র্যান্ড গ্লো!
+    ),
+  ),
+  themes: OmniTheme.presets,
+  routes: [...],
+)
+```
+
+- **প্রিসেট কনস্ট্রাক্টর:** `OmniThemeAnimation.circularReveal()`, `.circularShrink()`, `.horizontalWipe()`, `.verticalWipe()`, `.diagonalSweep()`, `.splitShutter()`, `.diamondReveal()`, `.crossfade()`, `.colorMorph()`, `.none()`।
+- **`omniTheme` ছাড়াও কাজ করে:** সাধারণ `MaterialApp` থিম (`theme:` + `darkTheme:` + `themeMode:`) ব্যবহার করলে `OmniApp.material(themeAnimation: OmniThemeAnimation.splitShutter(), ...)` দিন।
+- **অটো ট্যাপ উৎস (`autoTapOrigin: true`):** স্ক্রিনের যেখানেই বাটন বা প্যালেটে ট্যাপ করবেন, অ্যানিমেশন ঠিক সেখান থেকেই ছড়িয়ে পড়বে। কোড থেকে চাইলে `context.toggleTheme(origin: offset)` বা `context.setTheme('emerald', origin: offset)`-ও দিতে পারেন।
+
+### গ. Settings-এ ইউজারকে অ্যানিমেশন বেছে দেওয়ার পিকার (`OmniThemeAnimationPicker`)
+
+```dart
+// ১. Settings প্যানেলেই ১০টি অ্যানিমেশন চিপ দেখান (অটো SharedPreferences-এ সেভ হয়!):
+const OmniThemePanel(
+  showStylePicker: true,
+  showAnimationPicker: true,
+)
+
+// ২. অথবা মডাল শিট / Settings Tile-এ:
+const OmniThemeSettingsTile(showAnimationPicker: true)
+
+// ৩. অথবা কোড থেকে ১ লাইনে অ্যানিমেশন বদলান:
+context.setThemeAnimationMode(OmniThemeAnimationMode.diamondReveal);
+```
+
+> **নিরাপদ পারফরম্যান্স ও অ্যাক্সেসিবিলিটি:** স্টার্টআপ `hydrate()` বা `System (Dark)` → `Dark` (দৃশ্যত অপরিবর্তিত) অবস্থায় অযথা ফ্ল্যাশ করে না; OS-এ *Reduced Motion / Disable Animations* চালু থাকলে স্বয়ংক্রিয়ভাবে অ্যানিমেশন বন্ধ থাকে এবং প্রতিবার অ্যানিমেশন শেষে GPU ইমেজ টেক্সচার অটো ডিসপোজ হয়।

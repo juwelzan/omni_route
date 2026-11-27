@@ -753,6 +753,7 @@ class SettingsScreen extends OmniStatelessWidget {
             modeTitle: 'Theme Mode',
             themeTitle: 'Color Palette',
             showStylePicker: true,
+            showAnimationPicker: true,
           ),
           tk.gapMd,
           Card(

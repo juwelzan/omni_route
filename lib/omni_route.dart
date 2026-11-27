@@ -135,6 +135,7 @@ export 'src/responsive/omni_theme.dart'
     show
         OmniResponsiveThemeHost,
         OmniTheme,
+        OmniThemeAnimationPicker,
         OmniThemeButton,
         OmniThemeContext,
         OmniThemeController,
@@ -149,3 +150,5 @@ export 'src/responsive/omni_theme.dart'
         OmniThemeSettingsTile,
         OmniThemeStylePicker,
         showOmniThemeSheet;
+export 'src/responsive/omni_theme_transition.dart'
+    show OmniThemeAnimation, OmniThemeAnimationMode, OmniThemeTransition;

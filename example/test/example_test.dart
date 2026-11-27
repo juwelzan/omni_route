@@ -153,8 +153,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Hello @ai'), findsOneWidget);
 
-      // Settings -> System/Light/Dark mode & 1-click Color Palette -> Nested `/settings/profile`.
+      // Settings -> Animation picker, System/Light/Dark mode & 1-click Color Palette -> Nested `/settings/profile`.
       await tester.tap(find.text('Settings'));
+      await tester.pumpAndSettle();
+      final settingsScrollPre = find
+          .descendant(
+            of: find.byType(SettingsScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      await tester.scrollUntilVisible(
+        find.text('Diagonal Sweep'),
+        120,
+        scrollable: settingsScrollPre,
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Diagonal Sweep'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.element(find.byType(SettingsScreen)).activeThemeAnimationMode,
+        OmniThemeAnimationMode.diagonalSweep,
+      );
+      await tester.scrollUntilVisible(
+        find.text('Dark'),
+        -120,
+        scrollable: settingsScrollPre,
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.text('Dark'));
       await tester.pumpAndSettle();

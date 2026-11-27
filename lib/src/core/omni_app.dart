@@ -26,6 +26,7 @@ import '../responsive/omni_status_bar.dart';
 import '../responsive/omni_system_navigation_bar.dart';
 import '../responsive/omni_system_ui.dart';
 import '../responsive/omni_theme.dart';
+import '../responsive/omni_theme_transition.dart';
 
 /// Builds your app widget (`MaterialApp.router`, `CupertinoApp.router`, etc.)
 /// around the [OmniRouter] created by [OmniApp].
@@ -99,6 +100,7 @@ class OmniApp extends StatefulWidget {
     this.responsive = const OmniResponsiveConfig(),
     this.omniTheme,
     this.themes = const [],
+    this.themeAnimation,
     this.maxBreadcrumbs = 25,
   }) : _applyRootOverlay = true;
 
@@ -149,6 +151,7 @@ class OmniApp extends StatefulWidget {
     this.responsive = const OmniResponsiveConfig(),
     this.omniTheme,
     this.themes = const [],
+    this.themeAnimation,
     this.maxBreadcrumbs = 25,
     String title = '',
     ThemeData? theme,
@@ -157,6 +160,8 @@ class OmniApp extends StatefulWidget {
     ThemeData? highContrastDarkTheme,
     ThemeMode? themeMode,
     ThemeMode? Function(BuildContext context)? themeModeBuilder,
+    Duration? themeAnimationDuration,
+    Curve? themeAnimationCurve,
     Color? color,
     Locale? locale,
     Iterable<LocalizationsDelegate<dynamic>>? localizationsDelegates,
@@ -169,14 +174,23 @@ class OmniApp extends StatefulWidget {
     TransitionBuilder? appBuilder,
   }) : builder = ((context, router) {
          final resolved = OmniThemeScope.maybeThemesOf(context);
-         return MaterialApp.router(
+         final animSettings = OmniThemeScope.animationSettingsOf(context);
+         final effThemeMode =
+             themeModeBuilder?.call(context) ?? themeMode ?? resolved?.mode;
+
+         MaterialApp buildMaterialApp(
+           Duration animDuration,
+           Curve animCurve,
+           ThemeMode? modeOverride,
+         ) => MaterialApp.router(
            title: title,
            theme: theme ?? resolved?.light,
            darkTheme: darkTheme ?? resolved?.dark,
            highContrastTheme: highContrastTheme,
            highContrastDarkTheme: highContrastDarkTheme,
-           themeMode:
-               themeModeBuilder?.call(context) ?? themeMode ?? resolved?.mode,
+           themeMode: modeOverride ?? effThemeMode,
+           themeAnimationDuration: animDuration,
+           themeAnimationCurve: animCurve,
            color: color,
            locale: locale,
            localizationsDelegates: localizationsDelegates,
@@ -195,6 +209,64 @@ class OmniApp extends StatefulWidget {
              maxTextScale,
              syncMaterialBarTheme: omniTheme == null && themes.isEmpty,
            ),
+         );
+
+         if (resolved == null &&
+             themeAnimation != null &&
+             themeAnimation.mode != OmniThemeAnimationMode.none) {
+           final rawBrightness = switch (effThemeMode ?? ThemeMode.system) {
+             ThemeMode.light => Brightness.light,
+             ThemeMode.dark => Brightness.dark,
+             ThemeMode.system => MediaQuery.platformBrightnessOf(context),
+           };
+           return OmniThemeTransition<
+             ({
+               Brightness brightness,
+               ThemeMode? mode,
+               ThemeData? light,
+               ThemeData? dark,
+             })
+           >(
+             value: (
+               brightness: rawBrightness,
+               mode: effThemeMode,
+               light: theme,
+               dark: darkTheme,
+             ),
+             animation: themeAnimation,
+             shouldAnimate: (prev, next) =>
+                 prev.brightness != next.brightness ||
+                 prev.light != next.light ||
+                 prev.dark != next.dark,
+             resolveMode: (prev, next) => themeAnimation.effectiveModeFor(
+               brightnessChanged: prev.brightness != next.brightness,
+               paletteChanged: prev.light != next.light || prev.dark != next.dark,
+               styleChanged: false,
+             ),
+             resolveDuration: (prev, next) => themeAnimation.effectiveDurationFor(
+               brightnessChanged: prev.brightness != next.brightness,
+               paletteChanged: prev.light != next.light || prev.dark != next.dark,
+             ),
+             resolveGlowColor: (next) =>
+                 themeAnimation.edgeGlowColor ??
+                 (next.brightness == Brightness.dark
+                     ? next.dark?.colorScheme.primary
+                     : next.light?.colorScheme.primary) ??
+                 next.light?.colorScheme.primary,
+             builder: (_, displayed, dur, cur) => buildMaterialApp(
+               themeAnimationDuration ?? dur,
+               themeAnimationCurve ?? cur,
+               displayed.mode,
+             ),
+           );
+         }
+
+         return buildMaterialApp(
+           themeAnimationDuration ??
+               animSettings?.duration ??
+               kThemeAnimationDuration,
+           themeAnimationCurve ?? animSettings?.curve ?? Curves.linear,
+           null,
          );
        }),
        _applyRootOverlay = false;
@@ -277,6 +349,7 @@ class OmniApp extends StatefulWidget {
        )),
        omniTheme = null,
        themes = const [],
+       themeAnimation = null,
        _applyRootOverlay = false;
 
   static TransitionBuilder? _chainBuilders(
@@ -505,6 +578,11 @@ class OmniApp extends StatefulWidget {
   /// Optional theme catalog enabling 1-click switching across multiple named
   /// themes (`OmniTheme.presets` or custom `OmniTheme(...)` variants).
   final List<OmniTheme> themes;
+
+  /// Optional animated transition configuration when Dark/Light mode or Color
+  /// Palette changes (`OmniThemeAnimation.circularReveal`, `.horizontalWipe`,
+  /// `.diagonalSweep`, `.colorMorph`, etc.).
+  final OmniThemeAnimation? themeAnimation;
 
   /// Bounded in-memory navigation/error breadcrumb capacity retained for
   /// `OmniRoute.breadcrumbs` and `OmniRoute.exportDiagnostics()` (`0` disables
@@ -951,6 +1029,7 @@ class _OmniAppState extends State<OmniApp> {
           current = OmniResponsiveThemeHost(
             omniTheme: widget.omniTheme,
             themes: widget.themes,
+            themeAnimation: widget.themeAnimation,
             appScreenMode: effectiveScreenMode,
             appStatusBar: effectiveStatusBar,
             appSystemNavigationBar: effectiveNavBar,

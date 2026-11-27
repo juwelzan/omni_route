@@ -11,6 +11,7 @@ import 'omni_status_bar.dart';
 import 'omni_styles.dart';
 import 'omni_system_navigation_bar.dart';
 import 'omni_system_ui.dart';
+import 'omni_theme_transition.dart';
 
 /// বর্তমান সক্রিয় থিম কনফিগার করার জন্য কাস্টম হুক (প্রতি ডিভাইস টিয়ারে একবার
 /// চলে ও ফল মেমোইজড থাকে)।
@@ -20,14 +21,15 @@ typedef OmniThemeCustomizer = ThemeData Function(
   OmniResponsiveTokens tokens,
 );
 
-/// বর্তমান সক্রিয় থিম আইডি, লাইট/ডার্ক/সিস্টেম মোড ও থিম স্টাইলের স্ন্যাপশট।
+/// বর্তমান সক্রিয় থিম আইডি, লাইট/ডার্ক/সিস্টেম মোড, থিম স্টাইল ও স্ক্রিন অ্যানিমেশনের স্ন্যাপশট।
 @immutable
 class OmniThemeSelection {
-  /// [mode], [themeId] এবং ঐচ্ছিক [style] নিয়ে স্ন্যাপশট তৈরি করে।
+  /// [mode], [themeId], ঐচ্ছিক [style] ও [animationMode] নিয়ে স্ন্যাপশট তৈরি করে।
   const OmniThemeSelection({
     required this.mode,
     required this.themeId,
     this.style,
+    this.animationMode,
   });
 
   /// বর্তমান `ThemeMode` (`light`, `dark`, বা `system`)।
@@ -39,16 +41,23 @@ class OmniThemeSelection {
   /// রানটাইমে বদলানো ঐচ্ছিক [OmniThemeStyle] ওভাররাইড (`null` মানে থিমের নিজস্ব স্টাইল)।
   final OmniThemeStyle? style;
 
+  /// রানটাইমে বদলানো ঐচ্ছিক [OmniThemeAnimationMode] (`null` মানে থিমের নিজস্ব অ্যানিমেশন)।
+  final OmniThemeAnimationMode? animationMode;
+
   /// নির্বাচিত ক্ষেত্র পরিবর্তন করে নতুন কপি তৈরি করে।
   OmniThemeSelection copyWith({
     ThemeMode? mode,
     String? themeId,
     OmniThemeStyle? style,
+    OmniThemeAnimationMode? animationMode,
     bool clearStyle = false,
+    bool clearAnimationMode = false,
   }) => OmniThemeSelection(
     mode: mode ?? this.mode,
     themeId: themeId ?? this.themeId,
     style: clearStyle ? null : (style ?? this.style),
+    animationMode:
+        clearAnimationMode ? null : (animationMode ?? this.animationMode),
   );
 
   @override
@@ -57,41 +66,46 @@ class OmniThemeSelection {
       other is OmniThemeSelection &&
           mode == other.mode &&
           themeId == other.themeId &&
-          style == other.style;
+          style == other.style &&
+          animationMode == other.animationMode;
 
   @override
-  int get hashCode => Object.hash(mode, themeId, style);
+  int get hashCode => Object.hash(mode, themeId, style, animationMode);
 }
 
-/// পুরো অ্যাপের সক্রিয় কালার প্যালেট (`themeId`), `ThemeMode` (`light`/`dark`/`system`)
-/// ও [OmniThemeStyle] নিয়ন্ত্রণের কন্ট্রোলার।
+/// পুরো অ্যাপের সক্রিয় কালার প্যালেট (`themeId`), `ThemeMode` (`light`/`dark`/`system`),
+/// [OmniThemeStyle] ও থিম অ্যানিমেশন ([OmniThemeAnimationMode]) নিয়ন্ত্রণের কন্ট্রোলার।
 ///
 /// পরিবর্তন করলেই `shared_preferences`-এ অটো-সেভ হয় (যদি [persist] = `true`)
-/// এবং কেবল থিম-নির্ভর উপাদানগুলোই শূন্য-ল্যাগে আপডেট হয়।
+/// এবং স্ক্রিনের ওপর দিয়ে মসৃণ অ্যানিমেশনে রঙ ও মোড বদলে যায়।
 class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
-  /// [initialMode], [initialThemeId] এবং ঐচ্ছিক [initialStyle] নিয়ে থিম কন্ট্রোলার তৈরি করে।
+  /// [initialMode], [initialThemeId], ঐচ্ছিক [initialStyle] ও [initialAnimationMode]
+  /// নিয়ে থিম কন্ট্রোলার তৈরি করে।
   OmniThemeController({
     ThemeMode initialMode = ThemeMode.system,
     String initialThemeId = 'default',
     OmniThemeStyle? initialStyle,
+    OmniThemeAnimationMode? initialAnimationMode,
     this.persist = true,
     this.storageKey = 'default',
   }) : _initialSelection = OmniThemeSelection(
          mode: initialMode,
          themeId: initialThemeId,
          style: initialStyle,
+         animationMode: initialAnimationMode,
        ),
        super(
          OmniThemeSelection(
            mode: initialMode,
            themeId: initialThemeId,
            style: initialStyle,
+           animationMode: initialAnimationMode,
          ),
        );
 
   final OmniThemeSelection _initialSelection;
 
-  /// মোড, কালার প্যালেট ও স্টাইল নির্বাচন `SharedPreferences`-এ সেভ থাকবে কি না।
+  /// মোড, কালার প্যালেট, স্টাইল ও অ্যানিমেশন নির্বাচন `SharedPreferences`-এ সেভ থাকবে কি না।
   final bool persist;
 
   /// একাধিক অ্যাপ বা প্রোফাইলের সেভ ডেটা আলাদা রাখার কী।
@@ -99,6 +113,18 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
 
   bool _disposed = false;
   bool _hydrated = false;
+  int _nonAnimatedVersion = 0;
+  Offset? _pendingOrigin;
+
+  /// অ্যানিমেশন ছাড়া অভ্যন্তরীণ আপডেট (যেমন স্টার্টআপ হাইড্রেশন) শনাক্তের কাউন্টার।
+  int get nonAnimatedVersion => _nonAnimatedVersion;
+
+  /// কোড থেকে দেওয়া অ্যানিমেশন উৎস পজিশন একবারের জন্য নিয়ে রিসেট করে।
+  Offset? takePendingOrigin() {
+    final o = _pendingOrigin;
+    _pendingOrigin = null;
+    return o;
+  }
 
   /// সেভ করা লাইট/ডার্ক মোডের কী।
   String get prefKey => 'omni_route.theme.$storageKey.mode';
@@ -109,6 +135,9 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   /// সেভ করা অ্যাক্টিভ থিম স্টাইলের কী।
   String get stylePrefKey => 'omni_route.theme.$storageKey.style';
 
+  /// সেভ করা অ্যাক্টিভ থিম ট্রানজিশন অ্যানিমেশনের কী।
+  String get animationModePrefKey => 'omni_route.theme.$storageKey.animationMode';
+
   /// বর্তমান `ThemeMode` (`light`, `dark`, বা `system`)।
   ThemeMode get mode => value.mode;
 
@@ -118,8 +147,11 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   /// রানটাইমে নির্বাচিত [OmniThemeStyle] (অথবা `null`)।
   OmniThemeStyle? get style => value.style;
 
+  /// রানটাইমে নির্বাচিত [OmniThemeAnimationMode] (অথবা `null`)।
+  OmniThemeAnimationMode? get animationMode => value.animationMode;
+
   /// স্টার্টআপে প্রথম ফ্রেম ব্লক না করে `SharedPreferences` থেকে সেভ করা
-  /// থিম, মোড ও স্টাইল লোড করে।
+  /// থিম, মোড, স্টাইল ও অ্যানিমেশন পছন্দ লোড করে (কোনো স্টার্টআপ ফ্ল্যাশ ছাড়াই)।
   Future<void> hydrate() async {
     if (!persist || _hydrated || _disposed) return;
     _hydrated = true;
@@ -144,14 +176,26 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
           }
         }
       }
+      final rawAnim = prefs.getString(animationModePrefKey);
+      OmniThemeAnimationMode? restoredAnim;
+      if (rawAnim != null) {
+        for (final m in OmniThemeAnimationMode.values) {
+          if (m.name == rawAnim) {
+            restoredAnim = m;
+            break;
+          }
+        }
+      }
       final next = OmniThemeSelection(
         mode: restoredMode ?? value.mode,
         themeId: (restoredId != null && restoredId.isNotEmpty)
             ? restoredId
             : value.themeId,
         style: restoredStyle ?? value.style,
+        animationMode: restoredAnim ?? value.animationMode,
       );
       if (next != value) {
+        _nonAnimatedVersion++;
         value = next;
       }
     } catch (_) {
@@ -159,9 +203,11 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     }
   }
 
-  /// ১ ক্লিকে পুরো অ্যাপের কালার প্যালেট ([themeId]) পরিবর্তন করে।
-  void setTheme(String themeId) {
+  /// ১ ক্লিকে পুরো অ্যাপের কালার প্যালেট ([themeId]) অ্যানিমেশনসহ পরিবর্তন করে।
+  void setTheme(String themeId, {Offset? origin, bool animate = true}) {
     if (_disposed) return;
+    _pendingOrigin = origin;
+    if (!animate) _nonAnimatedVersion++;
     if (value.themeId != themeId) {
       value = value.copyWith(themeId: themeId);
     }
@@ -170,9 +216,11 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     }
   }
 
-  /// ১ ক্লিকে পুরো অ্যাপের ডিজাইন স্টাইল ([OmniThemeStyle]) পরিবর্তন করে।
-  void setStyle(OmniThemeStyle style) {
+  /// ১ ক্লিকে পুরো অ্যাপের ডিজাইন স্টাইল ([OmniThemeStyle]) অ্যানিমেশনসহ পরিবর্তন করে।
+  void setStyle(OmniThemeStyle style, {Offset? origin, bool animate = true}) {
     if (_disposed) return;
+    _pendingOrigin = origin;
+    if (!animate) _nonAnimatedVersion++;
     if (value.style != style) {
       value = value.copyWith(style: style);
     }
@@ -181,17 +229,35 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     }
   }
 
+  /// ডার্ক মোড ও কালার প্যালেট পরিবর্তনের অ্যানিমেশন মোড ([OmniThemeAnimationMode]) সেট করে।
+  void setAnimationMode(OmniThemeAnimationMode mode) {
+    if (_disposed) return;
+    if (value.animationMode != mode) {
+      _nonAnimatedVersion++;
+      value = value.copyWith(animationMode: mode);
+    }
+    if (persist) {
+      unawaited(_saveString(animationModePrefKey, mode.name));
+    }
+  }
+
   /// উপলব্ধ [themes] তালিকার পরবর্তী থিমে ১ ক্লিকে চলে যায়।
-  void nextTheme(List<OmniTheme> themes) {
+  void nextTheme(
+    List<OmniTheme> themes, {
+    Offset? origin,
+    bool animate = true,
+  }) {
     if (themes.length <= 1) return;
     final idx = themes.indexWhere((t) => t.id == value.themeId);
     final next = idx < 0 ? themes.first : themes[(idx + 1) % themes.length];
-    setTheme(next.id);
+    setTheme(next.id, origin: origin, animate: animate);
   }
 
-  /// লাইট, ডার্ক বা সিস্টেম মোড সেট করে এবং লোকালি সেভ রাখে।
-  void setMode(ThemeMode next) {
+  /// লাইট, ডার্ক বা সিস্টেম মোড অ্যানিমেশনসহ সেট করে এবং লোকালি সেভ রাখে।
+  void setMode(ThemeMode next, {Offset? origin, bool animate = true}) {
     if (_disposed) return;
+    _pendingOrigin = origin;
+    if (!animate) _nonAnimatedVersion++;
     if (value.mode != next) {
       value = value.copyWith(mode: next);
     }
@@ -201,33 +267,49 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   }
 
   /// লাইট মোড চালু করে।
-  void useLight() => setMode(ThemeMode.light);
+  void useLight({Offset? origin, bool animate = true}) =>
+      setMode(ThemeMode.light, origin: origin, animate: animate);
 
   /// ডার্ক মোড চালু করে।
-  void useDark() => setMode(ThemeMode.dark);
+  void useDark({Offset? origin, bool animate = true}) =>
+      setMode(ThemeMode.dark, origin: origin, animate: animate);
 
   /// ডিভাইসের সিস্টেম মোড অনুসরণ করে।
-  void useSystem() => setMode(ThemeMode.system);
+  void useSystem({Offset? origin, bool animate = true}) =>
+      setMode(ThemeMode.system, origin: origin, animate: animate);
 
-  /// ১ ক্লিকে লাইট <-> ডার্ক মোড পাল্টায় (সিস্টেম মোড থেকেও কাজ করে)।
-  void toggle([Brightness? platformBrightness]) {
+  /// ১ ক্লিকে লাইট <-> ডার্ক মোড অ্যানিমেশনসহ পাল্টায় (সিস্টেম মোড থেকেও কাজ করে)।
+  void toggle([
+    Brightness? platformBrightness,
+    Offset? origin,
+    bool animate = true,
+  ]) {
     final effBrightness = platformBrightness ??
         PlatformDispatcher.instance.platformBrightness;
     final currentlyDark = value.mode == ThemeMode.dark ||
         (value.mode == ThemeMode.system && effBrightness == Brightness.dark);
-    setMode(currentlyDark ? ThemeMode.light : ThemeMode.dark);
+    setMode(
+      currentlyDark ? ThemeMode.light : ThemeMode.dark,
+      origin: origin,
+      animate: animate,
+    );
   }
 
   /// `system -> light -> dark -> system` চক্রাকারে ঘোরায়।
-  void cycle() => setMode(switch (value.mode) {
-    ThemeMode.system => ThemeMode.light,
-    ThemeMode.light => ThemeMode.dark,
-    ThemeMode.dark => ThemeMode.system,
-  });
+  void cycle({Offset? origin, bool animate = true}) => setMode(
+    switch (value.mode) {
+      ThemeMode.system => ThemeMode.light,
+      ThemeMode.light => ThemeMode.dark,
+      ThemeMode.dark => ThemeMode.system,
+    },
+    origin: origin,
+    animate: animate,
+  );
 
-  /// সেভ করা থিম, মোড ও স্টাইল মুছে ডিফল্টে ফিরে আসে।
-  Future<void> resetSavedMode() async {
+  /// সেভ করা থিম, মোড, স্টাইল ও অ্যানিমেশন পছন্দ মুছে ডিফল্টে ফিরে আসে।
+  Future<void> resetSavedMode({bool animate = false}) async {
     if (!_disposed && value != _initialSelection) {
+      if (!animate) _nonAnimatedVersion++;
       value = _initialSelection;
     }
     try {
@@ -235,6 +317,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
       await prefs.remove(prefKey);
       await prefs.remove(themeIdPrefKey);
       await prefs.remove(stylePrefKey);
+      await prefs.remove(animationModePrefKey);
     } catch (_) {
       // প্ল্যাটফর্ম স্টোরেজ না থাকলে নিরাপদ ইগনোর।
     }
@@ -356,6 +439,7 @@ class OmniTheme {
     this.screenMode = OmniScreenMode.edgeToEdge,
     this.statusBar,
     this.systemNavigationBar,
+    this.animation = const OmniThemeAnimation(),
     this.customizer,
   });
 
@@ -442,6 +526,7 @@ class OmniTheme {
     this.screenMode = OmniScreenMode.edgeToEdge,
     this.statusBar,
     this.systemNavigationBar,
+    this.animation = const OmniThemeAnimation(),
     this.customizer,
   });
 
@@ -528,6 +613,7 @@ class OmniTheme {
     this.screenMode = OmniScreenMode.edgeToEdge,
     this.statusBar,
     this.systemNavigationBar,
+    this.animation = const OmniThemeAnimation(),
     this.customizer,
   });
 
@@ -780,6 +866,9 @@ class OmniTheme {
   /// গেস্টচার সোয়াইপ পিল/ডটের নিচের কালো এরিয়া দূর করে অ্যাপের প্রতিটি স্ক্রিনে
   /// থিমের সাথে মসৃণভাবে মিশিয়ে দেয়।
   final OmniSystemNavigationBarStyle? systemNavigationBar;
+
+  /// ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর সময় পুরো স্ক্রিনের ট্রানজিশন অ্যানিমেশন।
+  final OmniThemeAnimation animation;
 
   /// যেকোনো থিম উপাদান (`Switch`, `Chip`, `BottomSheet`) আরও কাস্টম করার হুক।
   final OmniThemeCustomizer? customizer;
@@ -1054,6 +1143,7 @@ class OmniTheme {
     OmniScreenMode? screenMode,
     OmniStatusBarStyle? statusBar,
     OmniSystemNavigationBarStyle? systemNavigationBar,
+    OmniThemeAnimation? animation,
     OmniThemeCustomizer? customizer,
   }) => OmniTheme(
     id: id ?? this.id,
@@ -1144,6 +1234,7 @@ class OmniTheme {
     screenMode: screenMode ?? this.screenMode,
     statusBar: statusBar ?? this.statusBar,
     systemNavigationBar: systemNavigationBar ?? this.systemNavigationBar,
+    animation: animation ?? this.animation,
     customizer: customizer ?? this.customizer,
   );
 
@@ -1597,6 +1688,7 @@ class OmniTheme {
           screenMode == other.screenMode &&
           statusBar == other.statusBar &&
           systemNavigationBar == other.systemNavigationBar &&
+          animation == other.animation &&
           customizer == other.customizer;
 
   @override
@@ -1682,14 +1774,15 @@ class OmniTheme {
     screenMode,
     statusBar,
     systemNavigationBar,
+    animation,
     customizer,
   ]);
 }
 
-enum _OmniThemeAspect { mode, activeTheme, style, themes, catalog }
+enum _OmniThemeAspect { mode, activeTheme, style, animation, themes, catalog }
 
 /// অ্যাস্পেক্ট-স্প্লিট `InheritedModel` যা পুরো অ্যাপে [OmniThemeController],
-/// সক্রিয় থিম তালিকা, স্টাইল এবং মেমোইজড `lightTheme`/`darkTheme` পৌঁছে দেয়।
+/// সক্রিয় থিম তালিকা, স্টাইল, অ্যানিমেশন ও মেমোইজড `lightTheme`/`darkTheme` পৌঁছে দেয়।
 class OmniThemeScope extends InheritedModel<Object> {
   /// [OmniThemeScope] তৈরি করে।
   const OmniThemeScope({
@@ -1698,16 +1791,19 @@ class OmniThemeScope extends InheritedModel<Object> {
     required this.selection,
     required this.activeTheme,
     required this.activeStyle,
+    this.activeAnimationMode = OmniThemeAnimationMode.circularReveal,
     required this.availableThemes,
     required this.lightTheme,
     required this.darkTheme,
+    this.animationDuration = Duration.zero,
+    this.animationCurve = Curves.linear,
     required super.child,
   });
 
-  /// থিম, মোড ও স্টাইল পরিবর্তনকারী কন্ট্রোলার।
+  /// থিম, মোড, স্টাইল ও অ্যানিমেশন পরিবর্তনকারী কন্ট্রোলার।
   final OmniThemeController controller;
 
-  /// বর্তমান `ThemeMode`, `themeId` এবং `style`।
+  /// বর্তমান `ThemeMode`, `themeId`, `style` ও `animationMode`।
   final OmniThemeSelection selection;
 
   /// বর্তমান সক্রিয় [OmniTheme]।
@@ -1715,6 +1811,9 @@ class OmniThemeScope extends InheritedModel<Object> {
 
   /// বর্তমান কার্যকর [OmniThemeStyle]।
   final OmniThemeStyle activeStyle;
+
+  /// বর্তমান সক্রিয় [OmniThemeAnimationMode]।
+  final OmniThemeAnimationMode activeAnimationMode;
 
   /// অ্যাপে রেজিস্ট্রিকৃত সব [OmniTheme]।
   final List<OmniTheme> availableThemes;
@@ -1724,6 +1823,12 @@ class OmniThemeScope extends InheritedModel<Object> {
 
   /// বর্তমান ডিভাইস টিয়ার, সক্রিয় প্যালেট ও স্টাইলের মেমোইজড ডার্ক থিম।
   final ThemeData darkTheme;
+
+  /// সক্রিয় `MaterialApp.themeAnimationDuration` (কালার মর্ফ ও স্ন্যাপশট রিজলভারের সাথে সিঙ্কড)।
+  final Duration animationDuration;
+
+  /// সক্রিয় `MaterialApp.themeAnimationCurve`।
+  final Curve animationCurve;
 
   /// নন-লিসেনিং O(1) লুকআপ (`onPressed` ও কলব্যাকে নিরাপদ)।
   static OmniThemeController? maybeControllerOf(BuildContext context) =>
@@ -1760,6 +1865,14 @@ class OmniThemeScope extends InheritedModel<Object> {
       )?.activeStyle ??
       OmniThemeStyle.modern;
 
+  /// কেবল সক্রিয় স্ক্রিন অ্যানিমেশন ([OmniThemeAnimationMode]) বদলালেই রি-বিল্ড হয়।
+  static OmniThemeAnimationMode activeAnimationModeOf(BuildContext context) =>
+      InheritedModel.inheritFrom<OmniThemeScope>(
+        context,
+        aspect: _OmniThemeAspect.animation,
+      )?.activeAnimationMode ??
+      OmniThemeAnimationMode.circularReveal;
+
   /// অ্যাপের সব উপলব্ধ থিম রিটার্ন করে।
   static List<OmniTheme> availableThemesOf(BuildContext context) =>
       InheritedModel.inheritFrom<OmniThemeScope>(
@@ -1788,15 +1901,33 @@ class OmniThemeScope extends InheritedModel<Object> {
     );
   }
 
+  /// সক্রিয় `MaterialApp.themeAnimationDuration` ও `themeAnimationCurve` পড়ে।
+  static ({Duration duration, Curve curve})? animationSettingsOf(
+    BuildContext context,
+  ) {
+    final scope = InheritedModel.inheritFrom<OmniThemeScope>(
+      context,
+      aspect: _OmniThemeAspect.themes,
+    );
+    if (scope == null) return null;
+    return (
+      duration: scope.animationDuration,
+      curve: scope.animationCurve,
+    );
+  }
+
   @override
   bool updateShouldNotify(covariant OmniThemeScope oldWidget) =>
       !identical(oldWidget.controller, controller) ||
       oldWidget.selection != selection ||
       oldWidget.activeTheme != activeTheme ||
       oldWidget.activeStyle != activeStyle ||
+      oldWidget.activeAnimationMode != activeAnimationMode ||
       !identical(oldWidget.availableThemes, availableThemes) ||
       !identical(oldWidget.lightTheme, lightTheme) ||
-      !identical(oldWidget.darkTheme, darkTheme);
+      !identical(oldWidget.darkTheme, darkTheme) ||
+      oldWidget.animationDuration != animationDuration ||
+      oldWidget.animationCurve != animationCurve;
 
   @override
   bool updateShouldNotifyDependent(
@@ -1815,28 +1946,67 @@ class OmniThemeScope extends InheritedModel<Object> {
         oldWidget.activeStyle != activeStyle) {
       return true;
     }
+    if (dependencies.contains(_OmniThemeAspect.animation) &&
+        oldWidget.activeAnimationMode != activeAnimationMode) {
+      return true;
+    }
     if (dependencies.contains(_OmniThemeAspect.catalog) &&
         !identical(oldWidget.availableThemes, availableThemes)) {
       return true;
     }
     if (dependencies.contains(_OmniThemeAspect.themes) &&
         (!identical(oldWidget.lightTheme, lightTheme) ||
-            !identical(oldWidget.darkTheme, darkTheme))) {
+            !identical(oldWidget.darkTheme, darkTheme) ||
+            oldWidget.animationDuration != animationDuration ||
+            oldWidget.animationCurve != animationCurve)) {
       return true;
     }
     return false;
   }
 }
 
+@immutable
+class _OmniVisualThemeSnapshot {
+  const _OmniVisualThemeSnapshot({
+    required this.selection,
+    required this.brightness,
+    required this.theme,
+    required this.style,
+  });
+
+  final OmniThemeSelection selection;
+  final Brightness brightness;
+  final OmniTheme theme;
+  final OmniThemeStyle style;
+
+  bool visuallyDiffersFrom(_OmniVisualThemeSnapshot other) =>
+      brightness != other.brightness ||
+      theme != other.theme ||
+      style != other.style;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is _OmniVisualThemeSnapshot &&
+          selection == other.selection &&
+          brightness == other.brightness &&
+          theme == other.theme &&
+          style == other.style;
+
+  @override
+  int get hashCode => Object.hash(selection, brightness, theme, style);
+}
+
 /// প্রতিটি `(themeId, style, device, tokens)` কম্বিনেশনের `ThemeData` ক্যাশ করে রাখে
-/// যাতে এক থিম থেকে অন্য থিমে, স্টাইলে বা লাইট ↔ ডার্কে ফিরে এলে পুনরায়
-/// `ThemeData` অ্যালোকেট না হয়।
+/// এবং ডার্ক/লাইট মোড বা কালার প্যালেট বদলালে স্ক্রিনের ওপর দিয়ে মসৃণ
+/// অ্যানিমেশন ([OmniThemeTransition]) চালায়।
 class OmniResponsiveThemeHost extends StatefulWidget {
   /// [omniTheme] এবং/অথবা [themes] সহ থিম হোস্ট তৈরি করে।
   const OmniResponsiveThemeHost({
     super.key,
     this.omniTheme,
     this.themes = const [],
+    this.themeAnimation,
     this.appScreenMode,
     this.appStatusBar,
     this.appSystemNavigationBar,
@@ -1848,6 +2018,9 @@ class OmniResponsiveThemeHost extends StatefulWidget {
 
   /// অ্যাপে সুইচ করার জন্য উপলব্ধ সব থিম।
   final List<OmniTheme> themes;
+
+  /// `OmniApp(themeAnimation: ...)` থেকে পাওয়া গ্লোবাল স্ক্রিন ট্রানজিশন ওভাররাইড।
+  final OmniThemeAnimation? themeAnimation;
 
   /// `OmniApp` বা রানটাইম কন্ট্রোলার থেকে পাওয়া ডিসপ্লে মোড ওভাররাইড।
   final OmniScreenMode? appScreenMode;
@@ -2013,6 +2186,14 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     return (light: built.light, dark: built.dark);
   }
 
+  OmniThemeAnimation _effectiveAnimationFor(OmniTheme targetTheme) {
+    if (widget.themeAnimation case final appAnim?) return appAnim;
+    if (targetTheme.animation != const OmniThemeAnimation()) {
+      return targetTheme.animation;
+    }
+    return _primaryTheme.animation;
+  }
+
   @override
   Widget build(BuildContext context) {
     final device = OmniResponsiveScope.deviceOf(context);
@@ -2022,59 +2203,96 @@ class _OmniResponsiveThemeHostState extends State<OmniResponsiveThemeHost> {
     return ValueListenableBuilder<OmniThemeSelection>(
       valueListenable: controller,
       child: widget.child,
-      builder: (_, selection, child) {
+      builder: (hostContext, selection, child) {
         final activeTheme = _findTheme(selection.themeId);
         final activeStyle = selection.style ?? activeTheme.style;
         final activeBrightness = switch (selection.mode) {
           ThemeMode.light => Brightness.light,
           ThemeMode.dark => Brightness.dark,
-          ThemeMode.system => MediaQuery.platformBrightnessOf(context),
+          ThemeMode.system => MediaQuery.platformBrightnessOf(hostContext),
         };
-        final activeColors = activeTheme.resolveColors(activeBrightness);
-        final effectiveStatusBar =
-            widget.appStatusBar ?? activeTheme.resolveStatusBar(activeColors);
-        final effectiveNavBar =
-            widget.appSystemNavigationBar ??
-            activeTheme.resolveSystemNavigationBar(activeColors);
-        final effectiveScreenMode = resolveEffectiveOmniScreenMode(
-          widget.appScreenMode ?? activeTheme.screenMode,
-          statusBar: effectiveStatusBar,
-          systemNavigationBar: effectiveNavBar,
-        );
-        final resolved = _resolveFor(
-          activeTheme,
-          selection.style,
-          widget.appScreenMode,
-          widget.appStatusBar,
-          widget.appSystemNavigationBar,
-          device,
-          tokens,
-        );
-
-        return OmniThemeScope(
-          controller: controller,
+        final targetState = _OmniVisualThemeSnapshot(
           selection: selection,
-          activeTheme: activeTheme,
-          activeStyle: activeStyle,
-          availableThemes: _catalog,
-          lightTheme: resolved.light,
-          darkTheme: resolved.dark,
-          child: OmniSystemUi(
-            statusBar: effectiveStatusBar,
-            systemNavigationBar: effectiveNavBar,
-            screenMode: effectiveScreenMode,
-            brightness: activeBrightness,
-            fallbackTopColor: activeColors.surfaceColor,
-            fallbackBottomColor: activeColors.navBarColor,
-            child: child!,
+          brightness: activeBrightness,
+          theme: activeTheme,
+          style: activeStyle,
+        );
+        final animConfig = _effectiveAnimationFor(activeTheme);
+
+        return OmniThemeTransition<_OmniVisualThemeSnapshot>(
+          value: targetState,
+          animation: animConfig,
+          suppressAnimationToken: controller.nonAnimatedVersion,
+          takeExplicitOrigin: controller.takePendingOrigin,
+          shouldAnimate: (prev, next) => prev.visuallyDiffersFrom(next),
+          resolveMode: (prev, next) => animConfig.effectiveModeFor(
+            brightnessChanged: prev.brightness != next.brightness,
+            paletteChanged: prev.theme != next.theme,
+            styleChanged: prev.style != next.style,
+            runtimeOverride: next.selection.animationMode,
           ),
+          resolveDuration: (prev, next) => animConfig.effectiveDurationFor(
+            brightnessChanged: prev.brightness != next.brightness,
+            paletteChanged: prev.theme != next.theme,
+          ),
+          resolveGlowColor: (next) =>
+              next.theme.swatchColorFor(next.brightness),
+          builder: (_, displayed, materialDuration, materialCurve) {
+            final dispTheme = displayed.theme;
+            final dispSelection = displayed.selection;
+            final dispColors = dispTheme.resolveColors(displayed.brightness);
+            final effectiveStatusBar =
+                widget.appStatusBar ?? dispTheme.resolveStatusBar(dispColors);
+            final effectiveNavBar =
+                widget.appSystemNavigationBar ??
+                dispTheme.resolveSystemNavigationBar(dispColors);
+            final effectiveScreenMode = resolveEffectiveOmniScreenMode(
+              widget.appScreenMode ?? dispTheme.screenMode,
+              statusBar: effectiveStatusBar,
+              systemNavigationBar: effectiveNavBar,
+            );
+            final resolved = _resolveFor(
+              dispTheme,
+              dispSelection.style,
+              widget.appScreenMode,
+              widget.appStatusBar,
+              widget.appSystemNavigationBar,
+              device,
+              tokens,
+            );
+            final activeAnimMode =
+                dispSelection.animationMode ?? animConfig.mode;
+
+            return OmniThemeScope(
+              controller: controller,
+              selection: dispSelection,
+              activeTheme: dispTheme,
+              activeStyle: displayed.style,
+              activeAnimationMode: activeAnimMode,
+              availableThemes: _catalog,
+              lightTheme: resolved.light,
+              darkTheme: resolved.dark,
+              animationDuration: materialDuration,
+              animationCurve: materialCurve,
+              child: OmniSystemUi(
+                statusBar: effectiveStatusBar,
+                systemNavigationBar: effectiveNavBar,
+                screenMode: effectiveScreenMode,
+                brightness: displayed.brightness,
+                fallbackTopColor: dispColors.surfaceColor,
+                fallbackBottomColor: dispColors.navBarColor,
+                child: child!,
+              ),
+            );
+          },
         );
       },
     );
   }
 }
 
-/// যেকোনো `BuildContext` থেকে থিম, কালার প্যালেট, স্টাইল ও মোড নিয়ন্ত্রণের সহজ শর্টকাট।
+/// যেকোনো `BuildContext` থেকে থিম, কালার প্যালেট, স্টাইল, মোড ও স্ক্রিন
+/// অ্যানিমেশন নিয়ন্ত্রণের সহজ শর্টকাট।
 extension OmniThemeContext on BuildContext {
   /// নন-লিসেনিং কন্ট্রোলার (`onPressed` ও কলব্যাকে নিরাপদ)।
   OmniThemeController get themeController => OmniThemeScope.controllerOf(this);
@@ -2088,6 +2306,10 @@ extension OmniThemeContext on BuildContext {
   /// বর্তমান সক্রিয় [OmniThemeStyle]।
   OmniThemeStyle get activeThemeStyle => OmniThemeScope.activeStyleOf(this);
 
+  /// বর্তমান সক্রিয় স্ক্রিন অ্যানিমেশন মোড ([OmniThemeAnimationMode])।
+  OmniThemeAnimationMode get activeThemeAnimationMode =>
+      OmniThemeScope.activeAnimationModeOf(this);
+
   /// বর্তমান সক্রিয় থিমের `id`।
   String get activeThemeId => activeTheme?.id ?? 'default';
 
@@ -2098,30 +2320,44 @@ extension OmniThemeContext on BuildContext {
   /// বর্তমানে ডার্ক মোড চলছে কি না।
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
 
-  /// ১ ক্লিকে নির্দিষ্ট `themeId` (যেমন `'emerald'`) পুরো অ্যাপে চালু করে।
-  void setTheme(String themeId) => themeController.setTheme(themeId);
+  /// ১ ক্লিকে নির্দিষ্ট `themeId` (যেমন `'emerald'`) অ্যানিমেশনসহ চালু করে।
+  void setTheme(String themeId, {Offset? origin, bool animate = true}) =>
+      themeController.setTheme(themeId, origin: origin, animate: animate);
 
   /// ১ ক্লিকে পুরো অ্যাপের [OmniThemeStyle] (`modern`, `outlined`, `soft`...) বদলায়।
-  void setThemeStyle(OmniThemeStyle style) => themeController.setStyle(style);
+  void setThemeStyle(
+    OmniThemeStyle style, {
+    Offset? origin,
+    bool animate = true,
+  }) => themeController.setStyle(style, origin: origin, animate: animate);
+
+  /// ১ ক্লিকে থিম ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন ([OmniThemeAnimationMode]) বদলায়।
+  void setThemeAnimationMode(OmniThemeAnimationMode mode) =>
+      themeController.setAnimationMode(mode);
 
   /// ১ ক্লিকে পরবর্তী কালার প্যালেটে চলে যায়।
-  void nextTheme() {
+  void nextTheme({Offset? origin, bool animate = true}) {
     final list =
         getInheritedWidgetOfExactType<OmniThemeScope>()?.availableThemes ??
         const <OmniTheme>[];
-    themeController.nextTheme(list);
+    themeController.nextTheme(list, origin: origin, animate: animate);
   }
 
   /// `ThemeMode.light`, `.dark`, বা `.system` সেট করে ও অটো সেভ রাখে।
-  void setThemeMode(ThemeMode mode) => themeController.setMode(mode);
+  void setThemeMode(ThemeMode mode, {Offset? origin, bool animate = true}) =>
+      themeController.setMode(mode, origin: origin, animate: animate);
 
-  /// ১ ক্লিকে লাইট ↔ ডার্ক মোড টগল করে।
-  void toggleTheme() => themeController.toggle(
-    MediaQuery.maybePlatformBrightnessOf(this),
-  );
+  /// ১ ক্লিকে লাইট ↔ ডার্ক মোড অ্যানিমেশনসহ টগল করে।
+  void toggleTheme({Offset? origin, bool animate = true}) =>
+      themeController.toggle(
+        MediaQuery.maybePlatformBrightnessOf(this),
+        origin,
+        animate,
+      );
 
-  /// `system -> light -> dark -> system` ঘোরায়।
-  void cycleThemeMode() => themeController.cycle();
+  /// `system -> light -> dark -> system` অ্যানিমেশনসহ ঘোরায়।
+  void cycleThemeMode({Offset? origin, bool animate = true}) =>
+      themeController.cycle(origin: origin, animate: animate);
 
   /// Settings বা যেকোনো স্ক্রিন থেকে ১-ট্যাপে থিম ও কালার প্যালেট সেটিংস শিট খোলে।
   Future<void> openThemeSettings({
@@ -2129,20 +2365,24 @@ extension OmniThemeContext on BuildContext {
     String modeTitle = 'Appearance Mode',
     String themeTitle = 'Color Palette',
     String styleTitle = 'Theme Style',
+    String animationTitle = 'Theme Animation',
     String systemLabel = 'System',
     String lightLabel = 'Light',
     String darkLabel = 'Dark',
     bool showStylePicker = true,
+    bool showAnimationPicker = false,
   }) => showOmniThemeSheet(
     this,
     title: title,
     modeTitle: modeTitle,
     themeTitle: themeTitle,
     styleTitle: styleTitle,
+    animationTitle: animationTitle,
     systemLabel: systemLabel,
     lightLabel: lightLabel,
     darkLabel: darkLabel,
     showStylePicker: showStylePicker,
+    showAnimationPicker: showAnimationPicker,
   );
 }
 
@@ -2578,8 +2818,72 @@ class OmniThemeStylePicker extends StatelessWidget {
   }
 }
 
+/// ১ ক্লিকে ডার্ক মোড ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন
+/// ([OmniThemeAnimationMode]) বাছাই করার পিকার।
+class OmniThemeAnimationPicker extends StatelessWidget {
+  /// [modes] অপশনগুলো সহ ১-ক্লিক থিম অ্যানিমেশন পিকার তৈরি করে।
+  const OmniThemeAnimationPicker({
+    super.key,
+    this.modes = OmniThemeAnimationMode.values,
+    this.spacing = 8,
+    this.showIcons = true,
+  });
+
+  /// দেখানোর জন্য [OmniThemeAnimationMode] তালিকা।
+  final List<OmniThemeAnimationMode> modes;
+
+  /// চিপগুলোর মাঝখানের ফাঁকা জায়গা।
+  final double spacing;
+
+  /// লেখার সাথে আইকন দেখাবে কি না।
+  final bool showIcons;
+
+  @override
+  Widget build(BuildContext context) {
+    final activeMode = OmniThemeScope.activeAnimationModeOf(context);
+    final hasController = OmniThemeScope.maybeControllerOf(context) != null;
+    final c = context.colors;
+
+    return Wrap(
+      spacing: spacing,
+      runSpacing: spacing,
+      children: [
+        for (final mode in modes)
+          ChoiceChip(
+            avatar: showIcons
+                ? Icon(
+                    mode.icon,
+                    size: 16,
+                    color: mode == activeMode
+                        ? c.primaryColor
+                        : c.secondaryTextColor,
+                  )
+                : null,
+            label: Text(mode.label),
+            tooltip: mode.description,
+            selected: mode == activeMode,
+            onSelected: !hasController
+                ? null
+                : (_) => context.setThemeAnimationMode(mode),
+            backgroundColor: c.secondaryBackgroundColor,
+            selectedColor: c.selectedItemColor,
+            labelStyle: TextStyle(
+              color: mode == activeMode ? c.primaryColor : c.textColor,
+              fontWeight:
+                  mode == activeMode ? FontWeight.w600 : FontWeight.normal,
+            ),
+            side: BorderSide(
+              color: mode == activeMode ? c.primaryColor : c.borderColor,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
 /// Settings পেজের জন্য অল-ইন-ওয়ান থিম কার্ড (`System/Light/Dark` মোড,
-/// ১-ক্লিক কালার প্যালেট পিকার, লাইভ প্রিভিউ স্ট্রিপ ও ঐচ্ছিক `OmniThemeStylePicker`)।
+/// ১-ক্লিক কালার প্যালেট পিকার, লাইভ প্রিভিউ স্ট্রিপ ও ঐচ্ছিক `OmniThemeStylePicker`
+/// ও `OmniThemeAnimationPicker`)।
 class OmniThemePanel extends StatelessWidget {
   /// সম্পূর্ণ থিম ও কালার প্যালেট সেটিংস প্যানেল তৈরি করে।
   const OmniThemePanel({
@@ -2587,6 +2891,7 @@ class OmniThemePanel extends StatelessWidget {
     this.modeTitle = 'Appearance Mode',
     this.themeTitle = 'Color Palette',
     this.styleTitle = 'Theme Style',
+    this.animationTitle = 'Theme Animation',
     this.systemLabel = 'System',
     this.lightLabel = 'Light',
     this.darkLabel = 'Dark',
@@ -2595,6 +2900,7 @@ class OmniThemePanel extends StatelessWidget {
     this.showModeSwitch = true,
     this.showPalettePicker = true,
     this.showStylePicker = false,
+    this.showAnimationPicker = false,
     this.showPalettePreview = true,
   });
 
@@ -2606,6 +2912,9 @@ class OmniThemePanel extends StatelessWidget {
 
   /// ডিজাইন স্টাইল সেকশনের শিরোনাম।
   final String styleTitle;
+
+  /// অ্যানিমেশন সেকশনের শিরোনাম।
+  final String animationTitle;
 
   /// সিস্টেম মোডের লেবেল।
   final String systemLabel;
@@ -2630,6 +2939,9 @@ class OmniThemePanel extends StatelessWidget {
 
   /// ১-ক্লিক ডিজাইন স্টাইল পিকার দেখাবে কি না।
   final bool showStylePicker;
+
+  /// ডার্ক মোড ও প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন পিকার দেখাবে কি না।
+  final bool showAnimationPicker;
 
   /// বর্তমান প্যালেটের প্রধান কালারগুলোর লাইভ ডট প্রিভিউ দেখাবে কি না।
   final bool showPalettePreview;
@@ -2678,6 +2990,12 @@ class OmniThemePanel extends StatelessWidget {
               Text(styleTitle, style: context.textStyles.title),
               t.gapSm,
               const OmniThemeStylePicker(),
+            ],
+            if (showAnimationPicker) ...[
+              if (showModeSwitch || showPalettes || showStylePicker) t.gapMd,
+              Text(animationTitle, style: context.textStyles.title),
+              t.gapSm,
+              const OmniThemeAnimationPicker(),
             ],
           ],
         ),
@@ -2747,10 +3065,12 @@ class OmniThemeSettingsTile extends StatelessWidget {
     this.modeTitle = 'Appearance Mode',
     this.themeTitle = 'Color Palette',
     this.styleTitle = 'Theme Style',
+    this.animationTitle = 'Theme Animation',
     this.systemLabel = 'System',
     this.lightLabel = 'Light',
     this.darkLabel = 'Dark',
     this.showStylePicker = true,
+    this.showAnimationPicker = false,
   });
 
   /// সেটিংস রো-এর শিরোনাম।
@@ -2768,6 +3088,9 @@ class OmniThemeSettingsTile extends StatelessWidget {
   /// স্টাইল সেকশনের শিরোনাম।
   final String styleTitle;
 
+  /// অ্যানিমেশন সেকশনের শিরোনাম।
+  final String animationTitle;
+
   /// সিস্টেম মোড লেবেল।
   final String systemLabel;
 
@@ -2779,6 +3102,9 @@ class OmniThemeSettingsTile extends StatelessWidget {
 
   /// শিটের ভেতর থিম স্টাইল পিকার দেখাবে কি না।
   final bool showStylePicker;
+
+  /// শিটের ভেতর স্ক্রিন অ্যানিমেশন পিকার দেখাবে কি না।
+  final bool showAnimationPicker;
 
   @override
   Widget build(BuildContext context) {
@@ -2819,10 +3145,12 @@ class OmniThemeSettingsTile extends StatelessWidget {
         modeTitle: modeTitle,
         themeTitle: themeTitle,
         styleTitle: styleTitle,
+        animationTitle: animationTitle,
         systemLabel: systemLabel,
         lightLabel: lightLabel,
         darkLabel: darkLabel,
         showStylePicker: showStylePicker,
+        showAnimationPicker: showAnimationPicker,
       ),
     );
   }
@@ -2836,10 +3164,12 @@ Future<T?> showOmniThemeSheet<T>(
   String modeTitle = 'Appearance Mode',
   String themeTitle = 'Color Palette',
   String styleTitle = 'Theme Style',
+  String animationTitle = 'Theme Animation',
   String systemLabel = 'System',
   String lightLabel = 'Light',
   String darkLabel = 'Dark',
   bool showStylePicker = true,
+  bool showAnimationPicker = false,
 }) {
   final device = OmniResponsiveScope.deviceOf(context);
   final isCompact = device == OmniDeviceType.mobile;
@@ -2868,10 +3198,12 @@ Future<T?> showOmniThemeSheet<T>(
               modeTitle: modeTitle,
               themeTitle: themeTitle,
               styleTitle: styleTitle,
+              animationTitle: animationTitle,
               systemLabel: systemLabel,
               lightLabel: lightLabel,
               darkLabel: darkLabel,
               showStylePicker: showStylePicker,
+              showAnimationPicker: showAnimationPicker,
             ),
           ],
         ),

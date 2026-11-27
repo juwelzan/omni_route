@@ -1214,11 +1214,14 @@ class _OmniInitGateState extends State<OmniInitGate>
     final hasApp = context.findAncestorWidgetOfExactType<WidgetsApp>() != null;
     if (hasApp) return built;
     final themed = OmniThemeScope.maybeThemesOf(context);
+    final anim = OmniThemeScope.animationSettingsOf(context);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: themed?.light,
       darkTheme: themed?.dark,
       themeMode: themed?.mode,
+      themeAnimationDuration: anim?.duration ?? kThemeAnimationDuration,
+      themeAnimationCurve: anim?.curve ?? Curves.linear,
       builder: (stageContext, child) => child == null
           ? const SizedBox.shrink()
           : OmniResponsiveTextScaleHost.fromScope(stageContext, child: child),
