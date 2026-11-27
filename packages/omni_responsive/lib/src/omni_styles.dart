@@ -16,6 +16,26 @@ enum OmniInputVariant {
   underlined,
 }
 
+/// Shape of every button (`FilledButton`, `ElevatedButton`, `OutlinedButton`,
+/// `TextButton`, `SegmentedButton`, `FloatingActionButton`).
+enum OmniButtonShape {
+  /// Rounded corners from the theme's corner radius (default).
+  rounded,
+
+  /// Fully rounded ends (capsule / stadium).
+  pill,
+
+  /// Square corners.
+  square;
+
+  /// The [OutlinedBorder] of this shape for corners of [radius].
+  OutlinedBorder toBorder(BorderRadius radius) => switch (this) {
+    rounded => RoundedRectangleBorder(borderRadius: radius),
+    pill => const StadiumBorder(),
+    square => const RoundedRectangleBorder(),
+  };
+}
+
 /// ডেভেলপারদের জন্য ১-লাইনের রেডিমেড UI ডিজাইন স্টাইল প্রিসেট (`OmniTheme(style: ...)`
 /// অথবা সেটিংস থেকে `context.setThemeStyle(...)`)।
 ///
@@ -93,6 +113,7 @@ enum OmniThemeStyle {
     cardBorderWidth: 0.8,
     cardElevation: 0.0,
     borderRadius: 24.0,
+    buttonShape: OmniButtonShape.pill,
   ),
 
   /// তীক্ষ্ণ `4dp` জিওমেট্রিক কর্নার ও `.outlined` ইনপুটসহ এডিটোরিয়াল/ডাটা স্টাইল।
@@ -158,6 +179,7 @@ enum OmniThemeStyle {
     required this.cardBorderWidth,
     required this.cardElevation,
     this.borderRadius,
+    this.buttonShape = OmniButtonShape.rounded,
   });
 
   /// UI পিকারে দেখানোর সহজ নাম।
@@ -180,6 +202,9 @@ enum OmniThemeStyle {
 
   /// ঐচ্ছিক নির্দিষ্ট কর্নার রেডিয়াস (`null` হলে টিয়ার অনুযায়ী অটো)।
   final double? borderRadius;
+
+  /// Button shape of this style.
+  final OmniButtonShape buttonShape;
 }
 
 /// প্রি-ক্যাশড, রেসপন্সিভ ও পিওর নামের টেক্সট স্টাইল সেট (`context.textStyles`)।
@@ -638,6 +663,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     required double borderWidth,
     required double focusedBorderWidth,
     required double cardBorderWidth,
+    OutlinedBorder? buttonShape,
   }) {
     BorderSide makeSide(Color color, double width) =>
         width <= 0 ? BorderSide.none : BorderSide(color: color, width: width);
@@ -654,23 +680,46 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
           ),
         };
 
+    // Label and icons follow the field's state: accent while focused, red on
+    // error, muted when disabled, neutral otherwise (the floated label of a
+    // filled but unfocused field is no longer highlighted).
+    Color stateColor(Set<WidgetState> states, Color idle) =>
+        states.contains(WidgetState.disabled)
+        ? colors.disabledTextColor
+        : states.contains(WidgetState.error)
+        ? colors.errorColor
+        : states.contains(WidgetState.focused)
+        ? colors.focusedBorderColor
+        : idle;
+    final labelStyle = WidgetStateTextStyle.resolveWith(
+      (states) => textStyles.label.copyWith(
+        color: stateColor(states, colors.secondaryTextColor),
+      ),
+    );
+    final iconColor = WidgetStateColor.resolveWith(
+      (states) => stateColor(states, colors.iconColor),
+    );
     final inputTheme = InputDecorationTheme(
       filled: inputVariant == OmniInputVariant.filled,
       fillColor: inputVariant == OmniInputVariant.outlined
           ? colors.cardColor
           : colors.inputFillColor,
-      labelStyle: textStyles.label,
-      floatingLabelStyle: textStyles.label.copyWith(
-        color: colors.focusedBorderColor,
-      ),
+      hoverColor: colors.hoverColor,
+      focusColor: colors.focusColor,
+      labelStyle: labelStyle,
+      floatingLabelStyle: labelStyle,
       hintStyle: textStyles.hint,
       helperStyle: textStyles.caption,
       errorStyle: textStyles.error,
-      prefixIconColor: colors.iconColor,
-      suffixIconColor: colors.iconColor,
-      contentPadding: tokens.cardPadding,
-      border: makeInputBorder(colors.borderColor, borderWidth),
-      enabledBorder: makeInputBorder(colors.borderColor, borderWidth),
+      prefixIconColor: iconColor,
+      suffixIconColor: iconColor,
+      // An underline has no box to inset from, so the text lines up with the
+      // content around it.
+      contentPadding: inputVariant == OmniInputVariant.underlined
+          ? EdgeInsets.symmetric(vertical: tokens.cardPadding.top * 0.75)
+          : tokens.cardPadding,
+      border: makeInputBorder(colors.inputBorderColor, borderWidth),
+      enabledBorder: makeInputBorder(colors.inputBorderColor, borderWidth),
       focusedBorder: makeInputBorder(
         colors.focusedBorderColor,
         focusedBorderWidth,
@@ -684,7 +733,8 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
     );
 
     final minSize = Size(0, tokens.minTapTarget);
-    final buttonShape = RoundedRectangleBorder(borderRadius: buttonRadius);
+    final shape =
+        buttonShape ?? RoundedRectangleBorder(borderRadius: buttonRadius);
 
     return OmniStyles(
       colors: colors,
@@ -773,7 +823,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         disabledForegroundColor: colors.disabledTextColor,
         textStyle: textStyles.button,
         minimumSize: minSize,
-        shape: buttonShape,
+        shape: shape,
       ),
       secondaryButton: FilledButton.styleFrom(
         backgroundColor: colors.secondaryButtonColor,
@@ -782,7 +832,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         disabledForegroundColor: colors.disabledTextColor,
         textStyle: textStyles.button,
         minimumSize: minSize,
-        shape: buttonShape,
+        shape: shape,
       ),
       dangerButton: FilledButton.styleFrom(
         backgroundColor: colors.dangerButtonColor,
@@ -791,15 +841,15 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         disabledForegroundColor: colors.disabledTextColor,
         textStyle: textStyles.button,
         minimumSize: minSize,
-        shape: buttonShape,
+        shape: shape,
       ),
       outlineButton:
           OutlinedButton.styleFrom(
-            foregroundColor: colors.primaryColor,
+            foregroundColor: colors.outlineButtonColor,
             disabledForegroundColor: colors.disabledTextColor,
             textStyle: textStyles.button,
             minimumSize: minSize,
-            shape: buttonShape,
+            shape: shape,
           ).copyWith(
             side: WidgetStateProperty.resolveWith<BorderSide>(
               (states) => BorderSide(
@@ -807,7 +857,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
                     ? colors.disabledBorderColor
                     : states.contains(WidgetState.focused)
                     ? colors.focusedBorderColor
-                    : colors.borderColor,
+                    : colors.outlineButtonBorderColor,
                 width: borderWidth > 0 ? borderWidth : 1.0,
               ),
             ),
@@ -817,7 +867,7 @@ class OmniStyles extends ThemeExtension<OmniStyles> {
         disabledForegroundColor: colors.disabledTextColor,
         textStyle: textStyles.link,
         minimumSize: minSize,
-        shape: buttonShape,
+        shape: shape,
       ),
     );
   }
@@ -1070,7 +1120,7 @@ class OmniUiTheme {
     required this.brightness,
   });
 
-  /// ৫৩টি পিওর সেমান্টিক কালার।
+  /// ৭৫টি পিওর সেমান্টিক কালার।
   final OmniColors colors;
 
   /// ১৫টি প্রি-ক্যাশড রেসপন্সিভ টেক্সট স্টাইল।

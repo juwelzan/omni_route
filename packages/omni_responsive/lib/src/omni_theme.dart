@@ -579,9 +579,31 @@ class OmniTheme {
     this.shimmerHighlightColor,
     this.overlayColor,
     this.shadowColor,
+    this.tertiaryColor,
+    this.dialogColor,
+    this.bottomSheetColor,
+    this.drawerColor,
+    this.menuColor,
+    this.fabColor,
+    this.fabTextColor,
+    this.outlineButtonColor,
+    this.outlineButtonBorderColor,
+    this.inputBorderColor,
+    this.cursorColor,
+    this.textSelectionColor,
+    this.progressColor,
+    this.progressTrackColor,
+    this.tabSelectedColor,
+    this.tabUnselectedColor,
+    this.switchThumbColor,
+    this.focusColor,
+    this.scrollbarColor,
+    this.navIndicatorColor,
     this.lightColors,
     this.darkColors,
     this.cardElevation,
+    this.buttonShape,
+    this.buttonRadius,
     this.appBarCenterTitle,
     this.screenMode = OmniScreenMode.edgeToEdge,
     this.statusBar,
@@ -669,9 +691,31 @@ class OmniTheme {
     this.shimmerHighlightColor,
     this.overlayColor,
     this.shadowColor,
+    this.tertiaryColor,
+    this.dialogColor,
+    this.bottomSheetColor,
+    this.drawerColor,
+    this.menuColor,
+    this.fabColor,
+    this.fabTextColor,
+    this.outlineButtonColor,
+    this.outlineButtonBorderColor,
+    this.inputBorderColor,
+    this.cursorColor,
+    this.textSelectionColor,
+    this.progressColor,
+    this.progressTrackColor,
+    this.tabSelectedColor,
+    this.tabUnselectedColor,
+    this.switchThumbColor,
+    this.focusColor,
+    this.scrollbarColor,
+    this.navIndicatorColor,
     this.lightColors,
     this.darkColors,
     this.cardElevation = 0,
+    this.buttonShape,
+    this.buttonRadius,
     this.appBarCenterTitle,
     this.screenMode = OmniScreenMode.edgeToEdge,
     this.statusBar,
@@ -759,9 +803,31 @@ class OmniTheme {
     this.shimmerHighlightColor,
     this.overlayColor,
     this.shadowColor,
+    this.tertiaryColor,
+    this.dialogColor,
+    this.bottomSheetColor,
+    this.drawerColor,
+    this.menuColor,
+    this.fabColor,
+    this.fabTextColor,
+    this.outlineButtonColor,
+    this.outlineButtonBorderColor,
+    this.inputBorderColor,
+    this.cursorColor,
+    this.textSelectionColor,
+    this.progressColor,
+    this.progressTrackColor,
+    this.tabSelectedColor,
+    this.tabUnselectedColor,
+    this.switchThumbColor,
+    this.focusColor,
+    this.scrollbarColor,
+    this.navIndicatorColor,
     this.lightColors,
     this.darkColors,
     this.cardElevation = 0,
+    this.buttonShape = OmniButtonShape.pill,
+    this.buttonRadius,
     this.appBarCenterTitle,
     this.screenMode = OmniScreenMode.edgeToEdge,
     this.statusBar,
@@ -806,10 +872,10 @@ class OmniTheme {
   /// ডার্ক মোডের সেকেন্ডারি অ্যাকসেন্ট কালার (`null` হলে `dark?.secondaryColor ?? secondaryColor`)।
   final Color? darkSecondaryColor;
 
-  /// লাইট মোডের জন্য সহজ কালার প্যালেট ওভাররাইড (৫৫টি কালারের মধ্যে শুধু প্রয়োজনীয়গুলো দিন)।
+  /// লাইট মোডের জন্য সহজ কালার প্যালেট ওভাররাইড (৭৫টি কালারের মধ্যে শুধু প্রয়োজনীয়গুলো দিন)।
   final OmniColorPalette? light;
 
-  /// ডার্ক মোডের জন্য সহজ কালার প্যালেট ওভাররাইড (৫৫টি কালারের মধ্যে শুধু প্রয়োজনীয়গুলো দিন)।
+  /// ডার্ক মোডের জন্য সহজ কালার প্যালেট ওভাররাইড (৭৫টি কালারের মধ্যে শুধু প্রয়োজনীয়গুলো দিন)।
   final OmniColorPalette? dark;
 
   /// ১-লাইনের ডিজাইন স্টাইল প্রিসেট (`modern`, `outlined`, `soft`, `elevated`, `minimal`, `compact`)।
@@ -995,6 +1061,66 @@ class OmniTheme {
   /// কার্ড ও ফ্লোটিং বাটনের ড্রপ শ্যাডো রঙ (`OmniColors.shadowColor`)।
   final Color? shadowColor;
 
+  /// তৃতীয় অ্যাকসেন্ট কালার (`OmniColors.tertiaryColor`)।
+  final Color? tertiaryColor;
+
+  /// ডায়ালগের ব্যাকগ্রাউন্ড কালার (`OmniColors.dialogColor`)।
+  final Color? dialogColor;
+
+  /// বটমশিটের ব্যাকগ্রাউন্ড কালার (`OmniColors.bottomSheetColor`)।
+  final Color? bottomSheetColor;
+
+  /// ড্রয়ারের ব্যাকগ্রাউন্ড কালার (`OmniColors.drawerColor`)।
+  final Color? drawerColor;
+
+  /// পপআপ ও ড্রপডাউন মেনুর ব্যাকগ্রাউন্ড কালার (`OmniColors.menuColor`)।
+  final Color? menuColor;
+
+  /// ফ্লোটিং অ্যাকশন বাটনের কালার (`OmniColors.fabColor`)।
+  final Color? fabColor;
+
+  /// ফ্লোটিং অ্যাকশন বাটনের আইকন ও লেখার কালার (`OmniColors.fabTextColor`)।
+  final Color? fabTextColor;
+
+  /// আউটলাইন বাটনের লেখা ও আইকনের কালার (`OmniColors.outlineButtonColor`)।
+  final Color? outlineButtonColor;
+
+  /// আউটলাইন বাটনের বর্ডার কালার (`OmniColors.outlineButtonBorderColor`)।
+  final Color? outlineButtonBorderColor;
+
+  /// টেক্সট ফিল্ডের বর্ডার কালার (`OmniColors.inputBorderColor`)।
+  final Color? inputBorderColor;
+
+  /// টেক্সট কার্সর ও সিলেকশন হ্যান্ডেলের কালার (`OmniColors.cursorColor`)।
+  final Color? cursorColor;
+
+  /// সিলেক্ট করা লেখার হাইলাইট কালার (`OmniColors.textSelectionColor`)।
+  final Color? textSelectionColor;
+
+  /// প্রগ্রেস বার ও স্লাইডারের কালার (`OmniColors.progressColor`)।
+  final Color? progressColor;
+
+  /// প্রগ্রেস বার ও স্লাইডারের খালি ট্র্যাক কালার (`OmniColors.progressTrackColor`)।
+  final Color? progressTrackColor;
+
+  /// সিলেক্ট করা ট্যাবের লেখা ও ইন্ডিকেটর কালার (`OmniColors.tabSelectedColor`)।
+  final Color? tabSelectedColor;
+
+  /// আন-সিলেক্টেড ট্যাবের লেখার কালার (`OmniColors.tabUnselectedColor`)।
+  final Color? tabUnselectedColor;
+
+  /// চালু সুইচের থাম্ব ও চেকবক্সের টিকের কালার (`OmniColors.switchThumbColor`)।
+  final Color? switchThumbColor;
+
+  /// কিবোর্ড ফোকাস হাইলাইট কালার (`OmniColors.focusColor`)।
+  final Color? focusColor;
+
+  /// স্ক্রলবারের কালার (`OmniColors.scrollbarColor`)।
+  final Color? scrollbarColor;
+
+  /// নেভিগেশনে সিলেক্ট করা আইটেমের পেছনের পিল কালার (`OmniColors.navIndicatorColor`)।
+  final Color? navIndicatorColor;
+
   /// লাইট মোডের জন্য সম্পূর্ণ কাস্টম [OmniColors] প্যালেট (ঐচ্ছিক)।
   final OmniColors? lightColors;
 
@@ -1003,6 +1129,14 @@ class OmniTheme {
 
   /// কার্ডের শ্যাডো উচ্চতা (না দিলে [style] অনুযায়ী অটো)।
   final double? cardElevation;
+
+  /// Shape of every button: [OmniButtonShape.rounded], `.pill` or
+  /// `.square` (`null` follows [style]).
+  final OmniButtonShape? buttonShape;
+
+  /// Corner radius of rounded buttons, separate from cards and fields
+  /// (`null` uses [borderRadius] / the screen tier).
+  final double? buttonRadius;
 
   /// সব `AppBar`-এ টাইটেল সেন্টারে রাখবে কি না।
   final bool? appBarCenterTitle;
@@ -1065,6 +1199,8 @@ class OmniTheme {
     'focusedBorderWidth': ?focusedBorderWidth,
     'cardBorderWidth': ?cardBorderWidth,
     'cardElevation': ?cardElevation,
+    if (buttonShape case final v?) 'buttonShape': v.name,
+    'buttonRadius': ?buttonRadius,
     'appBarCenterTitle': ?appBarCenterTitle,
     if (screenMode != OmniScreenMode.edgeToEdge) 'screenMode': screenMode.name,
     if (previewColor case final v?) 'previewColor': v.toARGB32(),
@@ -1131,6 +1267,27 @@ class OmniTheme {
       'shimmerHighlightColor': v.toARGB32(),
     if (overlayColor case final v?) 'overlayColor': v.toARGB32(),
     if (shadowColor case final v?) 'shadowColor': v.toARGB32(),
+    if (tertiaryColor case final v?) 'tertiaryColor': v.toARGB32(),
+    if (dialogColor case final v?) 'dialogColor': v.toARGB32(),
+    if (bottomSheetColor case final v?) 'bottomSheetColor': v.toARGB32(),
+    if (drawerColor case final v?) 'drawerColor': v.toARGB32(),
+    if (menuColor case final v?) 'menuColor': v.toARGB32(),
+    if (fabColor case final v?) 'fabColor': v.toARGB32(),
+    if (fabTextColor case final v?) 'fabTextColor': v.toARGB32(),
+    if (outlineButtonColor case final v?) 'outlineButtonColor': v.toARGB32(),
+    if (outlineButtonBorderColor case final v?)
+      'outlineButtonBorderColor': v.toARGB32(),
+    if (inputBorderColor case final v?) 'inputBorderColor': v.toARGB32(),
+    if (cursorColor case final v?) 'cursorColor': v.toARGB32(),
+    if (textSelectionColor case final v?) 'textSelectionColor': v.toARGB32(),
+    if (progressColor case final v?) 'progressColor': v.toARGB32(),
+    if (progressTrackColor case final v?) 'progressTrackColor': v.toARGB32(),
+    if (tabSelectedColor case final v?) 'tabSelectedColor': v.toARGB32(),
+    if (tabUnselectedColor case final v?) 'tabUnselectedColor': v.toARGB32(),
+    if (switchThumbColor case final v?) 'switchThumbColor': v.toARGB32(),
+    if (focusColor case final v?) 'focusColor': v.toARGB32(),
+    if (scrollbarColor case final v?) 'scrollbarColor': v.toARGB32(),
+    if (navIndicatorColor case final v?) 'navIndicatorColor': v.toARGB32(),
   };
 
   /// Builds a theme from [toJson] output (unknown keys are ignored, missing
@@ -1200,6 +1357,14 @@ class OmniTheme {
       focusedBorderWidth: number('focusedBorderWidth'),
       cardBorderWidth: number('cardBorderWidth'),
       cardElevation: number('cardElevation'),
+      buttonShape: json['buttonShape'] == null
+          ? null
+          : byName(
+              OmniButtonShape.values,
+              'buttonShape',
+              OmniButtonShape.rounded,
+            ),
+      buttonRadius: number('buttonRadius'),
       appBarCenterTitle: json['appBarCenterTitle'] is bool
           ? json['appBarCenterTitle']! as bool
           : null,
@@ -1264,6 +1429,26 @@ class OmniTheme {
       shimmerHighlightColor: color('shimmerHighlightColor'),
       overlayColor: color('overlayColor'),
       shadowColor: color('shadowColor'),
+      tertiaryColor: color('tertiaryColor'),
+      dialogColor: color('dialogColor'),
+      bottomSheetColor: color('bottomSheetColor'),
+      drawerColor: color('drawerColor'),
+      menuColor: color('menuColor'),
+      fabColor: color('fabColor'),
+      fabTextColor: color('fabTextColor'),
+      outlineButtonColor: color('outlineButtonColor'),
+      outlineButtonBorderColor: color('outlineButtonBorderColor'),
+      inputBorderColor: color('inputBorderColor'),
+      cursorColor: color('cursorColor'),
+      textSelectionColor: color('textSelectionColor'),
+      progressColor: color('progressColor'),
+      progressTrackColor: color('progressTrackColor'),
+      tabSelectedColor: color('tabSelectedColor'),
+      tabUnselectedColor: color('tabUnselectedColor'),
+      switchThumbColor: color('switchThumbColor'),
+      focusColor: color('focusColor'),
+      scrollbarColor: color('scrollbarColor'),
+      navIndicatorColor: color('navIndicatorColor'),
     );
   }
 
@@ -1341,6 +1526,10 @@ class OmniTheme {
   /// কার্যকর কার্ড এলিভেশন।
   double effectiveCardElevation([OmniThemeStyle? styleOverride]) =>
       styleOverride?.cardElevation ?? cardElevation ?? style.cardElevation;
+
+  /// The button shape in effect.
+  OmniButtonShape effectiveButtonShape([OmniThemeStyle? styleOverride]) =>
+      styleOverride?.buttonShape ?? buttonShape ?? style.buttonShape;
 
   /// কার্যকর কর্নার রেডিয়াস (`null` হলে ডিভাইস টিয়ার অনুযায়ী অটো)।
   double? effectiveBorderRadius([OmniThemeStyle? styleOverride]) =>
@@ -1717,9 +1906,31 @@ class OmniTheme {
     Color? shimmerHighlightColor,
     Color? overlayColor,
     Color? shadowColor,
+    Color? tertiaryColor,
+    Color? dialogColor,
+    Color? bottomSheetColor,
+    Color? drawerColor,
+    Color? menuColor,
+    Color? fabColor,
+    Color? fabTextColor,
+    Color? outlineButtonColor,
+    Color? outlineButtonBorderColor,
+    Color? inputBorderColor,
+    Color? cursorColor,
+    Color? textSelectionColor,
+    Color? progressColor,
+    Color? progressTrackColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? switchThumbColor,
+    Color? focusColor,
+    Color? scrollbarColor,
+    Color? navIndicatorColor,
     OmniColors? lightColors,
     OmniColors? darkColors,
     double? cardElevation,
+    OmniButtonShape? buttonShape,
+    double? buttonRadius,
     bool? appBarCenterTitle,
     OmniScreenMode? screenMode,
     OmniStatusBarStyle? statusBar,
@@ -1809,9 +2020,32 @@ class OmniTheme {
     shimmerHighlightColor: shimmerHighlightColor ?? this.shimmerHighlightColor,
     overlayColor: overlayColor ?? this.overlayColor,
     shadowColor: shadowColor ?? this.shadowColor,
+    tertiaryColor: tertiaryColor ?? this.tertiaryColor,
+    dialogColor: dialogColor ?? this.dialogColor,
+    bottomSheetColor: bottomSheetColor ?? this.bottomSheetColor,
+    drawerColor: drawerColor ?? this.drawerColor,
+    menuColor: menuColor ?? this.menuColor,
+    fabColor: fabColor ?? this.fabColor,
+    fabTextColor: fabTextColor ?? this.fabTextColor,
+    outlineButtonColor: outlineButtonColor ?? this.outlineButtonColor,
+    outlineButtonBorderColor:
+        outlineButtonBorderColor ?? this.outlineButtonBorderColor,
+    inputBorderColor: inputBorderColor ?? this.inputBorderColor,
+    cursorColor: cursorColor ?? this.cursorColor,
+    textSelectionColor: textSelectionColor ?? this.textSelectionColor,
+    progressColor: progressColor ?? this.progressColor,
+    progressTrackColor: progressTrackColor ?? this.progressTrackColor,
+    tabSelectedColor: tabSelectedColor ?? this.tabSelectedColor,
+    tabUnselectedColor: tabUnselectedColor ?? this.tabUnselectedColor,
+    switchThumbColor: switchThumbColor ?? this.switchThumbColor,
+    focusColor: focusColor ?? this.focusColor,
+    scrollbarColor: scrollbarColor ?? this.scrollbarColor,
+    navIndicatorColor: navIndicatorColor ?? this.navIndicatorColor,
     lightColors: lightColors ?? this.lightColors,
     darkColors: darkColors ?? this.darkColors,
     cardElevation: cardElevation ?? this.cardElevation,
+    buttonShape: buttonShape ?? this.buttonShape,
+    buttonRadius: buttonRadius ?? this.buttonRadius,
     appBarCenterTitle: appBarCenterTitle ?? this.appBarCenterTitle,
     screenMode: screenMode ?? this.screenMode,
     statusBar: statusBar ?? this.statusBar,
@@ -1947,6 +2181,27 @@ class OmniTheme {
       shimmerHighlightColor: p?.shimmerHighlightColor ?? shimmerHighlightColor,
       overlayColor: p?.overlayColor ?? overlayColor,
       shadowColor: p?.shadowColor ?? shadowColor,
+      tertiaryColor: p?.tertiaryColor ?? tertiaryColor,
+      dialogColor: p?.dialogColor ?? dialogColor,
+      bottomSheetColor: p?.bottomSheetColor ?? bottomSheetColor,
+      drawerColor: p?.drawerColor ?? drawerColor,
+      menuColor: p?.menuColor ?? menuColor,
+      fabColor: p?.fabColor ?? fabColor,
+      fabTextColor: p?.fabTextColor ?? fabTextColor,
+      outlineButtonColor: p?.outlineButtonColor ?? outlineButtonColor,
+      outlineButtonBorderColor:
+          p?.outlineButtonBorderColor ?? outlineButtonBorderColor,
+      inputBorderColor: p?.inputBorderColor ?? inputBorderColor,
+      cursorColor: p?.cursorColor ?? cursorColor,
+      textSelectionColor: p?.textSelectionColor ?? textSelectionColor,
+      progressColor: p?.progressColor ?? progressColor,
+      progressTrackColor: p?.progressTrackColor ?? progressTrackColor,
+      tabSelectedColor: p?.tabSelectedColor ?? tabSelectedColor,
+      tabUnselectedColor: p?.tabUnselectedColor ?? tabUnselectedColor,
+      switchThumbColor: p?.switchThumbColor ?? switchThumbColor,
+      focusColor: p?.focusColor ?? focusColor,
+      scrollbarColor: p?.scrollbarColor ?? scrollbarColor,
+      navIndicatorColor: p?.navIndicatorColor ?? navIndicatorColor,
       statusBarColor: p?.statusBarColor ?? statusBar?.resolveColor(brightness),
       systemNavigationBarColor:
           p?.systemNavigationBarColor ??
@@ -1978,7 +2233,6 @@ class OmniTheme {
       return true;
     }());
     final colors = resolveColors(brightness, highContrast: highContrast);
-    final isDark = brightness == Brightness.dark;
     final scheme = ColorScheme.fromSeed(
       seedColor: colors.primaryColor,
       brightness: brightness,
@@ -1993,6 +2247,32 @@ class OmniTheme {
       onSurfaceVariant: colors.secondaryTextColor,
       outline: colors.borderColor,
       outlineVariant: colors.dividerColor,
+      onSecondary: _onColor(colors.secondaryColor),
+      tertiary: colors.tertiaryColor,
+      onTertiary: _onColor(colors.tertiaryColor),
+      onError: _onColor(colors.errorColor),
+      // Material 3 widgets without an Omni theme of their own (search
+      // anchors, pickers, expansion panels, menus in third-party widgets)
+      // paint with these levels; derive them from the theme's own surfaces
+      // instead of the seed's tones so they never clash with a custom
+      // surface or card color.
+      surfaceContainerLowest: colors.cardColor,
+      surfaceContainerLow: Color.lerp(
+        colors.cardColor,
+        colors.secondaryBackgroundColor,
+        0.35,
+      ),
+      surfaceContainer: Color.lerp(
+        colors.cardColor,
+        colors.secondaryBackgroundColor,
+        0.65,
+      ),
+      surfaceContainerHigh: colors.secondaryBackgroundColor,
+      surfaceContainerHighest: colors.inputFillColor,
+      inverseSurface: colors.snackbarColor,
+      onInverseSurface: colors.snackbarTextColor,
+      shadow: colors.shadowColor,
+      scrim: colors.overlayColor,
     );
 
     final isDesktop =
@@ -2009,9 +2289,15 @@ class OmniTheme {
     final cardRadius = effRadius != null
         ? BorderRadius.all(Radius.circular(effRadius))
         : tokens.cardBorderRadius;
-    final buttonRadius = effRadius != null
+    final controlRadius = effRadius != null
         ? BorderRadius.all(Radius.circular(effRadius))
         : tokens.buttonBorderRadius;
+    final effButtonRadius = buttonRadius != null
+        ? BorderRadius.all(Radius.circular(buttonRadius!))
+        : controlRadius;
+    final buttonShape = effectiveButtonShape(
+      styleOverride,
+    ).toBorder(effButtonRadius);
     final dialogRadius = effRadius != null
         ? BorderRadius.all(Radius.circular(effRadius + 2))
         : tokens.dialogBorderRadius;
@@ -2027,7 +2313,8 @@ class OmniTheme {
       textStyles: textStyles,
       tokens: tokens,
       cardRadius: cardRadius,
-      buttonRadius: buttonRadius,
+      buttonRadius: controlRadius,
+      buttonShape: buttonShape,
       inputVariant: effInputVariant,
       borderWidth: effBorderWidth,
       focusedBorderWidth: effFocusedBorderWidth,
@@ -2050,6 +2337,18 @@ class OmniTheme {
       fallbackBottomBackground: colors.navBarColor,
     );
 
+    final menuStyle = MenuStyle(
+      backgroundColor: WidgetStatePropertyAll(colors.menuColor),
+      surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+      shadowColor: WidgetStatePropertyAll(colors.shadowColor),
+      shape: WidgetStatePropertyAll(
+        RoundedRectangleBorder(
+          borderRadius: controlRadius,
+          side: BorderSide(color: colors.dividerColor),
+        ),
+      ),
+    );
+
     final baseTheme = ThemeData(
       useMaterial3: useMaterial3,
       colorScheme: scheme,
@@ -2062,6 +2361,7 @@ class OmniTheme {
       highlightColor: colors.hoverColor,
       disabledColor: colors.disabledColor,
       shadowColor: colors.shadowColor,
+      focusColor: colors.focusColor,
       iconTheme: IconThemeData(color: colors.iconColor),
       dividerTheme: DividerThemeData(color: colors.dividerColor, thickness: 1),
       visualDensity: isDesktop ? VisualDensity.compact : VisualDensity.standard,
@@ -2096,16 +2396,17 @@ class OmniTheme {
         margin: EdgeInsets.zero,
       ),
       dialogTheme: DialogThemeData(
-        backgroundColor: colors.cardColor,
+        backgroundColor: colors.dialogColor,
         barrierColor: colors.overlayColor,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: dialogRadius),
       ),
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: colors.cardColor,
-        modalBackgroundColor: colors.cardColor,
+        backgroundColor: colors.bottomSheetColor,
+        modalBackgroundColor: colors.bottomSheetColor,
         modalBarrierColor: colors.overlayColor,
         surfaceTintColor: Colors.transparent,
+        dragHandleColor: colors.borderColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: dialogRadius.topLeft),
         ),
@@ -2113,7 +2414,7 @@ class OmniTheme {
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: colors.navBarColor,
         surfaceTintColor: Colors.transparent,
-        indicatorColor: colors.selectedItemColor,
+        indicatorColor: colors.navIndicatorColor,
         iconTheme: WidgetStateProperty.resolveWith(
           (states) => IconThemeData(
             color: states.contains(WidgetState.selected)
@@ -2134,7 +2435,7 @@ class OmniTheme {
       ),
       navigationRailTheme: NavigationRailThemeData(
         backgroundColor: colors.navBarColor,
-        indicatorColor: colors.selectedItemColor,
+        indicatorColor: colors.navIndicatorColor,
         selectedIconTheme: IconThemeData(color: colors.navSelectedColor),
         unselectedIconTheme: IconThemeData(color: colors.navUnselectedColor),
         selectedLabelTextStyle: textStyles.caption.copyWith(
@@ -2156,14 +2457,14 @@ class OmniTheme {
         side: effBorderWidth > 0
             ? BorderSide(color: colors.borderColor, width: effBorderWidth)
             : BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+        shape: RoundedRectangleBorder(borderRadius: controlRadius),
       ),
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.disabled)
               ? colors.disabledTextColor
               : states.contains(WidgetState.selected)
-              ? colors.buttonTextColor
+              ? colors.switchThumbColor
               : colors.switchInactiveColor,
         ),
         trackColor: WidgetStateProperty.resolveWith(
@@ -2173,7 +2474,15 @@ class OmniTheme {
               ? colors.switchActiveColor
               : colors.secondaryBackgroundColor,
         ),
-        trackOutlineColor: WidgetStatePropertyAll(colors.borderColor),
+        // No ring around a switched-on track (Material 3), so a custom
+        // switchActiveColor is not framed by the neutral border color.
+        trackOutlineColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.selected)
+              ? Colors.transparent
+              : states.contains(WidgetState.disabled)
+              ? colors.disabledBorderColor
+              : colors.borderColor,
+        ),
       ),
       checkboxTheme: CheckboxThemeData(
         fillColor: WidgetStateProperty.resolveWith(
@@ -2183,10 +2492,18 @@ class OmniTheme {
               ? colors.switchActiveColor
               : Colors.transparent,
         ),
-        checkColor: WidgetStatePropertyAll(colors.buttonTextColor),
-        side: BorderSide(
-          color: colors.borderColor,
-          width: effBorderWidth > 0 ? effBorderWidth : 1.5,
+        checkColor: WidgetStatePropertyAll(colors.switchThumbColor),
+        side: WidgetStateBorderSide.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.disabled)
+                ? colors.disabledBorderColor
+                : states.contains(WidgetState.error)
+                ? colors.errorColor
+                : states.contains(WidgetState.selected)
+                ? colors.switchActiveColor
+                : colors.borderColor,
+            width: effBorderWidth > 0 ? effBorderWidth : 1.5,
+          ),
         ),
       ),
       radioTheme: RadioThemeData(
@@ -2203,9 +2520,13 @@ class OmniTheme {
         contentTextStyle: textStyles.body.copyWith(
           color: colors.snackbarTextColor,
         ),
-        actionTextColor: isDark ? colors.primaryColor : colors.secondaryColor,
+        actionTextColor: _accentOn(colors.snackbarColor, [
+          colors.primaryColor,
+          scheme.inversePrimary,
+          colors.secondaryColor,
+        ]),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+        shape: RoundedRectangleBorder(borderRadius: controlRadius),
       ),
       tooltipTheme: TooltipThemeData(
         decoration: BoxDecoration(
@@ -2228,11 +2549,131 @@ class OmniTheme {
           disabledForegroundColor: colors.disabledTextColor,
           minimumSize: Size(0, tokens.minTapTarget),
           textStyle: textStyles.button,
-          shape: RoundedRectangleBorder(borderRadius: buttonRadius),
+          shape: buttonShape,
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(style: styles.outlineButton),
       textButtonTheme: TextButtonThemeData(style: styles.linkButton),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: colors.fabColor,
+        foregroundColor: colors.fabTextColor,
+        splashColor: colors.rippleColor,
+        focusColor: colors.focusColor,
+        hoverColor: colors.hoverColor,
+        shape: buttonShape,
+      ),
+      segmentedButtonTheme: SegmentedButtonThemeData(
+        style: SegmentedButton.styleFrom(
+          foregroundColor: colors.textColor,
+          selectedForegroundColor: colors.primaryColor,
+          selectedBackgroundColor: colors.navIndicatorColor,
+          disabledForegroundColor: colors.disabledTextColor,
+          side: BorderSide(
+            color: colors.outlineButtonBorderColor,
+            width: effBorderWidth > 0 ? effBorderWidth : 1.0,
+          ),
+          shape: buttonShape,
+        ),
+      ),
+      popupMenuTheme: PopupMenuThemeData(
+        color: colors.menuColor,
+        surfaceTintColor: Colors.transparent,
+        shadowColor: colors.shadowColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: controlRadius,
+          side: BorderSide(color: colors.dividerColor),
+        ),
+      ),
+      menuTheme: MenuThemeData(style: menuStyle),
+      dropdownMenuTheme: DropdownMenuThemeData(
+        inputDecorationTheme: styles.inputDecorationTheme,
+        menuStyle: menuStyle,
+      ),
+      drawerTheme: DrawerThemeData(
+        backgroundColor: colors.drawerColor,
+        surfaceTintColor: Colors.transparent,
+        scrimColor: colors.overlayColor,
+      ),
+      navigationDrawerTheme: NavigationDrawerThemeData(
+        backgroundColor: colors.drawerColor,
+        surfaceTintColor: Colors.transparent,
+        indicatorColor: colors.navIndicatorColor,
+        iconTheme: WidgetStateProperty.resolveWith(
+          (states) => IconThemeData(
+            color: states.contains(WidgetState.selected)
+                ? colors.navSelectedColor
+                : colors.navUnselectedColor,
+          ),
+        ),
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: colors.tabSelectedColor,
+        unselectedLabelColor: colors.tabUnselectedColor,
+        indicatorColor: colors.tabSelectedColor,
+        dividerColor: colors.dividerColor,
+      ),
+      progressIndicatorTheme: ProgressIndicatorThemeData(
+        color: colors.progressColor,
+        linearTrackColor: colors.progressTrackColor,
+      ),
+      sliderTheme: SliderThemeData(
+        activeTrackColor: colors.progressColor,
+        inactiveTrackColor: colors.progressTrackColor,
+        thumbColor: colors.progressColor,
+        overlayColor: colors.progressColor.withValues(alpha: 0.12),
+        disabledActiveTrackColor: colors.disabledTextColor,
+        disabledInactiveTrackColor: colors.disabledColor,
+        disabledThumbColor: colors.disabledTextColor,
+      ),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: colors.cursorColor,
+        selectionColor: colors.textSelectionColor,
+        selectionHandleColor: colors.cursorColor,
+      ),
+      scrollbarTheme: ScrollbarThemeData(
+        thumbColor: WidgetStatePropertyAll(colors.scrollbarColor),
+      ),
+      badgeTheme: BadgeThemeData(
+        backgroundColor: colors.badgeColor,
+        textColor: colors.badgeTextColor,
+      ),
+      datePickerTheme: DatePickerThemeData(
+        backgroundColor: colors.dialogColor,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(borderRadius: dialogRadius),
+      ),
+      timePickerTheme: TimePickerThemeData(
+        backgroundColor: colors.dialogColor,
+        shape: RoundedRectangleBorder(borderRadius: dialogRadius),
+      ),
+      searchBarTheme: SearchBarThemeData(
+        backgroundColor: WidgetStatePropertyAll(colors.inputFillColor),
+        surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        elevation: const WidgetStatePropertyAll(0),
+        side: WidgetStateProperty.resolveWith(
+          (states) => BorderSide(
+            color: states.contains(WidgetState.focused)
+                ? colors.focusedBorderColor
+                : colors.inputBorderColor,
+            width: effBorderWidth > 0 ? effBorderWidth : 1.0,
+          ),
+        ),
+      ),
+      searchViewTheme: SearchViewThemeData(
+        backgroundColor: colors.menuColor,
+        surfaceTintColor: Colors.transparent,
+        dividerColor: colors.dividerColor,
+      ),
+      bottomAppBarTheme: BottomAppBarThemeData(
+        color: colors.navBarColor,
+        surfaceTintColor: Colors.transparent,
+      ),
+      expansionTileTheme: ExpansionTileThemeData(
+        iconColor: colors.primaryColor,
+        collapsedIconColor: colors.iconColor,
+        textColor: colors.textColor,
+        collapsedTextColor: colors.textColor,
+      ),
       extensions: <ThemeExtension<dynamic>>[
         colors,
         textStyles,
@@ -2341,9 +2782,31 @@ class OmniTheme {
           shimmerHighlightColor == other.shimmerHighlightColor &&
           overlayColor == other.overlayColor &&
           shadowColor == other.shadowColor &&
+          tertiaryColor == other.tertiaryColor &&
+          dialogColor == other.dialogColor &&
+          bottomSheetColor == other.bottomSheetColor &&
+          drawerColor == other.drawerColor &&
+          menuColor == other.menuColor &&
+          fabColor == other.fabColor &&
+          fabTextColor == other.fabTextColor &&
+          outlineButtonColor == other.outlineButtonColor &&
+          outlineButtonBorderColor == other.outlineButtonBorderColor &&
+          inputBorderColor == other.inputBorderColor &&
+          cursorColor == other.cursorColor &&
+          textSelectionColor == other.textSelectionColor &&
+          progressColor == other.progressColor &&
+          progressTrackColor == other.progressTrackColor &&
+          tabSelectedColor == other.tabSelectedColor &&
+          tabUnselectedColor == other.tabUnselectedColor &&
+          switchThumbColor == other.switchThumbColor &&
+          focusColor == other.focusColor &&
+          scrollbarColor == other.scrollbarColor &&
+          navIndicatorColor == other.navIndicatorColor &&
           lightColors == other.lightColors &&
           darkColors == other.darkColors &&
           cardElevation == other.cardElevation &&
+          buttonShape == other.buttonShape &&
+          buttonRadius == other.buttonRadius &&
           appBarCenterTitle == other.appBarCenterTitle &&
           screenMode == other.screenMode &&
           statusBar == other.statusBar &&
@@ -2430,9 +2893,31 @@ class OmniTheme {
     shimmerHighlightColor,
     overlayColor,
     shadowColor,
+    tertiaryColor,
+    dialogColor,
+    bottomSheetColor,
+    drawerColor,
+    menuColor,
+    fabColor,
+    fabTextColor,
+    outlineButtonColor,
+    outlineButtonBorderColor,
+    inputBorderColor,
+    cursorColor,
+    textSelectionColor,
+    progressColor,
+    progressTrackColor,
+    tabSelectedColor,
+    tabUnselectedColor,
+    switchThumbColor,
+    focusColor,
+    scrollbarColor,
+    navIndicatorColor,
     lightColors,
     darkColors,
     cardElevation,
+    buttonShape,
+    buttonRadius,
     appBarCenterTitle,
     screenMode,
     statusBar,
@@ -4191,3 +4676,25 @@ String _lightLabel(BuildContext c) =>
     _themeLabel(c, en: 'Light', bn: 'লাইট', ar: 'فاتح', hi: 'लाइट');
 String _darkLabel(BuildContext c) =>
     _themeLabel(c, en: 'Dark', bn: 'ডার্ক', ar: 'داكن', hi: 'डार्क');
+
+/// White or near-black, whichever reads better on [background].
+Color _onColor(Color background) {
+  const dark = Color(0xFF0F172A);
+  return _contrast(Colors.white, background) >= _contrast(dark, background)
+      ? Colors.white
+      : dark;
+}
+
+/// The first of [candidates] readable on [background] (3:1), else a neutral.
+Color _accentOn(Color background, List<Color> candidates) {
+  for (final c in candidates) {
+    if (_contrast(c, background) >= 3) return c;
+  }
+  return _onColor(background);
+}
+
+double _contrast(Color a, Color b) {
+  final la = a.computeLuminance();
+  final lb = b.computeLuminance();
+  return (math.max(la, lb) + 0.05) / (math.min(la, lb) + 0.05);
+}

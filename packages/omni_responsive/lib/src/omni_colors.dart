@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৫৫টি সেমান্টিক কালার প্যালেট (`context.colors`)।
+/// ডেভেলপার-বান্ধব, পিওর নামে সহজে বোধগম্য ৭৫টি সেমান্টিক কালার প্যালেট (`context.colors`)।
 ///
 /// Material-এর জটিল নাম (`onPrimaryContainer`, `surfaceContainerHigh`,
 /// `outlineVariant`) মুখস্থ করার বদলে সরাসরি অর্থপূর্ণ নামে সব রঙ ব্যবহার করুন।
@@ -68,6 +68,26 @@ class OmniColors extends ThemeExtension<OmniColors> {
     required this.shimmerHighlightColor,
     required this.overlayColor,
     required this.shadowColor,
+    required this.tertiaryColor,
+    required this.dialogColor,
+    required this.bottomSheetColor,
+    required this.drawerColor,
+    required this.menuColor,
+    required this.fabColor,
+    required this.fabTextColor,
+    required this.outlineButtonColor,
+    required this.outlineButtonBorderColor,
+    required this.inputBorderColor,
+    required this.cursorColor,
+    required this.textSelectionColor,
+    required this.progressColor,
+    required this.progressTrackColor,
+    required this.tabSelectedColor,
+    required this.tabUnselectedColor,
+    required this.switchThumbColor,
+    required this.focusColor,
+    required this.scrollbarColor,
+    required this.navIndicatorColor,
   });
 
   /// ব্র্যান্ডের প্রধান প্রাইমারি কালার।
@@ -415,6 +435,126 @@ class OmniColors extends ThemeExtension<OmniColors> {
   /// **কী কাজে লাগে:** লাইট মোডে হালকা ও ডার্ক মোডে গভীর এলিভেশন তৈরি করতে।
   final Color shadowColor;
 
+  /// তৃতীয় অ্যাকসেন্ট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** চার্ট, ট্যাগ, তৃতীয় হাইলাইট ও ক্যাটাগরি রঙ।
+  /// **কী কাজে লাগে:** প্রাইমারি ও সেকেন্ডারির পাশে তৃতীয় একটি মানানসই অ্যাকসেন্ট দিতে।
+  final Color tertiaryColor;
+
+  /// ডায়ালগের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `AlertDialog`, `Dialog`, `DatePicker` ও `TimePicker`-এর ব্যাকগ্রাউন্ড।
+  /// **কী কাজে লাগে:** কার্ড থেকে আলাদা রঙে ডায়ালগ দেখাতে (না দিলে `cardColor`)।
+  final Color dialogColor;
+
+  /// বটমশিটের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `showModalBottomSheet` ও `BottomSheet`-এর ব্যাকগ্রাউন্ড।
+  /// **কী কাজে লাগে:** বটমশিটকে আলাদা রঙ দিতে (না দিলে `cardColor`)।
+  final Color bottomSheetColor;
+
+  /// ড্রয়ারের ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `Drawer` ও `NavigationDrawer`-এর ব্যাকগ্রাউন্ড।
+  /// **কী কাজে লাগে:** সাইড মেনুকে আলাদা রঙ দিতে (না দিলে `cardColor`)।
+  final Color drawerColor;
+
+  /// পপআপ ও ড্রপডাউন মেনুর ব্যাকগ্রাউন্ড কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `PopupMenuButton`, `DropdownMenu`, `MenuAnchor` ও অটোকমপ্লিট লিস্টের ব্যাকগ্রাউন্ড।
+  /// **কী কাজে লাগে:** ভাসমান মেনুগুলোকে থিমের সাথে মেলাতে (না দিলে `cardColor`)।
+  final Color menuColor;
+
+  /// ফ্লোটিং অ্যাকশন বাটনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `FloatingActionButton`-এর ব্যাকগ্রাউন্ড।
+  /// **কী কাজে লাগে:** ভাসমান মূল বাটনকে আলাদা রঙ দিতে (না দিলে `buttonColor`)।
+  final Color fabColor;
+
+  /// ফ্লোটিং অ্যাকশন বাটনের আইকন ও লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `FloatingActionButton`-এর আইকন ও লেখা।
+  /// **কী কাজে লাগে:** FAB-এর ওপর পড়ার মতো রঙ দিতে (না দিলে স্বয়ংক্রিয়ভাবে পাঠযোগ্য রঙ)।
+  final Color fabTextColor;
+
+  /// আউটলাইন বাটনের লেখা ও আইকনের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `OutlinedButton`-এর লেখা ও আইকন।
+  /// **কী কাজে লাগে:** আউটলাইন বাটনকে প্রাইমারি থেকে আলাদা রঙ দিতে (না দিলে `primaryColor`)।
+  final Color outlineButtonColor;
+
+  /// আউটলাইন বাটনের বর্ডার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `OutlinedButton`-এর চারপাশের বর্ডার।
+  /// **কী কাজে লাগে:** আউটলাইন বাটনের বর্ডার আলাদা করতে (না দিলে `borderColor`)।
+  final Color outlineButtonBorderColor;
+
+  /// টেক্সট ফিল্ডের বর্ডার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `TextField`, `TextFormField`, `DropdownMenu` ও সব Omni ফিল্ডের সাধারণ বর্ডার।
+  /// **কী কাজে লাগে:** ইনপুটের বর্ডারকে কার্ডের বর্ডার থেকে আলাদা করতে (না দিলে `borderColor`)।
+  final Color inputBorderColor;
+
+  /// টেক্সট কার্সর ও সিলেকশন হ্যান্ডেলের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** টেক্সট ফিল্ডের কার্সর ও সিলেকশন হ্যান্ডেল।
+  /// **কী কাজে লাগে:** লেখার সময় কার্সর থিমের সাথে মেলাতে (না দিলে `focusedBorderColor`)।
+  final Color cursorColor;
+
+  /// সিলেক্ট করা লেখার হাইলাইট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** টেক্সট ফিল্ড ও `SelectableText`-এ সিলেক্ট করা লেখার পেছনের হাইলাইট।
+  /// **কী কাজে লাগে:** সিলেক্ট করা অংশ স্পষ্ট কিন্তু পড়ার মতো রাখতে।
+  final Color textSelectionColor;
+
+  /// প্রগ্রেস বার ও স্লাইডারের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `LinearProgressIndicator`, `CircularProgressIndicator` ও `Slider`-এর সক্রিয় অংশ।
+  /// **কী কাজে লাগে:** লোডিং ও অগ্রগতি থিমের সাথে মেলাতে (না দিলে `primaryColor`)।
+  final Color progressColor;
+
+  /// প্রগ্রেস বার ও স্লাইডারের খালি ট্র্যাক কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** প্রগ্রেস বার ও `Slider`-এর বাকি (খালি) ট্র্যাক।
+  /// **কী কাজে লাগে:** অগ্রগতির পেছনের অংশ নরম রাখতে।
+  final Color progressTrackColor;
+
+  /// সিলেক্ট করা ট্যাবের লেখা ও ইন্ডিকেটর কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `TabBar`-এ সিলেক্ট করা ট্যাবের লেখা ও নিচের ইন্ডিকেটর।
+  /// **কী কাজে লাগে:** সক্রিয় ট্যাব স্পষ্ট করতে (না দিলে `primaryColor`)।
+  final Color tabSelectedColor;
+
+  /// আন-সিলেক্টেড ট্যাবের লেখার কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `TabBar`-এ অন্য ট্যাবগুলোর লেখা ও আইকন।
+  /// **কী কাজে লাগে:** অসক্রিয় ট্যাব হালকা রাখতে (না দিলে `secondaryTextColor`)।
+  final Color tabUnselectedColor;
+
+  /// চালু সুইচের থাম্ব ও চেকবক্সের টিকের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** চালু `Switch`-এর গোল থাম্ব ও `Checkbox`-এর টিক চিহ্ন।
+  /// **কী কাজে লাগে:** `switchActiveColor`-এর ওপর সবসময় দেখা যায় এমন রঙ দিতে (না দিলে স্বয়ংক্রিয়)।
+  final Color switchThumbColor;
+
+  /// কিবোর্ড ফোকাস হাইলাইট কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** কিবোর্ড/রিমোট দিয়ে ফোকাস করা বাটন, টাইল ও লিংকের হাইলাইট।
+  /// **কী কাজে লাগে:** কিবোর্ড ও টিভি ব্যবহারকারীদের জন্য ফোকাস স্পষ্ট করতে।
+  final Color focusColor;
+
+  /// স্ক্রলবারের কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `Scrollbar` ও ডেস্কটপ/ওয়েবের স্ক্রলবার থাম্ব।
+  /// **কী কাজে লাগে:** স্ক্রলবারকে থিমের সাথে মেলাতে।
+  final Color scrollbarColor;
+
+  /// নেভিগেশনে সিলেক্ট করা আইটেমের পেছনের পিল কালার।
+  ///
+  /// **কোথায় ব্যবহার হয়:** `NavigationBar`, `NavigationRail` ও `NavigationDrawer`-এ সিলেক্ট করা আইটেমের পেছনের পিল।
+  /// **কী কাজে লাগে:** সক্রিয় ট্যাব চিহ্নিত করতে।
+  final Color navIndicatorColor;
+
   /// [Brightness.light] মোডের জন্য সরাসরি কাস্টম [OmniColors] তৈরি করে।
   ///
   /// যেকোনো রঙ না দিলে সুন্দর ডিফল্ট লাইট প্যালেট স্বয়ংক্রিয়ভাবে তৈরি হয়।
@@ -474,6 +614,26 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? shimmerHighlightColor,
     Color? overlayColor,
     Color? shadowColor,
+    Color? tertiaryColor,
+    Color? dialogColor,
+    Color? bottomSheetColor,
+    Color? drawerColor,
+    Color? menuColor,
+    Color? fabColor,
+    Color? fabTextColor,
+    Color? outlineButtonColor,
+    Color? outlineButtonBorderColor,
+    Color? inputBorderColor,
+    Color? cursorColor,
+    Color? textSelectionColor,
+    Color? progressColor,
+    Color? progressTrackColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? switchThumbColor,
+    Color? focusColor,
+    Color? scrollbarColor,
+    Color? navIndicatorColor,
   }) => OmniColors.fromSeed(
     primaryColor: primaryColor,
     brightness: Brightness.light,
@@ -531,6 +691,26 @@ class OmniColors extends ThemeExtension<OmniColors> {
     shimmerHighlightColor: shimmerHighlightColor,
     overlayColor: overlayColor,
     shadowColor: shadowColor,
+    tertiaryColor: tertiaryColor,
+    dialogColor: dialogColor,
+    bottomSheetColor: bottomSheetColor,
+    drawerColor: drawerColor,
+    menuColor: menuColor,
+    fabColor: fabColor,
+    fabTextColor: fabTextColor,
+    outlineButtonColor: outlineButtonColor,
+    outlineButtonBorderColor: outlineButtonBorderColor,
+    inputBorderColor: inputBorderColor,
+    cursorColor: cursorColor,
+    textSelectionColor: textSelectionColor,
+    progressColor: progressColor,
+    progressTrackColor: progressTrackColor,
+    tabSelectedColor: tabSelectedColor,
+    tabUnselectedColor: tabUnselectedColor,
+    switchThumbColor: switchThumbColor,
+    focusColor: focusColor,
+    scrollbarColor: scrollbarColor,
+    navIndicatorColor: navIndicatorColor,
   );
 
   /// [Brightness.dark] মোডের জন্য সরাসরি কাস্টম [OmniColors] তৈরি করে।
@@ -592,6 +772,26 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? shimmerHighlightColor,
     Color? overlayColor,
     Color? shadowColor,
+    Color? tertiaryColor,
+    Color? dialogColor,
+    Color? bottomSheetColor,
+    Color? drawerColor,
+    Color? menuColor,
+    Color? fabColor,
+    Color? fabTextColor,
+    Color? outlineButtonColor,
+    Color? outlineButtonBorderColor,
+    Color? inputBorderColor,
+    Color? cursorColor,
+    Color? textSelectionColor,
+    Color? progressColor,
+    Color? progressTrackColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? switchThumbColor,
+    Color? focusColor,
+    Color? scrollbarColor,
+    Color? navIndicatorColor,
   }) => OmniColors.fromSeed(
     primaryColor: primaryColor,
     brightness: Brightness.dark,
@@ -649,9 +849,29 @@ class OmniColors extends ThemeExtension<OmniColors> {
     shimmerHighlightColor: shimmerHighlightColor,
     overlayColor: overlayColor,
     shadowColor: shadowColor,
+    tertiaryColor: tertiaryColor,
+    dialogColor: dialogColor,
+    bottomSheetColor: bottomSheetColor,
+    drawerColor: drawerColor,
+    menuColor: menuColor,
+    fabColor: fabColor,
+    fabTextColor: fabTextColor,
+    outlineButtonColor: outlineButtonColor,
+    outlineButtonBorderColor: outlineButtonBorderColor,
+    inputBorderColor: inputBorderColor,
+    cursorColor: cursorColor,
+    textSelectionColor: textSelectionColor,
+    progressColor: progressColor,
+    progressTrackColor: progressTrackColor,
+    tabSelectedColor: tabSelectedColor,
+    tabUnselectedColor: tabUnselectedColor,
+    switchThumbColor: switchThumbColor,
+    focusColor: focusColor,
+    scrollbarColor: scrollbarColor,
+    navIndicatorColor: navIndicatorColor,
   );
 
-  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৫৫টি কালার
+  /// একটি [primaryColor] ও [brightness] থেকে স্বয়ংক্রিয়ভাবে সুষম ৭৫টি কালার
   /// তৈরি করে; চাইলে যেকোনো রঙ আলাদা করে ওভাররাইডও করা যায়।
   factory OmniColors.fromSeed({
     required Color primaryColor,
@@ -712,6 +932,26 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? shimmerHighlightColor,
     Color? overlayColor,
     Color? shadowColor,
+    Color? tertiaryColor,
+    Color? dialogColor,
+    Color? bottomSheetColor,
+    Color? drawerColor,
+    Color? menuColor,
+    Color? fabColor,
+    Color? fabTextColor,
+    Color? outlineButtonColor,
+    Color? outlineButtonBorderColor,
+    Color? inputBorderColor,
+    Color? cursorColor,
+    Color? textSelectionColor,
+    Color? progressColor,
+    Color? progressTrackColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? switchThumbColor,
+    Color? focusColor,
+    Color? scrollbarColor,
+    Color? navIndicatorColor,
   }) {
     final scheme = ColorScheme.fromSeed(
       seedColor: primaryColor,
@@ -761,6 +1001,12 @@ class OmniColors extends ThemeExtension<OmniColors> {
     final resolvedChip =
         chipColor ?? resolvedPrimary.withValues(alpha: isDark ? 0.18 : 0.10);
     final resolvedBadge = badgeColor ?? resolvedError;
+    final resolvedBorder =
+        borderColor ??
+        (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1));
+    final resolvedFocusedBorder = focusedBorderColor ?? resolvedPrimary;
+    final resolvedSwitchActive = switchActiveColor ?? resolvedPrimary;
+    final resolvedFab = fabColor ?? resolvedButton;
 
     return OmniColors(
       primaryColor: resolvedPrimary,
@@ -785,10 +1031,8 @@ class OmniColors extends ThemeExtension<OmniColors> {
       inputFillColor:
           inputFillColor ??
           (isDark ? const Color(0xFF1B263B) : const Color(0xFFF1F5F9)),
-      borderColor:
-          borderColor ??
-          (isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1)),
-      focusedBorderColor: focusedBorderColor ?? resolvedPrimary,
+      borderColor: resolvedBorder,
+      focusedBorderColor: resolvedFocusedBorder,
       dividerColor:
           dividerColor ??
           (isDark ? const Color(0xFF1E293B) : const Color(0xFFE2E8F0)),
@@ -821,7 +1065,7 @@ class OmniColors extends ThemeExtension<OmniColors> {
       disabledBorderColor:
           disabledBorderColor ??
           (isDark ? const Color(0xFF283548) : const Color(0xFFCBD5E1)),
-      switchActiveColor: switchActiveColor ?? resolvedPrimary,
+      switchActiveColor: resolvedSwitchActive,
       switchInactiveColor:
           switchInactiveColor ??
           (isDark ? const Color(0xFF64748B) : const Color(0xFF94A3B8)),
@@ -860,6 +1104,36 @@ class OmniColors extends ThemeExtension<OmniColors> {
           overlayColor ?? Colors.black.withValues(alpha: isDark ? 0.65 : 0.45),
       shadowColor:
           shadowColor ?? Colors.black.withValues(alpha: isDark ? 0.35 : 0.08),
+      tertiaryColor: tertiaryColor ?? scheme.tertiary,
+      dialogColor: dialogColor ?? resolvedCard,
+      bottomSheetColor: bottomSheetColor ?? resolvedCard,
+      drawerColor: drawerColor ?? resolvedCard,
+      menuColor: menuColor ?? resolvedCard,
+      fabColor: resolvedFab,
+      fabTextColor:
+          fabTextColor ??
+          (fabColor == null ? resolvedButtonText : _readableOn(resolvedFab)),
+      outlineButtonColor: outlineButtonColor ?? resolvedPrimary,
+      outlineButtonBorderColor: outlineButtonBorderColor ?? resolvedBorder,
+      inputBorderColor: inputBorderColor ?? resolvedBorder,
+      cursorColor: cursorColor ?? resolvedFocusedBorder,
+      textSelectionColor:
+          textSelectionColor ??
+          resolvedPrimary.withValues(alpha: isDark ? 0.40 : 0.28),
+      progressColor: progressColor ?? resolvedPrimary,
+      progressTrackColor:
+          progressTrackColor ??
+          resolvedPrimary.withValues(alpha: isDark ? 0.24 : 0.16),
+      tabSelectedColor: tabSelectedColor ?? resolvedPrimary,
+      tabUnselectedColor: tabUnselectedColor ?? resolvedSecondaryText,
+      switchThumbColor: switchThumbColor ?? _readableOn(resolvedSwitchActive),
+      focusColor:
+          focusColor ?? resolvedPrimary.withValues(alpha: isDark ? 0.18 : 0.12),
+      scrollbarColor:
+          scrollbarColor ?? resolvedSecondaryText.withValues(alpha: 0.45),
+      navIndicatorColor:
+          navIndicatorColor ??
+          resolvedPrimary.withValues(alpha: isDark ? 0.22 : 0.14),
     );
   }
 
@@ -933,6 +1207,26 @@ class OmniColors extends ThemeExtension<OmniColors> {
     Color? shimmerHighlightColor,
     Color? overlayColor,
     Color? shadowColor,
+    Color? tertiaryColor,
+    Color? dialogColor,
+    Color? bottomSheetColor,
+    Color? drawerColor,
+    Color? menuColor,
+    Color? fabColor,
+    Color? fabTextColor,
+    Color? outlineButtonColor,
+    Color? outlineButtonBorderColor,
+    Color? inputBorderColor,
+    Color? cursorColor,
+    Color? textSelectionColor,
+    Color? progressColor,
+    Color? progressTrackColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? switchThumbColor,
+    Color? focusColor,
+    Color? scrollbarColor,
+    Color? navIndicatorColor,
   }) => OmniColors(
     primaryColor: primaryColor ?? this.primaryColor,
     secondaryColor: secondaryColor ?? this.secondaryColor,
@@ -994,6 +1288,27 @@ class OmniColors extends ThemeExtension<OmniColors> {
     shimmerHighlightColor: shimmerHighlightColor ?? this.shimmerHighlightColor,
     overlayColor: overlayColor ?? this.overlayColor,
     shadowColor: shadowColor ?? this.shadowColor,
+    tertiaryColor: tertiaryColor ?? this.tertiaryColor,
+    dialogColor: dialogColor ?? this.dialogColor,
+    bottomSheetColor: bottomSheetColor ?? this.bottomSheetColor,
+    drawerColor: drawerColor ?? this.drawerColor,
+    menuColor: menuColor ?? this.menuColor,
+    fabColor: fabColor ?? this.fabColor,
+    fabTextColor: fabTextColor ?? this.fabTextColor,
+    outlineButtonColor: outlineButtonColor ?? this.outlineButtonColor,
+    outlineButtonBorderColor:
+        outlineButtonBorderColor ?? this.outlineButtonBorderColor,
+    inputBorderColor: inputBorderColor ?? this.inputBorderColor,
+    cursorColor: cursorColor ?? this.cursorColor,
+    textSelectionColor: textSelectionColor ?? this.textSelectionColor,
+    progressColor: progressColor ?? this.progressColor,
+    progressTrackColor: progressTrackColor ?? this.progressTrackColor,
+    tabSelectedColor: tabSelectedColor ?? this.tabSelectedColor,
+    tabUnselectedColor: tabUnselectedColor ?? this.tabUnselectedColor,
+    switchThumbColor: switchThumbColor ?? this.switchThumbColor,
+    focusColor: focusColor ?? this.focusColor,
+    scrollbarColor: scrollbarColor ?? this.scrollbarColor,
+    navIndicatorColor: navIndicatorColor ?? this.navIndicatorColor,
   );
 
   @override
@@ -1147,6 +1462,66 @@ class OmniColors extends ThemeExtension<OmniColors> {
       )!,
       overlayColor: Color.lerp(overlayColor, other.overlayColor, t)!,
       shadowColor: Color.lerp(shadowColor, other.shadowColor, t)!,
+      tertiaryColor: Color.lerp(tertiaryColor, other.tertiaryColor, t)!,
+      dialogColor: Color.lerp(dialogColor, other.dialogColor, t)!,
+      bottomSheetColor: Color.lerp(
+        bottomSheetColor,
+        other.bottomSheetColor,
+        t,
+      )!,
+      drawerColor: Color.lerp(drawerColor, other.drawerColor, t)!,
+      menuColor: Color.lerp(menuColor, other.menuColor, t)!,
+      fabColor: Color.lerp(fabColor, other.fabColor, t)!,
+      fabTextColor: Color.lerp(fabTextColor, other.fabTextColor, t)!,
+      outlineButtonColor: Color.lerp(
+        outlineButtonColor,
+        other.outlineButtonColor,
+        t,
+      )!,
+      outlineButtonBorderColor: Color.lerp(
+        outlineButtonBorderColor,
+        other.outlineButtonBorderColor,
+        t,
+      )!,
+      inputBorderColor: Color.lerp(
+        inputBorderColor,
+        other.inputBorderColor,
+        t,
+      )!,
+      cursorColor: Color.lerp(cursorColor, other.cursorColor, t)!,
+      textSelectionColor: Color.lerp(
+        textSelectionColor,
+        other.textSelectionColor,
+        t,
+      )!,
+      progressColor: Color.lerp(progressColor, other.progressColor, t)!,
+      progressTrackColor: Color.lerp(
+        progressTrackColor,
+        other.progressTrackColor,
+        t,
+      )!,
+      tabSelectedColor: Color.lerp(
+        tabSelectedColor,
+        other.tabSelectedColor,
+        t,
+      )!,
+      tabUnselectedColor: Color.lerp(
+        tabUnselectedColor,
+        other.tabUnselectedColor,
+        t,
+      )!,
+      switchThumbColor: Color.lerp(
+        switchThumbColor,
+        other.switchThumbColor,
+        t,
+      )!,
+      focusColor: Color.lerp(focusColor, other.focusColor, t)!,
+      scrollbarColor: Color.lerp(scrollbarColor, other.scrollbarColor, t)!,
+      navIndicatorColor: Color.lerp(
+        navIndicatorColor,
+        other.navIndicatorColor,
+        t,
+      )!,
     );
   }
 
@@ -1208,7 +1583,27 @@ class OmniColors extends ThemeExtension<OmniColors> {
           shimmerBaseColor == other.shimmerBaseColor &&
           shimmerHighlightColor == other.shimmerHighlightColor &&
           overlayColor == other.overlayColor &&
-          shadowColor == other.shadowColor;
+          shadowColor == other.shadowColor &&
+          tertiaryColor == other.tertiaryColor &&
+          dialogColor == other.dialogColor &&
+          bottomSheetColor == other.bottomSheetColor &&
+          drawerColor == other.drawerColor &&
+          menuColor == other.menuColor &&
+          fabColor == other.fabColor &&
+          fabTextColor == other.fabTextColor &&
+          outlineButtonColor == other.outlineButtonColor &&
+          outlineButtonBorderColor == other.outlineButtonBorderColor &&
+          inputBorderColor == other.inputBorderColor &&
+          cursorColor == other.cursorColor &&
+          textSelectionColor == other.textSelectionColor &&
+          progressColor == other.progressColor &&
+          progressTrackColor == other.progressTrackColor &&
+          tabSelectedColor == other.tabSelectedColor &&
+          tabUnselectedColor == other.tabUnselectedColor &&
+          switchThumbColor == other.switchThumbColor &&
+          focusColor == other.focusColor &&
+          scrollbarColor == other.scrollbarColor &&
+          navIndicatorColor == other.navIndicatorColor;
 
   @override
   int get hashCode => Object.hashAll([
@@ -1267,13 +1662,33 @@ class OmniColors extends ThemeExtension<OmniColors> {
     shimmerHighlightColor,
     overlayColor,
     shadowColor,
+    tertiaryColor,
+    dialogColor,
+    bottomSheetColor,
+    drawerColor,
+    menuColor,
+    fabColor,
+    fabTextColor,
+    outlineButtonColor,
+    outlineButtonBorderColor,
+    inputBorderColor,
+    cursorColor,
+    textSelectionColor,
+    progressColor,
+    progressTrackColor,
+    tabSelectedColor,
+    tabUnselectedColor,
+    switchThumbColor,
+    focusColor,
+    scrollbarColor,
+    navIndicatorColor,
   ]);
 }
 
 /// যেকোনো `OmniTheme` প্যালেটে **লাইট মোড** ও **ডার্ক মোড**-এর জন্য আলাদা রঙ
 /// যোগ করার `const`-বান্ধব ঐচ্ছিক কালার প্যালেট (`OmniTheme(light: ..., dark: ...)`).
 ///
-/// ৫৫টি রঙের সবগুলো দেওয়ার প্রয়োজন নেই — শুধু যে রঙগুলো নির্দিষ্ট মোডে বদলাতে
+/// ৭৫টি রঙের সবগুলো দেওয়ার প্রয়োজন নেই — শুধু যে রঙগুলো নির্দিষ্ট মোডে বদলাতে
 /// চান সেগুলো দিলেই বাকি রঙগুলো `seedColor` ও মোড অনুযায়ী স্বয়ংক্রিয়ভাবে তৈরি হবে।
 @immutable
 class OmniColorPalette {
@@ -1334,6 +1749,26 @@ class OmniColorPalette {
     this.shimmerHighlightColor,
     this.overlayColor,
     this.shadowColor,
+    this.tertiaryColor,
+    this.dialogColor,
+    this.bottomSheetColor,
+    this.drawerColor,
+    this.menuColor,
+    this.fabColor,
+    this.fabTextColor,
+    this.outlineButtonColor,
+    this.outlineButtonBorderColor,
+    this.inputBorderColor,
+    this.cursorColor,
+    this.textSelectionColor,
+    this.progressColor,
+    this.progressTrackColor,
+    this.tabSelectedColor,
+    this.tabUnselectedColor,
+    this.switchThumbColor,
+    this.focusColor,
+    this.scrollbarColor,
+    this.navIndicatorColor,
   });
 
   /// ব্র্যান্ডের প্রধান প্রাইমারি কালার (এই মোডের জন্য)।
@@ -1501,7 +1936,67 @@ class OmniColorPalette {
   /// কার্ড ও ফ্লোটিং বক্সের শ্যাডো কালার।
   final Color? shadowColor;
 
-  /// প্রদত্ত [brightness] ও [seedColor] মিলিয়ে পূর্ণাঙ্গ ৫৫টি [OmniColors] তৈরি করে।
+  /// তৃতীয় অ্যাকসেন্ট কালার।
+  final Color? tertiaryColor;
+
+  /// ডায়ালগের ব্যাকগ্রাউন্ড কালার।
+  final Color? dialogColor;
+
+  /// বটমশিটের ব্যাকগ্রাউন্ড কালার।
+  final Color? bottomSheetColor;
+
+  /// ড্রয়ারের ব্যাকগ্রাউন্ড কালার।
+  final Color? drawerColor;
+
+  /// পপআপ ও ড্রপডাউন মেনুর ব্যাকগ্রাউন্ড কালার।
+  final Color? menuColor;
+
+  /// ফ্লোটিং অ্যাকশন বাটনের কালার।
+  final Color? fabColor;
+
+  /// ফ্লোটিং অ্যাকশন বাটনের আইকন ও লেখার কালার।
+  final Color? fabTextColor;
+
+  /// আউটলাইন বাটনের লেখা ও আইকনের কালার।
+  final Color? outlineButtonColor;
+
+  /// আউটলাইন বাটনের বর্ডার কালার।
+  final Color? outlineButtonBorderColor;
+
+  /// টেক্সট ফিল্ডের বর্ডার কালার।
+  final Color? inputBorderColor;
+
+  /// টেক্সট কার্সর ও সিলেকশন হ্যান্ডেলের কালার।
+  final Color? cursorColor;
+
+  /// সিলেক্ট করা লেখার হাইলাইট কালার।
+  final Color? textSelectionColor;
+
+  /// প্রগ্রেস বার ও স্লাইডারের কালার।
+  final Color? progressColor;
+
+  /// প্রগ্রেস বার ও স্লাইডারের খালি ট্র্যাক কালার।
+  final Color? progressTrackColor;
+
+  /// সিলেক্ট করা ট্যাবের লেখা ও ইন্ডিকেটর কালার।
+  final Color? tabSelectedColor;
+
+  /// আন-সিলেক্টেড ট্যাবের লেখার কালার।
+  final Color? tabUnselectedColor;
+
+  /// চালু সুইচের থাম্ব ও চেকবক্সের টিকের কালার।
+  final Color? switchThumbColor;
+
+  /// কিবোর্ড ফোকাস হাইলাইট কালার।
+  final Color? focusColor;
+
+  /// স্ক্রলবারের কালার।
+  final Color? scrollbarColor;
+
+  /// নেভিগেশনে সিলেক্ট করা আইটেমের পেছনের পিল কালার।
+  final Color? navIndicatorColor;
+
+  /// প্রদত্ত [brightness] ও [seedColor] মিলিয়ে পূর্ণাঙ্গ ৭৫টি [OmniColors] তৈরি করে।
   OmniColors toColors({
     required Brightness brightness,
     Color seedColor = const Color(0xFF2563EB),
@@ -1563,6 +2058,26 @@ class OmniColorPalette {
     shimmerHighlightColor: shimmerHighlightColor,
     overlayColor: overlayColor,
     shadowColor: shadowColor,
+    tertiaryColor: tertiaryColor,
+    dialogColor: dialogColor,
+    bottomSheetColor: bottomSheetColor,
+    drawerColor: drawerColor,
+    menuColor: menuColor,
+    fabColor: fabColor,
+    fabTextColor: fabTextColor,
+    outlineButtonColor: outlineButtonColor,
+    outlineButtonBorderColor: outlineButtonBorderColor,
+    inputBorderColor: inputBorderColor,
+    cursorColor: cursorColor,
+    textSelectionColor: textSelectionColor,
+    progressColor: progressColor,
+    progressTrackColor: progressTrackColor,
+    tabSelectedColor: tabSelectedColor,
+    tabUnselectedColor: tabUnselectedColor,
+    switchThumbColor: switchThumbColor,
+    focusColor: focusColor,
+    scrollbarColor: scrollbarColor,
+    navIndicatorColor: navIndicatorColor,
   );
 
   /// নির্দিষ্ট রঙ বদলে নতুন [OmniColorPalette] কপি দেয়।
@@ -1622,6 +2137,26 @@ class OmniColorPalette {
     Color? shimmerHighlightColor,
     Color? overlayColor,
     Color? shadowColor,
+    Color? tertiaryColor,
+    Color? dialogColor,
+    Color? bottomSheetColor,
+    Color? drawerColor,
+    Color? menuColor,
+    Color? fabColor,
+    Color? fabTextColor,
+    Color? outlineButtonColor,
+    Color? outlineButtonBorderColor,
+    Color? inputBorderColor,
+    Color? cursorColor,
+    Color? textSelectionColor,
+    Color? progressColor,
+    Color? progressTrackColor,
+    Color? tabSelectedColor,
+    Color? tabUnselectedColor,
+    Color? switchThumbColor,
+    Color? focusColor,
+    Color? scrollbarColor,
+    Color? navIndicatorColor,
   }) => OmniColorPalette(
     primaryColor: primaryColor ?? this.primaryColor,
     secondaryColor: secondaryColor ?? this.secondaryColor,
@@ -1683,6 +2218,27 @@ class OmniColorPalette {
     shimmerHighlightColor: shimmerHighlightColor ?? this.shimmerHighlightColor,
     overlayColor: overlayColor ?? this.overlayColor,
     shadowColor: shadowColor ?? this.shadowColor,
+    tertiaryColor: tertiaryColor ?? this.tertiaryColor,
+    dialogColor: dialogColor ?? this.dialogColor,
+    bottomSheetColor: bottomSheetColor ?? this.bottomSheetColor,
+    drawerColor: drawerColor ?? this.drawerColor,
+    menuColor: menuColor ?? this.menuColor,
+    fabColor: fabColor ?? this.fabColor,
+    fabTextColor: fabTextColor ?? this.fabTextColor,
+    outlineButtonColor: outlineButtonColor ?? this.outlineButtonColor,
+    outlineButtonBorderColor:
+        outlineButtonBorderColor ?? this.outlineButtonBorderColor,
+    inputBorderColor: inputBorderColor ?? this.inputBorderColor,
+    cursorColor: cursorColor ?? this.cursorColor,
+    textSelectionColor: textSelectionColor ?? this.textSelectionColor,
+    progressColor: progressColor ?? this.progressColor,
+    progressTrackColor: progressTrackColor ?? this.progressTrackColor,
+    tabSelectedColor: tabSelectedColor ?? this.tabSelectedColor,
+    tabUnselectedColor: tabUnselectedColor ?? this.tabUnselectedColor,
+    switchThumbColor: switchThumbColor ?? this.switchThumbColor,
+    focusColor: focusColor ?? this.focusColor,
+    scrollbarColor: scrollbarColor ?? this.scrollbarColor,
+    navIndicatorColor: navIndicatorColor ?? this.navIndicatorColor,
   );
 
   @override
@@ -1743,7 +2299,27 @@ class OmniColorPalette {
           shimmerBaseColor == other.shimmerBaseColor &&
           shimmerHighlightColor == other.shimmerHighlightColor &&
           overlayColor == other.overlayColor &&
-          shadowColor == other.shadowColor;
+          shadowColor == other.shadowColor &&
+          tertiaryColor == other.tertiaryColor &&
+          dialogColor == other.dialogColor &&
+          bottomSheetColor == other.bottomSheetColor &&
+          drawerColor == other.drawerColor &&
+          menuColor == other.menuColor &&
+          fabColor == other.fabColor &&
+          fabTextColor == other.fabTextColor &&
+          outlineButtonColor == other.outlineButtonColor &&
+          outlineButtonBorderColor == other.outlineButtonBorderColor &&
+          inputBorderColor == other.inputBorderColor &&
+          cursorColor == other.cursorColor &&
+          textSelectionColor == other.textSelectionColor &&
+          progressColor == other.progressColor &&
+          progressTrackColor == other.progressTrackColor &&
+          tabSelectedColor == other.tabSelectedColor &&
+          tabUnselectedColor == other.tabUnselectedColor &&
+          switchThumbColor == other.switchThumbColor &&
+          focusColor == other.focusColor &&
+          scrollbarColor == other.scrollbarColor &&
+          navIndicatorColor == other.navIndicatorColor;
 
   @override
   int get hashCode => Object.hashAll([
@@ -1802,6 +2378,26 @@ class OmniColorPalette {
     shimmerHighlightColor,
     overlayColor,
     shadowColor,
+    tertiaryColor,
+    dialogColor,
+    bottomSheetColor,
+    drawerColor,
+    menuColor,
+    fabColor,
+    fabTextColor,
+    outlineButtonColor,
+    outlineButtonBorderColor,
+    inputBorderColor,
+    cursorColor,
+    textSelectionColor,
+    progressColor,
+    progressTrackColor,
+    tabSelectedColor,
+    tabUnselectedColor,
+    switchThumbColor,
+    focusColor,
+    scrollbarColor,
+    navIndicatorColor,
   ]);
 }
 
