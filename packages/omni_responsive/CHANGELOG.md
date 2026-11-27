@@ -17,6 +17,28 @@
 - `OmniResponsiveConfig` presets check breakpoint order like the default
   constructor, and every constructor checks `smallPhoneMaxWidth <=
   mobileMaxWidth`.
+- `OmniColors` has 20 more colors (75 in all), settable everywhere colors are
+  (`OmniTheme`, `OmniColorPalette`, `fromSeed`, `copyWith`, JSON):
+  `tertiaryColor`, `dialogColor`, `bottomSheetColor`, `drawerColor`,
+  `menuColor`, `fabColor`, `fabTextColor`, `outlineButtonColor`,
+  `outlineButtonBorderColor`, `inputBorderColor`, `cursorColor`,
+  `textSelectionColor`, `progressColor`, `progressTrackColor`,
+  `tabSelectedColor`, `tabUnselectedColor`, `switchThumbColor`,
+  `focusColor`, `scrollbarColor`, `navIndicatorColor`. Each defaults to the
+  color that was used before.
+- `OmniTheme.buttonShape` (`OmniButtonShape.rounded` / `pill` / `square`) and
+  `buttonRadius` shape every button, FAB and segmented button independently
+  of cards and fields. `OmniThemeStyle.pill` uses pill buttons.
+- The theme now styles FAB, segmented buttons, popup / dropdown / anchor
+  menus, drawers, tab bars, progress indicators, sliders, text selection,
+  scrollbars, badges, date and time pickers, search bars, bottom app bars and
+  expansion tiles, and maps the theme's surfaces onto the Material 3 surface
+  levels instead of seed tones.
+- Fixes: a text field's floated label is no longer accent-colored while
+  unfocused; field icons follow focus / error / disabled; underlined fields
+  have no left inset; switch thumbs and checkbox ticks stay readable on a
+  light `switchActiveColor`, without a grey ring around a switched-on track;
+  the snackbar action keeps 3:1 contrast in both modes.
 
 **Text size**
 - New app-wide text size: `OmniTextSize` (small / medium / large / extra

@@ -43,6 +43,7 @@ export 'src/omni_colors.dart'
 export 'src/omni_status_bar.dart' show OmniStatusBarStyle;
 export 'src/omni_styles.dart'
     show
+        OmniButtonShape,
         OmniInputVariant,
         OmniStyles,
         OmniStylesContext,

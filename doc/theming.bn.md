@@ -21,6 +21,7 @@
 11. [ডার্ক/লাইট মোড ও কালার প্যালেট বদলানোর স্ক্রিন অ্যানিমেশন (`OmniThemeAnimation`)](#১১-ডার্কলাইট-মোড-ও-কালার-প্যালেট-বদলানোর-স্ক্রিন-অ্যানিমেশন-omnithemeanimation)
 12. [প্রি-ডিফাইনড টেক্সট ফিল্ড ও এক-থিম সিস্টেম (`OmniFieldTheme`, `OmniEmailField`, `OmniPasswordField`, `OmniOtpField`, `OmniPhoneField`, `OmniNumberField`)](#১২-প্রি-ডিফাইনড-টেক্সট-ফিল্ড-ও-এক-থিম-সিস্টেম-omnifieldtheme-omniemailfield-omnipasswordfield-omniotpfield-omniphonefield-omninumberfield)
 13. [লেখার আকার, দ্রুত চালু, নতুন থিম ফিচার (`OmniTextSize`, `OmniPreferences`, `fromSeed`, `addTheme`, `OmniThemeOverride`)](#১৩-লেখার-আকার-দ্রুত-চালু-নতুন-থিম-ফিচার)
+14. [নতুন ২০টি কালার, বাটনের আকৃতি ও কম্পোনেন্ট থিম (`fabColor`, `menuColor`, `OmniButtonShape`)](#১৪-নতুন-২০টি-কালার-বাটনের-আকৃতি-ও-কম্পোনেন্ট-থিম)
 
 ---
 
@@ -1038,3 +1039,66 @@ OmniThemeOverride(
 
 custom রঙে লেখা/বাটনের contrast WCAG-এর সীমার নিচে নামলে debug console-এ সতর্কবার্তা আসে। Release-এ কোনো খরচ নেই।
 
+---
+
+## ১৪. নতুন ২০টি কালার, বাটনের আকৃতি ও কম্পোনেন্ট থিম
+
+`OmniColors`-এ এখন ৭৫টি রঙ। নতুন ২০টির প্রতিটি `OmniTheme(...)`, `OmniColorPalette(light:/dark:)`,
+`OmniColors.fromSeed(...)`, `copyWith`, JSON — সব জায়গায় দেওয়া যায়। কোনোটি না দিলে আগের রঙ থেকে
+নিজে থেকেই তৈরি হয়, তাই পুরোনো থিম যেমন ছিল তেমনই দেখায়।
+
+| রঙ | কোথায় লাগে | না দিলে |
+|---|---|---|
+| `tertiaryColor` | চার্ট, ট্যাগ, তৃতীয় অ্যাকসেন্ট | seed থেকে |
+| `dialogColor` | `Dialog`, Date/Time picker | `cardColor` |
+| `bottomSheetColor` | বটমশিট | `cardColor` |
+| `drawerColor` | `Drawer`, `NavigationDrawer` | `cardColor` |
+| `menuColor` | `PopupMenuButton`, `DropdownMenu`, `MenuAnchor`, সার্চ ভিউ | `cardColor` |
+| `fabColor` / `fabTextColor` | `FloatingActionButton` | `buttonColor` / পাঠযোগ্য রঙ |
+| `outlineButtonColor` / `outlineButtonBorderColor` | `OutlinedButton` লেখা ও বর্ডার | `primaryColor` / `borderColor` |
+| `inputBorderColor` | সব টেক্সট ফিল্ড, `SearchBar` | `borderColor` |
+| `cursorColor` / `textSelectionColor` | কার্সর, সিলেকশন হ্যান্ডেল ও হাইলাইট | `focusedBorderColor` / primary-র হালকা রূপ |
+| `progressColor` / `progressTrackColor` | প্রগ্রেস বার, `Slider` | primary / primary-র হালকা রূপ |
+| `tabSelectedColor` / `tabUnselectedColor` | `TabBar` | primary / `secondaryTextColor` |
+| `switchThumbColor` | চালু `Switch`-এর থাম্ব, `Checkbox`-এর টিক | `switchActiveColor`-এর ওপর পাঠযোগ্য রঙ |
+| `focusColor` | কিবোর্ড ফোকাস হাইলাইট | primary-র হালকা রূপ |
+| `scrollbarColor` | স্ক্রলবার | `secondaryTextColor`-এর হালকা রূপ |
+| `navIndicatorColor` | `NavigationBar`/`Rail`/`Drawer`-এ সিলেক্টেড পিল, `SegmentedButton` | primary-র হালকা রূপ |
+
+```dart
+OmniTheme(
+  seedColor: const Color(0xFF0F766E),
+  fabColor: const Color(0xFFE11D48),
+  menuColor: const Color(0xFFFFFBF5),
+  inputBorderColor: const Color(0xFFD6C7B0), // কার্ডের বর্ডার আলাদা থাকবে
+  dark: const OmniColorPalette(menuColor: Color(0xFF111827)),
+)
+```
+
+### বাটনের আকৃতি
+
+```dart
+OmniTheme(
+  buttonShape: OmniButtonShape.pill,   // rounded (ডিফল্ট) · pill · square
+  buttonRadius: 14,                    // শুধু বাটনের কোণ; কার্ড ও ফিল্ড borderRadius-এ থাকে
+)
+```
+
+`FilledButton`, `ElevatedButton`, `OutlinedButton`, `TextButton`, `SegmentedButton` ও
+`FloatingActionButton` — সবগুলো একই আকৃতি পায়। `OmniThemeStyle.pill` স্টাইল নিলে বাটন নিজে থেকেই পিল হয়।
+
+### আর যা ঠিক হয়েছে
+
+- **সারফেস:** Material 3-এর যেসব উইজেট `surfaceContainer…` রঙ নেয় (মেনু, পিকার, সার্চ, এক্সপ্যানশন প্যানেল),
+  সেগুলো এখন আপনার `cardColor` / `secondaryBackgroundColor` / `inputFillColor` থেকে রঙ পায় — seed-এর
+  আলাদা টোন নয়।
+- **টেক্সট ফিল্ড:** লেবেল ও আইকন শুধু ফোকাসে accent রঙ, এররে লাল, disabled-এ ফিকে। লেখা থাকা কিন্তু
+  ফোকাস-ছাড়া ফিল্ডের লেবেল আর রঙিন হয় না। `underlined` ফিল্ডে বাঁ পাশে অপ্রয়োজনীয় ফাঁকা নেই।
+- **Switch / Checkbox:** হালকা `switchActiveColor` (যেমন হলুদ) দিলেও থাম্ব ও টিক পড়া যায়; চালু সুইচের চারপাশে
+  ধূসর রিং থাকে না; চেক করা বক্সের বর্ডার active রঙে।
+- **SnackBar:** অ্যাকশন বাটনের রঙ ব্যাকগ্রাউন্ডের ওপর অন্তত 3:1 কনট্রাস্ট রাখে।
+- নতুন থিমড উইজেট: `FloatingActionButton`, `SegmentedButton`, `PopupMenu`, `MenuAnchor`, `DropdownMenu`,
+  `Drawer`, `NavigationDrawer`, `TabBar`, প্রগ্রেস, `Slider`, টেক্সট সিলেকশন, `Scrollbar`, `Badge`,
+  Date/Time picker, `SearchBar`, `SearchAnchor`, `BottomAppBar`, `ExpansionTile`।
+
+এই সবই থিম তৈরির সময় একবার হিসাব হয় এবং ক্যাশে থাকে — রানটাইমে বাড়তি খরচ নেই।
