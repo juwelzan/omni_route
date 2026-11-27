@@ -361,21 +361,21 @@ packages:
     source: hosted
     version: "9.5.0"
   omni_network:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       path: "../packages/omni_network"
       relative: true
     source: path
     version: "0.1.1"
   omni_network_flutter:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       path: "../packages/omni_network_flutter"
       relative: true
     source: path
     version: "0.1.0"
   omni_network_ws:
-    dependency: transitive
+    dependency: "direct overridden"
     description:
       path: "../packages/omni_network_ws"
       relative: true

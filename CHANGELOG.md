@@ -1,3 +1,21 @@
+## Unreleased
+
+No API changes.
+
+- Text fields rebuild only when what they show changes (clear button,
+  suggestions, strength meter), not on every cursor move or IME update.
+  Validator and formatter regexes are compiled once.
+- Swipe-back keeps a fixed widget tree during the gesture, so crossing the
+  fade/radius/shadow thresholds no longer reparents the page mid-swipe.
+- A theme or language chosen while saved preferences are still loading at
+  startup is no longer overwritten by the older saved value.
+- Theme transition snapshots behave the same in debug and release builds.
+- State restoration looks shells up by id from a one-time index.
+- Recovered errors (storage unavailable, malformed restoration data) are
+  logged to DevTools in debug builds instead of being swallowed silently.
+- `omni_network*` dependencies use version constraints instead of `path:`
+  (the workspace still resolves them locally).
+
 ## 0.3.1
 
 No API changes; purely additive. Everything new is off by default.

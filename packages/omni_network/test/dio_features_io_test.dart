@@ -676,7 +676,7 @@ void main() {
       final files = dir
           .listSync()
           .whereType<File>()
-          .where((f) => f.path.endsWith('.json'))
+          .where((f) => f.path.endsWith('.omc'))
           .toList();
       expect(files, hasLength(2));
 

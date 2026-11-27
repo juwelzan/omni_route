@@ -4,6 +4,8 @@ import '../errors/omni_route_exception.dart';
 
 final RegExp _param = RegExp(r'^:[a-zA-Z_]\w*$');
 final RegExp _static = RegExp(r'^[a-z0-9._~-]+$');
+final RegExp _titleSeparators = RegExp(r'[-_.]+');
+final RegExp _paramName = RegExp(r':\w+');
 
 /// Validates a route path before it reaches go_router.
 ///
@@ -98,7 +100,7 @@ String defaultTitleFromRoutePath(String routePath) {
     chosen = chosen.substring(1);
   }
   final words = chosen
-      .split(RegExp(r'[-_.]+'))
+      .split(_titleSeparators)
       .where((w) => w.isNotEmpty)
       .map((w) => '${w[0].toUpperCase()}${w.substring(1)}');
   final result = words.join(' ');
@@ -111,7 +113,7 @@ void checkDuplicatePaths(Iterable<String> fullPaths) {
   final seen = <String>{};
   for (final p in fullPaths) {
     // `/a/:id` and `/a/:slug` match the same URLs.
-    final shape = p.replaceAll(RegExp(r':\w+'), ':');
+    final shape = p.replaceAll(_paramName, ':');
     if (!seen.add(shape)) {
       throw OmniRouteException(
         OmniErrorCode.duplicateRoute,

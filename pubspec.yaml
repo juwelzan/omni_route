@@ -65,12 +65,9 @@ dependencies:
   dio: ^5.11.1
   web_socket_channel: ^3.0.3
   web: ">=0.5.1 <2.0.0"
-  omni_network:
-    path: packages/omni_network
-  omni_network_flutter:
-    path: packages/omni_network_flutter
-  omni_network_ws:
-    path: packages/omni_network_ws
+  omni_network: ^0.1.1
+  omni_network_flutter: ^0.1.0
+  omni_network_ws: ^0.1.0
 
 dev_dependencies:
   flutter_test:

@@ -786,28 +786,34 @@ class _SwipeBackLayerState extends State<_SwipeBackLayer>
     }
     if (scale != 1) transform.scaleByDouble(scale, scale, 1, 1);
 
-    Widget page = radius > 0
-        ? ClipRRect(borderRadius: BorderRadius.circular(radius), child: child)
-        : child;
-    if (l.shadow && p > 0) {
-      final slide = l.mode == OmniSwipeBack.slide;
-      page = DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(
-                alpha: slide ? 0.18 * (1 - p) : 0.35 * p,
-              ),
-              blurRadius: slide ? 16 : 30,
-            ),
-          ],
-        ),
-        child: page,
-      );
-    }
+    // The tree shape stays fixed for the whole swipe: adding or removing a
+    // wrapper mid-gesture would reparent the page's GlobalKey subtree (a
+    // deactivate/activate + relayout), which shows up as a dropped frame.
+    // Opacity at 1.0 and ClipRRect with Clip.none paint without a layer.
+    Widget page = ClipRRect(
+      borderRadius: BorderRadius.circular(radius),
+      clipBehavior: radius > 0 ? Clip.antiAlias : Clip.none,
+      child: child,
+    );
+    final slide = l.mode == OmniSwipeBack.slide;
+    page = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: l.shadow && p > 0
+            ? [
+                BoxShadow(
+                  color: Colors.black.withValues(
+                    alpha: slide ? 0.18 * (1 - p) : 0.35 * p,
+                  ),
+                  blurRadius: slide ? 16 : 30,
+                ),
+              ]
+            : null,
+      ),
+      child: page,
+    );
     page = Transform(transform: transform, alignment: alignment, child: page);
-    if (opacity < 1) page = Opacity(opacity: opacity, child: page);
+    page = Opacity(opacity: opacity, child: page);
     if (l.dimBelow) {
       // Behind the moving page and over the page below.
       page = Stack(

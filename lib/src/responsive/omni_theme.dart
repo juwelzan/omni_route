@@ -13,14 +13,16 @@ import 'omni_styles.dart';
 import 'omni_system_navigation_bar.dart';
 import 'omni_system_ui.dart';
 import 'omni_theme_transition.dart';
+import '../core/omni_debug_report.dart';
 
 /// বর্তমান সক্রিয় থিম কনফিগার করার জন্য কাস্টম হুক (প্রতি ডিভাইস টিয়ারে একবার
 /// চলে ও ফল মেমোইজড থাকে)।
-typedef OmniThemeCustomizer = ThemeData Function(
-  ThemeData base,
-  OmniDeviceType device,
-  OmniResponsiveTokens tokens,
-);
+typedef OmniThemeCustomizer =
+    ThemeData Function(
+      ThemeData base,
+      OmniDeviceType device,
+      OmniResponsiveTokens tokens,
+    );
 
 /// বর্তমান সক্রিয় থিম আইডি, লাইট/ডার্ক/সিস্টেম মোড, থিম স্টাইল ও স্ক্রিন অ্যানিমেশনের স্ন্যাপশট।
 @immutable
@@ -57,8 +59,9 @@ class OmniThemeSelection {
     mode: mode ?? this.mode,
     themeId: themeId ?? this.themeId,
     style: clearStyle ? null : (style ?? this.style),
-    animationMode:
-        clearAnimationMode ? null : (animationMode ?? this.animationMode),
+    animationMode: clearAnimationMode
+        ? null
+        : (animationMode ?? this.animationMode),
   );
 
   @override
@@ -114,6 +117,10 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
 
   bool _disposed = false;
   bool _hydrated = false;
+
+  /// Pref keys the user changed while [hydrate] was reading storage; their
+  /// stored (older) values must not overwrite the newer choice.
+  Set<String>? _touchedDuringHydrate;
   int _nonAnimatedVersion = 0;
   Offset? _pendingOrigin;
 
@@ -137,7 +144,8 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   String get stylePrefKey => 'omni_route.theme.$storageKey.style';
 
   /// সেভ করা অ্যাক্টিভ থিম ট্রানজিশন অ্যানিমেশনের কী।
-  String get animationModePrefKey => 'omni_route.theme.$storageKey.animationMode';
+  String get animationModePrefKey =>
+      'omni_route.theme.$storageKey.animationMode';
 
   /// বর্তমান `ThemeMode` (`light`, `dark`, বা `system`)।
   ThemeMode get mode => value.mode;
@@ -156,6 +164,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
   Future<void> hydrate() async {
     if (!persist || _hydrated || _disposed) return;
     _hydrated = true;
+    final touched = _touchedDuringHydrate = <String>{};
     try {
       final prefs = await SharedPreferences.getInstance();
       if (_disposed) return;
@@ -188,19 +197,31 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
         }
       }
       final next = OmniThemeSelection(
-        mode: restoredMode ?? value.mode,
-        themeId: (restoredId != null && restoredId.isNotEmpty)
+        mode: touched.contains(prefKey)
+            ? value.mode
+            : restoredMode ?? value.mode,
+        themeId:
+            (!touched.contains(themeIdPrefKey) &&
+                restoredId != null &&
+                restoredId.isNotEmpty)
             ? restoredId
             : value.themeId,
-        style: restoredStyle ?? value.style,
-        animationMode: restoredAnim ?? value.animationMode,
+        style: touched.contains(stylePrefKey)
+            ? value.style
+            : restoredStyle ?? value.style,
+        animationMode: touched.contains(animationModePrefKey)
+            ? value.animationMode
+            : restoredAnim ?? value.animationMode,
       );
       if (next != value) {
         _nonAnimatedVersion++;
         value = next;
       }
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('theme.hydrate', e, st);
       // হেডলেস টেস্টে SharedPreferences মক না থাকলে নিরাপদ ফলব্যাক।
+    } finally {
+      _touchedDuringHydrate = null;
     }
   }
 
@@ -212,6 +233,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     if (value.themeId != themeId) {
       value = value.copyWith(themeId: themeId);
     }
+    _touchedDuringHydrate?.add(themeIdPrefKey);
     if (persist) {
       unawaited(_saveString(themeIdPrefKey, themeId));
     }
@@ -225,6 +247,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     if (value.style != style) {
       value = value.copyWith(style: style);
     }
+    _touchedDuringHydrate?.add(stylePrefKey);
     if (persist) {
       unawaited(_saveString(stylePrefKey, style.name));
     }
@@ -237,6 +260,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
       _nonAnimatedVersion++;
       value = value.copyWith(animationMode: mode);
     }
+    _touchedDuringHydrate?.add(animationModePrefKey);
     if (persist) {
       unawaited(_saveString(animationModePrefKey, mode.name));
     }
@@ -262,6 +286,7 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     if (value.mode != next) {
       value = value.copyWith(mode: next);
     }
+    _touchedDuringHydrate?.add(prefKey);
     if (persist) {
       unawaited(_saveString(prefKey, next.name));
     }
@@ -285,9 +310,10 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     Offset? origin,
     bool animate = true,
   ]) {
-    final effBrightness = platformBrightness ??
-        PlatformDispatcher.instance.platformBrightness;
-    final currentlyDark = value.mode == ThemeMode.dark ||
+    final effBrightness =
+        platformBrightness ?? PlatformDispatcher.instance.platformBrightness;
+    final currentlyDark =
+        value.mode == ThemeMode.dark ||
         (value.mode == ThemeMode.system && effBrightness == Brightness.dark);
     setMode(
       currentlyDark ? ThemeMode.light : ThemeMode.dark,
@@ -309,6 +335,12 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
 
   /// সেভ করা থিম, মোড, স্টাইল ও অ্যানিমেশন পছন্দ মুছে ডিফল্টে ফিরে আসে।
   Future<void> resetSavedMode({bool animate = false}) async {
+    _touchedDuringHydrate?.addAll([
+      prefKey,
+      themeIdPrefKey,
+      stylePrefKey,
+      animationModePrefKey,
+    ]);
     if (!_disposed && value != _initialSelection) {
       if (!animate) _nonAnimatedVersion++;
       value = _initialSelection;
@@ -319,7 +351,8 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
       await prefs.remove(themeIdPrefKey);
       await prefs.remove(stylePrefKey);
       await prefs.remove(animationModePrefKey);
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('theme.resetSavedMode', e, st);
       // প্ল্যাটফর্ম স্টোরেজ না থাকলে নিরাপদ ইগনোর।
     }
   }
@@ -328,7 +361,8 @@ class OmniThemeController extends ValueNotifier<OmniThemeSelection> {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(key, data);
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('theme.save', e, st);
       // হেডলেস টেস্টে নিরাপদ ইগনোর।
     }
   }
@@ -894,10 +928,10 @@ class OmniTheme {
     final isDark = brightness == Brightness.dark;
     return isDark
         ? (darkColors?.primaryColor ??
-            dark?.primaryColor ??
-            darkSeedColor ??
-            light?.primaryColor ??
-            seedColor)
+              dark?.primaryColor ??
+              darkSeedColor ??
+              light?.primaryColor ??
+              seedColor)
         : (lightColors?.primaryColor ?? light?.primaryColor ?? seedColor);
   }
 
@@ -917,7 +951,9 @@ class OmniTheme {
 
   /// কার্যকর কার্ড বর্ডার পুরুত্ব।
   double effectiveCardBorderWidth([OmniThemeStyle? styleOverride]) =>
-      styleOverride?.cardBorderWidth ?? cardBorderWidth ?? style.cardBorderWidth;
+      styleOverride?.cardBorderWidth ??
+      cardBorderWidth ??
+      style.cardBorderWidth;
 
   /// কার্যকর কার্ড এলিভেশন।
   double effectiveCardElevation([OmniThemeStyle? styleOverride]) =>
@@ -926,8 +962,8 @@ class OmniTheme {
   /// কার্যকর কর্নার রেডিয়াস (`null` হলে ডিভাইস টিয়ার অনুযায়ী অটো)।
   double? effectiveBorderRadius([OmniThemeStyle? styleOverride]) =>
       styleOverride != null
-          ? (styleOverride.borderRadius ?? borderRadius)
-          : (borderRadius ?? style.borderRadius);
+      ? (styleOverride.borderRadius ?? borderRadius)
+      : (borderRadius ?? style.borderRadius);
 
   /// বর্তমান থিম ও [colors] অনুযায়ী ওপরের সিস্টেম স্ট্যাটাস বারের স্টাইল দেয়।
   OmniStatusBarStyle resolveStatusBar(OmniColors colors) {
@@ -1354,8 +1390,7 @@ class OmniTheme {
     secondaryButtonTextColor:
         secondaryButtonTextColor ?? this.secondaryButtonTextColor,
     dangerButtonColor: dangerButtonColor ?? this.dangerButtonColor,
-    dangerButtonTextColor:
-        dangerButtonTextColor ?? this.dangerButtonTextColor,
+    dangerButtonTextColor: dangerButtonTextColor ?? this.dangerButtonTextColor,
     linkColor: linkColor ?? this.linkColor,
     borderColor: borderColor ?? this.borderColor,
     focusedBorderColor: focusedBorderColor ?? this.focusedBorderColor,
@@ -1386,8 +1421,7 @@ class OmniTheme {
     successColor: successColor ?? this.successColor,
     infoColor: infoColor ?? this.infoColor,
     shimmerBaseColor: shimmerBaseColor ?? this.shimmerBaseColor,
-    shimmerHighlightColor:
-        shimmerHighlightColor ?? this.shimmerHighlightColor,
+    shimmerHighlightColor: shimmerHighlightColor ?? this.shimmerHighlightColor,
     overlayColor: overlayColor ?? this.overlayColor,
     shadowColor: shadowColor ?? this.shadowColor,
     lightColors: lightColors ?? this.lightColors,
@@ -1410,16 +1444,20 @@ class OmniTheme {
 
     final p = isDark ? dark : light;
     return OmniColors.fromSeed(
-      primaryColor: p?.primaryColor ??
+      primaryColor:
+          p?.primaryColor ??
           (isDark ? (darkSeedColor ?? seedColor) : seedColor),
       brightness: brightness,
-      secondaryColor: p?.secondaryColor ??
+      secondaryColor:
+          p?.secondaryColor ??
           (isDark ? (darkSecondaryColor ?? secondaryColor) : secondaryColor),
-      surfaceColor: p?.surfaceColor ??
+      surfaceColor:
+          p?.surfaceColor ??
           (isDark
               ? (darkSurfaceColor ?? darkScaffoldBackgroundColor)
               : (surfaceColor ?? scaffoldBackgroundColor)),
-      secondaryBackgroundColor: p?.secondaryBackgroundColor ??
+      secondaryBackgroundColor:
+          p?.secondaryBackgroundColor ??
           (isDark ? darkSecondaryBackgroundColor : secondaryBackgroundColor),
       cardColor: p?.cardColor ?? (isDark ? darkCardColor : cardColor),
       appBarColor: p?.appBarColor ?? appBarColor,
@@ -1468,8 +1506,7 @@ class OmniTheme {
       infoColor: p?.infoColor ?? infoColor,
       infoBackgroundColor: p?.infoBackgroundColor,
       shimmerBaseColor: p?.shimmerBaseColor ?? shimmerBaseColor,
-      shimmerHighlightColor:
-          p?.shimmerHighlightColor ?? shimmerHighlightColor,
+      shimmerHighlightColor: p?.shimmerHighlightColor ?? shimmerHighlightColor,
       overlayColor: p?.overlayColor ?? overlayColor,
       shadowColor: p?.shadowColor ?? shadowColor,
       statusBarColor: p?.statusBarColor ?? statusBar?.resolveColor(brightness),
@@ -1577,9 +1614,7 @@ class OmniTheme {
       shadowColor: colors.shadowColor,
       iconTheme: IconThemeData(color: colors.iconColor),
       dividerTheme: DividerThemeData(color: colors.dividerColor, thickness: 1),
-      visualDensity: isDesktop
-          ? VisualDensity.compact
-          : VisualDensity.standard,
+      visualDensity: isDesktop ? VisualDensity.compact : VisualDensity.standard,
       materialTapTargetSize: isDesktop
           ? MaterialTapTargetSize.shrinkWrap
           : MaterialTapTargetSize.padded,
@@ -1678,15 +1713,15 @@ class OmniTheme {
           (states) => states.contains(WidgetState.disabled)
               ? colors.disabledTextColor
               : states.contains(WidgetState.selected)
-                  ? colors.buttonTextColor
-                  : colors.switchInactiveColor,
+              ? colors.buttonTextColor
+              : colors.switchInactiveColor,
         ),
         trackColor: WidgetStateProperty.resolveWith(
           (states) => states.contains(WidgetState.disabled)
               ? colors.disabledColor
               : states.contains(WidgetState.selected)
-                  ? colors.switchActiveColor
-                  : colors.secondaryBackgroundColor,
+              ? colors.switchActiveColor
+              : colors.secondaryBackgroundColor,
         ),
         trackOutlineColor: WidgetStatePropertyAll(colors.borderColor),
       ),
@@ -1695,8 +1730,8 @@ class OmniTheme {
           (states) => states.contains(WidgetState.disabled)
               ? colors.disabledColor
               : states.contains(WidgetState.selected)
-                  ? colors.switchActiveColor
-                  : Colors.transparent,
+              ? colors.switchActiveColor
+              : Colors.transparent,
         ),
         checkColor: WidgetStatePropertyAll(colors.buttonTextColor),
         side: BorderSide(
@@ -1709,8 +1744,8 @@ class OmniTheme {
           (states) => states.contains(WidgetState.disabled)
               ? colors.disabledTextColor
               : states.contains(WidgetState.selected)
-                  ? colors.switchActiveColor
-                  : colors.switchInactiveColor,
+              ? colors.switchActiveColor
+              : colors.switchInactiveColor,
         ),
       ),
       snackBarTheme: SnackBarThemeData(
@@ -1718,8 +1753,7 @@ class OmniTheme {
         contentTextStyle: textStyles.body.copyWith(
           color: colors.snackbarTextColor,
         ),
-        actionTextColor:
-            isDark ? colors.primaryColor : colors.secondaryColor,
+        actionTextColor: isDark ? colors.primaryColor : colors.secondaryColor,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: buttonRadius),
       ),
@@ -1727,7 +1761,9 @@ class OmniTheme {
         decoration: BoxDecoration(
           color: colors.tooltipColor,
           borderRadius: BorderRadius.all(
-            Radius.circular(((effRadius ?? tokens.buttonRadius) / 2).clamp(4, 12)),
+            Radius.circular(
+              ((effRadius ?? tokens.buttonRadius) / 2).clamp(4, 12),
+            ),
           ),
         ),
         textStyle: textStyles.caption.copyWith(color: colors.tooltipTextColor),
@@ -2086,10 +2122,7 @@ class OmniThemeScope extends InheritedModel<Object> {
       aspect: _OmniThemeAspect.themes,
     );
     if (scope == null) return null;
-    return (
-      duration: scope.animationDuration,
-      curve: scope.animationCurve,
-    );
+    return (duration: scope.animationDuration, curve: scope.animationCurve);
   }
 
   @override
@@ -2490,8 +2523,7 @@ extension OmniThemeContext on BuildContext {
   String get activeThemeId => activeTheme?.id ?? 'default';
 
   /// অ্যাপে উপলব্ধ সব থিম ভ্যারিয়েন্ট।
-  List<OmniTheme> get availableThemes =>
-      OmniThemeScope.availableThemesOf(this);
+  List<OmniTheme> get availableThemes => OmniThemeScope.availableThemesOf(this);
 
   /// বর্তমানে ডার্ক মোড চলছে কি না।
   bool get isDarkMode => Theme.of(this).brightness == Brightness.dark;
@@ -2524,12 +2556,8 @@ extension OmniThemeContext on BuildContext {
       themeController.setMode(mode, origin: origin, animate: animate);
 
   /// ১ ক্লিকে লাইট ↔ ডার্ক মোড অ্যানিমেশনসহ টগল করে।
-  void toggleTheme({Offset? origin, bool animate = true}) =>
-      themeController.toggle(
-        MediaQuery.maybePlatformBrightnessOf(this),
-        origin,
-        animate,
-      );
+  void toggleTheme({Offset? origin, bool animate = true}) => themeController
+      .toggle(MediaQuery.maybePlatformBrightnessOf(this), origin, animate);
 
   /// `system -> light -> dark -> system` অ্যানিমেশনসহ ঘোরায়।
   void cycleThemeMode({Offset? origin, bool animate = true}) =>
@@ -2592,7 +2620,8 @@ class OmniThemeModeButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final mode = OmniThemeScope.modeOf(context);
-    final isDark = mode == ThemeMode.dark ||
+    final isDark =
+        mode == ThemeMode.dark ||
         (mode == ThemeMode.system &&
             MediaQuery.platformBrightnessOf(context) == Brightness.dark);
 
@@ -2604,7 +2633,8 @@ class OmniThemeModeButton extends StatelessWidget {
     }
 
     return IconButton(
-      tooltip: tooltip ??
+      tooltip:
+          tooltip ??
           (allowSystemMode
               ? 'Theme: ${mode.name}'
               : (isDark ? 'Light mode' : 'Dark mode')),
@@ -2612,8 +2642,8 @@ class OmniThemeModeButton extends StatelessWidget {
       onPressed: OmniThemeScope.maybeControllerOf(context) == null
           ? null
           : allowSystemMode
-              ? () => context.cycleThemeMode()
-              : () => context.toggleTheme(),
+          ? () => context.cycleThemeMode()
+          : () => context.toggleTheme(),
     );
   }
 }
@@ -2638,7 +2668,8 @@ class OmniThemeButton extends StatelessWidget {
     final current = OmniThemeScope.activeThemeOf(context);
     return IconButton(
       tooltip:
-          tooltip ?? (current != null ? 'Palette: ${current.name}' : 'Next palette'),
+          tooltip ??
+          (current != null ? 'Palette: ${current.name}' : 'Next palette'),
       icon: icon,
       onPressed: OmniThemeScope.maybeControllerOf(context) == null
           ? null
@@ -2790,27 +2821,27 @@ class _PaletteOptionItem extends StatelessWidget {
     final primary = theme.swatchColorFor(brightness);
     final secondary = isDark
         ? (theme.darkColors?.secondaryColor ??
-            theme.dark?.secondaryColor ??
-            theme.darkSecondaryColor ??
-            theme.secondaryColor ??
-            primary)
+              theme.dark?.secondaryColor ??
+              theme.darkSecondaryColor ??
+              theme.secondaryColor ??
+              primary)
         : (theme.lightColors?.secondaryColor ??
-            theme.light?.secondaryColor ??
-            theme.secondaryColor ??
-            primary);
+              theme.light?.secondaryColor ??
+              theme.secondaryColor ??
+              primary);
     final surfaceSwatch = isDark
         ? (theme.darkColors?.cardColor ??
-            theme.dark?.cardColor ??
-            theme.darkCardColor ??
-            theme.dark?.surfaceColor ??
-            theme.darkSurfaceColor ??
-            const Color(0xFF131C31))
+              theme.dark?.cardColor ??
+              theme.darkCardColor ??
+              theme.dark?.surfaceColor ??
+              theme.darkSurfaceColor ??
+              const Color(0xFF131C31))
         : (theme.lightColors?.cardColor ??
-            theme.light?.cardColor ??
-            theme.cardColor ??
-            theme.light?.surfaceColor ??
-            theme.surfaceColor ??
-            Colors.white);
+              theme.light?.cardColor ??
+              theme.cardColor ??
+              theme.light?.surfaceColor ??
+              theme.surfaceColor ??
+              Colors.white);
 
     if (layout == OmniThemePickerLayout.chips) {
       return InkWell(
@@ -2837,7 +2868,10 @@ class _PaletteOptionItem extends StatelessWidget {
               Container(
                 width: 18,
                 height: 18,
-                decoration: BoxDecoration(color: primary, shape: BoxShape.circle),
+                decoration: BoxDecoration(
+                  color: primary,
+                  shape: BoxShape.circle,
+                ),
                 child: selected
                     ? const Icon(Icons.check, size: 12, color: Colors.white)
                     : null,
@@ -2890,7 +2924,10 @@ class _PaletteOptionItem extends StatelessWidget {
                   ),
                   Positioned(
                     left: 10,
-                    child: _SwatchDot(color: secondary, border: colors.cardColor),
+                    child: _SwatchDot(
+                      color: secondary,
+                      border: colors.cardColor,
+                    ),
                   ),
                   Positioned(
                     left: 20,
@@ -2980,8 +3017,9 @@ class OmniThemeStylePicker extends StatelessWidget {
             selectedColor: c.selectedItemColor,
             labelStyle: TextStyle(
               color: style == activeStyle ? c.primaryColor : c.textColor,
-              fontWeight:
-                  style == activeStyle ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: style == activeStyle
+                  ? FontWeight.w600
+                  : FontWeight.normal,
             ),
             side: BorderSide(
               color: style == activeStyle ? c.primaryColor : c.borderColor,
@@ -3043,8 +3081,9 @@ class OmniThemeAnimationPicker extends StatelessWidget {
             selectedColor: c.selectedItemColor,
             labelStyle: TextStyle(
               color: mode == activeMode ? c.primaryColor : c.textColor,
-              fontWeight:
-                  mode == activeMode ? FontWeight.w600 : FontWeight.normal,
+              fontWeight: mode == activeMode
+                  ? FontWeight.w600
+                  : FontWeight.normal,
             ),
             side: BorderSide(
               color: mode == activeMode ? c.primaryColor : c.borderColor,
@@ -3154,10 +3193,7 @@ class OmniThemePanel extends StatelessWidget {
                 ],
               ),
               t.gapSm,
-              OmniThemePicker(
-                themes: themes,
-                layout: pickerLayout,
-              ),
+              OmniThemePicker(themes: themes, layout: pickerLayout),
             ],
             if (showStylePicker) ...[
               if (showModeSwitch || showPalettes) t.gapMd,

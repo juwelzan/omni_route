@@ -13,6 +13,7 @@ import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
 import '../routing/omni_shell.dart';
 import 'omni_route_entry.dart';
+import 'omni_debug_report.dart';
 
 enum _NavKind { go, push, replace }
 
@@ -784,8 +785,9 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     if (from.targetNavIdentity != to.targetNavIdentity) return false;
     if (!_sameShellChain(from.shellChain, to.shellChain)) return false;
     if (to.sameNavigatorAncestors.length <= 1) return true;
-    final parentPath =
-        to.sameNavigatorAncestors[to.sameNavigatorAncestors.length - 2].fullPath;
+    final parentPath = to
+        .sameNavigatorAncestors[to.sameNavigatorAncestors.length - 2]
+        .fullPath;
     if (active.length >= 2) {
       final prev = active[active.length - 2];
       if (prev is _PageFrame && prev.compiled?.fullPath == parentPath) {
@@ -1072,9 +1074,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           ref.branchIndex == branch.branchIndex,
     );
     if (branchPos >= 0 && branchPos + 1 < chain.length) {
-      return [
-        _buildShellTree(chain, branchPos + 1, null, (_) => leafPages),
-      ];
+      return [_buildShellTree(chain, branchPos + 1, null, (_) => leafPages)];
     }
     return leafPages;
   }
@@ -1741,35 +1741,50 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         _initialGuardsDone = true;
         _syncCurrentNotifiers(emitChanges: false);
       }
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('router.restore', e, st);
       // Malformed restoration blob falls back gracefully to initialRoute.
+    }
+  }
+
+  // Shell lookup tables for restoration, built once per registry instead of
+  // re-matching every route for every restored frame.
+  OmniRouteRegistry? _shellIndexFor;
+  final Map<int, CompiledShell> _shellsById = {};
+  final Map<int, CompiledStatefulShell> _statefulShellsById = {};
+
+  void _ensureShellIndex() {
+    if (identical(_shellIndexFor, _registry)) return;
+    _shellIndexFor = _registry;
+    _shellsById.clear();
+    _statefulShellsById.clear();
+    for (final path in _registry.paths) {
+      final m = _registry.matchUri(Uri(path: path));
+      if (m == null) continue;
+      for (final ref in m.route.fullEnclosingShells) {
+        switch (ref) {
+          case CompiledShell():
+            _shellsById.putIfAbsent(ref.id, () => ref);
+          case CompiledBranchRef():
+            _statefulShellsById.putIfAbsent(
+              ref.statefulShell.id,
+              () => ref.statefulShell,
+            );
+        }
+      }
     }
   }
 
   CompiledShell? _findCompiledShellById(int? id) {
     if (id == null) return null;
-    for (final path in _registry.paths) {
-      final m = _registry.matchUri(Uri(path: path));
-      if (m == null) continue;
-      for (final ref in m.route.fullEnclosingShells) {
-        if (ref is CompiledShell && ref.id == id) return ref;
-      }
-    }
-    return null;
+    _ensureShellIndex();
+    return _shellsById[id];
   }
 
   CompiledStatefulShell? _findCompiledStatefulShellById(int? id) {
     if (id == null) return null;
-    for (final path in _registry.paths) {
-      final m = _registry.matchUri(Uri(path: path));
-      if (m == null) continue;
-      for (final ref in m.route.fullEnclosingShells) {
-        if (ref is CompiledBranchRef && ref.statefulShell.id == id) {
-          return ref.statefulShell;
-        }
-      }
-    }
-    return null;
+    _ensureShellIndex();
+    return _statefulShellsById[id];
   }
 
   static Uri _normalizeParse(String location) {

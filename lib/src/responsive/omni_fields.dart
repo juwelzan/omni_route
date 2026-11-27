@@ -7,6 +7,17 @@ import 'package:flutter/services.dart';
 import 'omni_localization.dart';
 import 'omni_styles.dart';
 
+// Compiled once; validators and formatters run on every keystroke.
+final RegExp _reUpper = RegExp(r'[A-Z]');
+final RegExp _reLower = RegExp(r'[a-z]');
+final RegExp _reDigit = RegExp(r'\d');
+final RegExp _reSpecial = RegExp(r'[^a-zA-Z0-9\s]');
+final RegExp _reNonDigit = RegExp(r'\D');
+final RegExp _reNonDialChar = RegExp(r'[^\d+]');
+final RegExp _reAllDigits = RegExp(r'^\d+$');
+final RegExp _reSpace = RegExp(r'\s');
+final RegExp _reHandleChar = RegExp(r'[a-zA-Z0-9._-]');
+
 /// প্রতিটি প্রি-ডিফাইনড ইনপুট ফিল্ডের নিজস্ব আইডেন্টিটি (`OmniFieldIdentity`)।
 ///
 /// সব ফিল্ড একই [OmniFieldTheme] ও [OmniTheme] শেয়ার করলেও, প্রতিটি আইডেন্টিটি
@@ -1115,16 +1126,16 @@ abstract final class OmniValidators {
         hi: 'पासवर्ड कम से कम $minLength अक्षरों का होना चाहिए',
       );
     }
-    if (requireUppercase && !RegExp(r'[A-Z]').hasMatch(raw)) {
+    if (requireUppercase && !_reUpper.hasMatch(raw)) {
       return _trField('Include at least 1 uppercase letter');
     }
-    if (requireLowercase && !RegExp(r'[a-z]').hasMatch(raw)) {
+    if (requireLowercase && !_reLower.hasMatch(raw)) {
       return _trField('Include at least 1 lowercase letter');
     }
-    if (requireDigit && !RegExp(r'\d').hasMatch(raw)) {
+    if (requireDigit && !_reDigit.hasMatch(raw)) {
       return _trField('Include at least 1 number');
     }
-    if (requireSpecialChar && !RegExp(r'[^a-zA-Z0-9\s]').hasMatch(raw)) {
+    if (requireSpecialChar && !_reSpecial.hasMatch(raw)) {
       return _trField('Include at least 1 special character');
     }
     return null;
@@ -1135,12 +1146,12 @@ abstract final class OmniValidators {
     if (password.isEmpty) return 0;
     var score = 0;
     if (password.length >= minLength) score++;
-    if (RegExp(r'[a-z]').hasMatch(password) &&
-        RegExp(r'[A-Z]').hasMatch(password)) {
+    if (_reLower.hasMatch(password) &&
+        _reUpper.hasMatch(password)) {
       score++;
     }
-    if (RegExp(r'\d').hasMatch(password)) score++;
-    if (RegExp(r'[^a-zA-Z0-9\s]').hasMatch(password)) score++;
+    if (_reDigit.hasMatch(password)) score++;
+    if (_reSpecial.hasMatch(password)) score++;
     return score.clamp(1, 4);
   }
 
@@ -1175,7 +1186,7 @@ abstract final class OmniValidators {
         hi: 'अधिकतम $maxLength अक्षर अनुमत हैं',
       );
     }
-    if (!allowDigits && RegExp(r'\d').hasMatch(trimmed)) {
+    if (!allowDigits && _reDigit.hasMatch(trimmed)) {
       return _trField('Numbers are not allowed in name');
     }
     return null;
@@ -1193,11 +1204,11 @@ abstract final class OmniValidators {
     String requiredMessage = 'Please enter a phone number',
     String? invalidMessage,
   }) {
-    final digitsOnly = (value ?? '').replaceAll(RegExp(r'\D'), '');
+    final digitsOnly = (value ?? '').replaceAll(_reNonDigit, '');
     if (digitsOnly.isEmpty) return required ? _trField(requiredMessage) : null;
 
     if (countryCode == '+880') {
-      final cleanRaw = (value ?? '').replaceAll(RegExp(r'[^\d+]'), '');
+      final cleanRaw = (value ?? '').replaceAll(_reNonDialChar, '');
       if (validateBangladeshOperators) {
         if (!_bdPhoneRegex.hasMatch(cleanRaw)) {
           return invalidMessage ??
@@ -1242,7 +1253,7 @@ abstract final class OmniValidators {
 
   /// কান্ট্রি কোডসহ E.164 ফরম্যাট (`+8801712345678`) তৈরি করে।
   static String normalizePhone(String rawInput, {String countryCode = '+880'}) {
-    final digits = rawInput.replaceAll(RegExp(r'\D'), '');
+    final digits = rawInput.replaceAll(_reNonDigit, '');
     if (digits.isEmpty) return '';
     if (countryCode == '+880') {
       final m = _bdPhoneRegex.firstMatch(digits);
@@ -1271,7 +1282,7 @@ abstract final class OmniValidators {
             hi: '$length-अंकों का सत्यापन कोड दर्ज करें',
           );
     }
-    if (digitsOnly && !RegExp(r'^\d+$').hasMatch(clean)) {
+    if (digitsOnly && !_reAllDigits.hasMatch(clean)) {
       return _trField('Verification code must contain only digits');
     }
     return null;
@@ -1380,7 +1391,7 @@ class OmniCountryDialCode {
 
   /// কাঁচা ডিজিটগুলোকে [formatMask] অনুযায়ী সুন্দরভাবে ফরম্যাট ও ক্ল্যাম্প করে।
   String formatDigits(String rawInput, {int? overrideMax}) {
-    final rawDigits = rawInput.replaceAll(RegExp(r'\D'), '');
+    final rawDigits = rawInput.replaceAll(_reNonDigit, '');
     if (rawDigits.isEmpty) return '';
     final maxLen = effectiveMaxDigits(rawDigits, overrideMax: overrideMax);
     final digits = rawDigits.length > maxLen
@@ -2118,7 +2129,32 @@ class OmniTextField extends StatefulWidget {
   State<OmniTextField> createState() => _OmniTextFieldState();
 }
 
-class _OmniTextFieldState extends State<OmniTextField> {
+/// Rebuilds a field only when what its `build` shows from the controller
+/// changes — not on every cursor move, selection or IME composing update.
+mixin _FieldRebuildFilter<T extends StatefulWidget> on State<T> {
+  Object? _lastShown = const _Unset();
+
+  /// The part of [text] that `build` depends on (default: the whole text).
+  Object? shownFrom(String text) => text;
+
+  /// Calls `setState` only when [shownFrom] differs from the last call.
+  void rebuildIfShownChanged(String text) {
+    final next = shownFrom(text);
+    if (next == _lastShown) return;
+    _lastShown = next;
+    if (mounted) setState(() {});
+  }
+}
+
+class _Unset {
+  const _Unset();
+}
+
+class _OmniTextFieldState extends State<OmniTextField>
+    with _FieldRebuildFilter<OmniTextField> {
+  @override
+  Object? shownFrom(String text) => text.isNotEmpty;
+
   TextEditingController? _ownedController;
 
   TextEditingController get _ctrl => widget.controller ?? _ownedController!;
@@ -2150,7 +2186,7 @@ class _OmniTextFieldState extends State<OmniTextField> {
   }
 
   void _onTextChanged() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   @override
@@ -2435,7 +2471,8 @@ class OmniEmailField extends StatefulWidget {
   State<OmniEmailField> createState() => _OmniEmailFieldState();
 }
 
-class _OmniEmailFieldState extends State<OmniEmailField> {
+class _OmniEmailFieldState extends State<OmniEmailField>
+    with _FieldRebuildFilter<OmniEmailField> {
   TextEditingController? _ownedController;
 
   TextEditingController get _ctrl => widget.controller ?? _ownedController!;
@@ -2467,7 +2504,7 @@ class _OmniEmailFieldState extends State<OmniEmailField> {
   }
 
   void _handleChange() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   @override
@@ -2585,7 +2622,7 @@ class _OmniEmailFieldState extends State<OmniEmailField> {
       focusNode: widget.focusNode,
       keyboardType: TextInputType.emailAddress,
       textInputAction: widget.textInputAction,
-      inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+      inputFormatters: [FilteringTextInputFormatter.deny(_reSpace)],
       validator: widget.validator ?? _defaultValidate,
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
@@ -2873,7 +2910,12 @@ class OmniPasswordField extends StatefulWidget {
   State<OmniPasswordField> createState() => _OmniPasswordFieldState();
 }
 
-class _OmniPasswordFieldState extends State<OmniPasswordField> {
+class _OmniPasswordFieldState extends State<OmniPasswordField>
+    with _FieldRebuildFilter<OmniPasswordField> {
+  @override
+  Object? shownFrom(String text) =>
+      (text, widget.matchController?.text ?? widget.matchValue);
+
   TextEditingController? _ownedController;
   late bool _obscured;
 
@@ -2912,11 +2954,11 @@ class _OmniPasswordFieldState extends State<OmniPasswordField> {
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   void _onMatchChanged() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   @override
@@ -3388,7 +3430,8 @@ class OmniNameField extends StatefulWidget {
   State<OmniNameField> createState() => _OmniNameFieldState();
 }
 
-class _OmniNameFieldState extends State<OmniNameField> {
+class _OmniNameFieldState extends State<OmniNameField>
+    with _FieldRebuildFilter<OmniNameField> {
   TextEditingController? _ownedController;
 
   TextEditingController get _ctrl => widget.controller ?? _ownedController!;
@@ -3420,7 +3463,7 @@ class _OmniNameFieldState extends State<OmniNameField> {
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   @override
@@ -3482,10 +3525,10 @@ class _OmniNameFieldState extends State<OmniNameField> {
     ]);
 
     final formatters = <TextInputFormatter>[
-      if (!widget.allowSpaces) FilteringTextInputFormatter.deny(RegExp(r'\s')),
-      if (!widget.allowDigits) FilteringTextInputFormatter.deny(RegExp(r'\d')),
+      if (!widget.allowSpaces) FilteringTextInputFormatter.deny(_reSpace),
+      if (!widget.allowDigits) FilteringTextInputFormatter.deny(_reDigit),
       if (!widget.allowSpaces && widget.allowDigits)
-        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9._-]')),
+        FilteringTextInputFormatter.allow(_reHandleChar),
     ];
 
     final decoration = config.buildDecoration(
@@ -3836,7 +3879,8 @@ class OmniPhoneField extends StatefulWidget {
   State<OmniPhoneField> createState() => _OmniPhoneFieldState();
 }
 
-class _OmniPhoneFieldState extends State<OmniPhoneField> {
+class _OmniPhoneFieldState extends State<OmniPhoneField>
+    with _FieldRebuildFilter<OmniPhoneField> {
   TextEditingController? _ownedController;
   late OmniCountryDialCode _selectedCountry;
   bool _syncingFormat = false;
@@ -3861,7 +3905,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
       );
     }
     if (!widget.enforceCountryLength) return raw;
-    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
+    final digitsOnly = raw.replaceAll(_reNonDigit, '');
     final maxAllowed = _selectedCountry.effectiveMaxDigits(
       digitsOnly,
       overrideMax: widget.maxDigits,
@@ -3924,7 +3968,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
   }
 
   void _handleChange() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   @override
@@ -4025,7 +4069,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     );
 
     final raw = _ctrl.text.trim();
-    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
+    final digitsOnly = raw.replaceAll(_reNonDigit, '');
     final maxAllowed = _selectedCountry.effectiveMaxDigits(
       digitsOnly,
       overrideMax: widget.maxDigits,
@@ -4513,7 +4557,11 @@ class OmniNumberField extends StatefulWidget {
   State<OmniNumberField> createState() => _OmniNumberFieldState();
 }
 
-class _OmniNumberFieldState extends State<OmniNumberField> {
+class _OmniNumberFieldState extends State<OmniNumberField>
+    with _FieldRebuildFilter<OmniNumberField> {
+  @override
+  Object? shownFrom(String text) => text.isNotEmpty;
+
   TextEditingController? _ownedController;
 
   TextEditingController get _ctrl => widget.controller ?? _ownedController!;
@@ -4545,7 +4593,7 @@ class _OmniNumberFieldState extends State<OmniNumberField> {
   }
 
   void _onChanged() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   @override
@@ -4582,16 +4630,31 @@ class _OmniNumberFieldState extends State<OmniNumberField> {
     widget.onNumberChanged?.call(_parse(formatted));
   }
 
+  RegExp? _numberRegex;
+  (bool, bool, int)? _numberRegexKey;
+
+  /// The input pattern, recompiled only when its options change.
+  RegExp _numberPattern() {
+    final key = (
+      widget.allowNegative,
+      widget.allowDecimal,
+      math.max(0, widget.decimalRange),
+    );
+    final cached = _numberRegex;
+    if (cached != null && key == _numberRegexKey) return cached;
+    final negPrefix = key.$1 ? '-?' : '';
+    _numberRegexKey = key;
+    return _numberRegex = key.$2
+        ? RegExp('^$negPrefix\\d*(?:\\.\\d{0,${key.$3}})?\$')
+        : RegExp('^$negPrefix\\d*\$');
+  }
+
   List<TextInputFormatter> _buildFormatters() {
     return [
       TextInputFormatter.withFunction((oldValue, newValue) {
         final t = newValue.text;
         if (t.isEmpty) return newValue;
-        final negPrefix = widget.allowNegative ? '-?' : '';
-        final pattern = widget.allowDecimal
-            ? RegExp('^$negPrefix\\d*(?:\\.\\d{0,${math.max(0, widget.decimalRange)}})?\$')
-            : RegExp('^$negPrefix\\d*\$');
-        return pattern.hasMatch(t) ? newValue : oldValue;
+        return _numberPattern().hasMatch(t) ? newValue : oldValue;
       }),
     ];
   }
@@ -5077,7 +5140,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
 
   String _sanitize(String raw) {
     final clean = widget.field.digitsOnly
-        ? raw.replaceAll(RegExp(r'\D'), '')
+        ? raw.replaceAll(_reNonDigit, '')
         : raw;
     return clean.length > widget.field.length
         ? clean.substring(0, widget.field.length)
@@ -6479,7 +6542,11 @@ class OmniSearchField extends StatefulWidget {
   State<OmniSearchField> createState() => _OmniSearchFieldState();
 }
 
-class _OmniSearchFieldState extends State<OmniSearchField> {
+class _OmniSearchFieldState extends State<OmniSearchField>
+    with _FieldRebuildFilter<OmniSearchField> {
+  @override
+  Object? shownFrom(String text) => text.isNotEmpty;
+
   TextEditingController? _ownedController;
   Timer? _debounce;
 
@@ -6512,7 +6579,7 @@ class _OmniSearchFieldState extends State<OmniSearchField> {
   }
 
   void _handleChange() {
-    if (mounted) setState(() {});
+    rebuildIfShownChanged(_ctrl.text);
   }
 
   void _scheduleSearch(String value) {
@@ -6879,7 +6946,7 @@ class OmniUrlField extends StatelessWidget {
     showPrefixIcon: showPrefixIcon,
     keyboardType: TextInputType.url,
     textInputAction: TextInputAction.next,
-    inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+    inputFormatters: [FilteringTextInputFormatter.deny(_reSpace)],
     showClearButton: showClearButton,
     clearIcon: clearIcon,
     validator:

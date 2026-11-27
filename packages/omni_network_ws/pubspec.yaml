@@ -13,8 +13,7 @@ environment:
 
 dependencies:
   meta: ^1.18.0
-  omni_network:
-    path: ../omni_network
+  omni_network: ^0.1.1
   web_socket_channel: ^3.0.3
 
 dev_dependencies:

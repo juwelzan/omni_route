@@ -1,5 +1,6 @@
 import 'package:meta/meta.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'omni_debug_report.dart';
 
 /// Simple key-value persistence backend used by `OmniOnboarding` to remember
 /// whether Onboarding should still run across cold restarts (including clearing
@@ -70,7 +71,8 @@ final class OmniOnboardingStore implements OmniLocalStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       return prefs.getBool(key);
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('onboarding.read', e, st);
       return _memoryFallback[key];
     }
   }
@@ -81,7 +83,8 @@ final class OmniOnboardingStore implements OmniLocalStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(key, value);
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('onboarding.write', e, st);
       // Fallback kept in _memoryFallback when platform channel unavailable.
     }
   }
@@ -92,7 +95,8 @@ final class OmniOnboardingStore implements OmniLocalStore {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove(key);
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('onboarding.clear', e, st);
       // Fallback kept in _memoryFallback when platform channel unavailable.
     }
   }

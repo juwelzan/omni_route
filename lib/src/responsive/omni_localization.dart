@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/omni_debug_report.dart';
 
 /// বিশ্বের প্রধান দেশসমূহের টাইপ-সেইফ ISO-3166 কান্ট্রি কোড ইনাম (`OmniCountryCode`)।
 ///
@@ -340,16 +341,40 @@ enum OmniLanguage {
   ar('ar', OmniCountryCode.sa, 'Arabic', 'العربية', isRtl: true),
 
   /// Arabic (Saudi Arabia)
-  arSA('ar', OmniCountryCode.sa, 'Arabic (Saudi)', 'العربية (السعودية)', isRtl: true),
+  arSA(
+    'ar',
+    OmniCountryCode.sa,
+    'Arabic (Saudi)',
+    'العربية (السعودية)',
+    isRtl: true,
+  ),
 
   /// Arabic (UAE)
-  arAE('ar', OmniCountryCode.ae, 'Arabic (UAE)', 'العربية (الإمارات)', isRtl: true),
+  arAE(
+    'ar',
+    OmniCountryCode.ae,
+    'Arabic (UAE)',
+    'العربية (الإمارات)',
+    isRtl: true,
+  ),
 
   /// Arabic (Egypt)
-  arEG('ar', OmniCountryCode.eg, 'Arabic (Egypt)', 'العربية (مصر)', isRtl: true),
+  arEG(
+    'ar',
+    OmniCountryCode.eg,
+    'Arabic (Egypt)',
+    'العربية (مصر)',
+    isRtl: true,
+  ),
 
   /// Arabic (Morocco)
-  arMA('ar', OmniCountryCode.ma, 'Arabic (Morocco)', 'العربية (المغرب)', isRtl: true),
+  arMA(
+    'ar',
+    OmniCountryCode.ma,
+    'Arabic (Morocco)',
+    'العربية (المغرب)',
+    isRtl: true,
+  ),
 
   /// Hindi / हिन्दी
   hi('hi', OmniCountryCode.ind, 'Hindi', 'हिन्दी'),
@@ -599,7 +624,7 @@ enum OmniLanguage {
     if (rawTag == null) return null;
     final cleaned = rawTag.trim();
     if (cleaned.isEmpty) return null;
-    final parts = cleaned.split(RegExp(r'[-_]'));
+    final parts = cleaned.split(_localeTagSeparator);
     if (parts.length >= 2) {
       return fromLocale(Locale(parts[0].toLowerCase(), parts[1].toUpperCase()));
     }
@@ -782,6 +807,10 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
   bool _disposed = false;
   bool _hydrated = false;
 
+  /// Counts user choices; a choice made while [hydrate] reads storage wins
+  /// over the (older) stored state.
+  int _userEdits = 0;
+
   /// [language] এবং ঐচ্ছিক [country] সেট করে অটো সব স্ক্রিন আপডেট ও সেভ করে।
   void setLanguage(OmniLanguage language, {OmniCountryCode? country}) {
     if (_disposed) return;
@@ -793,6 +822,7 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
       selectedLocale: nextLocale,
       revision: value.revision + 1,
     );
+    _userEdits++;
     if (persist) {
       unawaited(_savePrefs(storageKey, value));
     }
@@ -805,7 +835,10 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
 
   /// নির্দিষ্ট Flutter [Locale] সেট করে।
   void setLocale(Locale locale) {
-    final lang = OmniLanguage.fromLocale(locale, fallback: value.fallbackLanguage);
+    final lang = OmniLanguage.fromLocale(
+      locale,
+      fallback: value.fallbackLanguage,
+    );
     final country = OmniCountryCode.tryFromLocale(locale) ?? lang.country;
     setLanguage(lang, country: country);
   }
@@ -823,6 +856,7 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
       systemLocale: sys,
       revision: value.revision + 1,
     );
+    _userEdits++;
     if (persist) {
       unawaited(_savePrefs(storageKey, value));
     }
@@ -858,6 +892,7 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
       useLocaleDigits: enabled,
       revision: value.revision + 1,
     );
+    _userEdits++;
     if (persist) {
       unawaited(_savePrefs(storageKey, value));
     }
@@ -867,8 +902,12 @@ class OmniLocaleController extends ValueNotifier<OmniLocaleState> {
   Future<void> hydrate() async {
     if (!persist || _hydrated || _disposed) return;
     _hydrated = true;
+    final editsBefore = _userEdits;
     final restored = await _loadPrefs(storageKey, value);
-    if (!_disposed && restored != null && restored != value) {
+    if (!_disposed &&
+        _userEdits == editsBefore &&
+        restored != null &&
+        restored != value) {
       value = restored;
     }
   }
@@ -901,7 +940,8 @@ Future<void> _savePrefs(String storageKey, OmniLocaleState state) async {
       'omni_route.l10n.$storageKey.digits',
       state.useLocaleDigits,
     );
-  } catch (_) {
+  } catch (e, st) {
+    omniReportRecovered('l10n.save', e, st);
     // হেডলেস টেস্টে নিরাপদ ইগনোর।
   }
 }
@@ -919,7 +959,10 @@ Future<OmniLocaleState?> _loadPrefs(
 
     if (follow == true) {
       final sys = PlatformDispatcher.instance.locale;
-      final lang = OmniLanguage.fromLocale(sys, fallback: base.fallbackLanguage);
+      final lang = OmniLanguage.fromLocale(
+        sys,
+        fallback: base.fallbackLanguage,
+      );
       final country = OmniCountryCode.tryFromLocale(sys) ?? lang.country;
       return base.copyWith(
         language: lang,
@@ -938,7 +981,8 @@ Future<OmniLocaleState?> _loadPrefs(
       selectedLocale: Locale(lang.languageCode, country.isoCode),
       useLocaleDigits: digits ?? base.useLocaleDigits,
     );
-  } catch (_) {
+  } catch (e, st) {
+    omniReportRecovered('l10n.load', e, st);
     return null;
   }
 }
@@ -993,7 +1037,8 @@ class OmniLocalization {
 }
 
 /// উইজেট ট্রির যেকোনো জায়গায় বর্তমান [OmniLocaleState]-এ সাবস্ক্রিপশন দেয়।
-class OmniL10nScope extends InheritedNotifier<ValueListenable<OmniLocaleState>> {
+class OmniL10nScope
+    extends InheritedNotifier<ValueListenable<OmniLocaleState>> {
   /// [listenable] সহ স্কোপ তৈরি করে।
   const OmniL10nScope({
     super.key,
@@ -1080,10 +1125,9 @@ class _OmniLocalizationHostState extends State<OmniLocalizationHost>
 
   @override
   void didChangeLocales(List<Locale>? locales) {
-    final sys =
-        (locales != null && locales.isNotEmpty)
-            ? locales.first
-            : PlatformDispatcher.instance.locale;
+    final sys = (locales != null && locales.isNotEmpty)
+        ? locales.first
+        : PlatformDispatcher.instance.locale;
     if (widget.controller != null) {
       widget.controller!.syncSystemLocale(sys);
     } else {
@@ -1429,7 +1473,8 @@ class OmniText extends StatelessWidget {
         : _supportedLanguages;
     final idx = list.indexWhere(
       (l) =>
-          l == currentLanguage || l.languageCode == currentLanguage.languageCode,
+          l == currentLanguage ||
+          l.languageCode == currentLanguage.languageCode,
     );
     final next = idx < 0 ? list.first : list[(idx + 1) % list.length];
     setLanguage(next);
@@ -1489,9 +1534,12 @@ class OmniText extends StatelessWidget {
   ) {
     if (entries.isEmpty) return;
     (_registeredTags[language.tag] ??= <String, String>{}).addAll(entries);
-    (_registeredTags[language.languageCode] ??= <String, String>{})
-        .addAll(entries);
-    _channel.setValue(_channel.value.copyWith(revision: _channel.value.revision + 1));
+    (_registeredTags[language.languageCode] ??= <String, String>{}).addAll(
+      entries,
+    );
+    _channel.setValue(
+      _channel.value.copyWith(revision: _channel.value.revision + 1),
+    );
   }
 
   /// নির্দিষ্ট দেশের জন্য কী-ভিত্তিক ওভাররাইড অনুবাদ নিবন্ধন করে।
@@ -1501,7 +1549,9 @@ class OmniText extends StatelessWidget {
   ) {
     if (entries.isEmpty) return;
     (_registeredCountries[country] ??= <String, String>{}).addAll(entries);
-    _channel.setValue(_channel.value.copyWith(revision: _channel.value.revision + 1));
+    _channel.setValue(
+      _channel.value.copyWith(revision: _channel.value.revision + 1),
+    );
   }
 
   /// স্ট্রিং-ট্যাগ বা নেস্টেড JSON থেকে অনুবাদ যোগ করে।
@@ -1525,7 +1575,9 @@ class OmniText extends StatelessWidget {
     (_registeredTags[norm] ??= <String, String>{}).addAll(flat);
     final base = norm.split('_').first.toLowerCase();
     (_registeredTags[base] ??= <String, String>{}).addAll(flat);
-    _channel.setValue(_channel.value.copyWith(revision: _channel.value.revision + 1));
+    _channel.setValue(
+      _channel.value.copyWith(revision: _channel.value.revision + 1),
+    );
   }
 
   /// টেস্ট বা সেশন রিসেটের জন্য গ্লোবাল স্টেট ইংরেজিতে ফিরিয়ে নেয়।
@@ -1559,8 +1611,7 @@ class OmniText extends StatelessWidget {
 
     if (config.initialLanguage != null || config.initialCountry != null) {
       final lang =
-          config.initialLanguage ??
-          config.initialCountry!.defaultLanguage;
+          config.initialLanguage ?? config.initialCountry!.defaultLanguage;
       final country = config.initialCountry ?? lang.country;
       _channel.setValue(
         OmniLocaleState(
@@ -1745,7 +1796,8 @@ class OmniText extends StatelessWidget {
 
     // ১. নিবন্ধিত কী-ভিত্তিক JSON/API ওভাররাইড (দেশ -> ভাষা_দেশ -> ভাষা):
     if (textKey != null && textKey.isNotEmpty) {
-      resolved = _registeredCountries[state.country]?[textKey] ??
+      resolved =
+          _registeredCountries[state.country]?[textKey] ??
           _registeredTags['${state.language.languageCode}_${state.country.isoCode}']?[textKey] ??
           _registeredTags[state.language.tag]?[textKey] ??
           _registeredTags[state.language.languageCode]?[textKey];
@@ -1818,7 +1870,10 @@ class OmniText extends StatelessWidget {
 
     if (args != null && args.isNotEmpty) {
       for (final entry in args.entries) {
-        resolved = resolved!.replaceAll('{${entry.key}}', '${entry.value ?? ''}');
+        resolved = resolved!.replaceAll(
+          '{${entry.key}}',
+          '${entry.value ?? ''}',
+        );
       }
     }
 
@@ -2120,7 +2175,8 @@ extension OmniTextContext on BuildContext {
   String trDigits(String raw) =>
       OmniText.formatDigits(raw, language: currentLanguage);
 
-  OmniLocaleController? get _scopedController => OmniL10nScope.maybeOf(this)?.controller;
+  OmniLocaleController? get _scopedController =>
+      OmniL10nScope.maybeOf(this)?.controller;
 
   /// ১ লাইনে পুরো অ্যাপের ভাষা পরিবর্তন করে (কোনো রিলোড ছাড়াই সব স্ক্রিন আপডেট!)।
   void setLanguage(OmniLanguage language, {OmniCountryCode? country}) {
@@ -2154,7 +2210,8 @@ extension OmniTextContext on BuildContext {
 
   /// পরবর্তী সমর্থিত ভাষায় চলে যায়।
   void nextLanguage({List<OmniLanguage>? among}) {
-    final list = among ?? OmniL10nScope.maybeOf(this)?.config.supportedLanguages;
+    final list =
+        among ?? OmniL10nScope.maybeOf(this)?.config.supportedLanguages;
     final c = _scopedController;
     if (c != null) {
       final choices = (list != null && list.isNotEmpty)
@@ -2164,7 +2221,9 @@ extension OmniTextContext on BuildContext {
       final idx = choices.indexWhere(
         (l) => l == cur || l.languageCode == cur.languageCode,
       );
-      final next = idx < 0 ? choices.first : choices[(idx + 1) % choices.length];
+      final next = idx < 0
+          ? choices.first
+          : choices[(idx + 1) % choices.length];
       c.setLanguage(next);
     } else {
       OmniText.nextLanguage(among: list);
@@ -2253,8 +2312,7 @@ class OmniLanguagePicker extends StatelessWidget {
   String _labelFor(OmniLanguage l) {
     final prefix = showFlags ? '${l.flag} ' : '';
     final cc = showCountryCode ? ' (${l.countryCode})' : '';
-    final enSuffix =
-        showEnglishName && l.nativeName != l.englishName
+    final enSuffix = showEnglishName && l.nativeName != l.englishName
         ? ' • ${l.englishName}'
         : '';
     return '$prefix${l.nativeName}$cc$enSuffix';
@@ -2544,7 +2602,10 @@ Future<void> showOmniLanguageSheet(
                   runSpacing: 8,
                   children: [
                     ActionChip(
-                      avatar: const Icon(Icons.settings_suggest_rounded, size: 18),
+                      avatar: const Icon(
+                        Icons.settings_suggest_rounded,
+                        size: 18,
+                      ),
                       label: Text(
                         sheetCtx.l10n(
                           en: 'Use Device Language',
@@ -2644,9 +2705,8 @@ class OmniFallbackWidgetsLocalizationsDelegate
   }
 
   @override
-  bool shouldReload(
-    covariant OmniFallbackWidgetsLocalizationsDelegate old,
-  ) => false;
+  bool shouldReload(covariant OmniFallbackWidgetsLocalizationsDelegate old) =>
+      false;
 }
 
 /// `CupertinoApp`-এর যেকোনো [Locale]-এ নিরাপদ ফলব্যাক ডেলিগেট।
@@ -2668,7 +2728,8 @@ class OmniFallbackCupertinoLocalizationsDelegate
       );
 
   @override
-  bool shouldReload(
-    covariant OmniFallbackCupertinoLocalizationsDelegate old,
-  ) => false;
+  bool shouldReload(covariant OmniFallbackCupertinoLocalizationsDelegate old) =>
+      false;
 }
+
+final RegExp _localeTagSeparator = RegExp(r'[-_]');

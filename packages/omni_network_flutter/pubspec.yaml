@@ -16,8 +16,7 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_secure_storage: ^11.2.0
-  omni_network:
-    path: ../omni_network
+  omni_network: ^0.1.1
 
 dev_dependencies:
   flutter_test:

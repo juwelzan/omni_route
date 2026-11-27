@@ -1,7 +1,7 @@
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -894,11 +894,7 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
 
     final boundary =
         _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary != null &&
-        boundary.attached &&
-        boundary.hasSize &&
-        !boundary.size.isEmpty &&
-        !boundary.debugNeedsPaint) {
+    if (boundary != null && _canCapture(boundary)) {
       final snap = _tryCapture(boundary);
       if (snap != null) {
         _startOverlayTransitionLocked(
@@ -938,11 +934,7 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
     final boundary =
         _boundaryKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
     ui.Image? snap;
-    if (boundary != null &&
-        boundary.attached &&
-        boundary.hasSize &&
-        !boundary.size.isEmpty &&
-        !boundary.debugNeedsPaint) {
+    if (boundary != null && _canCapture(boundary)) {
       snap = _tryCapture(boundary);
     }
 
@@ -964,6 +956,20 @@ class _OmniThemeTransitionState<T> extends State<OmniThemeTransition<T>>
       }
     });
   }
+
+  /// Whether [boundary] can be snapshotted now.
+  ///
+  /// `debugNeedsPaint` only answers in debug builds (where `toImageSync`
+  /// asserts on it) and is always `false` in profile/release. There, a
+  /// boundary that was never painted has no layer: `toImageSync` throws,
+  /// [_tryCapture] returns `null`, and the capture is retried after the next
+  /// frame. A painted boundary keeps its last frame (the old theme), which is
+  /// exactly what the overlay needs.
+  static bool _canCapture(RenderRepaintBoundary boundary) =>
+      boundary.attached &&
+      boundary.hasSize &&
+      !boundary.size.isEmpty &&
+      !(kDebugMode && boundary.debugNeedsPaint);
 
   ui.Image? _tryCapture(RenderRepaintBoundary boundary) {
     final ratio = widget.animation.snapshotPixelRatio.clamp(0.5, 3.0);

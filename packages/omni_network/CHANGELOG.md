@@ -1,5 +1,12 @@
 ## Unreleased
 
+- **Faster `FileCacheStore`**: entries are now one binary file each (small
+  JSON header + raw body, no base64) with a lazily built in-memory index.
+  `removeUrl` (run after every successful POST/PUT/PATCH/DELETE) no longer
+  reads and parses the whole cache, `set` no longer lists and stats every
+  file, and `get` misses touch no files. Leftover temp files from an
+  interrupted write are cleaned up. The on-disk format changed: entries
+  written by older versions (`*.json`) are discarded once on first use.
 - **Auth providers & JWT helper**: Added `Tokens.fromJwt` and
   `Tokens.jwtExpiration` (plus `BearerAuth.current` loading restored storage
   tokens before checking `isExpiring`), along with built-in `ApiKeyAuth`

@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'omni_device_info.dart';
 import 'omni_route_platform_interface.dart';
+import '../core/omni_debug_report.dart';
 
 /// Default [OmniRoutePlatform] implementation backed by [MethodChannel].
 class MethodChannelOmniRoute extends OmniRoutePlatform {
@@ -53,7 +54,8 @@ class MethodChannelOmniRoute extends OmniRoutePlatform {
   Future<bool> hideKeyboard() async {
     try {
       await SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
-    } catch (_) {
+    } catch (e, st) {
+      omniReportRecovered('methodChannel', e, st);
       // Best-effort Flutter channel clear.
     }
     try {
