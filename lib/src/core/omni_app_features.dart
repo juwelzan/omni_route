@@ -51,22 +51,53 @@ class _OmniAppLifecycleScopeState extends State<OmniAppLifecycleScope> {
   Widget build(BuildContext context) => widget.child;
 }
 
-/// Shows [splash] until [onInit] completes, then [child].
+/// Error builder rendered by [OmniInitGate] when `OmniApp(onInit:)` fails and
+/// `onInitError` is provided; invoking [retry] restarts startup initialization.
+typedef OmniInitErrorBuilder =
+    Widget Function(
+      BuildContext context,
+      Object error,
+      StackTrace stack,
+      VoidCallback retry,
+    );
+
+/// Asynchronous callback executed after `OmniApp(onInit:)` finishes to pick a
+/// starting route (e.g. `'/onboarding'` vs `'/dashboard'`).
+typedef OmniInitialRouteResolver = FutureOr<String?> Function(BuildContext context);
+
+/// Shows [splash] until [onInit] and optional [resolveInitialRoute] complete,
+/// then renders [child] (or [onInitError] with retry when initialization fails).
 @internal
 class OmniInitGate extends StatefulWidget {
   /// Runs [onInit] once.
   const OmniInitGate({
     super.key,
-    required this.onInit,
-    required this.splash,
     required this.child,
+    this.onInit,
+    this.initTimeout,
+    this.splash,
+    this.onInitError,
+    this.resolveInitialRoute,
+    this.router,
   });
 
-  /// Startup work; the context can read global Blocs.
-  final Future<void> Function(BuildContext context) onInit;
+  /// Startup work; the context can read global repositories & Blocs.
+  final Future<void> Function(BuildContext context)? onInit;
 
-  /// Shown while [onInit] runs.
+  /// Optional timeout applied to [onInit].
+  final Duration? initTimeout;
+
+  /// Shown while startup runs.
   final WidgetBuilder? splash;
+
+  /// Optional recovery view when [onInit] or [resolveInitialRoute] fails.
+  final OmniInitErrorBuilder? onInitError;
+
+  /// Optional destination resolver invoked after [onInit] completes.
+  final OmniInitialRouteResolver? resolveInitialRoute;
+
+  /// Router updated if [resolveInitialRoute] returns a non-empty location.
+  final OmniRouter? router;
 
   /// The app, shown afterwards.
   final Widget child;
@@ -77,32 +108,82 @@ class OmniInitGate extends StatefulWidget {
 
 class _OmniInitGateState extends State<OmniInitGate> {
   bool _ready = false;
+  Object? _error;
+  StackTrace? _stack;
+  int _runEpoch = 0;
 
   @override
   void initState() {
     super.initState();
-    Future<void>.sync(() => widget.onInit(context))
-        .catchError((Object e, StackTrace s) {
-          // Reported, then the app opens anyway so it is never stuck on the
-          // splash screen.
-          FlutterError.reportError(
-            FlutterErrorDetails(
-              exception: e,
-              stack: s,
-              library: 'omni_route',
-              context: ErrorDescription('in OmniApp.onInit'),
-            ),
-          );
-        })
-        .whenComplete(() {
-          if (mounted) setState(() => _ready = true);
+    _run();
+  }
+
+  Future<void> _run() async {
+    final epoch = ++_runEpoch;
+    if (mounted && (_error != null || _ready)) {
+      setState(() {
+        _error = null;
+        _stack = null;
+        _ready = false;
+      });
+    }
+    try {
+      if (widget.onInit != null) {
+        final fut = Future<void>.sync(() => widget.onInit!(context));
+        await (widget.initTimeout == null
+            ? fut
+            : fut.timeout(widget.initTimeout!));
+      }
+      if (!mounted || epoch != _runEpoch) return;
+      if (widget.resolveInitialRoute != null) {
+        final dest = await Future<String?>.sync(
+          () => widget.resolveInitialRoute!(context),
+        );
+        if (!mounted || epoch != _runEpoch) return;
+        if (dest != null && dest.isNotEmpty) {
+          widget.router?.go(dest, animated: false);
+        }
+      }
+      if (mounted && epoch == _runEpoch) {
+        setState(() => _ready = true);
+      }
+    } catch (e, s) {
+      if (!mounted || epoch != _runEpoch) return;
+      if (widget.onInitError != null) {
+        setState(() {
+          _error = e;
+          _stack = s;
         });
+      } else {
+        // Reported, then the app opens anyway so existing fallback behavior
+        // never leaves the user stuck on the splash screen without a custom UI.
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: e,
+            stack: s,
+            library: 'omni_route',
+            context: ErrorDescription('in OmniApp.onInit'),
+          ),
+        );
+        setState(() => _ready = true);
+      }
+    }
   }
 
   @override
-  Widget build(BuildContext context) => _ready
-      ? widget.child
-      : (widget.splash?.call(context) ?? const SizedBox.shrink());
+  Widget build(BuildContext context) {
+    if (_error != null && widget.onInitError != null) {
+      return widget.onInitError!(
+        context,
+        _error!,
+        _stack ?? StackTrace.empty,
+        _run,
+      );
+    }
+    return _ready
+        ? widget.child
+        : (widget.splash?.call(context) ?? const SizedBox.shrink());
+  }
 }
 
 /// Closes the keyboard when the user taps outside a text field.

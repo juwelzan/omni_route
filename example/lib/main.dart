@@ -205,32 +205,28 @@ class ExampleApp extends StatefulWidget {
 }
 
 class _ExampleAppState extends State<ExampleApp> {
-  BlocObserver? _previousObserver;
-  late final _ExampleBlocObserver _blocObserver;
-
-  @override
-  void initState() {
-    super.initState();
-    _previousObserver = Bloc.observer;
-    _blocObserver = _ExampleBlocObserver(printTerminal: widget.useLiveNetwork);
-    Bloc.observer = _blocObserver;
-  }
+  late final _ExampleBlocObserver _blocObserver = _ExampleBlocObserver(
+    printTerminal: widget.useLiveNetwork,
+  );
 
   @override
   void dispose() {
     _blocObserver.inspector = null;
-    if (identical(Bloc.observer, _blocObserver) && _previousObserver != null) {
-      Bloc.observer = _previousObserver!;
-    }
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return OmniApp(
+    return OmniApp.material(
+      title: 'OmniRoute & OmniNetwork Example',
+      theme: ThemeData.light(useMaterial3: true),
+      darkTheme: ThemeData.dark(useMaterial3: true),
+      themeModeBuilder: (c) =>
+          c.watch<ThemeBloc>().state ? ThemeMode.dark : ThemeMode.light,
       initialRoute: '/dashboard',
       transition: OmniPages.fadeSlide,
       guards: const [AuthGuard()],
+      blocObserver: _blocObserver,
       logNavigation: false,
       onNavigate: (nav) {
         final from = nav.from?.location ?? '(start)';
@@ -238,17 +234,27 @@ class _ExampleAppState extends State<ExampleApp> {
         if (widget.useLiveNetwork && kDebugMode) {
           _printSeparateBox(
             colorCode: '38;5;141',
-            header: '🧭 route · $from -> $to',
+            header: '🧭 route (${nav.kind.name}) · $from -> $to',
             detail: 'uri: ${nav.uri}',
           );
         }
         scheduleMicrotask(() {
           _blocObserver.inspector?.logRoute(
-            '$from -> $to',
+            '[${nav.kind.name}] $from -> $to',
             subtitle: 'uri: ${nav.uri}',
-            copyText: '[route]\nfrom: $from\nto:   $to\nuri:  ${nav.uri}',
+            copyText:
+                '[route:${nav.kind.name}]\nfrom: $from\nto:   $to\nuri:  ${nav.uri}',
           );
         });
+      },
+      appBuilder: (context, child) {
+        final inspector = context.read<ApiLabCubit>().inspector;
+        _blocObserver.inspector = inspector;
+        return OmniInspectorLauncher(
+          inspector: inspector,
+          initialTab: InspectorTab.logs,
+          child: child ?? const SizedBox.shrink(),
+        );
       },
       blocs: [
         OmniBloc((_) => AuthBloc(), global: true),
@@ -354,23 +360,6 @@ class _ExampleAppState extends State<ExampleApp> {
           ],
         ),
       ],
-      builder: (context, router) {
-        final dark = context.watch<ThemeBloc>().state;
-        final inspector = context.read<ApiLabCubit>().inspector;
-        _blocObserver.inspector = inspector;
-        return MaterialApp.router(
-          title: 'OmniRoute & OmniNetwork Example',
-          themeMode: dark ? ThemeMode.dark : ThemeMode.light,
-          theme: ThemeData.light(useMaterial3: true),
-          darkTheme: ThemeData.dark(useMaterial3: true),
-          routerConfig: router,
-          builder: (context, child) => OmniInspectorLauncher(
-            inspector: inspector,
-            initialTab: InspectorTab.logs,
-            child: child ?? const SizedBox.shrink(),
-          ),
-        );
-      },
     );
   }
 }

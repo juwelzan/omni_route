@@ -84,6 +84,9 @@ abstract final class OmniRoute {
   /// Canonical route path pattern for the top page (e.g. `'/students/:id'`).
   static String? get routePath => router.state.routePath;
 
+  /// All registered full `routePath` strings compiled into the active router.
+  static List<String> get paths => List.unmodifiable(registryOf(router).paths);
+
   /// Whether [location] matches a compiled route in the active router.
   static bool hasRoute(String location) =>
       registryOf(router).matchUri(Uri.parse(location)) != null;

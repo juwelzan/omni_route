@@ -144,21 +144,39 @@ class GuardRefresh extends StatefulWidget {
 class _GuardRefreshState extends State<GuardRefresh> {
   List<StreamSubscription<Object?>>? _subs;
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _subs ??= [
+  void _subscribe() {
+    _cancel();
+    _subs = [
       for (final g in widget.guards)
         if (g.refresh(context) case final s?)
           s.listen((_) => widget.notifier.ping()),
     ];
   }
 
-  @override
-  void dispose() {
+  void _cancel() {
     for (final s in _subs ?? const <StreamSubscription<Object?>>[]) {
       s.cancel();
     }
+    _subs = null;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_subs == null) _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(GuardRefresh oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(widget.guards, oldWidget.guards)) {
+      _subscribe();
+    }
+  }
+
+  @override
+  void dispose() {
+    _cancel();
     super.dispose();
   }
 

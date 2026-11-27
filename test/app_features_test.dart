@@ -1,6 +1,8 @@
 // 0.2.3: optional app-level conveniences on OmniApp.
+import 'dart:async';
 import 'dart:ui';
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -304,7 +306,236 @@ void main() {
     expect(Bloc.observer, same(observerBefore));
     expect(find.byType(GestureDetector), findsNothing);
     expect(find.byType(PopScope), findsNothing);
+    expect(find.byType(MultiRepositoryProvider), findsNothing);
   });
+
+  group('OmniApp upgrades & hot-reload fixes', () {
+    testWidgets(
+      'OmniApp.material + OmniRepo + overlayBuilder + themeModeBuilder work seamlessly',
+      (t) async {
+        var disposed = false;
+        await t.pumpWidget(
+          OmniApp.material(
+            title: 'Upgraded App',
+            repositories: [
+              OmniRepo(
+                (_) => _GreetingService('Hello DI'),
+                dispose: (_) => disposed = true,
+              ),
+            ],
+            blocs: [
+              OmniBloc((_) => SessionBloc(), global: true),
+              OmniBloc(
+                (c) => _GreetingBloc(c.read<_GreetingService>().greeting),
+                global: true,
+              ),
+            ],
+            themeModeBuilder: (c) => c.watch<SessionBloc>().state
+                ? ThemeMode.dark
+                : ThemeMode.light,
+            overlayBuilder: (_, child) => Stack(
+              textDirection: TextDirection.ltr,
+              children: [
+                child!,
+                const Positioned(top: 0, left: 0, child: Text('overlay-pill')),
+              ],
+            ),
+            routes: [
+              OmniPage('/', (_) => const _GreetingScreen()),
+              OmniPage('/next', (_) => const S('next')),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.text('Hello DI'), findsOneWidget);
+        expect(find.text('overlay-pill'), findsOneWidget);
+        expect(OmniRoute.paths, containsAll(['/', '/next']));
+
+        await t.pumpWidget(const SizedBox());
+        expect(disposed, isTrue);
+      },
+    );
+
+    testWidgets('OmniApp.cupertino builds CupertinoApp.router cleanly', (
+      t,
+    ) async {
+      await t.pumpWidget(
+        OmniApp.cupertino(
+          title: 'Cupertino App',
+          routes: [
+            OmniPage('/', (_) => const CupertinoPageScaffold(child: Text('cu'))),
+          ],
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.byType(CupertinoApp), findsOneWidget);
+      expect(find.text('cu'), findsOneWidget);
+    });
+
+    testWidgets(
+      'onInitError supports retry & initTimeout; resolveInitialRoute chooses startup route',
+      (t) async {
+        var attempts = 0;
+        await t.pumpWidget(
+          OmniApp.material(
+            onInit: (_) async {
+              attempts++;
+              if (attempts == 1) {
+                throw StateError('network down');
+              }
+            },
+            resolveInitialRoute: (_) async => '/onboarding',
+            onInitError: (_, err, _, retry) => Directionality(
+              textDirection: TextDirection.ltr,
+              child: TextButton(
+                onPressed: retry,
+                child: Text('Retry: $err'),
+              ),
+            ),
+            routes: [
+              OmniPage('/', (_) => const S('home')),
+              OmniPage('/onboarding', (_) => const S('onboarding')),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.textContaining('Retry: Bad state: network down'), findsOneWidget);
+        await t.tap(find.byType(TextButton));
+        await t.pumpAndSettle();
+        expect(find.text('onboarding'), findsOneWidget);
+
+        // initTimeout triggers onInitError cleanly.
+        await t.pumpWidget(
+          OmniApp.material(
+            key: const ValueKey('timeout'),
+            onInit: (_) => Completer<void>().future,
+            initTimeout: const Duration(milliseconds: 20),
+            onInitError: (_, err, _, _) => Directionality(
+              textDirection: TextDirection.ltr,
+              child: Text('TimedOut: ${err.runtimeType}'),
+            ),
+            routes: [OmniPage('/', (_) => const S('home'))],
+          ),
+        );
+        await t.pump(const Duration(milliseconds: 50));
+        await t.pumpAndSettle();
+        expect(find.text('TimedOut: TimeoutException'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'didUpdateWidget recovers from bad routes, syncs GuardRefresh, blocObserver & onNavigate',
+      (t) async {
+        final navKinds = <OmniNavigationKind>[];
+        final authStream1 = StreamController<bool>.broadcast();
+        final authStream2 = StreamController<bool>.broadcast();
+        addTearDown(() async {
+          await authStream1.close();
+          await authStream2.close();
+        });
+        var authed = false;
+
+        Widget buildApp({
+          required bool brokenRoutes,
+          required bool enableNavCallback,
+          required Stream<bool> guardStream,
+          BlocObserver? observer,
+        }) => OmniApp.material(
+          blocObserver: observer,
+          onNavigate: enableNavCallback ? (e) => navKinds.add(e.kind) : null,
+          guards: [
+            OmniGuard.fn(
+              (_, s) => !authed && s.matchedLocation != '/login'
+                  ? '/login'
+                  : (authed && s.matchedLocation == '/login' ? '/next' : null),
+              refresh: (_) => guardStream,
+            ),
+          ],
+          routes: brokenRoutes
+              ? [OmniPage('/dup', (_) => const S('a')), OmniPage('/dup', (_) => const S('b'))]
+              : [
+                  OmniPage('/', (_) => const S('home')),
+                  OmniPage('/login', (_) => const S('login')),
+                  OmniPage('/next', (_) => const S('next')),
+                ],
+        );
+
+        // 1. Start with broken duplicate routes -> renders ErrorWidget.
+        await t.pumpWidget(
+          buildApp(
+            brokenRoutes: true,
+            enableNavCallback: false,
+            guardStream: authStream1.stream,
+          ),
+        );
+        expect(t.takeException(), isA<OmniRouteException>());
+        expect(find.byType(ErrorWidget), findsOneWidget);
+
+        // 2. Recover via widget update (simulating Hot Reload fix) + enable nav callback & guard stream 2.
+        final observer = LogObserver();
+        await t.pumpWidget(
+          buildApp(
+            brokenRoutes: false,
+            enableNavCallback: true,
+            guardStream: authStream2.stream,
+            observer: observer,
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('login'), findsOneWidget);
+        expect(Bloc.observer, same(observer));
+
+        // 3. Emitting on new guardStream2 triggers redirect (previously stuck on stale stream1).
+        authed = true;
+        authStream2.add(true);
+        await t.pumpAndSettle();
+        expect(find.text('next'), findsOneWidget);
+
+        // 4. Verified navigation kinds tracked cleanly when toggled on dynamically.
+        OmniRoute.push('/');
+        await t.pumpAndSettle();
+        expect(navKinds, contains(OmniNavigationKind.push));
+        OmniRoute.pop();
+        await t.pumpAndSettle();
+        expect(navKinds.last, OmniNavigationKind.pop);
+      },
+    );
+
+    test('OmniApp.validateRoutes catches duplicates and lists canonical paths', () {
+      expect(
+        OmniApp.validateRoutes([
+          OmniPage('/', (_) => const S('home')),
+          OmniPage('/users/:id', (_) => const S('user')),
+        ]),
+        ['/', '/users/:id'],
+      );
+      expect(
+        () => OmniApp.validateRoutes([
+          OmniPage('/a', (_) => const S('a1')),
+          OmniPage('/a', (_) => const S('a2')),
+        ]),
+        throwsA(isA<OmniRouteException>()),
+      );
+    });
+  });
+}
+
+class _GreetingService {
+  const _GreetingService(this.greeting);
+  final String greeting;
+}
+
+class _GreetingBloc extends Cubit<String> {
+  _GreetingBloc(super.initialState);
+}
+
+class _GreetingScreen extends StatelessWidget {
+  const _GreetingScreen();
+  @override
+  Widget build(BuildContext context) =>
+      Scaffold(body: Text(context.read<_GreetingBloc>().state));
 }
 
 class FormScreen extends OmniStatelessWidget {

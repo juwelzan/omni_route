@@ -65,6 +65,30 @@ class OmniRouteEntry {
       '$location${screen == null ? '' : ' ($screen)'}${routePath == null ? '' : ' [$routePath]'}${name == null ? '' : ' #$name'}';
 }
 
+/// How a navigation transition in [OmniNavigation] was initiated.
+enum OmniNavigationKind {
+  /// Initial startup route resolution.
+  initial,
+
+  /// Declarative stack replacement (`go` / `to` / `goNamed`).
+  go,
+
+  /// Imperative page push (`push` / `pushTo` / `pushNamed`).
+  push,
+
+  /// Top page replacement (`replace` / `replaceTo` / `replaceNamed`).
+  replace,
+
+  /// Route popped (`pop` / `popUntil` / `popToRoot`).
+  pop,
+
+  /// Guard refresh stream re-evaluation.
+  refresh,
+
+  /// Automatic guard redirect to another destination.
+  redirect,
+}
+
 /// A completed navigation event passed to `OmniApp(onNavigate:)`.
 @immutable
 class OmniNavigation {
@@ -73,6 +97,8 @@ class OmniNavigation {
     required this.from,
     required this.to,
     required this.uri,
+    this.kind = OmniNavigationKind.go,
+    this.timestamp,
   });
 
   /// The top page before navigation, or `null` for the initial location.
@@ -84,8 +110,14 @@ class OmniNavigation {
   /// The full new location, including query and fragment.
   final Uri uri;
 
+  /// Kind of navigation action that produced this transition.
+  final OmniNavigationKind kind;
+
+  /// Timestamp when the transition completed (`null` for const test instances).
+  final DateTime? timestamp;
+
   @override
-  String toString() => '${from ?? '(start)'} → $to';
+  String toString() => '[${kind.name}] ${from ?? '(start)'} → $to';
 }
 
 /// Internal sentinel entry representing an unmatched or error route.

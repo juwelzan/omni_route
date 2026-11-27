@@ -13,11 +13,16 @@ export 'src/bloc/omni_bloc.dart'
         OmniBlocCreate,
         OmniBlocEntry,
         OmniBlocRegistry,
+        OmniRepo,
+        OmniRepoEntry,
         Provide;
 export 'src/bloc/omni_bloc_scope.dart' hide hostedScreenAbove;
 export 'src/core/omni_app.dart';
+export 'src/core/omni_app_features.dart'
+    show OmniInitErrorBuilder, OmniInitialRouteResolver;
 export 'src/core/omni_route.dart';
-export 'src/core/omni_route_entry.dart' show OmniNavigation, OmniRouteEntry;
+export 'src/core/omni_route_entry.dart'
+    show OmniNavigation, OmniNavigationKind, OmniRouteEntry;
 export 'src/core/omni_router.dart' show OmniRouter;
 export 'src/errors/omni_route_exception.dart';
 export 'src/guards/omni_guard.dart' show OmniGuard, OmniGuardRedirect;

@@ -86,10 +86,15 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   BuildContext? _hostContext;
   bool _initialGuardsDone = false;
   bool _resolvingInitial = false;
+  bool _explicitInitialOverride = false;
   bool _initialReadyNotified = false;
   bool _disposed = false;
   int _nextKeyId = 1;
   int _navSeq = 0;
+  OmniNavigationKind _lastNavKind = OmniNavigationKind.initial;
+
+  /// How the most recent route change was triggered.
+  OmniNavigationKind get lastNavigationKind => _lastNavKind;
 
   @override
   RouterDelegate<Uri> get routerDelegate => _delegate;
@@ -267,6 +272,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     if (idx < 0) return SynchronousFuture<bool>(false);
     if (idx < active.length - 1) {
       _removeSliceFrom(active, idx + 1);
+      _lastNavKind = OmniNavigationKind.pop;
       _commit();
     }
     return SynchronousFuture<bool>(true);
@@ -277,6 +283,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     final active = _deepestActiveStack();
     if (active.length > 1) {
       _removeSliceFrom(active, 1);
+      _lastNavKind = OmniNavigationKind.pop;
       _commit();
     }
     return SynchronousFuture<void>(null);
@@ -296,6 +303,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     }
     final removed = stack.removeLast();
     _completeRemovedFrame(removed, result);
+    _lastNavKind = OmniNavigationKind.pop;
     _commit();
   }
 
@@ -343,6 +351,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     final removed = _removePageByKey(_rootStack, pageKey);
     if (removed != null) {
       _completeRemovedFrame(removed, result);
+      _lastNavKind = OmniNavigationKind.pop;
       _commit();
     }
   }
@@ -393,6 +402,9 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
         completedSynchronously = stillInBuild;
         if (_disposed || _navSeq != seq) return;
         if (res.redirected || res.error != null || res.uri != top.uri) {
+          _lastNavKind = res.redirected
+              ? OmniNavigationKind.redirect
+              : OmniNavigationKind.initial;
           _applyDeclarativeMatch(
             uri: res.uri,
             match: res.match,
@@ -441,6 +453,9 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       onResolved: (res) {
         if (_disposed || _navSeq != seq) return;
         if (res.redirected || res.error != null) {
+          _lastNavKind = res.redirected
+              ? OmniNavigationKind.redirect
+              : OmniNavigationKind.refresh;
           _applyDeclarativeMatch(
             uri: res.uri,
             match: res.match,
@@ -480,6 +495,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
 
     final ctx = _hostContext;
     if (ctx == null || !ctx.mounted) {
+      _explicitInitialOverride = true;
       final normalized = _normalizeUri(parsed);
       final match = _registry.matchUri(normalized);
       _applyResolved(
@@ -631,6 +647,13 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     required bool? animated,
     required Completer<Object?>? completer,
   }) {
+    _lastNavKind = redirected
+        ? OmniNavigationKind.redirect
+        : switch (kind) {
+            _NavKind.go => OmniNavigationKind.go,
+            _NavKind.push => OmniNavigationKind.push,
+            _NavKind.replace => OmniNavigationKind.replace,
+          };
     if (error != null || match == null) {
       _applyErrorNavigation(
         uri,
@@ -1162,6 +1185,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
       shellFrame.branches[index] = _seedBranchStack(branch);
     }
     if (changed || initialLocation) {
+      _lastNavKind = OmniNavigationKind.go;
       _commit();
     }
   }
@@ -1831,7 +1855,8 @@ class _OmniRouterDelegate extends RouterDelegate<Uri>
 
   @override
   Future<void> setInitialRoutePath(Uri configuration) {
-    if (configuration != router.location &&
+    if (!router._explicitInitialOverride &&
+        configuration != router.location &&
         configuration.path.isNotEmpty &&
         !(router._initialGuardsDone)) {
       router._seedInitialStack(configuration);

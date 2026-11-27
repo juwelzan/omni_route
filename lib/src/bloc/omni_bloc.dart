@@ -182,6 +182,31 @@ class OmniBlocRegistry {
     return f as OmniBloc<B>;
   }
 
+  /// Merges updated `OmniApp(blocs: ...)` declarations on Hot Reload without
+  /// discarding page-scoped factories registered at runtime.
+  @internal
+  void mergeEntries(Iterable<OmniBlocEntry> next) {
+    if (!_mutable) return;
+    final seen = <Type>{};
+    for (final entry in next) {
+      if (entry is! OmniBloc) {
+        throw OmniRouteException(
+          OmniErrorCode.unsupportedConfiguration,
+          'OmniApp(blocs: [...]) only accepts OmniBloc entries (got ${entry.runtimeType}).',
+          hint: 'Use OmniBloc((_) => ${entry.type}(...), global: true).',
+        );
+      }
+      _checkInferredBlocType(entry.type);
+      if (!seen.add(entry.type)) {
+        throw OmniRouteException(
+          OmniErrorCode.duplicateBlocRegistration,
+          '${entry.type} is registered more than once.',
+        );
+      }
+      _factories[entry.type] = entry;
+    }
+  }
+
   /// Providers for all global Blocs, created once for the app.
   @internal
   List<BlocProvider> globalProviders() => [
@@ -281,6 +306,66 @@ class Provide<B extends OmniAnyBloc> extends OmniBlocEntry {
     return BlocProvider<B>(
       create: _create ?? registry.factoryFor<B>().create,
       lazy: lazy,
+    );
+  }
+}
+
+/// Base entry accepted by `OmniApp(repositories: [...])`.
+///
+/// Being non-generic lets Dart infer each service or repository type cleanly
+/// from `[OmniRepo((_) => AuthRepository()), ...]`.
+abstract class OmniRepoEntry {
+  /// Const constructor for subclasses.
+  const OmniRepoEntry();
+
+  /// Provided service or repository [Type].
+  Type get type;
+
+  /// Converts this entry into a [RepositoryProvider] for `MultiRepositoryProvider`.
+  @internal
+  RepositoryProvider<dynamic> toProvider();
+}
+
+/// Declares an app-wide repository or service instance registered inside
+/// `OmniApp(repositories: [...])` above all global Blocs.
+@immutable
+class OmniRepo<T> extends OmniRepoEntry {
+  /// Registers a repository factory invoked lazily (or eagerly when `lazy: false`).
+  const OmniRepo(
+    T Function(BuildContext context) this._create, {
+    this.lazy = true,
+    this.dispose,
+  }) : _value = null;
+
+  /// Provides an existing [value] without calling [dispose] on unmount.
+  const OmniRepo.value(T value)
+    : _value = value,
+      _create = null,
+      lazy = true,
+      dispose = null;
+
+  final T Function(BuildContext context)? _create;
+  final T? _value;
+
+  /// Whether creation waits until `context.read<T>()` is first invoked.
+  final bool lazy;
+
+  /// Optional cleanup invoked when `OmniApp` unmounts.
+  final void Function(T instance)? dispose;
+
+  @override
+  Type get type => T;
+
+  @override
+  @internal
+  RepositoryProvider<T> toProvider() {
+    if (_create == null) {
+      return RepositoryProvider<T>.value(value: _value as T);
+    }
+    return RepositoryProvider<T>(
+      create: _create,
+      lazy: lazy,
+      dispose: dispose,
     );
   }
 }
