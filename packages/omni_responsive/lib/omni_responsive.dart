@@ -140,7 +140,7 @@ export 'src/omni_text_scale.dart'
         OmniTextSize,
         OmniTextSizePicker;
 export 'src/omni_theme_override.dart' show OmniThemeOverride;
-export 'src/widgets/omni_bottom_sheet.dart'
+export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'
     show
         OmniSheet,
         OmniSheetController,

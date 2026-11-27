@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:omni_route/omni_route.dart';
 
+import 'sheets_demo.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   OmniRoute.usePathUrls();
@@ -223,6 +225,7 @@ class ExampleApp extends StatelessWidget {
                   const SettingsScreen(),
                   routes: [
                     OmniPage.screen(const ProfileScreen(), path: 'profile'),
+                    OmniPage.screen(const SheetsDemoScreen(), path: 'sheets'),
                   ],
                 ),
               ],
@@ -878,6 +881,15 @@ class SettingsScreen extends OmniStatelessWidget {
                   subtitle: const Text('Opens nested /settings/profile'),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.to<ProfileScreen>(),
+                ),
+                Divider(height: 1, color: ui.colors.dividerColor),
+                ListTile(
+                  title: const Text('Bottom Sheets'),
+                  subtitle: const Text(
+                    'showOmniBottomSheet: iOS / Material / floating',
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.to<SheetsDemoScreen>(),
                 ),
               ],
             ),
