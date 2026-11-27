@@ -610,6 +610,232 @@ void main() {
         await t.pumpWidget(const SizedBox());
       },
     );
+
+    test(
+      'OmniCountryDialCode masks & effectiveMaxDigits enforce country digit rules',
+      () {
+        final bd = OmniPhoneField.defaultCountryCodes.firstWhere(
+          (c) => c.dialCode == '+880',
+        );
+        expect(bd.effectiveMaxDigits(''), 11);
+        expect(bd.effectiveMaxDigits('01712345678'), 11);
+        expect(bd.effectiveMaxDigits('1712345678'), 10);
+        expect(bd.formatDigits('0171234567899'), '01712-345678');
+        expect(bd.formatDigits('171234567899'), '1712-345678');
+
+        final us = OmniPhoneField.defaultCountryCodes.firstWhere(
+          (c) => c.dialCode == '+1',
+        );
+        expect(us.effectiveMaxDigits(''), 10);
+        expect(us.formatDigits('202555014799'), '(202) 555-0147');
+
+        final sg = OmniPhoneField.defaultCountryCodes.firstWhere(
+          (c) => c.dialCode == '+65',
+        );
+        expect(sg.effectiveMaxDigits(''), 8);
+        expect(sg.formatDigits('81234567890'), '8123 4567');
+      },
+    );
+
+    testWidgets(
+      'OmniPhoneField enforces per-country length cap, auto-formats & reclamps on country switch',
+      (t) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final phoneCtrl = TextEditingController();
+        addTearDown(phoneCtrl.dispose);
+        String latestE164 = '';
+
+        await t.pumpWidget(
+          OmniApp.material(
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Scaffold(
+                  body: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: OmniPhoneField(
+                      key: const Key('capped_phone'),
+                      controller: phoneCtrl,
+                      onFullNumberChanged: (v) => latestE164 = v,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        // BD (+880) caps 01... numbers at 11 digits and formats as 01712-345678:
+        await t.enterText(find.byKey(const Key('capped_phone')), '01712345678999');
+        await t.pump();
+        expect(phoneCtrl.text, '01712-345678');
+        expect(latestE164, '+8801712345678');
+        expect(find.text('11/11'), findsOneWidget);
+
+        // Switching to Singapore (+65) re-clamps to 8 digits and reformats '#### ####':
+        await t.tap(find.text('+880'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('Singapore (SG)'));
+        await t.pumpAndSettle();
+        expect(phoneCtrl.text, '0171 2345');
+        expect(latestE164, '+6501712345');
+        expect(find.text('8/8'), findsOneWidget);
+
+        // Switching to United States (+1) allows up to 10 digits with '(###) ###-####':
+        await t.tap(find.text('+65'));
+        await t.pumpAndSettle();
+        await t.tap(find.text('United States (US)'));
+        await t.pumpAndSettle();
+        await t.enterText(find.byKey(const Key('capped_phone')), '2025550147888');
+        await t.pump();
+        expect(phoneCtrl.text, '(202) 555-0147');
+        expect(latestE164, '+12025550147');
+        expect(find.text('10/10'), findsOneWidget);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'OmniOtpField warning, error & verified merge/check animations run cleanly without leaks',
+      (t) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        final otpCtrl = TextEditingController(text: '1234');
+        addTearDown(otpCtrl.dispose);
+
+        Widget buildHarness({
+          required OmniOtpStatus status,
+          OmniOtpWarningAnimation warningAnim = OmniOtpWarningAnimation.pulse,
+          OmniOtpErrorAnimation errorAnim = OmniOtpErrorAnimation.shake,
+          OmniOtpVerifiedAnimation verifiedAnim =
+              OmniOtpVerifiedAnimation.mergeCheck,
+          int warningTrigger = 0,
+          int errorTrigger = 0,
+        }) {
+          return OmniApp.material(
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Scaffold(
+                  body: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: OmniOtpField(
+                      key: const Key('animated_otp'),
+                      length: 4,
+                      controller: otpCtrl,
+                      status: status,
+                      warningAnimation: warningAnim,
+                      errorAnimation: errorAnim,
+                      verifiedAnimation: verifiedAnim,
+                      warningTrigger: warningTrigger,
+                      errorTrigger: errorTrigger,
+                      warningText: status == OmniOtpStatus.warning
+                          ? 'Warning: 1 attempt remaining'
+                          : null,
+                      errorText: status == OmniOtpStatus.error
+                          ? 'Wrong OTP entered'
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        // 0. Test all character entry animations:
+        for (final pinAnim in OmniOtpAnimationType.values) {
+          final pinCtrl = TextEditingController();
+          addTearDown(pinCtrl.dispose);
+          await t.pumpWidget(
+            OmniApp.material(
+              routes: [
+                OmniPage(
+                  '/',
+                  (_) => Scaffold(
+                    body: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: OmniOtpField(
+                        length: 4,
+                        controller: pinCtrl,
+                        pinAnimationType: pinAnim,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await t.pumpAndSettle();
+          await t.enterText(find.byType(TextField), '4829');
+          await t.pump(const Duration(milliseconds: 90));
+          await t.pumpAndSettle();
+          expect(pinCtrl.text, '4829');
+        }
+
+        // 1. Test all warning animations:
+        for (var i = 0; i < OmniOtpWarningAnimation.values.length; i++) {
+          final anim = OmniOtpWarningAnimation.values[i];
+          await t.pumpWidget(
+            buildHarness(
+              status: OmniOtpStatus.warning,
+              warningAnim: anim,
+              warningTrigger: i + 1,
+            ),
+          );
+          await t.pump(const Duration(milliseconds: 120));
+          await t.pumpAndSettle();
+          expect(find.text('Warning: 1 attempt remaining'), findsOneWidget);
+          expect(find.byIcon(Icons.warning_amber_rounded), findsOneWidget);
+        }
+
+        // 2. Test all error animations:
+        for (var i = 0; i < OmniOtpErrorAnimation.values.length; i++) {
+          final anim = OmniOtpErrorAnimation.values[i];
+          await t.pumpWidget(
+            buildHarness(
+              status: OmniOtpStatus.error,
+              errorAnim: anim,
+              errorTrigger: i + 1,
+            ),
+          );
+          await t.pump(const Duration(milliseconds: 120));
+          await t.pumpAndSettle();
+          expect(find.text('Wrong OTP entered'), findsOneWidget);
+          expect(find.byIcon(Icons.error_outline_rounded), findsOneWidget);
+        }
+
+        // 3. Test all verified animations (mergeCheck fuses boxes into center checkmark + pill):
+        for (final anim in OmniOtpVerifiedAnimation.values) {
+          await t.pumpWidget(
+            buildHarness(
+              status: OmniOtpStatus.idle,
+              verifiedAnim: anim,
+            ),
+          );
+          await t.pumpAndSettle();
+
+          await t.pumpWidget(
+            buildHarness(
+              status: OmniOtpStatus.verified,
+              verifiedAnim: anim,
+            ),
+          );
+          await t.pump(const Duration(milliseconds: 520));
+          await t.pumpAndSettle();
+          expect(find.text('OTP Verified'), findsOneWidget);
+          if (anim == OmniOtpVerifiedAnimation.badgeOnly ||
+              anim == OmniOtpVerifiedAnimation.confettiBurst) {
+            expect(find.byIcon(Icons.verified_rounded), findsOneWidget);
+          } else {
+            expect(find.byIcon(Icons.check_rounded), findsAtLeastNWidgets(1));
+          }
+        }
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
   });
 }
 

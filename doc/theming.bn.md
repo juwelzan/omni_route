@@ -830,8 +830,8 @@ context.setThemeAnimationMode(OmniThemeAnimationMode.diamondReveal);
 | `OmniEmailField` / `.gmail` | `email` | ইমেইল ও Gmail-only (`@gmail.com`) ভেরিফিকেশন, `@gmail.com` কুইক-ফিল, সবুজ ভ্যালিড চেক ব্যাজ ও ক্লিয়ার বাটন |
 | `OmniPasswordField` / `.newPassword` / `.confirm` | `password` | শো/হাইড আই বাটন, ৪-ধাপের লাইভ স্ট্রেংথ মিটার (`Weak` → `Strong`), ক্যারেক্টার নিয়ম ও কনফার্ম পাসওয়ার্ড ম্যাচিং |
 | `OmniNameField` / `.firstName` / `.lastName` / `.username` | `name` | পূর্ণ নাম, ফার্স্ট/লাস্ট নেম ও স্পেস-মুক্ত `@username`, ডিজিট ব্লক ও ন্যূনতম দৈর্ঘ্য যাচাই |
-| `OmniPhoneField` | `phone` | কান্ট্রি ডায়াল কোড পিকার (`+880` সহ), বাংলাদেশ (`013`–`019`) ও আন্তর্জাতিক নাম্বার ভ্যালিডেশন, E.164 (`+88017...`), ইনলাইন Verify/Verified ব্যাজ |
-| `OmniOtpField` | `otp` | `pinput` স্টাইলের ৩/৪/৫/৬/৮ বক্স OTP/PIN ইনপুট (`OmniPinTheme`, `separatorBuilder`, `pinAnimationType`), স্মার্ট পেস্ট ও রিসেন্ড টাইমার |
+| `OmniPhoneField` | `phone` | কান্ট্রি ডায়াল কোড পিকার (`+880` সহ), দেশের নিয়ম অনুযায়ী নির্দিষ্ট ডিজিট লিমিট (`enforceCountryLength`) ও অটো ফরম্যাট মাস্ক (`formatMask`, যেমন `01712-345678` / `(202) 555-0147`), লাইভ কাউন্টার (`11/11`), E.164 ও ইনলাইন Verify ব্যাজ |
+| `OmniOtpField` | `otp` | `pinput` স্টাইলের ৩/৪/৫/৬/৮ বক্স OTP, ৯টি টাইপিং অ্যানিমেশন (`OmniOtpAnimationType`: `spring`, `flip`, `drop`, `blur`, `scale`, `slide`, `rotation`, `fade`), ৯টি ওয়ার্নিং (`heartbeat`, `waveBounce`, `shimmer`, `tilt`, `pulse`, `wobble`, `bounce`, `glow`), ৮টি এরর (`shake`, `staggerShake`, `tiltShake`, `jello`, `bounce`, `pulse`, `flash`) ও ৯টি ভেরিফাইড অ্যানিমেশন (`mergeCheck`, `morphPill`, `stackMerge`, `waveCheck`, `rippleCheck`, `expandCheck`, `flipCheck`, `confettiBurst`, `badgeOnly`) |
 | `OmniNumberField` / `.integer` / `.decimal` / `.currency` | `number` | পূর্ণসংখ্যা, দশমিক (`decimalRange`), টাকা (`৳`), `min`/`max` সীমা, স্টেপার ও কাস্টম আইকন |
 | `OmniSearchField` | `search` | পিল-শেপ সার্চ বক্স, কাস্টম `prefixIcon`/`filterIcon`, অটো-ক্লিয়ার ও `debounceDuration` |
 | `OmniMultilineField` | `multiline` | বায়ো, ঠিকানা ও নোটসের জন্য এক্সপ্যান্ডিং মাল্টিলাইন, কাস্টম আইকন ও `maxLength` কাউন্টার |
@@ -888,9 +888,13 @@ Form(
       const SizedBox(height: 12),
       const OmniNumberField.currency(label: 'অ্যামাউন্ট', min: 10),
       const SizedBox(height: 16),
-      // `pinput`-স্টাইল ৪/৫/৬ ঘরের রেসপনসিভ OTP পিন ইনপুট:
+      // `pinput`-স্টাইল ৪/৫/৬ ঘরের রেসপনসিভ OTP + Warning/Error/Merge-Verify অ্যানিমেশন:
       OmniOtpField(
         length: 6, // ৩ দিলে ৩ ঘর, ৪ দিলে ৪ ঘর, ৫ দিলে ৫ ঘর, ৬ দিলে ৬ ঘর!
+        status: otpStatus, // OmniOtpStatus.idle / warning / error / verified
+        warningAnimation: OmniOtpWarningAnimation.pulse,
+        errorAnimation: OmniOtpErrorAnimation.shake,
+        verifiedAnimation: OmniOtpVerifiedAnimation.mergeCheck, // সব বক্স মাঝে মিলে টিক!
         focusedPinTheme: const OmniPinTheme(width: 48, height: 54).copyBorderWith(
           border: Border.all(color: Colors.indigo, width: 2),
         ),

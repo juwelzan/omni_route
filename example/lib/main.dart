@@ -454,6 +454,11 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
                     ),
                     child: const Text('Classic Named Route'),
                   ),
+                  FilledButton.tonalIcon(
+                    icon: const Icon(Icons.text_fields_rounded),
+                    onPressed: () => go('/fields'),
+                    label: const Text('All Text Fields Demo'),
+                  ),
                 ],
               ),
             ],
@@ -878,6 +883,644 @@ class _ProfileScreenState extends OmniState<ProfileScreen> {
                   label: const Text('Validate & Save Profile'),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// =============================================================================
+// Interactive All-Fields Playground ('/fields')
+// =============================================================================
+
+class FieldsPlaygroundScreen extends OmniStatefulWidget {
+  const FieldsPlaygroundScreen({super.key});
+
+  @override
+  String get routePath => '/fields';
+
+  @override
+  State<FieldsPlaygroundScreen> createState() => _FieldsPlaygroundScreenState();
+}
+
+class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _newPassController = TextEditingController();
+  final _otpController = TextEditingController();
+
+  OmniInputVariant _variant = OmniInputVariant.outlined;
+  OmniFieldLabelMode _labelMode = OmniFieldLabelMode.above;
+  bool _customIcons = false;
+
+  int _otpLength = 6;
+  OmniOtpBoxStyle _otpBoxStyle = OmniOtpBoxStyle.outlined;
+  bool _otpObscure = false;
+  String _otpCompletedCode = '';
+  OmniOtpStatus? _otpStatus;
+  OmniOtpAnimationType _otpPinAnim = OmniOtpAnimationType.spring;
+  OmniOtpVerifiedAnimation _otpVerifiedAnim =
+      OmniOtpVerifiedAnimation.mergeCheck;
+  OmniOtpErrorAnimation _otpErrorAnim = OmniOtpErrorAnimation.shake;
+  OmniOtpWarningAnimation _otpWarningAnim = OmniOtpWarningAnimation.pulse;
+  int _otpErrorTrigger = 0;
+  int _otpWarningTrigger = 0;
+
+  String _e164Phone = '+8801712345678';
+  bool _phoneVerified = false;
+  num? _decimalWeight = 68.5;
+  String _debouncedSearch = '';
+  bool _filterActive = false;
+
+  @override
+  void dispose() {
+    _newPassController.dispose();
+    _otpController.dispose();
+    super.dispose();
+  }
+
+  Widget _sectionCard(
+    BuildContext context, {
+    required String title,
+    required String subtitle,
+    required List<Widget> children,
+  }) {
+    final tk = context.tokens;
+    return Card(
+      child: Padding(
+        padding: tk.cardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(title, style: context.textStyles.title),
+            const SizedBox(height: 2),
+            Text(subtitle, style: context.textStyles.caption),
+            tk.gapMd,
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) tk.gapSm,
+              children[i],
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tokens;
+    final currentTheme = OmniFieldTheme.of(context).copyWith(
+      variant: _variant,
+      labelMode: _labelMode,
+      otpBoxStyle: _otpBoxStyle,
+      identityStyles: _customIcons
+          ? const {
+              OmniFieldIdentity.email: OmniFieldStyle(
+                accentColor: Color(0xFF0284C7),
+                prefixIcon: Icon(Icons.mark_email_read_outlined),
+              ),
+              OmniFieldIdentity.password: OmniFieldStyle(
+                accentColor: Color(0xFF7C3AED),
+                prefixIcon: Icon(Icons.key_rounded),
+              ),
+              OmniFieldIdentity.name: OmniFieldStyle(
+                accentColor: Color(0xFF0D9488),
+                prefixIcon: Icon(Icons.badge_outlined),
+              ),
+              OmniFieldIdentity.phone: OmniFieldStyle(
+                accentColor: Color(0xFF059669),
+              ),
+              OmniFieldIdentity.number: OmniFieldStyle(
+                accentColor: Color(0xFFEA580C),
+                prefixIcon: Icon(Icons.calculate_outlined),
+              ),
+            }
+          : OmniFieldTheme.of(context).identityStyles,
+    );
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Predefined Fields (/fields)'),
+        actions: const [
+          OmniThemeButton(),
+          OmniThemeModeButton(),
+        ],
+      ),
+      body: OmniFieldThemeScope(
+        theme: currentTheme,
+        child: SingleChildScrollView(
+          padding: tk.pagePadding,
+          child: OmniResponsiveContainer(
+            maxWidth: 720,
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _sectionCard(
+                    context,
+                    title: 'Shared Field Theme Controls',
+                    subtitle:
+                        '1 theme controls ALL fields below while keeping each field identity & behavior distinct',
+                    children: [
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          SegmentedButton<OmniInputVariant>(
+                            segments: const [
+                              ButtonSegment(
+                                value: OmniInputVariant.outlined,
+                                label: Text('Outlined'),
+                              ),
+                              ButtonSegment(
+                                value: OmniInputVariant.filled,
+                                label: Text('Filled'),
+                              ),
+                              ButtonSegment(
+                                value: OmniInputVariant.underlined,
+                                label: Text('Line'),
+                              ),
+                            ],
+                            selected: {_variant},
+                            onSelectionChanged: (s) =>
+                                safeSetState(() => _variant = s.first),
+                          ),
+                          SegmentedButton<OmniFieldLabelMode>(
+                            segments: const [
+                              ButtonSegment(
+                                value: OmniFieldLabelMode.above,
+                                label: Text('Above'),
+                              ),
+                              ButtonSegment(
+                                value: OmniFieldLabelMode.floating,
+                                label: Text('Float'),
+                              ),
+                              ButtonSegment(
+                                value: OmniFieldLabelMode.none,
+                                label: Text('Hint'),
+                              ),
+                            ],
+                            selected: {_labelMode},
+                            onSelectionChanged: (s) =>
+                                safeSetState(() => _labelMode = s.first),
+                          ),
+                          FilterChip(
+                            label: const Text('Custom Identity Icons'),
+                            selected: _customIcons,
+                            onSelected: (v) =>
+                                safeSetState(() => _customIcons = v),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  _sectionCard(
+                    context,
+                    title: '1. Name & Identity Fields',
+                    subtitle:
+                        'OmniNameField, .firstName, .lastName, .username',
+                    children: [
+                      const OmniNameField(
+                        initialValue: 'Tanvir Ahmed',
+                        showValidBadge: true,
+                      ),
+                      const Row(
+                        children: [
+                          Expanded(
+                            child: OmniNameField.firstName(
+                              initialValue: 'Tanvir',
+                            ),
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: OmniNameField.lastName(
+                              initialValue: 'Ahmed',
+                            ),
+                          ),
+                        ],
+                      ),
+                      const OmniNameField.username(
+                        initialValue: 'tanvir_dev',
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  _sectionCard(
+                    context,
+                    title: '2. Email & Gmail Verification',
+                    subtitle:
+                        'OmniEmailField (general) & OmniEmailField.gmail (@gmail.com check + quick-fill)',
+                    children: [
+                      const OmniEmailField(
+                        label: 'Work Email',
+                        initialValue: 'team@omniroute.dev',
+                      ),
+                      const OmniEmailField.gmail(
+                        label: 'Gmail Verification',
+                        initialValue: 'tanvir@gmail.com',
+                        helperText:
+                            'Clear & type a username to test 1-tap @gmail.com chip',
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  _sectionCard(
+                    context,
+                    title: '3. Password, Show/Hide, Strength & Match',
+                    subtitle:
+                        'OmniPasswordField, .newPassword (live strength bar) & .confirm',
+                    children: [
+                      const OmniPasswordField(
+                        label: 'Current Password',
+                        initialValue: 'Secret@12',
+                      ),
+                      OmniPasswordField.newPassword(
+                        controller: _newPassController,
+                        initialValue: 'StrongPass1!',
+                      ),
+                      OmniPasswordField.confirm(
+                        matchController: _newPassController,
+                        initialValue: 'StrongPass1!',
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  _sectionCard(
+                    context,
+                    title: '4. Mobile Number & Pinput-Style OTP',
+                    subtitle:
+                        'Per-country length limits & auto-masking + animated Warning / Error / Verified merge OTP',
+                    children: [
+                      OmniPhoneField(
+                        countryCode: '+880',
+                        initialValue: '01712345678',
+                        leadingIcon: const Icon(
+                          Icons.phone_in_talk_rounded,
+                          size: 18,
+                        ),
+                        isVerified: _phoneVerified,
+                        onFullNumberChanged: (e164) =>
+                            safeSetState(() => _e164Phone = e164),
+                        onVerifyPressed: () =>
+                            safeSetState(() => _phoneVerified = true),
+                        helperText:
+                            'Normalized E.164: $_e164Phone • Switch country to test exact digit cap & mask',
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Text('OTP Digits:', style: context.textStyles.label),
+                          SegmentedButton<int>(
+                            segments: const [
+                              ButtonSegment(value: 3, label: Text('3')),
+                              ButtonSegment(value: 4, label: Text('4')),
+                              ButtonSegment(value: 5, label: Text('5')),
+                              ButtonSegment(value: 6, label: Text('6')),
+                            ],
+                            selected: {_otpLength},
+                            onSelectionChanged: (s) => safeSetState(() {
+                              _otpLength = s.first;
+                              _otpCompletedCode = '';
+                              _otpStatus = null;
+                              _otpController.clear();
+                            }),
+                          ),
+                          SegmentedButton<OmniOtpBoxStyle>(
+                            segments: const [
+                              ButtonSegment(
+                                value: OmniOtpBoxStyle.outlined,
+                                label: Text('Box'),
+                              ),
+                              ButtonSegment(
+                                value: OmniOtpBoxStyle.filled,
+                                label: Text('Fill'),
+                              ),
+                              ButtonSegment(
+                                value: OmniOtpBoxStyle.underlined,
+                                label: Text('Dash'),
+                              ),
+                            ],
+                            selected: {_otpBoxStyle},
+                            onSelectionChanged: (s) =>
+                                safeSetState(() => _otpBoxStyle = s.first),
+                          ),
+                          FilterChip(
+                            label: const Text('PIN Dots'),
+                            selected: _otpObscure,
+                            onSelected: (v) =>
+                                safeSetState(() => _otpObscure = v),
+                          ),
+                        ],
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          DropdownButton<OmniOtpAnimationType>(
+                            value: _otpPinAnim,
+                            isDense: true,
+                            onChanged: (v) {
+                              if (v != null) {
+                                safeSetState(() => _otpPinAnim = v);
+                              }
+                            },
+                            items: OmniOtpAnimationType.values
+                                .map(
+                                  (a) => DropdownMenuItem(
+                                    value: a,
+                                    child: Text('Type: ${a.name}'),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          DropdownButton<OmniOtpVerifiedAnimation>(
+                            value: _otpVerifiedAnim,
+                            isDense: true,
+                            onChanged: (v) {
+                              if (v == null) return;
+                              final replay =
+                                  _otpStatus == OmniOtpStatus.verified;
+                              safeSetState(() {
+                                _otpVerifiedAnim = v;
+                                if (replay) _otpStatus = OmniOtpStatus.idle;
+                              });
+                              if (replay) {
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  safeSetState(
+                                    () => _otpStatus = OmniOtpStatus.verified,
+                                  );
+                                });
+                              }
+                            },
+                            items: OmniOtpVerifiedAnimation.values
+                                .map(
+                                  (a) => DropdownMenuItem(
+                                    value: a,
+                                    child: Text('Verify: ${a.name}'),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          DropdownButton<OmniOtpErrorAnimation>(
+                            value: _otpErrorAnim,
+                            isDense: true,
+                            onChanged: (v) {
+                              if (v != null) {
+                                safeSetState(() {
+                                  _otpErrorAnim = v;
+                                  if (_otpStatus == OmniOtpStatus.error) {
+                                    _otpErrorTrigger++;
+                                  }
+                                });
+                              }
+                            },
+                            items: OmniOtpErrorAnimation.values
+                                .map(
+                                  (a) => DropdownMenuItem(
+                                    value: a,
+                                    child: Text('Error: ${a.name}'),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                          DropdownButton<OmniOtpWarningAnimation>(
+                            value: _otpWarningAnim,
+                            isDense: true,
+                            onChanged: (v) {
+                              if (v != null) {
+                                safeSetState(() {
+                                  _otpWarningAnim = v;
+                                  if (_otpStatus == OmniOtpStatus.warning) {
+                                    _otpWarningTrigger++;
+                                  }
+                                });
+                              }
+                            },
+                            items: OmniOtpWarningAnimation.values
+                                .map(
+                                  (a) => DropdownMenuItem(
+                                    value: a,
+                                    child: Text('Warn: ${a.name}'),
+                                  ),
+                                )
+                                .toList(),
+                          ),
+                        ],
+                      ),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          FilledButton.tonalIcon(
+                            onPressed: () => safeSetState(() {
+                              _otpCompletedCode =
+                                  '123456'.substring(0, _otpLength);
+                              _otpController.text = _otpCompletedCode;
+                              _otpStatus = OmniOtpStatus.verified;
+                            }),
+                            icon: const Icon(Icons.verified_rounded, size: 16),
+                            label: const Text('Simulate Verify'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => safeSetState(() {
+                              _otpStatus = OmniOtpStatus.warning;
+                              _otpWarningTrigger++;
+                            }),
+                            icon: const Icon(
+                              Icons.warning_amber_rounded,
+                              size: 16,
+                            ),
+                            label: const Text('Warning'),
+                          ),
+                          OutlinedButton.icon(
+                            onPressed: () => safeSetState(() {
+                              _otpStatus = OmniOtpStatus.error;
+                              _otpErrorTrigger++;
+                            }),
+                            icon: const Icon(
+                              Icons.error_outline_rounded,
+                              size: 16,
+                            ),
+                            label: const Text('Error'),
+                          ),
+                          TextButton.icon(
+                            onPressed: () => safeSetState(() {
+                              _otpStatus = null;
+                              _otpCompletedCode = '';
+                              _otpController.clear();
+                            }),
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Reset OTP'),
+                          ),
+                        ],
+                      ),
+                      OmniOtpField(
+                        key: ValueKey('playground_otp_$_otpLength'),
+                        length: _otpLength,
+                        controller: _otpController,
+                        boxStyle: _otpBoxStyle,
+                        pinAnimationType: _otpPinAnim,
+                        obscureText: _otpObscure,
+                        status: _otpStatus,
+                        isVerified: _otpStatus == OmniOtpStatus.verified,
+                        verifiedAnimation: _otpVerifiedAnim,
+                        errorAnimation: _otpErrorAnim,
+                        warningAnimation: _otpWarningAnim,
+                        errorTrigger: _otpErrorTrigger,
+                        warningTrigger: _otpWarningTrigger,
+                        warningText: _otpStatus == OmniOtpStatus.warning
+                            ? 'Only 2 attempts left — check your SMS code'
+                            : null,
+                        errorText: _otpStatus == OmniOtpStatus.error
+                            ? 'Invalid verification code — please retry'
+                            : null,
+                        separatorBuilder: _otpLength == 6
+                            ? (_, i) => SizedBox(width: i == 2 ? 14 : 6)
+                            : null,
+                        helperText: _otpCompletedCode.isNotEmpty
+                            ? 'Entered $_otpLength-digit code: $_otpCompletedCode'
+                            : 'Showing $_otpLength boxes — tap & type or test Warning / Error / Verify',
+                        onChanged: (_) {
+                          if (_otpStatus == OmniOtpStatus.error ||
+                              _otpStatus == OmniOtpStatus.warning) {
+                            safeSetState(() => _otpStatus = null);
+                          }
+                        },
+                        onCompleted: (c) => safeSetState(() {
+                          _otpCompletedCode = c;
+                          _otpStatus = OmniOtpStatus.verified;
+                        }),
+                        resendDuration: const Duration(seconds: 20),
+                        onResend: () => safeSetState(() {
+                          _otpStatus = null;
+                          _otpCompletedCode = '';
+                          _otpController.clear();
+                        }),
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  _sectionCard(
+                    context,
+                    title: '5. Numbers, Stepper & Currency Fields',
+                    subtitle:
+                        'OmniNumberField, .integer (stepper), .decimal & .currency',
+                    children: [
+                      const OmniNumberField(
+                        label: 'Score (0-100)',
+                        initialValue: '85',
+                        min: 0,
+                        max: 100,
+                        showClearButton: true,
+                      ),
+                      const OmniNumberField.integer(
+                        label: 'Seat Quantity (Stepper)',
+                        initialValue: '3',
+                        min: 1,
+                        max: 20,
+                      ),
+                      OmniNumberField.decimal(
+                        label: 'Package Weight',
+                        initialValue: '68.50',
+                        suffixText: 'kg',
+                        decimalRange: 2,
+                        onNumberChanged: (n) =>
+                            safeSetState(() => _decimalWeight = n),
+                        helperText: 'Parsed numeric value: $_decimalWeight',
+                      ),
+                      const OmniNumberField.currency(
+                        label: 'Course Fee',
+                        initialValue: '2500',
+                        min: 100,
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  _sectionCard(
+                    context,
+                    title: '6. Search, URL, Multiline & Custom Text',
+                    subtitle:
+                        'OmniSearchField, OmniUrlField, OmniMultilineField & OmniTextField',
+                    children: [
+                      OmniSearchField(
+                        hint: 'Search docs, packages, routes...',
+                        onSearchChanged: (q) =>
+                            safeSetState(() => _debouncedSearch = q),
+                        onFilterPressed: () =>
+                            safeSetState(() => _filterActive = !_filterActive),
+                      ),
+                      if (_debouncedSearch.isNotEmpty || _filterActive)
+                        Text(
+                          'Query: "${_debouncedSearch.isEmpty ? '(all)' : _debouncedSearch}" · Filter: $_filterActive',
+                          style: context.textStyles.caption,
+                        ),
+                      const OmniUrlField(
+                        label: 'Project Repository URL',
+                        initialValue: 'https://pub.dev/packages/omni_route',
+                      ),
+                      const OmniMultilineField(
+                        label: 'Short Bio / Notes',
+                        initialValue:
+                            'Building fast, cleanly-themed Flutter apps with OmniRoute.',
+                        maxLength: 160,
+                        prefixIcon: Icon(Icons.edit_note_rounded),
+                      ),
+                      const OmniTextField(
+                        label: 'Promo / Referral Tag',
+                        hint: 'Optional tag with custom icons',
+                        prefixIcon: Icon(Icons.local_offer_outlined),
+                        suffixIcon: Icon(Icons.auto_awesome_outlined),
+                        showClearButton: true,
+                        initialValue: 'OMNI2026',
+                      ),
+                    ],
+                  ),
+                  tk.gapMd,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: FilledButton.icon(
+                          icon: const Icon(Icons.fact_check_outlined),
+                          onPressed: () {
+                            final ok =
+                                _formKey.currentState?.validate() ?? false;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  ok
+                                      ? 'All fields validated cleanly!'
+                                      : 'Some fields need valid input (e.g. $_otpLength-digit OTP)',
+                                ),
+                              ),
+                            );
+                          },
+                          label: const Text('Validate All Fields'),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      OutlinedButton(
+                        onPressed: () {
+                          _otpController.clear();
+                          _formKey.currentState?.reset();
+                          safeSetState(() {
+                            _otpCompletedCode = '';
+                            _phoneVerified = false;
+                            _debouncedSearch = '';
+                          });
+                        },
+                        child: const Text('Reset'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         ),

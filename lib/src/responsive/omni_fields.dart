@@ -113,17 +113,134 @@ enum OmniOtpAnimationType {
   /// স্কেল হয়ে সুন্দরভাবে ফুটে ওঠে (ডিফল্ট)।
   scale,
 
+  /// রাবার-স্প্রিং ওভারশুটসহ প্রাণবন্ত পপ-ইন ও বক্স বাউন্স।
+  spring,
+
   /// মসৃণ আলফা ফেডে দেখা যায়।
   fade,
 
   /// নিচ থেকে ওপর দিকে স্লাইড হয়ে আসে।
   slide,
 
+  /// ওপর থেকে নিচে মসৃণ ড্রপ ও সেটল অ্যানিমেশন।
+  drop,
+
   /// হালকা রোটেট-স্কেল অ্যানিমেশনে আসে।
   rotation,
 
+  /// ৩ডি কার্ড ফ্লিপ হয়ে সংখ্যাটি প্রকাশ পায়।
+  flip,
+
+  /// মসৃণ জুম-ক্ল্যারিটি ফেড ইন।
+  blur,
+
   /// অ্যানিমেশন ছাড়া তাৎক্ষণিক দেখায়।
   none,
+}
+
+/// OTP / পিন ভেরিফিকেশন ফিল্ডের বর্তমান অবস্থা।
+enum OmniOtpStatus {
+  /// সাধারণ ইনপুট নেওয়ার অবস্থা।
+  idle,
+
+  /// কোড যাচাই (API/লোকাল) চলছে।
+  verifying,
+
+  /// সতর্কবার্তা অবস্থা (যেমন সময় শেষ হচ্ছে বা সীমিত প্রচেষ্টা)।
+  warning,
+
+  /// ভুল কোড বা অসম্পূর্ণ ইনপুট এরর অবস্থা।
+  error,
+
+  /// সফলভাবে ভেরিফাই সম্পন্ন অবস্থা।
+  verified,
+}
+
+/// OTP এরর অবস্থায় কী ধরনের অ্যানিমেশন চলবে।
+enum OmniOtpErrorAnimation {
+  /// ড্যাম্পড স্প্রিং ডানে-বামে ঝাঁকুনি (ডিফল্ট)।
+  shake,
+
+  /// প্রতিটি বক্স আলাদা ফেজে ঢেউ খেলানো ক্যাওটিক ঝাঁকি দেয়।
+  staggerShake,
+
+  /// বক্সগুলো হালকা কাত (Z-tilt) হয়ে ডানে-বামে সতর্ক করে।
+  tiltShake,
+
+  /// রাবার/জেলির মতো স্কোয়াশ অ্যান্ড স্ট্রেচ মোশন।
+  jello,
+
+  /// ওপর-নিচে লাফিয়ে সতর্ক করে।
+  bounce,
+
+  /// হালকা স্কেল থ্রব পালস।
+  pulse,
+
+  /// লাল রঙের ডাবল উজ্জ্বল গ্লো ফ্ল্যাশ।
+  flash,
+
+  /// কোনো এক্সট্রা মোশন ছাড়াই এরর বর্ডার।
+  none,
+}
+
+/// OTP ওয়ার্নিং অবস্থায় কী ধরনের অ্যানিমেশন চলবে।
+enum OmniOtpWarningAnimation {
+  /// অ্যাম্বার রঙে মসৃণ শ্বাস-প্রশ্বাসের মতো পালস (ডিফল্ট)।
+  pulse,
+
+  /// ডাবল হৃৎস্পন্দনের (`lub-dub`) মতো সতর্কতা পালস।
+  heartbeat,
+
+  /// বাম থেকে ডানে প্রতিটি বক্স ঢেউয়ের মতো হালকা নেচে ওঠে।
+  waveBounce,
+
+  /// অ্যাম্বার আলোর ঝলক বাম থেকে ডানে বয়ে যায়।
+  shimmer,
+
+  /// বক্সগুলো হালকা কাত হয়ে সতর্ক দৃষ্টি আকর্ষণ করে।
+  tilt,
+
+  /// হালকা ডানে-বামে দুলুনি ওয়াবল।
+  wobble,
+
+  /// হালকা লাফ দিয়ে ওয়ার্নিং অ্যাটেনশন।
+  bounce,
+
+  /// অ্যাম্বার হ্যালো গ্লো অ্যানিমেশন।
+  glow,
+
+  /// অ্যানিমেশন ছাড়া শুধু ওয়ার্নিং বার্তা।
+  none,
+}
+
+/// OTP ভেরিফাই সফল হলে বক্সগুলোর কী ধরনের অ্যানিমেশন হবে।
+enum OmniOtpVerifiedAnimation {
+  /// সবগুলো বক্স কোণ গোল করে একসঙ্গে মাঝখানে মিলিত হয়ে শকওয়েভ ও স্পার্কসহ গোল সবুজ টিক চিহ্নে রূপ নেয় (ডিফল্ট)।
+  mergeCheck,
+
+  /// সবগুলো বক্স একসাথে মাঝখানে মিশে স্পার্কলসহ সবুজ ক্যাপসুল পিল (`✓ Verified`) হয়।
+  morphPill,
+
+  /// বক্সগুলো তাসের ডেকের মতো একটার ওপর আরেকটা ভাঁজ হয়ে মাঝখানে সবুজ টিক ব্যাজে পরিণত হয়।
+  stackMerge,
+
+  /// বক্সগুলো বাম থেকে ডানে ঢেউয়ের মতো লাফিয়ে সবুজ টিক চিহ্নে রূপ নেয়।
+  waveCheck,
+
+  /// মাঝের বক্সগুলো থেকে দুই দিকে রিপল তরঙ্গের মতো সবুজ হয়ে টিক চিহ্ন ছড়িয়ে পড়ে।
+  rippleCheck,
+
+  /// প্রতিটি বক্স ঢেউয়ের মতো সবুজ হয়ে ভেতরে টিক চিহ্ন ফুটে ওঠে।
+  expandCheck,
+
+  /// প্রতিটি বক্স ৩ডি কার্ড ফ্লিপ করে সবুজ টিক চিহ্নে ঘুরে যায়।
+  flipCheck,
+
+  /// বক্সগুলো সবুজ হওয়ার পাশাপাশি ওপরে বর্ণিল কনফেটি পার্টিকেল ছড়িয়ে দেয়।
+  confettiBurst,
+
+  /// অক্ষর রেখে শুধু সবুজ বর্ডার ও ভেরিফাই ব্যাজ দেখায়।
+  badgeOnly,
 }
 
 /// `pinput` প্যাকেজের মতো প্রতিটি OTP / PIN ঘরের আলাদা ডিজাইন ও বর্ডার কনফিগারেশন।
@@ -957,32 +1074,41 @@ abstract final class OmniValidators {
   static String? phone(
     String? value, {
     String countryCode = '+880',
+    String countryName = '',
     bool required = true,
     bool validateBangladeshOperators = true,
     int? minDigits,
     int? maxDigits,
     String requiredMessage = 'Please enter a phone number',
-    String invalidMessage = 'Please enter a valid mobile number',
+    String? invalidMessage,
   }) {
-    final digits = (value ?? '').replaceAll(RegExp(r'[^\d+]'), '');
-    if (digits.isEmpty) return required ? requiredMessage : null;
+    final digitsOnly = (value ?? '').replaceAll(RegExp(r'\D'), '');
+    if (digitsOnly.isEmpty) return required ? requiredMessage : null;
 
     if (countryCode == '+880') {
+      final cleanRaw = (value ?? '').replaceAll(RegExp(r'[^\d+]'), '');
       if (validateBangladeshOperators) {
-        if (!_bdPhoneRegex.hasMatch(digits)) return invalidMessage;
+        if (!_bdPhoneRegex.hasMatch(cleanRaw)) {
+          return invalidMessage ??
+              'Enter a valid Bangladesh number (e.g. 01712-345678)';
+        }
       } else {
-        final clean = digits.replaceFirst(RegExp(r'^\+?880'), '');
-        final len = clean.startsWith('0') ? clean.length : clean.length + 1;
-        if (len != 11) return invalidMessage;
+        final expected = digitsOnly.startsWith('0') ? 11 : 10;
+        if (digitsOnly.length != expected) {
+          return invalidMessage ?? 'Enter $expected digits for Bangladesh (+880)';
+        }
       }
       return null;
     }
 
-    final numericOnly = digits.replaceAll('+', '');
     final effMin = minDigits ?? 7;
     final effMax = maxDigits ?? 15;
-    if (numericOnly.length < effMin || numericOnly.length > effMax) {
-      return invalidMessage;
+    if (digitsOnly.length < effMin || digitsOnly.length > effMax) {
+      if (invalidMessage != null) return invalidMessage;
+      final label = countryName.isNotEmpty ? '$countryName ' : '';
+      return effMin == effMax
+          ? 'Enter exact $effMin digits for $label($countryCode)'
+          : 'Enter $effMin-$effMax digits for $label($countryCode)';
     }
     return null;
   }
@@ -1058,7 +1184,7 @@ abstract final class OmniValidators {
 /// মোবাইল কান্ট্রি ডায়াল কোড মডেল ([OmniPhoneField])-এর জন্য।
 @immutable
 class OmniCountryDialCode {
-  /// কান্ট্রি কোড তৈরি করে।
+  /// কান্ট্রি কোড, ডিজিট লিমিট ও অটো-ফরম্যাট মাস্কসহ [OmniCountryDialCode] তৈরি করে।
   const OmniCountryDialCode({
     required this.dialCode,
     required this.isoCode,
@@ -1066,6 +1192,7 @@ class OmniCountryDialCode {
     this.flag = '',
     this.minDigits = 7,
     this.maxDigits = 15,
+    this.formatMask = '',
     this.exampleHint = '123456789',
   });
 
@@ -1087,8 +1214,53 @@ class OmniCountryDialCode {
   /// সর্বোচ্চ লোকাল ডিজিট সংখ্যা।
   final int maxDigits;
 
+  /// `#` ভিত্তিক অটো-ফরম্যাট মাস্ক (যেমন `'#####-######'`, `'(###) ###-####'`)।
+  final String formatMask;
+
   /// উদাহরণ প্লেসহোল্ডার।
   final String exampleHint;
+
+  /// ইনপুটকৃত ডিজিট অনুযায়ী সর্বোচ্চ ডিজিট সীমা রিটার্ন করে।
+  int effectiveMaxDigits(String rawDigits, {int? overrideMax}) {
+    if (overrideMax != null) return overrideMax;
+    if (dialCode == '+880') {
+      return (rawDigits.isEmpty || rawDigits.startsWith('0')) ? 11 : 10;
+    }
+    return maxDigits;
+  }
+
+  /// কাঁচা ডিজিটগুলোকে [formatMask] অনুযায়ী সুন্দরভাবে ফরম্যাট ও ক্ল্যাম্প করে।
+  String formatDigits(String rawInput, {int? overrideMax}) {
+    final rawDigits = rawInput.replaceAll(RegExp(r'\D'), '');
+    if (rawDigits.isEmpty) return '';
+    final maxLen = effectiveMaxDigits(rawDigits, overrideMax: overrideMax);
+    final digits = rawDigits.length > maxLen
+        ? rawDigits.substring(0, maxLen)
+        : rawDigits;
+
+    final activeMask = dialCode == '+880' && !digits.startsWith('0')
+        ? '####-######'
+        : formatMask;
+
+    if (activeMask.isEmpty) return digits;
+
+    final buf = StringBuffer();
+    var dIdx = 0;
+    for (var mIdx = 0; mIdx < activeMask.length && dIdx < digits.length; mIdx++) {
+      final ch = activeMask[mIdx];
+      if (ch == '#') {
+        buf.write(digits[dIdx]);
+        dIdx++;
+      } else {
+        buf.write(ch);
+      }
+    }
+    while (dIdx < digits.length) {
+      buf.write(digits[dIdx]);
+      dIdx++;
+    }
+    return buf.toString();
+  }
 
   @override
   bool operator ==(Object other) =>
@@ -1099,6 +1271,68 @@ class OmniCountryDialCode {
 
   @override
   int get hashCode => Object.hash(dialCode, isoCode);
+}
+
+class _CountryPhoneMaskFormatter extends TextInputFormatter {
+  const _CountryPhoneMaskFormatter({
+    required this.country,
+    this.maxDigitsOverride,
+  });
+
+  final OmniCountryDialCode country;
+  final int? maxDigitsOverride;
+
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final newDigitsBeforeCursor = _countDigitsBefore(
+      newValue.text,
+      newValue.selection.end,
+    );
+    final formatted = country.formatDigits(
+      newValue.text,
+      overrideMax: maxDigitsOverride,
+    );
+    final cursorOffset = _offsetAfterDigits(formatted, newDigitsBeforeCursor);
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: cursorOffset),
+    );
+  }
+
+  static int _countDigitsBefore(String text, int selectionEnd) {
+    final limit = selectionEnd.clamp(0, text.length);
+    var count = 0;
+    for (var i = 0; i < limit; i++) {
+      final cu = text.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) count++;
+    }
+    return count;
+  }
+
+  static int _offsetAfterDigits(String formatted, int targetDigits) {
+    if (targetDigits <= 0) {
+      // Skip leading decorative separator like '(' if typing starts right inside mask:
+      var firstDigitSlot = 0;
+      while (firstDigitSlot < formatted.length) {
+        final cu = formatted.codeUnitAt(firstDigitSlot);
+        if (cu >= 48 && cu <= 57) break;
+        firstDigitSlot++;
+      }
+      return firstDigitSlot;
+    }
+    var count = 0;
+    for (var i = 0; i < formatted.length; i++) {
+      final cu = formatted.codeUnitAt(i);
+      if (cu >= 48 && cu <= 57) {
+        count++;
+        if (count == targetDigits) return i + 1;
+      }
+    }
+    return formatted.length;
+  }
 }
 
 @immutable
@@ -3166,11 +3400,14 @@ class OmniPhoneField extends StatefulWidget {
     this.countryCodes,
     this.showCountryPicker = true,
     this.validateBangladeshOperators = true,
+    this.autoFormat = true,
+    this.enforceCountryLength = true,
+    this.showLengthCounter = true,
     this.minDigits,
     this.maxDigits,
     this.required = true,
     this.requiredMessage = 'Please enter your mobile number',
-    this.invalidPhoneMessage = 'Please enter a valid mobile number',
+    this.invalidPhoneMessage,
     this.isVerified = false,
     this.onVerifyPressed,
     this.verifyLabel = 'Verify',
@@ -3191,7 +3428,7 @@ class OmniPhoneField extends StatefulWidget {
     this.decoration,
   });
 
-  /// জনপ্রিয় দেশগুলোর ডিফল্ট ডায়াল কোড তালিকা।
+  /// জনপ্রিয় দেশগুলোর ডিফল্ট ডায়াল কোড, অটো-ফরম্যাট মাস্ক ও নির্দিষ্ট ডিজিট লিমিট তালিকা।
   static const List<OmniCountryDialCode> defaultCountryCodes = [
     OmniCountryDialCode(
       dialCode: '+880',
@@ -3200,7 +3437,8 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇧🇩',
       minDigits: 10,
       maxDigits: 11,
-      exampleHint: '01712345678',
+      formatMask: '#####-######',
+      exampleHint: '01712-345678',
     ),
     OmniCountryDialCode(
       dialCode: '+91',
@@ -3209,7 +3447,18 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇮🇳',
       minDigits: 10,
       maxDigits: 10,
-      exampleHint: '9876543210',
+      formatMask: '##### #####',
+      exampleHint: '98765 43210',
+    ),
+    OmniCountryDialCode(
+      dialCode: '+92',
+      isoCode: 'PK',
+      name: 'Pakistan',
+      flag: '🇵🇰',
+      minDigits: 10,
+      maxDigits: 10,
+      formatMask: '### #######',
+      exampleHint: '300 1234567',
     ),
     OmniCountryDialCode(
       dialCode: '+1',
@@ -3218,7 +3467,8 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇺🇸',
       minDigits: 10,
       maxDigits: 10,
-      exampleHint: '2025550147',
+      formatMask: '(###) ###-####',
+      exampleHint: '(202) 555-0147',
     ),
     OmniCountryDialCode(
       dialCode: '+44',
@@ -3227,7 +3477,8 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇬🇧',
       minDigits: 10,
       maxDigits: 11,
-      exampleHint: '7700900077',
+      formatMask: '#### ######',
+      exampleHint: '7700 900077',
     ),
     OmniCountryDialCode(
       dialCode: '+971',
@@ -3236,7 +3487,8 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇦🇪',
       minDigits: 9,
       maxDigits: 9,
-      exampleHint: '501234567',
+      formatMask: '## ### ####',
+      exampleHint: '50 123 4567',
     ),
     OmniCountryDialCode(
       dialCode: '+966',
@@ -3245,7 +3497,8 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇸🇦',
       minDigits: 9,
       maxDigits: 9,
-      exampleHint: '501234567',
+      formatMask: '## ### ####',
+      exampleHint: '50 123 4567',
     ),
     OmniCountryDialCode(
       dialCode: '+60',
@@ -3254,7 +3507,8 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇲🇾',
       minDigits: 9,
       maxDigits: 10,
-      exampleHint: '123456789',
+      formatMask: '##-### #####',
+      exampleHint: '12-345 6789',
     ),
     OmniCountryDialCode(
       dialCode: '+65',
@@ -3263,7 +3517,18 @@ class OmniPhoneField extends StatefulWidget {
       flag: '🇸🇬',
       minDigits: 8,
       maxDigits: 8,
-      exampleHint: '81234567',
+      formatMask: '#### ####',
+      exampleHint: '8123 4567',
+    ),
+    OmniCountryDialCode(
+      dialCode: '+61',
+      isoCode: 'AU',
+      name: 'Australia',
+      flag: '🇦🇺',
+      minDigits: 9,
+      maxDigits: 9,
+      formatMask: '### ### ###',
+      exampleHint: '412 345 678',
     ),
   ];
 
@@ -3330,6 +3595,15 @@ class OmniPhoneField extends StatefulWidget {
   /// `+880` হলে বাংলাদেশি অপারেটর (`013`–`019`) যাচাই করবে কি না।
   final bool validateBangladeshOperators;
 
+  /// নির্বাচিত দেশের ফরম্যাট মাস্ক (`01712-345678`, `(202) 555-0147` ইত্যাদি) স্বয়ংক্রিয়ভাবে প্রয়োগ করবে কি না।
+  final bool autoFormat;
+
+  /// দেশের সর্বোচ্চ ডিজিট সীমা কঠোরভাবে আটকে দেবে কি না (বেশি ডিজিট উঠবে না)।
+  final bool enforceCountryLength;
+
+  /// ডানদিকে ডিজিট সংখ্যা কাউন্টার (`11/11`) দেখাবে কি না।
+  final bool showLengthCounter;
+
   /// আন্তর্জাতিক ন্যূনতম ডিজিট ওভাররাইড।
   final int? minDigits;
 
@@ -3342,8 +3616,8 @@ class OmniPhoneField extends StatefulWidget {
   /// খালি থাকলে এরর মেসেজ।
   final String requiredMessage;
 
-  /// নাম্বার ভুল হলে এরর মেসেজ।
-  final String invalidPhoneMessage;
+  /// নাম্বার ভুল হলে কাস্টম এরর মেসেজ (`null` হলে দেশ অনুযায়ী অটো মেসেজ)।
+  final String? invalidPhoneMessage;
 
   /// নাম্বার ইতিমধ্যে ভেরিফাই হয়ে গেছে কি না।
   final bool isVerified;
@@ -3406,6 +3680,7 @@ class OmniPhoneField extends StatefulWidget {
 class _OmniPhoneFieldState extends State<OmniPhoneField> {
   TextEditingController? _ownedController;
   late OmniCountryDialCode _selectedCountry;
+  bool _syncingFormat = false;
 
   TextEditingController get _ctrl => widget.controller ?? _ownedController!;
 
@@ -3419,12 +3694,41 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     return OmniCountryDialCode(dialCode: dialCode, isoCode: '', name: dialCode);
   }
 
+  String _formatForCountry(String raw) {
+    if (widget.autoFormat) {
+      return _selectedCountry.formatDigits(
+        raw,
+        overrideMax: widget.enforceCountryLength ? widget.maxDigits : null,
+      );
+    }
+    if (!widget.enforceCountryLength) return raw;
+    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
+    final maxAllowed = _selectedCountry.effectiveMaxDigits(
+      digitsOnly,
+      overrideMax: widget.maxDigits,
+    );
+    return digitsOnly.length > maxAllowed
+        ? digitsOnly.substring(0, maxAllowed)
+        : digitsOnly;
+  }
+
   @override
   void initState() {
     super.initState();
     _selectedCountry = _resolveCountry(widget.countryCode);
+    final initial = widget.initialValue ?? '';
     if (widget.controller == null) {
-      _ownedController = TextEditingController(text: widget.initialValue ?? '');
+      _ownedController = TextEditingController(
+        text: initial.isEmpty ? '' : _formatForCountry(initial),
+      );
+    } else if (widget.autoFormat && _ctrl.text.isNotEmpty) {
+      final formatted = _formatForCountry(_ctrl.text);
+      if (formatted != _ctrl.text) {
+        _ctrl.value = TextEditingValue(
+          text: formatted,
+          selection: TextSelection.collapsed(offset: formatted.length),
+        );
+      }
     }
     _ctrl.addListener(_handleChange);
   }
@@ -3434,12 +3738,23 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.countryCode != widget.countryCode) {
       _selectedCountry = _resolveCountry(widget.countryCode);
+      final reformatted = _formatForCountry(_ctrl.text);
+      if (reformatted != _ctrl.text) {
+        _syncingFormat = true;
+        _ctrl.value = TextEditingValue(
+          text: reformatted,
+          selection: TextSelection.collapsed(offset: reformatted.length),
+        );
+        _syncingFormat = false;
+      }
     }
     if (oldWidget.controller != widget.controller) {
       (oldWidget.controller ?? _ownedController)?.removeListener(_handleChange);
       if (widget.controller == null) {
         _ownedController ??= TextEditingController(
-          text: oldWidget.controller?.text ?? widget.initialValue ?? '',
+          text: _formatForCountry(
+            oldWidget.controller?.text ?? widget.initialValue ?? '',
+          ),
         );
       } else {
         _ownedController?.dispose();
@@ -3463,6 +3778,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
   String? _defaultValidate(String? v) => OmniValidators.phone(
     v,
     countryCode: _selectedCountry.dialCode,
+    countryName: _selectedCountry.name,
     required: widget.required,
     validateBangladeshOperators: widget.validateBangladeshOperators,
     minDigits: widget.minDigits ?? _selectedCountry.minDigits,
@@ -3472,9 +3788,24 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
   );
 
   void _notifyChanged(String val) {
-    widget.onChanged?.call(val);
+    if (_syncingFormat) return;
+    final formatted = (widget.autoFormat || widget.enforceCountryLength)
+        ? _formatForCountry(val)
+        : val;
+    if (formatted != _ctrl.text) {
+      _syncingFormat = true;
+      _ctrl.value = TextEditingValue(
+        text: formatted,
+        selection: TextSelection.collapsed(offset: formatted.length),
+      );
+      _syncingFormat = false;
+    }
+    widget.onChanged?.call(formatted);
     widget.onFullNumberChanged?.call(
-      OmniValidators.normalizePhone(val, countryCode: _selectedCountry.dialCode),
+      OmniValidators.normalizePhone(
+        formatted,
+        countryCode: _selectedCountry.dialCode,
+      ),
     );
   }
 
@@ -3509,8 +3840,15 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     );
     if (picked != null && mounted) {
       setState(() => _selectedCountry = picked);
+      final reformatted = _formatForCountry(_ctrl.text);
+      _syncingFormat = true;
+      _ctrl.value = TextEditingValue(
+        text: reformatted,
+        selection: TextSelection.collapsed(offset: reformatted.length),
+      );
+      _syncingFormat = false;
       widget.onCountryChanged?.call(picked);
-      _notifyChanged(_ctrl.text);
+      _notifyChanged(reformatted);
     }
   }
 
@@ -3528,6 +3866,11 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     );
 
     final raw = _ctrl.text.trim();
+    final digitsOnly = raw.replaceAll(RegExp(r'\D'), '');
+    final maxAllowed = _selectedCountry.effectiveMaxDigits(
+      digitsOnly,
+      overrideMax: widget.maxDigits,
+    );
     final isValid = raw.isNotEmpty && _defaultValidate(raw) == null;
 
     final Widget? dialPrefix;
@@ -3574,6 +3917,19 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     }
 
     final suffix = _combineSuffixWidgets([
+      if (widget.showLengthCounter && !widget.isVerified)
+        Padding(
+          padding: const EdgeInsets.only(right: 4),
+          child: Text(
+            '${digitsOnly.length}/$maxAllowed',
+            style: config.ui.text.caption.copyWith(
+              color: isValid
+                  ? config.successColor
+                  : config.ui.colors.secondaryTextColor,
+              fontWeight: isValid ? FontWeight.w700 : FontWeight.w500,
+            ),
+          ),
+        ),
       if (widget.isVerified)
         Padding(
           padding: const EdgeInsets.only(right: 6),
@@ -3644,6 +4000,20 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
           : null,
     );
 
+    final formatters = <TextInputFormatter>[
+      if (widget.autoFormat)
+        _CountryPhoneMaskFormatter(
+          country: _selectedCountry,
+          maxDigitsOverride:
+              widget.enforceCountryLength ? widget.maxDigits : null,
+        )
+      else ...[
+        FilteringTextInputFormatter.digitsOnly,
+        if (widget.enforceCountryLength)
+          LengthLimitingTextInputFormatter(maxAllowed),
+      ],
+    ];
+
     return _OmniFieldInputShell(
       config: config,
       controller: _ctrl,
@@ -3652,7 +4022,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
       focusNode: widget.focusNode,
       keyboardType: TextInputType.phone,
       textInputAction: widget.textInputAction,
-      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d\s-]'))],
+      inputFormatters: formatters,
       validator: widget.validator ?? _defaultValidate,
       onChanged: _notifyChanged,
       onSubmitted: widget.onSubmitted,
@@ -4183,7 +4553,9 @@ class OmniOtpField extends FormField<String> {
     this.prefixIcon,
     this.showLabelIcon = true,
     this.helperText,
+    this.warningText,
     this.errorText,
+    this.status,
     this.digitsOnly = true,
     this.obscureText = false,
     this.obscuringCharacter = '•',
@@ -4197,6 +4569,7 @@ class OmniOtpField extends FormField<String> {
     this.focusedPinTheme,
     this.submittedPinTheme,
     this.followingPinTheme,
+    this.warningPinTheme,
     this.errorPinTheme,
     this.disabledPinTheme,
     this.separatorBuilder,
@@ -4205,6 +4578,14 @@ class OmniOtpField extends FormField<String> {
     this.showCursor = true,
     this.cursor,
     this.pinAnimationType = OmniOtpAnimationType.scale,
+    this.errorAnimation = OmniOtpErrorAnimation.shake,
+    this.warningAnimation = OmniOtpWarningAnimation.pulse,
+    this.verifiedAnimation = OmniOtpVerifiedAnimation.mergeCheck,
+    this.errorTrigger = 0,
+    this.warningTrigger = 0,
+    this.warningIcon = Icons.warning_amber_rounded,
+    this.errorIcon = Icons.error_outline_rounded,
+    this.verifiedIcon = Icons.check_rounded,
     this.animationDuration = const Duration(milliseconds: 160),
     this.closeKeyboardWhenCompleted = true,
     this.onChanged,
@@ -4259,8 +4640,14 @@ class OmniOtpField extends FormField<String> {
   /// নিচে সহায়ক টেক্সট।
   final String? helperText;
 
+  /// ওয়ার্নিং মেসেজ (দিলে স্বয়ংক্রিয়ভাবে অ্যাম্বার ওয়ার্নিং ও অ্যানিমেশন দেখায়)।
+  final String? warningText;
+
   /// সরাসরি এরর টেক্সট ওভাররাইড।
   final String? errorText;
+
+  /// সরাসরি OTP স্টেট (`idle`, `verifying`, `warning`, `error`, `verified`)।
+  final OmniOtpStatus? status;
 
   /// শুধুমাত্র সংখ্যা (`0-9`) নেবে কি না।
   final bool digitsOnly;
@@ -4301,6 +4688,9 @@ class OmniOtpField extends FormField<String> {
   /// এখনো পূরণ না হওয়া পরের ঘরের স্টাইল।
   final OmniPinTheme? followingPinTheme;
 
+  /// ওয়ার্নিং অবস্থায় ঘরের স্টাইল।
+  final OmniPinTheme? warningPinTheme;
+
   /// ভ্যালিডেশন এরর অবস্থায় ঘরের স্টাইল।
   final OmniPinTheme? errorPinTheme;
 
@@ -4324,6 +4714,30 @@ class OmniOtpField extends FormField<String> {
 
   /// ঘরের ভেতরে সংখ্যা আসার অ্যানিমেশন ধরন।
   final OmniOtpAnimationType pinAnimationType;
+
+  /// এরর হলে ঝাঁকুনি/বাউন্স/পালস/ফ্ল্যাশ অ্যানিমেশন ধরন।
+  final OmniOtpErrorAnimation errorAnimation;
+
+  /// ওয়ার্নিং অবস্থায় পালস/ওয়াবল/বাউন্স/গ্লো অ্যানিমেশন ধরন।
+  final OmniOtpWarningAnimation warningAnimation;
+
+  /// ভেরিফাই সফল হলে সব ঘর একসাথে মিলিত হওয়া বা টিক-অ্যানিমেশনের ধরন।
+  final OmniOtpVerifiedAnimation verifiedAnimation;
+
+  /// বারবার একই এরর অবস্থায় নতুন করে অ্যানিমেশন চালাতে কাউন্টার বাড়ান।
+  final int errorTrigger;
+
+  /// বারবার একই ওয়ার্নিং অবস্থায় নতুন করে অ্যানিমেশন চালাতে কাউন্টার বাড়ান।
+  final int warningTrigger;
+
+  /// ওয়ার্নিং ব্যাজের আইকন।
+  final IconData warningIcon;
+
+  /// এরর ব্যাজের আইকন।
+  final IconData errorIcon;
+
+  /// ভেরিফাই সফল হলে মার্জড সার্কল/বক্সে দেখানো টিক আইকন।
+  final IconData verifiedIcon;
 
   /// প্রতিটি ঘরের অ্যানিমেশন সময়কাল।
   final Duration animationDuration;
@@ -4378,31 +4792,103 @@ class _OmniOtpBoxes extends StatefulWidget {
   State<_OmniOtpBoxes> createState() => _OmniOtpBoxesState();
 }
 
-class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
+class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
+    with TickerProviderStateMixin {
   TextEditingController? _ownedController;
   final FocusNode _focusNode = FocusNode();
   bool _syncing = false;
   Timer? _resendTimer;
   int _remainingSeconds = 0;
 
+  late final AnimationController _errorCtrl;
+  late final AnimationController _warningCtrl;
+  late final AnimationController _verifyCtrl;
+  late final AnimationController _typingCtrl;
+
+  OmniOtpStatus _lastStatus = OmniOtpStatus.idle;
+  int _lastTypedLen = 0;
+  int _popStartIndex = -1;
+  int _popEndIndex = -1;
+
   TextEditingController get _ctrl =>
       widget.field.controller ?? _ownedController!;
+
+  OmniOtpStatus _computeStatus({required bool formHasError}) {
+    final explicit = widget.field.status;
+    if (explicit != null) return explicit;
+    if (widget.field.isVerified) return OmniOtpStatus.verified;
+    if (formHasError ||
+        (widget.field.errorText != null &&
+            widget.field.errorText!.isNotEmpty)) {
+      return OmniOtpStatus.error;
+    }
+    if (widget.field.warningText != null &&
+        widget.field.warningText!.isNotEmpty) {
+      return OmniOtpStatus.warning;
+    }
+    if (widget.field.isVerifying) return OmniOtpStatus.verifying;
+    return OmniOtpStatus.idle;
+  }
 
   @override
   void initState() {
     super.initState();
+    _errorCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 480),
+    );
+    _warningCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 560),
+    );
+    _verifyCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 840),
+    );
+    _typingCtrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 190),
+    );
     if (widget.field.controller == null) {
       _ownedController = TextEditingController(
         text: widget.formState.value ?? '',
       );
     }
+    _lastTypedLen = _sanitize(_ctrl.text).length;
     _ctrl.addListener(_onControllerChanged);
     _focusNode.addListener(_onFocusChanged);
     _startResendCountdown();
+
+    _lastStatus = _computeStatus(
+      formHasError: widget.formState.errorText != null,
+    );
+    if (_lastStatus == OmniOtpStatus.verified) {
+      _verifyCtrl.value = 1.0;
+    } else if (_lastStatus == OmniOtpStatus.error &&
+        widget.field.errorAnimation != OmniOtpErrorAnimation.none) {
+      _errorCtrl.forward(from: 0.0);
+    } else if (_lastStatus == OmniOtpStatus.warning &&
+        widget.field.warningAnimation != OmniOtpWarningAnimation.none) {
+      _warningCtrl.forward(from: 0.0);
+    }
   }
 
   void _onFocusChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _triggerTypingPop(String clean) {
+    final nextLen = clean.length;
+    if (nextLen > _lastTypedLen &&
+        widget.field.pinAnimationType != OmniOtpAnimationType.none) {
+      _popStartIndex = _lastTypedLen;
+      _popEndIndex = nextLen - 1;
+      _typingCtrl.forward(from: 0.0);
+    } else if (nextLen < _lastTypedLen) {
+      _popStartIndex = -1;
+      _popEndIndex = -1;
+    }
+    _lastTypedLen = nextLen;
   }
 
   void _onControllerChanged() {
@@ -4416,6 +4902,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
       );
       _syncing = false;
     }
+    _triggerTypingPop(clean);
     if (widget.formState.value != clean) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) widget.formState.didChange(clean);
@@ -4443,6 +4930,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
       );
       _syncing = false;
     }
+    _triggerTypingPop(clean);
     widget.formState.didChange(clean);
     widget.field.onChanged?.call(clean);
     if (clean.length == widget.field.length) {
@@ -4500,10 +4988,46 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
     if (oldWidget.field.resendDuration != widget.field.resendDuration) {
       _startResendCountdown();
     }
+
+    final nextStatus = _computeStatus(
+      formHasError: widget.formState.errorText != null,
+    );
+    if (nextStatus != _lastStatus) {
+      if (nextStatus == OmniOtpStatus.verified) {
+        _verifyCtrl.forward(from: 0.0);
+      } else {
+        if (_lastStatus == OmniOtpStatus.verified) {
+          _verifyCtrl.reset();
+        }
+        if (nextStatus == OmniOtpStatus.error &&
+            widget.field.errorAnimation != OmniOtpErrorAnimation.none) {
+          _errorCtrl.forward(from: 0.0);
+        } else if (nextStatus == OmniOtpStatus.warning &&
+            widget.field.warningAnimation != OmniOtpWarningAnimation.none) {
+          _warningCtrl.forward(from: 0.0);
+        }
+      }
+      _lastStatus = nextStatus;
+    } else {
+      if (oldWidget.field.errorTrigger != widget.field.errorTrigger &&
+          nextStatus == OmniOtpStatus.error &&
+          widget.field.errorAnimation != OmniOtpErrorAnimation.none) {
+        _errorCtrl.forward(from: 0.0);
+      }
+      if (oldWidget.field.warningTrigger != widget.field.warningTrigger &&
+          nextStatus == OmniOtpStatus.warning &&
+          widget.field.warningAnimation != OmniOtpWarningAnimation.none) {
+        _warningCtrl.forward(from: 0.0);
+      }
+    }
   }
 
   @override
   void dispose() {
+    _errorCtrl.dispose();
+    _warningCtrl.dispose();
+    _verifyCtrl.dispose();
+    _typingCtrl.dispose();
     _resendTimer?.cancel();
     (widget.field.controller ?? _ownedController)?.removeListener(
       _onControllerChanged,
@@ -4524,22 +5048,65 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
       return child;
     }
 
+    final curve = switch (widget.field.pinAnimationType) {
+      OmniOtpAnimationType.spring => Curves.elasticOut,
+      OmniOtpAnimationType.drop ||
+      OmniOtpAnimationType.flip => Curves.easeOutCubic,
+      _ => Curves.easeOutBack,
+    };
+
     return AnimatedSwitcher(
       duration: widget.field.animationDuration,
-      switchInCurve: Curves.easeOutBack,
+      switchInCurve: curve,
       transitionBuilder: (c, anim) => switch (widget.field.pinAnimationType) {
         OmniOtpAnimationType.scale => ScaleTransition(scale: anim, child: c),
+        OmniOtpAnimationType.spring => ScaleTransition(
+          scale: Tween<double>(begin: 0.45, end: 1.0).animate(anim),
+          child: FadeTransition(opacity: anim, child: c),
+        ),
         OmniOtpAnimationType.fade => FadeTransition(opacity: anim, child: c),
         OmniOtpAnimationType.slide => SlideTransition(
           position: Tween<Offset>(
-            begin: const Offset(0, 0.35),
+            begin: const Offset(0, 0.38),
             end: Offset.zero,
           ).animate(anim),
           child: FadeTransition(opacity: anim, child: c),
         ),
+        OmniOtpAnimationType.drop => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, -0.42),
+            end: Offset.zero,
+          ).animate(anim),
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 0.85, end: 1.0).animate(anim),
+            child: FadeTransition(opacity: anim, child: c),
+          ),
+        ),
         OmniOtpAnimationType.rotation => RotationTransition(
-          turns: Tween<double>(begin: 0.9, end: 1.0).animate(anim),
+          turns: Tween<double>(begin: 0.88, end: 1.0).animate(anim),
           child: ScaleTransition(scale: anim, child: c),
+        ),
+        OmniOtpAnimationType.flip => AnimatedBuilder(
+          animation: anim,
+          child: c,
+          builder: (_, inner) {
+            final v = anim.value.clamp(0.0, 1.0);
+            final rotX = (1.0 - v) * (math.pi / 2.2);
+            return Opacity(
+              opacity: v,
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.identity()
+                  ..setEntry(3, 2, 0.003)
+                  ..rotateX(rotX),
+                child: inner,
+              ),
+            );
+          },
+        ),
+        OmniOtpAnimationType.blur => ScaleTransition(
+          scale: Tween<double>(begin: 1.38, end: 1.0).animate(anim),
+          child: FadeTransition(opacity: anim, child: c),
         ),
         OmniOtpAnimationType.none => c,
       },
@@ -4596,12 +5163,42 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
     final gap = widget.field.boxSpacing ?? config.fieldTheme.otpBoxSpacing;
 
     final effectiveError = widget.field.errorText ?? widget.formState.errorText;
-    final hasError = effectiveError != null && effectiveError.isNotEmpty;
+    final activeStatus = _computeStatus(
+      formHasError: effectiveError != null && effectiveError.isNotEmpty,
+    );
+
+    if (activeStatus != _lastStatus) {
+      final triggered = activeStatus;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (triggered == OmniOtpStatus.verified) {
+          _verifyCtrl.forward(from: 0.0);
+        } else {
+          if (_lastStatus == OmniOtpStatus.verified) {
+            _verifyCtrl.reset();
+          }
+          if (triggered == OmniOtpStatus.error &&
+              widget.field.errorAnimation != OmniOtpErrorAnimation.none) {
+            _errorCtrl.forward(from: 0.0);
+          } else if (triggered == OmniOtpStatus.warning &&
+              widget.field.warningAnimation != OmniOtpWarningAnimation.none) {
+            _warningCtrl.forward(from: 0.0);
+          }
+        }
+        _lastStatus = triggered;
+      });
+    }
+
+    final hasError = activeStatus == OmniOtpStatus.error;
+    final hasWarning = activeStatus == OmniOtpStatus.warning;
+    final isVerifyingNow = activeStatus == OmniOtpStatus.verifying;
+    final isVerifiedNow = activeStatus == OmniOtpStatus.verified;
+    final isDisabled = !widget.field.enabled || isVerifyingNow || isVerifiedNow;
+
     final baseTextStyle =
         widget.field.textStyle ??
         widget.field.defaultPinTheme?.textStyle ??
         config.ui.text.heading.copyWith(color: config.ui.colors.textColor);
-    final isDisabled = !widget.field.enabled || widget.field.isVerifying;
 
     final baseDefaultPin =
         widget.field.defaultPinTheme ??
@@ -4646,13 +5243,35 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
             config: config,
             boxStyle: boxStyle,
             borderRadius: config.borderRadius,
-            fillColor: widget.field.isVerified
+            fillColor: isVerifiedNow
                 ? config.successColor.withValues(alpha: 0.1)
                 : config.accentColor.withValues(alpha: 0.08),
-            borderColor: widget.field.isVerified
+            borderColor: isVerifiedNow
                 ? config.successColor
                 : config.accentColor.withValues(alpha: 0.72),
             borderWidth: math.max(config.borderWidth, 1.2),
+          ),
+        );
+
+    final warnColor = config.ui.colors.warningColor;
+    final effectiveWarningPin =
+        widget.field.warningPinTheme ??
+        baseDefaultPin.copyWith(
+          textStyle: baseTextStyle.copyWith(color: warnColor),
+          decoration: _makeCellDecoration(
+            config: config,
+            boxStyle: boxStyle,
+            borderRadius: config.borderRadius,
+            fillColor: config.ui.colors.warningBackgroundColor,
+            borderColor: warnColor,
+            borderWidth: math.max(config.focusedBorderWidth, 1.6),
+            shadow: boxStyle == OmniOtpBoxStyle.underlined
+                ? null
+                : BoxShadow(
+                    color: warnColor.withValues(alpha: 0.22),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
           ),
         );
 
@@ -4702,6 +5321,13 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
           )
         : null;
 
+    final combinedAnim = Listenable.merge([
+      _errorCtrl,
+      _warningCtrl,
+      _verifyCtrl,
+      _typingCtrl,
+    ]);
+
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -4726,145 +5352,780 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
             final n = widget.field.length;
             final maxW = constraints.maxWidth;
             final totalGap = gap * math.max(0, n - 1);
-            final responsiveCellW = (maxW.isFinite && widget.field.separatorBuilder == null)
+            final responsiveCellW =
+                (maxW.isFinite && widget.field.separatorBuilder == null)
                 ? math.min(prefW, math.max(24.0, (maxW - totalGap) / n))
                 : prefW;
 
-            final cellsRow = Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: widget.field.mainAxisAlignment,
-              crossAxisAlignment: widget.field.crossAxisAlignment,
-              children: [
-                for (var i = 0; i < n; i++) ...[
-                  if (i > 0)
-                    widget.field.separatorBuilder?.call(context, i - 1) ??
-                        SizedBox(width: gap),
-                  Builder(
-                    builder: (_) {
-                      final hasChar = i < code.length;
-                      final isFocusedCell =
-                          _focusNode.hasFocus && i == activeIndex && !isDisabled;
+            return AnimatedBuilder(
+              animation: combinedAnim,
+              builder: (_, _) {
+                final errT = _errorCtrl.value;
+                final warnT = _warningCtrl.value;
+                final verT = _verifyCtrl.value;
+                final typeT = _typingCtrl.value;
 
-                      final OmniPinTheme cellTheme;
-                      if (isDisabled) {
-                        cellTheme = effectiveDisabledPin;
-                      } else if (hasError) {
-                        cellTheme = effectiveErrorPin;
-                      } else if (isFocusedCell) {
-                        cellTheme = effectiveFocusedPin;
-                      } else if (hasChar) {
-                        cellTheme = effectiveSubmittedPin;
-                      } else {
-                        cellTheme = effectiveFollowingPin;
-                      }
+                // ১. সারি-ভিত্তিক এরর ও ওয়ার্নিং ট্রান্সফর্ম:
+                Offset statusOffset = Offset.zero;
+                double statusScale = 1.0;
+                double errorGlow = 0.0;
+                double warnGlow = 0.0;
 
-                      final effectiveW = math.min(
-                        cellTheme.width ?? responsiveCellW,
-                        responsiveCellW,
+                if (hasError && errT > 0 && errT < 1) {
+                  switch (widget.field.errorAnimation) {
+                    case OmniOtpErrorAnimation.shake:
+                      statusOffset = Offset(
+                        math.sin(errT * math.pi * 5.0) * (1.0 - errT) * 12.0,
+                        0,
                       );
-                      final effectiveH = cellTheme.height ?? boxH;
-                      final style = cellTheme.textStyle ?? baseTextStyle;
+                      errorGlow = (1.0 - errT) * 0.55;
+                    case OmniOtpErrorAnimation.bounce:
+                      statusOffset = Offset(
+                        0,
+                        -math.sin(errT * math.pi * 3.0).abs() *
+                            (1.0 - errT) *
+                            10.0,
+                      );
+                    case OmniOtpErrorAnimation.pulse:
+                      statusScale =
+                          1.0 + math.sin(errT * math.pi * 2.0) * 0.055;
+                      errorGlow = math.sin(errT * math.pi).clamp(0.0, 1.0);
+                    case OmniOtpErrorAnimation.flash:
+                      errorGlow = math.sin(errT * math.pi * 3.0).abs();
+                    case OmniOtpErrorAnimation.staggerShake ||
+                        OmniOtpErrorAnimation.tiltShake ||
+                        OmniOtpErrorAnimation.jello ||
+                        OmniOtpErrorAnimation.none:
+                      break;
+                  }
+                } else if (hasWarning && warnT > 0 && warnT < 1) {
+                  switch (widget.field.warningAnimation) {
+                    case OmniOtpWarningAnimation.pulse:
+                      statusScale =
+                          1.0 + math.sin(warnT * math.pi * 2.0) * 0.045;
+                      warnGlow = math.sin(warnT * math.pi).clamp(0.0, 1.0);
+                    case OmniOtpWarningAnimation.heartbeat:
+                      final b1 = math.sin(
+                        (warnT / 0.36).clamp(0.0, 1.0) * math.pi,
+                      );
+                      final b2 = math.sin(
+                        ((warnT - 0.34) / 0.42).clamp(0.0, 1.0) * math.pi,
+                      );
+                      final beat = math.max(b1 * 0.85, b2);
+                      statusScale = 1.0 + beat * 0.07;
+                      warnGlow = beat;
+                    case OmniOtpWarningAnimation.wobble:
+                      statusOffset = Offset(
+                        math.sin(warnT * math.pi * 3.0) * (1.0 - warnT) * 7.5,
+                        0,
+                      );
+                    case OmniOtpWarningAnimation.bounce:
+                      statusOffset = Offset(
+                        0,
+                        -math.sin(warnT * math.pi * 2.0).abs() *
+                            (1.0 - warnT) *
+                            7.5,
+                      );
+                    case OmniOtpWarningAnimation.glow:
+                      warnGlow = math.sin(warnT * math.pi * 2.0).abs();
+                    case OmniOtpWarningAnimation.waveBounce ||
+                        OmniOtpWarningAnimation.shimmer ||
+                        OmniOtpWarningAnimation.tilt ||
+                        OmniOtpWarningAnimation.none:
+                      break;
+                  }
+                }
 
-                      return AnimatedContainer(
-                        duration: widget.field.animationDuration,
-                        curve: Curves.easeOutCubic,
-                        width: effectiveW,
-                        height: effectiveH,
-                        margin: cellTheme.margin,
-                        padding: cellTheme.padding,
-                        constraints: cellTheme.constraints,
-                        decoration: cellTheme.decoration,
-                        alignment: Alignment.center,
-                        child: hasChar
-                            ? _buildAnimatedChar(code[i], style)
-                            : (isFocusedCell && widget.field.showCursor)
-                            ? (widget.field.cursor ??
-                                  Container(
-                                    width: 2,
-                                    height: effectiveH * 0.42,
-                                    decoration: BoxDecoration(
-                                      color: config.accentColor,
-                                      borderRadius: BorderRadius.circular(2),
+                final verMode = widget.field.verifiedAnimation;
+                final isMergingMode =
+                    isVerifiedNow &&
+                    (verMode == OmniOtpVerifiedAnimation.mergeCheck ||
+                        verMode == OmniOtpVerifiedAnimation.morphPill ||
+                        verMode == OmniOtpVerifiedAnimation.stackMerge);
+
+                // ২. মাল্টি-স্টেজ মার্জ কার্ভ (অ্যান্টিসিপেশন -> ম্যাগনেটিক কনভার্জের -> ব্যাজ পপ):
+                final anticipateT = isMergingMode
+                    ? math.sin((verT / 0.16).clamp(0.0, 1.0) * math.pi)
+                    : 0.0;
+                final mergePhase = isMergingMode
+                    ? Curves.easeInOutCubic.transform(
+                        ((verT - 0.10) / 0.44).clamp(0.0, 1.0),
+                      )
+                    : 0.0;
+                final badgePhase = isMergingMode
+                    ? Curves.easeOutBack.transform(
+                        ((verT - 0.44) / 0.36).clamp(0.0, 1.0),
+                      )
+                    : 0.0;
+                final checkReveal = isMergingMode
+                    ? Curves.easeOutCubic.transform(
+                        ((verT - 0.56) / 0.28).clamp(0.0, 1.0),
+                      )
+                    : 1.0;
+                final boxFadeOpacity = isMergingMode
+                    ? (1.0 - ((verT - 0.44) / 0.24).clamp(0.0, 1.0))
+                    : 1.0;
+
+                final centerIndex = (n - 1) / 2.0;
+
+                final cellsRow = Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: widget.field.mainAxisAlignment,
+                  crossAxisAlignment: widget.field.crossAxisAlignment,
+                  children: [
+                    for (var i = 0; i < n; i++) ...[
+                      if (i > 0)
+                        Opacity(
+                          opacity: boxFadeOpacity,
+                          child:
+                              widget.field.separatorBuilder?.call(
+                                context,
+                                i - 1,
+                              ) ??
+                              SizedBox(width: gap),
+                        ),
+                      Builder(
+                        builder: (_) {
+                          final hasChar = i < code.length;
+                          final isFocusedCell =
+                              _focusNode.hasFocus &&
+                              i == activeIndex &&
+                              !isDisabled;
+
+                          final OmniPinTheme cellTheme;
+                          if (isVerifiedNow) {
+                            cellTheme = effectiveSubmittedPin;
+                          } else if (isDisabled) {
+                            cellTheme = effectiveDisabledPin;
+                          } else if (hasError) {
+                            cellTheme = effectiveErrorPin;
+                          } else if (hasWarning) {
+                            cellTheme = effectiveWarningPin;
+                          } else if (isFocusedCell) {
+                            cellTheme = effectiveFocusedPin;
+                          } else if (hasChar) {
+                            cellTheme = effectiveSubmittedPin;
+                          } else {
+                            cellTheme = effectiveFollowingPin;
+                          }
+
+                          final effectiveW = math.min(
+                            cellTheme.width ?? responsiveCellW,
+                            responsiveCellW,
+                          );
+                          final effectiveH = cellTheme.height ?? boxH;
+                          final style = cellTheme.textStyle ?? baseTextStyle;
+
+                          final linearPos = n <= 1 ? 0.5 : i / (n - 1);
+                          final distFromCenter = centerIndex <= 0
+                              ? 0.0
+                              : (i - centerIndex).abs() / centerIndex;
+
+                          // টাইপিং বা ভেরিফাই/ওয়ার্নিং/এরর অনুযায়ী প্রতি ঘরের সূক্ষ্ম গ্লো ও শেপ মর্ফ:
+                          var cellErrorGlow = errorGlow;
+                          var cellWarnGlow = warnGlow;
+                          var cellSuccessGlow = 0.0;
+                          var cellTypingGlow = 0.0;
+
+                          if (!hasError &&
+                              !hasWarning &&
+                              !isVerifiedNow &&
+                              typeT > 0 &&
+                              typeT < 1 &&
+                              i >= _popStartIndex &&
+                              i <= _popEndIndex) {
+                            cellTypingGlow = math.sin(typeT * math.pi) * 0.45;
+                          }
+                          if (hasWarning &&
+                              warnT > 0 &&
+                              warnT < 1 &&
+                              widget.field.warningAnimation ==
+                                  OmniOtpWarningAnimation.shimmer) {
+                            cellWarnGlow = math.sin(
+                              ((warnT * 1.65) - linearPos * 0.65).clamp(
+                                    0.0,
+                                    1.0,
+                                  ) *
+                                  math.pi,
+                            );
+                          }
+                          if (hasError &&
+                              errT > 0 &&
+                              errT < 1 &&
+                              (widget.field.errorAnimation ==
+                                      OmniOtpErrorAnimation.staggerShake ||
+                                  widget.field.errorAnimation ==
+                                      OmniOtpErrorAnimation.jello ||
+                                  widget.field.errorAnimation ==
+                                      OmniOtpErrorAnimation.tiltShake)) {
+                            cellErrorGlow = (1.0 - errT) * 0.5;
+                          }
+
+                          final staggerT = isVerifiedNow
+                              ? (verMode == OmniOtpVerifiedAnimation.rippleCheck
+                                    ? ((verT * 1.55) - distFromCenter * 0.55)
+                                          .clamp(0.0, 1.0)
+                                    : ((verT * 1.55) - linearPos * 0.55).clamp(
+                                        0.0,
+                                        1.0,
+                                      ))
+                              : 0.0;
+
+                          if (isVerifiedNow &&
+                              !isMergingMode &&
+                              verMode != OmniOtpVerifiedAnimation.badgeOnly &&
+                              verT > 0 &&
+                              verT < 1) {
+                            cellSuccessGlow =
+                                math.sin(staggerT * math.pi) * 0.55;
+                          }
+
+                          BoxDecoration? resolvedDecoration =
+                              cellTheme.decoration;
+                          // mergeCheck-এ মিলিত হওয়ার সময় বর্গাকার কোণ গোল বৃত্তে মর্ফ হয়:
+                          if (isVerifiedNow &&
+                              verMode == OmniOtpVerifiedAnimation.mergeCheck &&
+                              resolvedDecoration != null &&
+                              boxStyle != OmniOtpBoxStyle.underlined &&
+                              mergePhase > 0.01) {
+                            resolvedDecoration = resolvedDecoration.copyWith(
+                              borderRadius: BorderRadius.lerp(
+                                resolvedDecoration.borderRadius
+                                        as BorderRadius? ??
+                                    config.borderRadius,
+                                BorderRadius.circular(effectiveH / 2),
+                                mergePhase,
+                              ),
+                            );
+                          }
+
+                          if (resolvedDecoration != null) {
+                            if (cellErrorGlow > 0.01) {
+                              resolvedDecoration = resolvedDecoration.copyWith(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: config.errorColor.withValues(
+                                      alpha: 0.45 * cellErrorGlow,
                                     ),
-                                  ))
-                            : null,
-                      );
-                    },
-                  ),
-                ],
-              ],
-            );
+                                    blurRadius: 12 * cellErrorGlow,
+                                    spreadRadius: 1.5 * cellErrorGlow,
+                                  ),
+                                ],
+                              );
+                            } else if (cellWarnGlow > 0.01) {
+                              resolvedDecoration = resolvedDecoration.copyWith(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: warnColor.withValues(
+                                      alpha: 0.48 * cellWarnGlow,
+                                    ),
+                                    blurRadius: 13 * cellWarnGlow,
+                                    spreadRadius: 1.8 * cellWarnGlow,
+                                  ),
+                                ],
+                              );
+                            } else if (cellSuccessGlow > 0.01) {
+                              resolvedDecoration = resolvedDecoration.copyWith(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: config.successColor.withValues(
+                                      alpha: 0.45 * cellSuccessGlow,
+                                    ),
+                                    blurRadius: 14 * cellSuccessGlow,
+                                    spreadRadius: 1.5 * cellSuccessGlow,
+                                  ),
+                                ],
+                              );
+                            } else if (cellTypingGlow > 0.01) {
+                              resolvedDecoration = resolvedDecoration.copyWith(
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: config.accentColor.withValues(
+                                      alpha: 0.38 * cellTypingGlow,
+                                    ),
+                                    blurRadius: 10 * cellTypingGlow,
+                                    spreadRadius: 1.0 * cellTypingGlow,
+                                  ),
+                                ],
+                              );
+                            }
+                          }
 
-            final fittedRow = widget.field.separatorBuilder != null
-                ? FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: cellsRow,
-                  )
-                : cellsRow;
+                          final showsCellCheck =
+                              isVerifiedNow &&
+                              ((verMode ==
+                                          OmniOtpVerifiedAnimation
+                                              .expandCheck &&
+                                      staggerT > 0.35) ||
+                                  (verMode ==
+                                          OmniOtpVerifiedAnimation.waveCheck &&
+                                      staggerT > 0.32) ||
+                                  (verMode ==
+                                          OmniOtpVerifiedAnimation
+                                              .rippleCheck &&
+                                      staggerT > 0.30) ||
+                                  (verMode ==
+                                          OmniOtpVerifiedAnimation.flipCheck &&
+                                      staggerT >= 0.5));
 
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: isDisabled ? null : () => _focusNode.requestFocus(),
-              child: Stack(
-                alignment: Alignment.centerLeft,
-                children: [
-                  IgnorePointer(child: fittedRow),
-                  Positioned.fill(
-                    child: Opacity(
-                      opacity: 0.001,
-                      child: TextField(
-                        controller: _ctrl,
-                        focusNode: _focusNode,
-                        enabled: !isDisabled,
-                        autofocus: widget.field.autofocus,
-                        showCursor: false,
-                        enableInteractiveSelection: false,
-                        cursorColor: Colors.transparent,
-                        style: const TextStyle(color: Colors.transparent),
-                        keyboardType: widget.field.digitsOnly
-                            ? TextInputType.number
-                            : TextInputType.text,
-                        textInputAction: TextInputAction.done,
-                        autofillHints: const [AutofillHints.oneTimeCode],
-                        inputFormatters: [
-                          if (widget.field.digitsOnly)
-                            FilteringTextInputFormatter.digitsOnly,
-                          LengthLimitingTextInputFormatter(widget.field.length),
-                        ],
-                        onChanged: _handleInputChanged,
-                        decoration: const InputDecoration(
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          contentPadding: EdgeInsets.zero,
-                          counterText: '',
+                          Widget? cellContent;
+                          if (showsCellCheck) {
+                            final revealScale =
+                                verMode == OmniOtpVerifiedAnimation.flipCheck
+                                ? 1.0
+                                : Curves.easeOutBack.transform(
+                                    ((staggerT - 0.30) / 0.70).clamp(0.0, 1.0),
+                                  );
+                            cellContent = Transform.scale(
+                              scale: revealScale,
+                              child: Icon(
+                                widget.field.verifiedIcon,
+                                size: effectiveW * 0.52,
+                                color: config.successColor,
+                              ),
+                            );
+                          } else if (hasChar) {
+                            cellContent = Opacity(
+                              opacity: isMergingMode
+                                  ? (1.0 - mergePhase * 1.45).clamp(0.0, 1.0)
+                                  : 1.0,
+                              child: _buildAnimatedChar(code[i], style),
+                            );
+                          } else if (isFocusedCell &&
+                              widget.field.showCursor) {
+                            cellContent =
+                                widget.field.cursor ??
+                                Container(
+                                  width: 2,
+                                  height: effectiveH * 0.42,
+                                  decoration: BoxDecoration(
+                                    color: config.accentColor,
+                                    borderRadius: BorderRadius.circular(2),
+                                  ),
+                                );
+                          }
+
+                          final baseBox = AnimatedContainer(
+                            duration: widget.field.animationDuration,
+                            curve: Curves.easeOutCubic,
+                            width: effectiveW,
+                            height: effectiveH,
+                            margin: cellTheme.margin,
+                            padding: cellTheme.padding,
+                            constraints: cellTheme.constraints,
+                            decoration: resolvedDecoration,
+                            alignment: Alignment.center,
+                            child: cellContent,
+                          );
+
+                          Widget transformedBox = baseBox;
+                          if (isMergingMode) {
+                            final rel = i - centerIndex;
+                            final pushOut = rel * 4.5 * anticipateT;
+                            final dx =
+                                -rel * (effectiveW + gap) * mergePhase +
+                                pushOut * (1.0 - mergePhase);
+                            final dy =
+                                verMode == OmniOtpVerifiedAnimation.stackMerge
+                                ? -math.sin(mergePhase * math.pi) *
+                                      rel.abs() *
+                                      5.5
+                                : 0.0;
+                            final angle =
+                                verMode == OmniOtpVerifiedAnimation.stackMerge
+                                ? rel * 0.06 * mergePhase
+                                : 0.0;
+                            final shrink =
+                                verMode == OmniOtpVerifiedAnimation.mergeCheck
+                                ? (1.0 - mergePhase * 0.16)
+                                : 1.0;
+                            transformedBox = Transform.translate(
+                              offset: Offset(dx, dy),
+                              child: Transform.rotate(
+                                angle: angle,
+                                child: Transform.scale(
+                                  scale: shrink + anticipateT * 0.05,
+                                  child: Opacity(
+                                    opacity: boxFadeOpacity,
+                                    child: baseBox,
+                                  ),
+                                ),
+                              ),
+                            );
+                          } else if (isVerifiedNow) {
+                            switch (verMode) {
+                              case OmniOtpVerifiedAnimation.waveCheck ||
+                                  OmniOtpVerifiedAnimation.rippleCheck ||
+                                  OmniOtpVerifiedAnimation.confettiBurst:
+                                final jump = math.sin(staggerT * math.pi);
+                                transformedBox = Transform.translate(
+                                  offset: Offset(0, -jump * 9.5),
+                                  child: Transform.scale(
+                                    scale: 1.0 + jump * 0.10,
+                                    child: baseBox,
+                                  ),
+                                );
+                              case OmniOtpVerifiedAnimation.expandCheck:
+                                final bump =
+                                    math.sin(staggerT * math.pi) * 0.14;
+                                transformedBox = Transform.scale(
+                                  scale: 1.0 + bump,
+                                  child: baseBox,
+                                );
+                              case OmniOtpVerifiedAnimation.flipCheck:
+                                final angle = staggerT < 0.5
+                                    ? staggerT * math.pi
+                                    : (1.0 - staggerT) * math.pi;
+                                transformedBox = Transform(
+                                  alignment: Alignment.center,
+                                  transform: Matrix4.identity()
+                                    ..setEntry(3, 2, 0.002)
+                                    ..rotateY(angle),
+                                  child: baseBox,
+                                );
+                              case OmniOtpVerifiedAnimation.mergeCheck ||
+                                  OmniOtpVerifiedAnimation.morphPill ||
+                                  OmniOtpVerifiedAnimation.stackMerge ||
+                                  OmniOtpVerifiedAnimation.badgeOnly:
+                                break;
+                            }
+                          } else if (hasError && errT > 0 && errT < 1) {
+                            switch (widget.field.errorAnimation) {
+                              case OmniOtpErrorAnimation.staggerShake:
+                                final decay = 1.0 - errT;
+                                final dx =
+                                    math.sin(errT * math.pi * 5.0 + i * 0.65) *
+                                    decay *
+                                    7.5;
+                                final dy =
+                                    math.cos(errT * math.pi * 4.0 + i * 0.85) *
+                                    decay *
+                                    4.0;
+                                transformedBox = Transform.translate(
+                                  offset: Offset(dx, dy),
+                                  child: baseBox,
+                                );
+                              case OmniOtpErrorAnimation.tiltShake:
+                                final decay = 1.0 - errT;
+                                final rot =
+                                    math.sin(
+                                      errT * math.pi * 4.0 +
+                                          (i.isEven ? 0.0 : 0.4),
+                                    ) *
+                                    decay *
+                                    0.14;
+                                final dx =
+                                    math.sin(errT * math.pi * 4.0) *
+                                    decay *
+                                    6.0;
+                                transformedBox = Transform.translate(
+                                  offset: Offset(dx, 0),
+                                  child: Transform.rotate(
+                                    angle: rot,
+                                    child: baseBox,
+                                  ),
+                                );
+                              case OmniOtpErrorAnimation.jello:
+                                final squash =
+                                    math.sin(errT * math.pi * 4.0) *
+                                    (1.0 - errT);
+                                transformedBox = Transform.scale(
+                                  scaleX: 1.0 + squash * 0.16,
+                                  scaleY: 1.0 - squash * 0.13,
+                                  child: baseBox,
+                                );
+                              case OmniOtpErrorAnimation.shake ||
+                                  OmniOtpErrorAnimation.bounce ||
+                                  OmniOtpErrorAnimation.pulse ||
+                                  OmniOtpErrorAnimation.flash ||
+                                  OmniOtpErrorAnimation.none:
+                                break;
+                            }
+                          } else if (hasWarning && warnT > 0 && warnT < 1) {
+                            switch (widget.field.warningAnimation) {
+                              case OmniOtpWarningAnimation.waveBounce:
+                                final jump = math.sin(
+                                  ((warnT * 1.6) - linearPos * 0.6).clamp(
+                                        0.0,
+                                        1.0,
+                                      ) *
+                                      math.pi,
+                                );
+                                transformedBox = Transform.translate(
+                                  offset: Offset(0, -jump * 8.0),
+                                  child: Transform.scale(
+                                    scale: 1.0 + jump * 0.06,
+                                    child: baseBox,
+                                  ),
+                                );
+                              case OmniOtpWarningAnimation.tilt:
+                                final rot =
+                                    math.sin(warnT * math.pi * 2.5 + i * 0.3) *
+                                    (1.0 - warnT) *
+                                    0.09;
+                                transformedBox = Transform.rotate(
+                                  angle: rot,
+                                  child: baseBox,
+                                );
+                              case OmniOtpWarningAnimation.pulse ||
+                                  OmniOtpWarningAnimation.heartbeat ||
+                                  OmniOtpWarningAnimation.shimmer ||
+                                  OmniOtpWarningAnimation.wobble ||
+                                  OmniOtpWarningAnimation.bounce ||
+                                  OmniOtpWarningAnimation.glow ||
+                                  OmniOtpWarningAnimation.none:
+                                break;
+                            }
+                          } else if (cellTypingGlow > 0.01) {
+                            final popScale =
+                                1.0 + math.sin(typeT * math.pi) * 0.085;
+                            transformedBox = Transform.scale(
+                              scale: popScale,
+                              child: baseBox,
+                            );
+                          }
+                          return transformedBox;
+                        },
+                      ),
+                    ],
+                  ],
+                );
+
+                final fittedRow = widget.field.separatorBuilder != null
+                    ? FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: cellsRow,
+                      )
+                    : cellsRow;
+
+                Widget buildAnimatedCheckGlyph(double size) {
+                  final icon = Transform.rotate(
+                    angle: (1.0 - checkReveal) * -0.22,
+                    child: Icon(
+                      widget.field.verifiedIcon,
+                      color: Colors.white,
+                      size: size,
+                    ),
+                  );
+                  if (checkReveal >= 0.99) return icon;
+                  return ClipRect(
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      widthFactor: checkReveal.clamp(0.05, 1.0),
+                      child: icon,
+                    ),
+                  );
+                }
+
+                final Widget mergedOverlay;
+                if (isVerifiedNow &&
+                    (verMode == OmniOtpVerifiedAnimation.mergeCheck ||
+                        verMode == OmniOtpVerifiedAnimation.stackMerge)) {
+                  final isShield =
+                      verMode == OmniOtpVerifiedAnimation.stackMerge;
+                  mergedOverlay = Center(
+                    child: Transform.scale(
+                      scale: badgePhase.clamp(0.0, 1.16),
+                      child: Container(
+                        width: boxH,
+                        height: boxH,
+                        decoration: BoxDecoration(
+                          shape: isShield ? BoxShape.rectangle : BoxShape.circle,
+                          borderRadius: isShield
+                              ? BorderRadius.circular(boxH * 0.28)
+                              : null,
+                          color: config.successColor,
+                          boxShadow: [
+                            BoxShadow(
+                              color: config.successColor.withValues(
+                                alpha: 0.38,
+                              ),
+                              blurRadius: 16,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                        ),
+                        alignment: Alignment.center,
+                        child: buildAnimatedCheckGlyph(boxH * 0.54),
+                      ),
+                    ),
+                  );
+                } else if (isVerifiedNow &&
+                    verMode == OmniOtpVerifiedAnimation.morphPill) {
+                  mergedOverlay = Center(
+                    child: Transform.scale(
+                      scale: badgePhase.clamp(0.0, 1.10),
+                      child: Container(
+                        height: boxH * 0.86,
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        decoration: BoxDecoration(
+                          color: config.successColor,
+                          borderRadius: BorderRadius.circular(999),
+                          boxShadow: [
+                            BoxShadow(
+                              color: config.successColor.withValues(
+                                alpha: 0.34,
+                              ),
+                              blurRadius: 14,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              buildAnimatedCheckGlyph(20),
+                              const SizedBox(width: 8),
+                              Text(
+                                widget.field.verifiedLabel,
+                                style: config.ui.text.button.copyWith(
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
+                  );
+                } else {
+                  mergedOverlay = const SizedBox.shrink();
+                }
+
+                final showSparkBurst =
+                    isVerifiedNow &&
+                    verT > 0.01 &&
+                    verT < 0.995 &&
+                    (isMergingMode ||
+                        verMode == OmniOtpVerifiedAnimation.confettiBurst ||
+                        verMode == OmniOtpVerifiedAnimation.rippleCheck);
+
+                return Transform.translate(
+                  offset: statusOffset,
+                  child: Transform.scale(
+                    scale: statusScale,
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: isDisabled
+                          ? null
+                          : () => _focusNode.requestFocus(),
+                      child: Stack(
+                        clipBehavior: Clip.none,
+                        alignment: Alignment.centerLeft,
+                        children: [
+                          IgnorePointer(child: fittedRow),
+                          if (showSparkBurst)
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: CustomPaint(
+                                  painter: _OtpBurstPainter(
+                                    progress: verT,
+                                    mode: verMode,
+                                    primaryColor: config.successColor,
+                                    accentColor: config.accentColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          if (isMergingMode)
+                            Positioned.fill(
+                              child: IgnorePointer(child: mergedOverlay),
+                            ),
+                          Positioned.fill(
+                            child: Opacity(
+                              opacity: 0.001,
+                              child: TextField(
+                                controller: _ctrl,
+                                focusNode: _focusNode,
+                                enabled: !isDisabled,
+                                autofocus: widget.field.autofocus,
+                                showCursor: false,
+                                enableInteractiveSelection: false,
+                                cursorColor: Colors.transparent,
+                                style: const TextStyle(
+                                  color: Colors.transparent,
+                                ),
+                                keyboardType: widget.field.digitsOnly
+                                    ? TextInputType.number
+                                    : TextInputType.text,
+                                textInputAction: TextInputAction.done,
+                                autofillHints: const [
+                                  AutofillHints.oneTimeCode,
+                                ],
+                                inputFormatters: [
+                                  if (widget.field.digitsOnly)
+                                    FilteringTextInputFormatter.digitsOnly,
+                                  LengthLimitingTextInputFormatter(
+                                    widget.field.length,
+                                  ),
+                                ],
+                                onChanged: _handleInputChanged,
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                  counterText: '',
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                );
+              },
             );
           },
         ),
-        if (hasError) ...[
+        if (hasError && (effectiveError?.isNotEmpty ?? false)) ...[
           const SizedBox(height: 6),
-          Text(
-            effectiveError,
-            style: config.ui.text.error.copyWith(color: config.errorColor),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.field.errorIcon, size: 15, color: config.errorColor),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  effectiveError!,
+                  style: config.ui.text.error.copyWith(color: config.errorColor),
+                ),
+              ),
+            ],
+          ),
+        ] else if (hasWarning &&
+            (widget.field.warningText?.isNotEmpty ?? false)) ...[
+          const SizedBox(height: 6),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(widget.field.warningIcon, size: 15, color: warnColor),
+              const SizedBox(width: 4),
+              Flexible(
+                child: Text(
+                  widget.field.warningText!,
+                  style: config.ui.text.warning.copyWith(color: warnColor),
+                ),
+              ),
+            ],
           ),
         ] else if (widget.field.helperText != null) ...[
           const SizedBox(height: 6),
           Text(widget.field.helperText!, style: config.ui.text.caption),
         ],
-        if (widget.field.isVerifying ||
-            widget.field.isVerified ||
-            widget.field.onResend != null) ...[
+        if (isVerifyingNow ||
+            (isVerifiedNow &&
+                widget.field.verifiedAnimation !=
+                    OmniOtpVerifiedAnimation.morphPill) ||
+            (!isVerifiedNow && widget.field.onResend != null)) ...[
           const SizedBox(height: 8),
           Row(
             children: [
-              if (widget.field.isVerifying) ...[
+              if (isVerifyingNow) ...[
                 const SizedBox(
                   width: 14,
                   height: 14,
@@ -4872,7 +6133,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
                 ),
                 const SizedBox(width: 8),
                 Text('Verifying...', style: config.ui.text.caption),
-              ] else if (widget.field.isVerified) ...[
+              ] else if (isVerifiedNow) ...[
                 Icon(
                   Icons.verified_rounded,
                   size: 16,
@@ -5445,4 +6706,105 @@ class OmniUrlField extends StatelessWidget {
     decoration: decoration,
     identity: OmniFieldIdentity.url,
   );
+}
+
+class _OtpBurstPainter extends CustomPainter {
+  const _OtpBurstPainter({
+    required this.progress,
+    required this.mode,
+    required this.primaryColor,
+    required this.accentColor,
+  });
+
+  final double progress;
+  final OmniOtpVerifiedAnimation mode;
+  final Color primaryColor;
+  final Color accentColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+
+    if (mode == OmniOtpVerifiedAnimation.confettiBurst) {
+      final t = Curves.easeOutCubic.transform(progress.clamp(0.0, 1.0));
+      final fade = (1.0 - ((progress - 0.58) / 0.42).clamp(0.0, 1.0));
+      if (fade <= 0.01) return;
+
+      final palette = [
+        primaryColor,
+        accentColor,
+        const Color(0xFFF59E0B),
+        const Color(0xFFEC4899),
+        const Color(0xFF3B82F6),
+        const Color(0xFF8B5CF6),
+      ];
+
+      const count = 18;
+      for (var i = 0; i < count; i++) {
+        final angle = -math.pi + (i / (count - 1)) * math.pi;
+        final spread = 42.0 + (i % 4) * 16.0;
+        final startX =
+            size.width * ((i + 0.5) / count).clamp(0.1, 0.9);
+        final dx = math.cos(angle) * spread * t;
+        final dy =
+            math.sin(angle) * spread * t + 26.0 * t * t; // হালকা গ্র্যাভিটি
+        final pos = Offset(startX + dx, center.dy + dy - 6.0);
+        final paint = Paint()
+          ..color = palette[i % palette.length].withValues(alpha: 0.9 * fade);
+        if (i.isEven) {
+          canvas.save();
+          canvas.translate(pos.dx, pos.dy);
+          canvas.rotate(angle + t * 2.4);
+          canvas.drawRRect(
+            RRect.fromRectAndRadius(
+              const Rect.fromLTWH(-4, -2, 8, 4),
+              const Radius.circular(1.5),
+            ),
+            paint,
+          );
+          canvas.restore();
+        } else {
+          canvas.drawCircle(pos, 3.0 * (1.0 - t * 0.35), paint);
+        }
+      }
+      return;
+    }
+
+    // mergeCheck / morphPill / stackMerge / rippleCheck-এর শকওয়েভ রিং ও স্পার্কল:
+    final burstT = ((progress - 0.44) / 0.56).clamp(0.0, 1.0);
+    if (burstT <= 0.01) return;
+
+    final eased = Curves.easeOutCubic.transform(burstT);
+    final fade = (1.0 - burstT).clamp(0.0, 1.0);
+
+    final baseRadius = math.max(16.0, size.height * 0.44);
+    final ringRadius = baseRadius + eased * (size.height * 0.65);
+
+    final ringPaint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2 * fade
+      ..color = primaryColor.withValues(alpha: 0.48 * fade);
+    canvas.drawCircle(center, ringRadius, ringPaint);
+
+    const sparkCount = 10;
+    for (var i = 0; i < sparkCount; i++) {
+      final a = (i * (2 * math.pi / sparkCount)) - math.pi / 2;
+      final dist = baseRadius + eased * (size.height * 0.72);
+      final pt = Offset(
+        center.dx + math.cos(a) * dist,
+        center.dy + math.sin(a) * dist,
+      );
+      final p = Paint()
+        ..color = (i.isEven ? primaryColor : const Color(0xFFF59E0B))
+            .withValues(alpha: 0.85 * fade);
+      canvas.drawCircle(pt, (i.isEven ? 3.2 : 2.2) * (1.0 - eased * 0.3), p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _OtpBurstPainter oldDelegate) =>
+      oldDelegate.progress != progress ||
+      oldDelegate.mode != mode ||
+      oldDelegate.primaryColor != primaryColor ||
+      oldDelegate.accentColor != accentColor;
 }

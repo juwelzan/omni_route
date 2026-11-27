@@ -140,6 +140,87 @@ void main() {
       await tester.enterText(otpBox, '123456');
       await tester.pumpAndSettle();
       expect(find.text('OTP Verified'), findsOneWidget);
+
+      // 4. Interactive Fields Playground tab -> showcases EVERY predefined field + 3/4/5/6 OTP lengths:
+      await tester.tap(find.text('Fields'));
+      await tester.pumpAndSettle();
+      expect(OmniRoute.routePath, '/fields');
+
+      final playgroundScroll = find
+          .descendant(
+            of: find.byType(FieldsPlaygroundScreen),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+
+      expect(find.byType(OmniNameField), findsNWidgets(4));
+      expect(find.byType(OmniEmailField), findsNWidgets(2));
+      expect(find.byType(OmniPasswordField), findsNWidgets(3));
+
+      await tester.scrollUntilVisible(
+        find.byType(OmniOtpField),
+        200,
+        scrollable: playgroundScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(OmniPhoneField), findsOneWidget);
+
+      // Verify switching OTP length 6 -> 3 -> 4 -> 5 updates box counts live:
+      expect(find.text('11/11'), findsOneWidget);
+      for (final digits in const [3, 4, 5, 6]) {
+        final btn = find.descendant(
+          of: find.byType(SegmentedButton<int>),
+          matching: find.text('$digits'),
+        );
+        await tester.ensureVisible(btn);
+        await tester.tap(btn);
+        await tester.pumpAndSettle();
+        final cells = find.descendant(
+          of: find.byType(OmniOtpField),
+          matching: find.byType(AnimatedContainer),
+        );
+        expect(cells, findsNWidgets(digits));
+      }
+
+      // Exercise Warning, Error, Simulate Verify (mergeCheck) & Reset in FieldsPlayground:
+      await tester.ensureVisible(find.text('Warning'));
+      await tester.tap(find.text('Warning'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Only 2 attempts left — check your SMS code'),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.text('Error'));
+      await tester.tap(find.text('Error'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Invalid verification code — please retry'),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.text('Simulate Verify'));
+      await tester.tap(find.text('Simulate Verify'));
+      await tester.pumpAndSettle();
+      expect(find.text('OTP Verified'), findsOneWidget);
+      expect(find.byIcon(Icons.check_rounded), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Reset OTP'));
+      await tester.tap(find.text('Reset OTP'));
+      await tester.pumpAndSettle();
+      expect(find.text('OTP Verified'), findsNothing);
+
+      await tester.scrollUntilVisible(
+        find.text('Validate All Fields'),
+        220,
+        scrollable: playgroundScroll,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(OmniNumberField), findsNWidgets(4));
+      expect(find.byType(OmniSearchField), findsOneWidget);
+      expect(find.byType(OmniUrlField), findsOneWidget);
+      expect(find.byType(OmniMultilineField), findsOneWidget);
+      expect(find.byType(OmniTextField), findsNWidgets(3));
     },
   );
 }
