@@ -14,7 +14,9 @@
 /// - `omni_sheet_render.dart` — the paint-only render object that moves it.
 library;
 
+import 'dart:async' show unawaited;
 import 'dart:math' as math;
+import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';

@@ -69,6 +69,17 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('Terms updated'), findsNothing);
 
+    // iOS Floating Grid (Fee): opens with circular glass close button & closes smoothly.
+    await t.ensureVisible(find.text('iOS Floating Grid (Fee)'));
+    await t.pumpAndSettle();
+    await t.tap(find.text('iOS Floating Grid (Fee)'));
+    await t.pumpAndSettle();
+    expect(find.text('Fee'), findsOneWidget);
+    expect(find.byType(OmniSheetCloseButton), findsOneWidget);
+    await t.tap(find.byType(OmniSheetCloseButton));
+    await t.pumpAndSettle();
+    expect(find.text('Fee'), findsNothing);
+
     // Custom look opens and closes from the barrier.
     await t.ensureVisible(find.text('Custom look'));
     await t.pumpAndSettle();

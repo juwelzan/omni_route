@@ -145,6 +145,7 @@ export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'
         OmniScalableSheet,
         OmniScalableSheetController,
         OmniSheet,
+        OmniSheetCloseButton,
         OmniSheetController,
         OmniSheetDetent,
         OmniSheetMotion,

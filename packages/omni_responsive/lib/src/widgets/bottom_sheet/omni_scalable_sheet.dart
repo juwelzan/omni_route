@@ -35,6 +35,9 @@ class OmniScalableSheet extends StatefulWidget {
     required this.body,
     required this.builder,
     this.header,
+    this.title,
+    this.trailing,
+    this.showCloseButton,
     this.scrolling = const OmniSheetScrolling(),
     this.controller,
     this.style = OmniSheetStyle.adaptive,
@@ -78,6 +81,15 @@ class OmniScalableSheet extends StatefulWidget {
   /// A pinned header above the content: dragging it always moves the sheet,
   /// and a separator appears under it while the content is scrolled.
   final WidgetBuilder? header;
+
+  /// Optional centered iOS navigation title shown beside the close button.
+  final String? title;
+
+  /// Optional trailing action balanced symmetrically across from the close button.
+  final WidgetBuilder? trailing;
+
+  /// Shows the circular iOS close button inside the sheet header.
+  final bool? showCloseButton;
 
   /// How scroll views inside behave.
   final OmniSheetScrolling scrolling;
@@ -289,6 +301,9 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
   _SheetConfig _buildConfig() => _SheetConfig(
     builder: widget.builder,
     header: widget.header,
+    title: widget.title,
+    trailing: widget.trailing,
+    showCloseButton: widget.showCloseButton,
     scrolling: widget.scrolling,
     detents: widget.detents,
     initialDetent: widget.initialDetent,

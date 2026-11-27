@@ -7,6 +7,9 @@ class _SheetConfig {
   const _SheetConfig({
     required this.builder,
     required this.header,
+    required this.title,
+    required this.trailing,
+    required this.showCloseButton,
     required this.scrolling,
     required this.detents,
     required this.initialDetent,
@@ -25,6 +28,9 @@ class _SheetConfig {
 
   final WidgetBuilder builder;
   final WidgetBuilder? header;
+  final String? title;
+  final WidgetBuilder? trailing;
+  final bool? showCloseButton;
   final OmniSheetScrolling scrolling;
   final List<OmniSheetDetent> detents;
   final int initialDetent;

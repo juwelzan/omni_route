@@ -110,6 +110,15 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
     ),
   );
 
+  // 6. iOS Floating App Menu Grid (matching the circular glass close UI).
+  void _openIosFloatingGrid() => showOmniBottomSheet<void>(
+    context: context,
+    style: OmniSheetStyle.floating,
+    title: 'Fee',
+    detents: const [OmniSheetDetent.fraction(0.62), OmniSheetDetent.large],
+    builder: (context) => const _IosFeeGridSheet(),
+  );
+
   @override
   Widget build(BuildContext context) {
     final tk = context.tokens;
@@ -148,6 +157,12 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                _DemoTile(
+                  icon: Icons.apps_rounded,
+                  title: 'iOS Floating Grid (Fee)',
+                  subtitle: 'Floating card, grabber, iOS circular × close & bounces',
+                  onTap: _openIosFloatingGrid,
+                ),
                 _DemoTile(
                   icon: Icons.location_city,
                   title: 'Pick a city',
@@ -573,5 +588,74 @@ class _PlacesList extends StatelessWidget {
       title: Text('Place #${i + 1}'),
       subtitle: Text('${(i + 1) * 120} m away'),
     ),
+  );
+}
+
+class _IosFeeGridSheet extends StatelessWidget {
+  const _IosFeeGridSheet();
+
+  static const _items = [
+    ('Fee\nHeads', Icons.sell_outlined, Color(0xFFBE4B86)),
+    ('Fee\nStructure', Icons.account_tree_outlined, Color(0xFF28897E)),
+    ('Late Fee\nRules', Icons.history_toggle_off_rounded, Color(0xFFD06A33)),
+    ('Instalment\nPlans', Icons.event_repeat_rounded, Color(0xFF3E68D0)),
+    ('Shift Fee\nStructure', Icons.cloud_sync_outlined, Color(0xFFB57C2E)),
+    ('Invoices', Icons.receipt_long_outlined, Color(0xFF28897E)),
+    ('Due\nTracking', Icons.hourglass_empty_rounded, Color(0xFFBE4B86)),
+    ('Defaulter\nList', Icons.person_remove_outlined, Color(0xFFD06A33)),
+    ('Collections', Icons.payments_outlined, Color(0xFF39A260)),
+    ('Online\nPayments', Icons.credit_card_outlined, Color(0xFF3E68D0)),
+    ('Dues-Based\nAccess', Icons.lock_outline_rounded, Color(0xFF6B7B93)),
+    ('Government\nStipend', Icons.account_balance_outlined, Color(0xFFB57C2E)),
+    ('Fee\nReports', Icons.summarize_outlined, Color(0xFF7D4ED8)),
+    ('Student\nLedger', Icons.menu_book_outlined, Color(0xFF28897E)),
+  ];
+
+  @override
+  Widget build(BuildContext context) => GridView.builder(
+    controller: OmniSheet.of(context).scrollController,
+    padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+      crossAxisCount: 4,
+      mainAxisSpacing: 18,
+      crossAxisSpacing: 12,
+      childAspectRatio: 0.78,
+    ),
+    itemCount: _items.length,
+    itemBuilder: (context, index) {
+      final (label, icon, color) = _items[index];
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: color.withValues(alpha: 0.24),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, color: Colors.white, size: 26),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              height: 1.18,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      );
+    },
   );
 }

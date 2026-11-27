@@ -30,6 +30,9 @@ Future<T?> showOmniBottomSheet<T>({
   required BuildContext context,
   required WidgetBuilder builder,
   WidgetBuilder? header,
+  String? title,
+  WidgetBuilder? trailing,
+  bool? showCloseButton,
   OmniSheetScrolling scrolling = const OmniSheetScrolling(),
   OmniSheetStyle style = OmniSheetStyle.adaptive,
   List<OmniSheetDetent> detents = const [OmniSheetDetent.content],
@@ -56,6 +59,9 @@ Future<T?> showOmniBottomSheet<T>({
     OmniSheetRoute<T>(
       builder: builder,
       header: header,
+      title: title,
+      trailing: trailing,
+      showCloseButton: showCloseButton,
       scrolling: scrolling,
       style: resolved,
       detents: detents,
@@ -90,6 +96,9 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
   OmniSheetRoute({
     required this.builder,
     this.header,
+    this.title,
+    this.trailing,
+    this.showCloseButton,
     this.scrolling = const OmniSheetScrolling(),
     this.style = OmniSheetStyle.adaptive,
     this.detents = const [OmniSheetDetent.content],
@@ -125,6 +134,17 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
   /// A pinned header above the content: dragging it always moves the sheet,
   /// and a separator appears under it while the content is scrolled.
   final WidgetBuilder? header;
+
+  /// Optional centered iOS navigation title shown beside the close button.
+  final String? title;
+
+  /// Optional trailing action balanced symmetrically across from the close button.
+  final WidgetBuilder? trailing;
+
+  /// Shows the circular iOS-style close (`×`) button in the top bar
+  /// (defaults to `true` when [style] is [OmniSheetStyle.floating] and
+  /// [isDismissible] is `true`, or whenever [title] is provided cleanly).
+  final bool? showCloseButton;
 
   /// How scroll views inside behave.
   final OmniSheetScrolling scrolling;
@@ -261,6 +281,9 @@ class _RouteSheetHost<T> implements _SheetHost {
   late final _SheetConfig config = _SheetConfig(
     builder: route.builder,
     header: route.header,
+    title: route.title,
+    trailing: route.trailing,
+    showCloseButton: route.showCloseButton,
     scrolling: route.scrolling,
     detents: route.detents,
     initialDetent: route.initialDetent,
@@ -333,9 +356,11 @@ Color _defaultBarrierColor(BuildContext context, OmniSheetStyle style) {
   if (omni != null) return omni.overlayColor;
   final themed = Theme.of(context).bottomSheetTheme.modalBarrierColor;
   if (themed != null) return themed;
-  return style == OmniSheetStyle.material
-      ? Colors.black54
-      : const Color(0x66000000);
+  return switch (style) {
+    OmniSheetStyle.material => Colors.black54,
+    OmniSheetStyle.floating => const Color(0x47000000),
+    _ => const Color(0x66000000),
+  };
 }
 
 TargetPlatform _platformOf(BuildContext context) => Theme.of(context).platform;

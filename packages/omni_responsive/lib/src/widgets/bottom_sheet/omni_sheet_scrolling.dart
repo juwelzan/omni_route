@@ -66,6 +66,7 @@ class OmniSheetScrolling {
       OmniSheetScrollPhysics.clamping => false,
       OmniSheetScrollPhysics.adaptive =>
         style == OmniSheetStyle.cupertino ||
+            style == OmniSheetStyle.floating ||
             platform == TargetPlatform.iOS ||
             platform == TargetPlatform.macOS,
     };

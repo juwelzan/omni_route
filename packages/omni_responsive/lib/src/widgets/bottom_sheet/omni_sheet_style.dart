@@ -13,8 +13,8 @@ enum OmniSheetStyle {
   /// status bar area left visible above the largest detent.
   cupertino,
 
-  /// A rounded card floating above the bottom edge, with margins and a
-  /// shadow, using the iOS motion.
+  /// An iOS-styled floating card with generous continuous corners, crisp rim
+  /// border, circular glass close button, spring motion and bouncing physics.
   floating;
 
   /// The concrete style for [platform] ([adaptive] resolved).

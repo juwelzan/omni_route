@@ -26,6 +26,8 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   int _dragStartIndex = 0;
   Widget? _header;
   WidgetBuilder? _headerBuilder;
+  Widget? _trailing;
+  WidgetBuilder? _trailingBuilder;
 
   // Content built once; the sheet's own rebuilds (keyboard, rotation) reuse
   // it, so dragging and animating never rebuild what the developer wrote.
@@ -341,10 +343,14 @@ class _OmniSheetViewState extends State<_OmniSheetView>
           switch (style) {
             OmniSheetStyle.material => 28,
             OmniSheetStyle.cupertino => 14,
-            _ => 28,
+            OmniSheetStyle.floating => 36,
+            OmniSheetStyle.adaptive => 28,
           },
     );
     final shape = RoundedRectangleBorder(
+      side: floating && route.backgroundColor == null
+          ? BorderSide(color: look.rimBorder, width: 1.0)
+          : BorderSide.none,
       borderRadius: floating
           ? BorderRadius.all(radius)
           : BorderRadius.vertical(top: radius),
@@ -398,14 +404,49 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _headerBuilder = header;
       _header = header == null ? null : Builder(builder: header);
     }
+    final trailing = route.trailing;
+    if (!identical(_trailingBuilder, trailing)) {
+      _trailingBuilder = trailing;
+      _trailing = trailing == null ? null : Builder(builder: trailing);
+    }
 
     final showHandle = route.showHandle ?? route.enableDrag;
-    Widget sheet = Material(
-      color: look.background,
-      shape: shape,
-      clipBehavior: Clip.antiAlias,
-      child: Column(
-        mainAxisSize: _contentSized ? MainAxisSize.min : MainAxisSize.max,
+    final hasTitle = route.title != null && route.title!.isNotEmpty;
+    final showClose =
+        route.showCloseButton ??
+        (floating && route.isDismissible);
+    final hasIosChrome =
+        showClose || hasTitle || _trailing != null;
+    final frostedChrome =
+        floating || style == OmniSheetStyle.cupertino;
+
+    Widget? pinnedTop;
+    if (hasIosChrome) {
+      final chromeBar = _IosFloatingChrome(
+        style: style,
+        look: look,
+        showHandle: showHandle,
+        handleHint: _handleHint(context),
+        onHandleTap: _onHandleTap,
+        showCloseButton: showClose,
+        onClosePressed: () => unawaited(_dismiss(180)),
+        title: route.title,
+        trailing: _trailing,
+      );
+      pinnedTop = _SheetHeader(
+        scrolled: _scrolled,
+        dividerColor: look.divider,
+        backgroundColor: look.background,
+        frosted: frostedChrome,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [chromeBar, ?_header],
+        ),
+      );
+    } else if (_header case final customHeader?) {
+      pinnedTop = Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (showHandle)
@@ -415,12 +456,33 @@ class _OmniSheetViewState extends State<_OmniSheetView>
               hint: _handleHint(context),
               onTap: _onHandleTap,
             ),
-          if (_header case final header?)
-            _SheetHeader(
-              scrolled: _scrolled,
-              dividerColor: look.divider,
-              child: header,
-            ),
+          _SheetHeader(
+            scrolled: _scrolled,
+            dividerColor: look.divider,
+            backgroundColor: look.background,
+            frosted: frostedChrome,
+            child: customHeader,
+          ),
+        ],
+      );
+    } else if (showHandle) {
+      pinnedTop = _SheetHandle(
+        style: style,
+        color: look.handle,
+        hint: _handleHint(context),
+        onTap: _onHandleTap,
+      );
+    }
+
+    Widget sheet = Material(
+      color: look.background,
+      shape: shape,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        mainAxisSize: _contentSized ? MainAxisSize.min : MainAxisSize.max,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ?pinnedTop,
           if (_contentSized)
             Flexible(child: content)
           else
@@ -439,9 +501,15 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         (floating
             ? const [
                 BoxShadow(
-                  color: Color(0x2E000000),
-                  blurRadius: 24,
-                  offset: Offset(0, 8),
+                  color: Color(0x26000000),
+                  blurRadius: 32,
+                  spreadRadius: -2,
+                  offset: Offset(0, 10),
+                ),
+                BoxShadow(
+                  color: Color(0x0E000000),
+                  blurRadius: 6,
+                  offset: Offset(0, 2),
                 ),
               ]
             : null);
@@ -458,6 +526,15 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         onVerticalDragUpdate: (d) => _dragUpdate(d.primaryDelta ?? 0),
         onVerticalDragEnd: (d) => _dragEnd(d.velocity.pixelsPerSecond.dy),
         onVerticalDragCancel: () => _dragEnd(0),
+        child: sheet,
+      );
+    }
+    if (_host.isModal && route.isDismissible) {
+      sheet = CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): () =>
+              unawaited(_dismiss(180)),
+        },
         child: sheet,
       );
     }

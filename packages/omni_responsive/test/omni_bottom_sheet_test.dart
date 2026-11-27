@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_responsive/omni_responsive.dart';
 
@@ -284,7 +285,98 @@ void main() {
     );
     expect(
       (material.shape! as RoundedRectangleBorder).borderRadius,
-      const BorderRadius.all(Radius.circular(28)),
+      const BorderRadius.all(Radius.circular(36)),
+    );
+    expect(find.byType(OmniSheetCloseButton), findsOneWidget);
+  });
+
+  testWidgets('floating: iOS close button behavior, haptics, press scale & PopScope guard', (
+    t,
+  ) async {
+    final haptics = <String?>[];
+    t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'HapticFeedback.vibrate') {
+          haptics.add(call.arguments as String?);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+
+    await t.pumpWidget(_app());
+    showOmniBottomSheet<void>(
+      context: _ctx,
+      style: OmniSheetStyle.floating,
+      title: 'Fee',
+      builder: (_) => const SizedBox(key: _box, height: 200),
+    );
+    await t.pumpAndSettle();
+
+    expect(find.text('Fee'), findsOneWidget);
+    final closeBtn = find.byType(OmniSheetCloseButton);
+    expect(closeBtn, findsOneWidget);
+
+    // Pressing down scales the button smoothly like iOS UIButton before release.
+    final g = await t.startGesture(t.getCenter(closeBtn));
+    await t.pump(const Duration(milliseconds: 100));
+    final pressedScale = t
+        .widget<AnimatedScale>(
+          find.descendant(of: closeBtn, matching: find.byType(AnimatedScale)),
+        )
+        .scale;
+    expect(pressedScale, lessThan(1.0));
+    await g.up();
+    await t.pumpAndSettle();
+
+    expect(haptics, contains('HapticFeedbackType.lightImpact'));
+    expect(find.byKey(_box), findsNothing);
+
+    // PopScope can block iOS close button dismissal just like swipe-to-dismiss.
+    var guardCalls = 0;
+    showOmniBottomSheet<void>(
+      context: _ctx,
+      style: OmniSheetStyle.floating,
+      title: 'Edit Note',
+      builder: (_) => PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) guardCalls++;
+        },
+        child: const SizedBox(key: _box, height: 180),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byType(OmniSheetCloseButton));
+    await t.pumpAndSettle();
+    expect(guardCalls, 1);
+    expect(find.byKey(_box), findsOneWidget);
+
+    // Dismiss via controller cleanly and verify Floating adopts BouncingScrollPhysics.
+    OmniSheet.of(t.element(find.byKey(_box))).close();
+    await t.pumpAndSettle();
+
+    showOmniBottomSheet<void>(
+      context: _ctx,
+      style: OmniSheetStyle.floating,
+      showCloseButton: false,
+      detents: const [OmniSheetDetent.medium, OmniSheetDetent.large],
+      builder: (_) => ListView(
+        children: const [SizedBox(key: _box, height: 120)],
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(find.byType(OmniSheetCloseButton), findsNothing);
+    final listEl = t.element(find.byKey(_box));
+    expect(
+      ScrollConfiguration.of(listEl).getScrollPhysics(listEl),
+      isA<BouncingScrollPhysics>(),
     );
   });
 
