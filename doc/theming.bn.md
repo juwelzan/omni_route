@@ -831,12 +831,12 @@ context.setThemeAnimationMode(OmniThemeAnimationMode.diamondReveal);
 | `OmniPasswordField` / `.newPassword` / `.confirm` | `password` | শো/হাইড আই বাটন, ৪-ধাপের লাইভ স্ট্রেংথ মিটার (`Weak` → `Strong`), ক্যারেক্টার নিয়ম ও কনফার্ম পাসওয়ার্ড ম্যাচিং |
 | `OmniNameField` / `.firstName` / `.lastName` / `.username` | `name` | পূর্ণ নাম, ফার্স্ট/লাস্ট নেম ও স্পেস-মুক্ত `@username`, ডিজিট ব্লক ও ন্যূনতম দৈর্ঘ্য যাচাই |
 | `OmniPhoneField` | `phone` | কান্ট্রি ডায়াল কোড পিকার (`+880` সহ), বাংলাদেশ (`013`–`019`) ও আন্তর্জাতিক নাম্বার ভ্যালিডেশন, E.164 (`+88017...`), ইনলাইন Verify/Verified ব্যাজ |
-| `OmniOtpField` | `otp` | ৪/৬/৮ বক্স OTP/PIN ইনপুট (`outlined`, `filled`, `underlined`), স্মার্ট পেস্ট (`"OTP 482910"`), ব্যাকস্পেস জাম্প ও রিসেন্ড টাইমার |
-| `OmniNumberField` / `.integer` / `.decimal` / `.currency` | `number` | পূর্ণসংখ্যা, দশমিক (`decimalRange`), টাকা (`৳`), `min`/`max` সীমা ও `+`/`-` স্টেপার বাটন |
-| `OmniSearchField` | `search` | পিল-শেপ সার্চ বক্স, অটো-ক্লিয়ার, ফিল্টার বাটন ও `debounceDuration` |
-| `OmniMultilineField` | `multiline` | বায়ো, ঠিকানা ও নোটসের জন্য এক্সপ্যান্ডিং মাল্টিলাইন ও `maxLength` কাউন্টার |
-| `OmniUrlField` | `url` | ওয়েবসাইট লিংক (`https://...`) ভ্যালিডেশন |
-| `OmniTextField` | `text` | সব কমন থিম ও ক্লিয়ার বাটনসহ ইউনিভার্সাল বেস ফিল্ড |
+| `OmniOtpField` | `otp` | `pinput` স্টাইলের ৩/৪/৫/৬/৮ বক্স OTP/PIN ইনপুট (`OmniPinTheme`, `separatorBuilder`, `pinAnimationType`), স্মার্ট পেস্ট ও রিসেন্ড টাইমার |
+| `OmniNumberField` / `.integer` / `.decimal` / `.currency` | `number` | পূর্ণসংখ্যা, দশমিক (`decimalRange`), টাকা (`৳`), `min`/`max` সীমা, স্টেপার ও কাস্টম আইকন |
+| `OmniSearchField` | `search` | পিল-শেপ সার্চ বক্স, কাস্টম `prefixIcon`/`filterIcon`, অটো-ক্লিয়ার ও `debounceDuration` |
+| `OmniMultilineField` | `multiline` | বায়ো, ঠিকানা ও নোটসের জন্য এক্সপ্যান্ডিং মাল্টিলাইন, কাস্টম আইকন ও `maxLength` কাউন্টার |
+| `OmniUrlField` | `url` | ওয়েবসাইট লিংক (`https://...`) ভ্যালিডেশন ও কাস্টম আইকন |
+| `OmniTextField` | `text` | সব কমন থিম, কাস্টম `prefixIcon`/`suffixIcon`/`showPrefixIcon` ও ক্লিয়ার বাটনসহ ইউনিভার্সাল বেস ফিল্ড |
 
 ### খ. এক থিমে সব ফিল্ড, তবু আলাদা আইডেন্টিটি (`OmniFieldTheme` + `identityStyles`)
 
@@ -863,18 +863,21 @@ OmniApp.material(
 )
 ```
 
-*(চাইলে নির্দিষ্ট ফর্ম বা স্ক্রিনে `OmniFieldThemeScope(theme: OmniFieldTheme(...), child: Form(...))` দিয়েও শেয়ার্ড থিম ব্যবহার করতে পারবেন; আবার প্রতিটি ফিল্ডে `fieldStyle:` বা `decoration:` দিয়ে একক কাস্টমাইজেশনও করা যায়। ভ্যালিডেশন ফাংশনগুলো সরাসরি `OmniValidators.email(...)`, `.gmail(...)`, `.password(...)`, `.phone(...)`, `.otp(...)`, `.number(...)`, `.name(...)` হিসেবেও ব্যবহারযোগ্য।)*
+*(চাইলে নির্দিষ্ট ফর্ম বা স্ক্রিনে `OmniFieldThemeScope(theme: OmniFieldTheme(...), child: Form(...))` দিয়েও শেয়ার্ড থিম ব্যবহার করতে পারবেন; প্রতিটি ফিল্ডে `prefixIcon:`, `prefix:`, `suffixIcon:`, `suffix:`, `showPrefixIcon:`, `clearIcon:`, `fieldStyle:`, `decoration:` কিংবা `OmniFieldTheme.identityStyles`-এ `prefixIcon`/`suffixIcon` দিয়ে ইচ্ছেমতো আইকন ও ডিজাইন মডিফাই করা যায়। ভ্যালিডেশন ফাংশনগুলো সরাসরি `OmniValidators.email(...)`, `.gmail(...)`, `.password(...)`, `.phone(...)`, `.otp(...)`, `.number(...)`, `.name(...)` হিসেবেও ব্যবহারযোগ্য।)*
 
 ```dart
 Form(
   child: Column(
     children: [
-      const OmniNameField(),
+      const OmniNameField(
+        prefixIcon: Icon(Icons.person_pin_outlined),
+      ),
       const SizedBox(height: 12),
       const OmniEmailField.gmail(),
       const SizedBox(height: 12),
       OmniPhoneField(
         countryCode: '+880',
+        leadingIcon: const Icon(Icons.phone_in_talk_rounded),
         onFullNumberChanged: (e164) => debugPrint(e164), // +88017...
         onVerifyPressed: () {},
       ),
@@ -885,8 +888,14 @@ Form(
       const SizedBox(height: 12),
       const OmniNumberField.currency(label: 'অ্যামাউন্ট', min: 10),
       const SizedBox(height: 16),
+      // `pinput`-স্টাইল ৪/৫/৬ ঘরের রেসপনসিভ OTP পিন ইনপুট:
       OmniOtpField(
-        length: 6,
+        length: 6, // ৩ দিলে ৩ ঘর, ৪ দিলে ৪ ঘর, ৫ দিলে ৫ ঘর, ৬ দিলে ৬ ঘর!
+        focusedPinTheme: const OmniPinTheme(width: 48, height: 54).copyBorderWith(
+          border: Border.all(color: Colors.indigo, width: 2),
+        ),
+        separatorBuilder: (_, i) =>
+            SizedBox(width: i == 2 ? 14 : 8), // ৩+৩ গ্রুপ!
         resendDuration: const Duration(seconds: 30),
         onResend: () {},
         onCompleted: (code) => debugPrint('OTP: $code'),

@@ -211,7 +211,11 @@ class ExampleApp extends StatelessWidget {
                 ),
               ],
             ),
-            // Branch 2: Settings -> nested '/settings/profile'
+            // Branch 2: Interactive Playground of ALL Predefined Fields ('/fields')
+            OmniBranch(
+              routes: [OmniPage.screen(const FieldsPlaygroundScreen())],
+            ),
+            // Branch 3: Settings -> nested '/settings/profile'
             OmniBranch(
               routes: [
                 OmniPage.screen(
@@ -351,6 +355,10 @@ class HomeShell extends StatelessWidget {
             label: 'Dashboard',
           ),
           NavigationDestination(icon: Icon(Icons.school), label: 'Students'),
+          NavigationDestination(
+            icon: Icon(Icons.text_fields_rounded),
+            label: 'Fields',
+          ),
           NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
@@ -799,6 +807,7 @@ class _ProfileScreenState extends OmniState<ProfileScreen> {
                 OmniPhoneField(
                   countryCode: '+880',
                   initialValue: '01712345678',
+                  leadingIcon: const Icon(Icons.phone_in_talk_rounded, size: 18),
                   isVerified: _phoneVerified,
                   onFullNumberChanged: (v) => _fullPhone = v,
                   onVerifyPressed: () =>
@@ -808,7 +817,8 @@ class _ProfileScreenState extends OmniState<ProfileScreen> {
                 OmniOtpField(
                   length: 6,
                   isVerified: _otpVerified,
-                  helperText: 'Enter 6-digit OTP or paste from SMS',
+                  separatorBuilder: (_, i) => SizedBox(width: i == 2 ? 14 : 8),
+                  helperText: '6-digit Pinput-style OTP (supports 3, 4, 5, 6+ boxes)',
                   onCompleted: (_) => safeSetState(() => _otpVerified = true),
                   onResend: () {},
                 ),

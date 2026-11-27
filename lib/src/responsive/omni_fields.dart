@@ -3288,11 +3288,35 @@ class OmniPhoneField extends StatefulWidget {
   /// এরর ওভাররাইড।
   final String? errorText;
 
-  /// কাস্টম প্রিফিক্স আইকন।
+  /// কাস্টম প্রিফিক্স আইকন (দিলে সম্পূর্ণ বাম দিকের ডায়াল কোড অংশ প্রতিস্থাপন করে)।
   final Widget? prefixIcon;
+
+  /// ডায়াল কোড পিলের ভেতরে আইকন দেখাতে চাইলে দিন (যেমন `Icon(Icons.phone)`).
+  final Widget? leadingIcon;
+
+  /// ইনপুটের ভেতরে প্রিফিক্স উইজেট।
+  final Widget? prefix;
 
   /// কাস্টম সাফিক্স আইকন।
   final Widget? suffixIcon;
+
+  /// ইনপুটের ভেতরে সাফিক্স উইজেট।
+  final Widget? suffix;
+
+  /// বাম দিকের প্রিফিক্স/ডায়াল কোড আইকন দেখাবে কি না।
+  final bool showPrefixIcon;
+
+  /// বাম দিকে কান্ট্রি ডায়াল কোড (`+880`) দেখাবে কি না।
+  final bool showCountryCodePrefix;
+
+  /// কান্ট্রি কোড ড্রপডাউনের আইকন।
+  final IconData countryDropdownIcon;
+
+  /// ক্লিয়ার বাটনের কাস্টম আইকন।
+  final IconData? clearIcon;
+
+  /// ভেরিফায়েড ব্যাজের আইকন।
+  final IconData verifiedIcon;
 
   /// ডিফল্ট কান্ট্রি ডায়াল কোড (`'+880'` ইত্যাদি)।
   final String countryCode;
@@ -3498,40 +3522,56 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
       fieldThemeOverride: widget.fieldTheme,
       fieldStyleOverride: widget.fieldStyle,
       showClearButtonOverride: widget.showClearButton,
+      showPrefixIconOverride: widget.showPrefixIcon,
+      clearIconOverride: widget.clearIcon,
       autovalidateModeOverride: widget.autovalidateMode,
     );
 
     final raw = _ctrl.text.trim();
     final isValid = raw.isNotEmpty && _defaultValidate(raw) == null;
 
-    final dialPrefix =
-        widget.prefixIcon ??
-        InkWell(
-          borderRadius: config.borderRadius,
-          onTap: widget.showCountryPicker ? _openCountryPicker : null,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 10),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_selectedCountry.flag.isNotEmpty) ...[
-                  Text(_selectedCountry.flag),
-                  const SizedBox(width: 4),
-                ],
-                Text(
-                  _selectedCountry.dialCode,
-                  style: config.textStyle.copyWith(fontWeight: FontWeight.w600),
-                ),
-                if (widget.showCountryPicker)
-                  Icon(
-                    Icons.arrow_drop_down_rounded,
-                    size: 18,
-                    color: config.prefixIconColor,
-                  ),
+    final Widget? dialPrefix;
+    if (!config.showPrefixIcon || !widget.showPrefixIcon) {
+      dialPrefix = null;
+    } else if (widget.prefixIcon != null) {
+      dialPrefix = widget.prefixIcon;
+    } else if (!widget.showCountryCodePrefix) {
+      dialPrefix = config.resolvePrefixIcon(
+        widget.leadingIcon,
+        OmniFieldIdentity.phone.defaultIcon,
+      );
+    } else {
+      dialPrefix = InkWell(
+        borderRadius: config.borderRadius,
+        onTap: widget.showCountryPicker ? _openCountryPicker : null,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (widget.leadingIcon != null) ...[
+                widget.leadingIcon!,
+                const SizedBox(width: 4),
               ],
-            ),
+              if (_selectedCountry.flag.isNotEmpty) ...[
+                Text(_selectedCountry.flag),
+                const SizedBox(width: 4),
+              ],
+              Text(
+                _selectedCountry.dialCode,
+                style: config.textStyle.copyWith(fontWeight: FontWeight.w600),
+              ),
+              if (widget.showCountryPicker)
+                Icon(
+                  widget.countryDropdownIcon,
+                  size: 18,
+                  color: config.prefixIconColor,
+                ),
+            ],
           ),
-        );
+        ),
+      );
+    }
 
     final suffix = _combineSuffixWidgets([
       if (widget.isVerified)
@@ -3542,7 +3582,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
             backgroundColor: config.successColor.withValues(alpha: 0.14),
             side: BorderSide.none,
             avatar: Icon(
-              Icons.verified_rounded,
+              widget.verifiedIcon,
               size: 16,
               color: config.successColor,
             ),
@@ -3579,13 +3619,13 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
           _ctrl.text.isNotEmpty)
         IconButton(
           tooltip: 'Clear phone',
-          icon: Icon(Icons.close_rounded, color: config.suffixIconColor),
+          icon: Icon(config.clearIcon, color: config.suffixIconColor),
           onPressed: () {
             _ctrl.clear();
             _notifyChanged('');
           },
         ),
-      widget.suffixIcon,
+      config.resolveSuffixIcon(widget.suffixIcon),
     ]);
 
     final decoration = config.buildDecoration(
@@ -3594,7 +3634,9 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
       helperText: widget.helperText,
       errorText: widget.errorText,
       prefixIcon: dialPrefix,
+      prefix: widget.prefix,
       suffixIcon: suffix,
+      suffix: widget.suffix,
       enabled: widget.enabled,
       customDecoration: widget.decoration,
       activeBorderOverride: (widget.isVerified || isValid)
@@ -3641,8 +3683,15 @@ class OmniNumberField extends StatefulWidget {
     this.errorText,
     this.prefixIcon,
     this.prefixText,
+    this.prefix,
     this.suffixIcon,
     this.suffixText,
+    this.suffix,
+    this.showPrefixIcon = true,
+    this.showClearButton = false,
+    this.clearIcon,
+    this.decrementIcon = Icons.remove_rounded,
+    this.incrementIcon = Icons.add_rounded,
     this.allowDecimal = false,
     this.allowNegative = false,
     this.decimalRange = 2,
@@ -3680,8 +3729,15 @@ class OmniNumberField extends StatefulWidget {
     this.errorText,
     this.prefixIcon,
     this.prefixText,
+    this.prefix,
     this.suffixIcon,
     this.suffixText,
+    this.suffix,
+    this.showPrefixIcon = true,
+    this.showClearButton = false,
+    this.clearIcon,
+    this.decrementIcon = Icons.remove_rounded,
+    this.incrementIcon = Icons.add_rounded,
     this.allowNegative = false,
     this.min,
     this.max,
@@ -3718,8 +3774,15 @@ class OmniNumberField extends StatefulWidget {
     this.errorText,
     this.prefixIcon,
     this.prefixText,
+    this.prefix,
     this.suffixIcon,
     this.suffixText,
+    this.suffix,
+    this.showPrefixIcon = true,
+    this.showClearButton = false,
+    this.clearIcon,
+    this.decrementIcon = Icons.remove_rounded,
+    this.incrementIcon = Icons.add_rounded,
     this.allowNegative = false,
     this.decimalRange = 2,
     this.min,
@@ -3756,8 +3819,15 @@ class OmniNumberField extends StatefulWidget {
     this.errorText,
     this.prefixIcon = const Icon(Icons.payments_outlined),
     this.prefixText = '৳ ',
+    this.prefix,
     this.suffixIcon,
     this.suffixText,
+    this.suffix,
+    this.showPrefixIcon = true,
+    this.showClearButton = false,
+    this.clearIcon,
+    this.decrementIcon = Icons.remove_rounded,
+    this.incrementIcon = Icons.add_rounded,
     this.decimalRange = 2,
     this.min = 0,
     this.max,
@@ -3809,11 +3879,32 @@ class OmniNumberField extends StatefulWidget {
   /// প্রিফিক্স টেক্সট (`'৳ '`, `'\$ '` ইত্যাদি)।
   final String? prefixText;
 
+  /// ইনপুটের ভেতরে প্রিফিক্স উইজেট।
+  final Widget? prefix;
+
   /// সাফিক্স আইকন।
   final Widget? suffixIcon;
 
   /// সাফিক্স টেক্সট (`'kg'`, `'%'` ইত্যাদি)।
   final String? suffixText;
+
+  /// ইনপুটের ভেতরে সাফিক্স উইজেট।
+  final Widget? suffix;
+
+  /// প্রিফিক্স আইকন দেখাবে কি না (`false` দিলে আইকন ছাড়া)।
+  final bool showPrefixIcon;
+
+  /// ক্লিয়ার বাটন দেখাবে কি না।
+  final bool showClearButton;
+
+  /// ক্লিয়ার বাটনের কাস্টম আইকন।
+  final IconData? clearIcon;
+
+  /// স্টেপার `-` বাটনের কাস্টম আইকন।
+  final IconData decrementIcon;
+
+  /// স্টেপার `+` বাটনের কাস্টম আইকন।
+  final IconData incrementIcon;
 
   /// দশমিক (`.`) অনুমোদিত কি না।
   final bool allowDecimal;
@@ -3989,25 +4080,41 @@ class _OmniNumberFieldState extends State<OmniNumberField> {
       identity: OmniFieldIdentity.number,
       fieldThemeOverride: widget.fieldTheme,
       fieldStyleOverride: widget.fieldStyle,
+      showClearButtonOverride: widget.showClearButton,
+      showPrefixIconOverride: widget.showPrefixIcon,
+      clearIconOverride: widget.clearIcon,
       autovalidateModeOverride: widget.autovalidateMode,
     );
 
     final suffix = _combineSuffixWidgets([
+      if (config.showClearButton &&
+          widget.enabled &&
+          !widget.readOnly &&
+          _ctrl.text.isNotEmpty)
+        IconButton(
+          tooltip: 'Clear number',
+          icon: Icon(config.clearIcon, color: config.suffixIconColor),
+          onPressed: () {
+            _ctrl.clear();
+            widget.onChanged?.call('');
+            widget.onNumberChanged?.call(null);
+          },
+        ),
       if (widget.showStepper && widget.enabled && !widget.readOnly) ...[
         IconButton(
           tooltip: 'Decrease',
           visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.remove_rounded, color: config.suffixIconColor),
+          icon: Icon(widget.decrementIcon, color: config.suffixIconColor),
           onPressed: () => _applyDelta(-widget.step),
         ),
         IconButton(
           tooltip: 'Increase',
           visualDensity: VisualDensity.compact,
-          icon: Icon(Icons.add_rounded, color: config.accentColor),
+          icon: Icon(widget.incrementIcon, color: config.accentColor),
           onPressed: () => _applyDelta(widget.step),
         ),
       ],
-      widget.suffixIcon,
+      config.resolveSuffixIcon(widget.suffixIcon),
     ]);
 
     final decoration = config.buildDecoration(
@@ -4017,9 +4124,14 @@ class _OmniNumberFieldState extends State<OmniNumberField> {
       errorText: widget.errorText,
       prefixText: widget.prefixText,
       suffixText: widget.suffixText,
-      prefixIcon:
-          widget.prefixIcon ?? Icon(OmniFieldIdentity.number.defaultIcon),
+      prefixIcon: config.resolvePrefixIcon(
+        widget.prefixIcon,
+        OmniFieldIdentity.number.defaultIcon,
+        widgetShowPrefixIcon: widget.showPrefixIcon,
+      ),
+      prefix: widget.prefix,
       suffixIcon: suffix,
+      suffix: widget.suffix,
       enabled: widget.enabled,
       customDecoration: widget.decoration,
     );
@@ -4054,24 +4166,47 @@ class _OmniNumberFieldState extends State<OmniNumberField> {
 // 7. OmniOtpField (Multi-Box Verification Code / PIN Widget)
 // =============================================================================
 
-/// স্মার্ট পেস্ট, অটো-ফোকাস জাম্প, ব্যাকস্পেস নেভিগেশন, `FormField` ভ্যালিডেশন
-/// এবং রিসেন্ড কাউন্টডাউন টাইমারসহ প্রি-ডিফাইনড OTP ভেরিফিকেশন উইজেট (`OmniFieldIdentity.otp`)।
+/// `pinput` প্যাকেজের আর্কিটেকচারে (সিঙ্গেল-ইনপুট + অ্যানিমেটেড আলাদা প্রতিটি
+/// ঘরের পিন সেল) তৈরি রেসপনসিভ ওটিপি ভেরিফিকেশন উইজেট (`OmniFieldIdentity.otp`)।
+///
+/// ৩, ৪, ৫, ৬ বা যেকোনো `length` দিলে ঠিক ততটি ঘর একই লাইনে সুন্দরভাবে বসে;
+/// `defaultPinTheme`, `focusedPinTheme`, `submittedPinTheme`, `followingPinTheme`,
+/// `errorPinTheme`, `disabledPinTheme`, `separatorBuilder` ও `pinAnimationType`
+/// দিয়ে পুরোপুরি কাস্টমাইজ করা যায়।
 class OmniOtpField extends FormField<String> {
-  /// [length] সংখ্যার OTP ভেরিফিকেশন বক্স তৈরি করে (ডিফল্ট `6`)।
+  /// [length] সংখ্যার OTP / PIN ভেরিফিকেশন ঘর তৈরি করে (`3`, `4`, `5`, `6`, `8` ইত্যাদি)।
   OmniOtpField({
     super.key,
     this.length = 6,
     this.controller,
     this.label = 'Verification Code',
+    this.prefixIcon,
+    this.showLabelIcon = true,
     this.helperText,
     this.errorText,
     this.digitsOnly = true,
     this.obscureText = false,
+    this.obscuringCharacter = '•',
+    this.obscuringWidget,
     this.boxStyle,
     this.boxWidth,
     this.boxHeight,
     this.boxSpacing,
     this.textStyle,
+    this.defaultPinTheme,
+    this.focusedPinTheme,
+    this.submittedPinTheme,
+    this.followingPinTheme,
+    this.errorPinTheme,
+    this.disabledPinTheme,
+    this.separatorBuilder,
+    this.mainAxisAlignment = MainAxisAlignment.center,
+    this.crossAxisAlignment = CrossAxisAlignment.center,
+    this.showCursor = true,
+    this.cursor,
+    this.pinAnimationType = OmniOtpAnimationType.scale,
+    this.animationDuration = const Duration(milliseconds: 160),
+    this.closeKeyboardWhenCompleted = true,
     this.onChanged,
     this.onCompleted,
     this.resendDuration,
@@ -4086,7 +4221,7 @@ class OmniOtpField extends FormField<String> {
     this.fieldStyle,
     AutovalidateMode? autovalidateMode,
     FormFieldValidator<String>? validator,
-  }) : assert(length >= 2 && length <= 10),
+  }) : assert(length >= 2 && length <= 12),
        super(
          initialValue: controller?.text ?? '',
          autovalidateMode: autovalidateMode ?? AutovalidateMode.disabled,
@@ -4106,7 +4241,7 @@ class OmniOtpField extends FormField<String> {
          },
        );
 
-  /// OTP ডিজিট সংখ্যা (`4`, `6`, `8` ইত্যাদি)।
+  /// OTP ঘরের সংখ্যা (`3`, `4`, `5`, `6`, `8` ইত্যাদি — যে সংখ্যা দেবেন ঠিক ততটি ঘর নেবে)।
   final int length;
 
   /// বাহ্যিক [TextEditingController]।
@@ -4114,6 +4249,12 @@ class OmniOtpField extends FormField<String> {
 
   /// ওপরের লেবেল।
   final String? label;
+
+  /// লেবেলের পাশে কাস্টম আইকন (ডিফল্ট `OmniFieldIdentity.otp.defaultIcon`)।
+  final Widget? prefixIcon;
+
+  /// লেবেলের পাশে আইকন দেখাবে কি না।
+  final bool showLabelIcon;
 
   /// নিচে সহায়ক টেক্সট।
   final String? helperText;
@@ -4127,10 +4268,16 @@ class OmniOtpField extends FormField<String> {
   /// পিন কোডের মতো লুকানো (`•`) দেখাবে কি না।
   final bool obscureText;
 
+  /// [obscureText] চালু থাকলে যে ক্যারেক্টার দেখায়।
+  final String obscuringCharacter;
+
+  /// [obscureText] চালু থাকলে কাস্টম ডট/আইকন উইজেট।
+  final Widget? obscuringWidget;
+
   /// বক্সের ভিজ্যুয়াল স্টাইল (`outlined`, `filled`, `underlined`)।
   final OmniOtpBoxStyle? boxStyle;
 
-  /// প্রতিটি বক্সের প্রস্থ।
+  /// প্রতিটি বক্সের সর্বোচ্চ/ডিফল্ট প্রস্থ।
   final double? boxWidth;
 
   /// প্রতিটি বক্সের উচ্চতা।
@@ -4141,6 +4288,48 @@ class OmniOtpField extends FormField<String> {
 
   /// বক্সের ভেতরের সংখ্যা টেক্সট স্টাইল।
   final TextStyle? textStyle;
+
+  /// পিনের ডিফল্ট ঘর স্টাইল (`pinput`-এর মতো)।
+  final OmniPinTheme? defaultPinTheme;
+
+  /// সক্রিয়/ফোকাসড ঘরের স্টাইল।
+  final OmniPinTheme? focusedPinTheme;
+
+  /// পূরণ হয়ে যাওয়া ঘরের স্টাইল।
+  final OmniPinTheme? submittedPinTheme;
+
+  /// এখনো পূরণ না হওয়া পরের ঘরের স্টাইল।
+  final OmniPinTheme? followingPinTheme;
+
+  /// ভ্যালিডেশন এরর অবস্থায় ঘরের স্টাইল।
+  final OmniPinTheme? errorPinTheme;
+
+  /// নিষ্ক্রিয় অবস্থায় ঘরের স্টাইল।
+  final OmniPinTheme? disabledPinTheme;
+
+  /// দুটি ঘরের মাঝখানে কাস্টম সেপারেটর বিল্ডার (যেমন ৩ ঘর পর `-` দেখানো)।
+  final IndexedWidgetBuilder? separatorBuilder;
+
+  /// বক্সগুলোর অনুভূমিক অ্যালাইনমেন্ট।
+  final MainAxisAlignment mainAxisAlignment;
+
+  /// বক্সগুলোর উল্লম্ব অ্যালাইনমেন্ট।
+  final CrossAxisAlignment crossAxisAlignment;
+
+  /// সক্রিয় খালি ঘরে কার্সর বার দেখাবে কি না।
+  final bool showCursor;
+
+  /// কাস্টম কার্সর উইজেট।
+  final Widget? cursor;
+
+  /// ঘরের ভেতরে সংখ্যা আসার অ্যানিমেশন ধরন।
+  final OmniOtpAnimationType pinAnimationType;
+
+  /// প্রতিটি ঘরের অ্যানিমেশন সময়কাল।
+  final Duration animationDuration;
+
+  /// সব ঘর পূরণ হওয়ামাত্র কিবোর্ড অটো বন্ধ করবে কি না।
+  final bool closeKeyboardWhenCompleted;
 
   /// প্রতিটি ডিজিট পরিবর্তনে কলব্যাক।
   final ValueChanged<String>? onChanged;
@@ -4166,7 +4355,7 @@ class OmniOtpField extends FormField<String> {
   /// ভেরিফায়েড ব্যাজ টেক্সট।
   final String verifiedLabel;
 
-  /// প্রথম বক্সে অটো-ফোকাস নেবে কি না।
+  /// শুরুতে অটো-ফোকাস নেবে কি না।
   final bool autofocus;
 
   /// শেয়ার্ড থিম ওভাররাইড।
@@ -4190,55 +4379,78 @@ class _OmniOtpBoxes extends StatefulWidget {
 }
 
 class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
-  late List<TextEditingController> _controllers;
-  late List<FocusNode> _focusNodes;
+  TextEditingController? _ownedController;
+  final FocusNode _focusNode = FocusNode();
   bool _syncing = false;
   Timer? _resendTimer;
   int _remainingSeconds = 0;
 
+  TextEditingController get _ctrl =>
+      widget.field.controller ?? _ownedController!;
+
   @override
   void initState() {
     super.initState();
-    _initCells();
-    _applyValue(widget.field.controller?.text ?? widget.formState.value ?? '');
-    widget.field.controller?.addListener(_onExternalControllerChanged);
+    if (widget.field.controller == null) {
+      _ownedController = TextEditingController(
+        text: widget.formState.value ?? '',
+      );
+    }
+    _ctrl.addListener(_onControllerChanged);
+    _focusNode.addListener(_onFocusChanged);
     _startResendCountdown();
   }
 
-  void _initCells() {
-    _controllers = List.generate(
-      widget.field.length,
-      (_) => TextEditingController(),
-    );
-    _focusNodes = List.generate(widget.field.length, (index) {
-      return FocusNode(
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              event.logicalKey == LogicalKeyboardKey.backspace &&
-              _controllers[index].text.isEmpty &&
-              index > 0) {
-            _controllers[index - 1].clear();
-            _focusNodes[index - 1].requestFocus();
-            _emitCombined(triggerCompleted: false);
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
-        },
-      )..addListener(_onFocusChanged);
-    });
-  }
-
-  void _disposeCells() {
-    for (final c in _controllers) {
-      c.dispose();
-    }
-    for (final f in _focusNodes) {
-      f.removeListener(_onFocusChanged);
-      f.dispose();
-    }
-  }
-
   void _onFocusChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _onControllerChanged() {
+    if (_syncing) return;
+    final clean = _sanitize(_ctrl.text);
+    if (clean != _ctrl.text) {
+      _syncing = true;
+      _ctrl.value = TextEditingValue(
+        text: clean,
+        selection: TextSelection.collapsed(offset: clean.length),
+      );
+      _syncing = false;
+    }
+    if (widget.formState.value != clean) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.formState.didChange(clean);
+      });
+    }
+    if (mounted) setState(() {});
+  }
+
+  String _sanitize(String raw) {
+    final clean = widget.field.digitsOnly
+        ? raw.replaceAll(RegExp(r'\D'), '')
+        : raw;
+    return clean.length > widget.field.length
+        ? clean.substring(0, widget.field.length)
+        : clean;
+  }
+
+  void _handleInputChanged(String raw) {
+    final clean = _sanitize(raw);
+    if (_ctrl.text != clean) {
+      _syncing = true;
+      _ctrl.value = TextEditingValue(
+        text: clean,
+        selection: TextSelection.collapsed(offset: clean.length),
+      );
+      _syncing = false;
+    }
+    widget.formState.didChange(clean);
+    widget.field.onChanged?.call(clean);
+    if (clean.length == widget.field.length) {
+      if (widget.field.closeKeyboardWhenCompleted) {
+        _focusNode.unfocus();
+      }
+      widget.field.onCompleted?.call(clean);
+    }
     if (mounted) setState(() {});
   }
 
@@ -4268,140 +4480,100 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
   @override
   void didUpdateWidget(covariant _OmniOtpBoxes oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.field.length != widget.field.length) {
-      _disposeCells();
-      _initCells();
-      _applyValue(widget.field.controller?.text ?? '');
-    }
     if (oldWidget.field.controller != widget.field.controller) {
-      oldWidget.field.controller?.removeListener(_onExternalControllerChanged);
-      widget.field.controller?.addListener(_onExternalControllerChanged);
-      _applyValue(widget.field.controller?.text ?? '');
+      (oldWidget.field.controller ?? _ownedController)?.removeListener(
+        _onControllerChanged,
+      );
+      if (widget.field.controller == null) {
+        _ownedController ??= TextEditingController(
+          text: _sanitize(oldWidget.field.controller?.text ?? ''),
+        );
+      } else {
+        _ownedController?.dispose();
+        _ownedController = null;
+      }
+      _ctrl.addListener(_onControllerChanged);
+    }
+    if (oldWidget.field.length != widget.field.length) {
+      _onControllerChanged();
     }
     if (oldWidget.field.resendDuration != widget.field.resendDuration) {
       _startResendCountdown();
     }
   }
 
-  void _onExternalControllerChanged() {
-    if (_syncing) return;
-    _applyValue(widget.field.controller?.text ?? '');
-  }
-
-  void _applyValue(String raw) {
-    _syncing = true;
-    try {
-      final clean = widget.field.digitsOnly
-          ? raw.replaceAll(RegExp(r'\D'), '')
-          : raw;
-      for (var i = 0; i < _controllers.length; i++) {
-        final ch = i < clean.length ? clean[i] : '';
-        if (_controllers[i].text != ch) {
-          _controllers[i].value = TextEditingValue(
-            text: ch,
-            selection: TextSelection.collapsed(offset: ch.length),
-          );
-        }
-      }
-      final truncated = clean.length > _controllers.length
-          ? clean.substring(0, _controllers.length)
-          : clean;
-      if (widget.formState.value != truncated) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) widget.formState.didChange(truncated);
-        });
-      }
-    } finally {
-      _syncing = false;
-    }
-  }
-
-  String get _combinedValue => _controllers.map((c) => c.text).join();
-
-  void _emitCombined({required bool triggerCompleted}) {
-    final code = _combinedValue;
-    _syncing = true;
-    try {
-      final ext = widget.field.controller;
-      if (ext != null && ext.text != code) {
-        ext.value = TextEditingValue(
-          text: code,
-          selection: TextSelection.collapsed(offset: code.length),
-        );
-      }
-      widget.formState.didChange(code);
-    } finally {
-      _syncing = false;
-    }
-    widget.field.onChanged?.call(code);
-    if (triggerCompleted && code.length == widget.field.length) {
-      widget.field.onCompleted?.call(code);
-    }
-    if (mounted) setState(() {});
-  }
-
-  void _handleCellChanged(int index, String value) {
-    if (_syncing) return;
-    final clean = widget.field.digitsOnly
-        ? value.replaceAll(RegExp(r'\D'), '')
-        : value;
-
-    if (clean.length > 1) {
-      // Multi-digit paste handling (e.g. "OTP: 482910"):
-      _syncing = true;
-      final startIndex = clean.length >= widget.field.length ? 0 : index;
-      var cursor = startIndex;
-      for (var k = 0; k < clean.length && cursor < widget.field.length; k++) {
-        final ch = clean[k];
-        _controllers[cursor].value = TextEditingValue(
-          text: ch,
-          selection: const TextSelection.collapsed(offset: 1),
-        );
-        cursor++;
-      }
-      _syncing = false;
-      if (cursor < widget.field.length) {
-        _focusNodes[cursor].requestFocus();
-      } else {
-        _focusNodes.last.unfocus();
-      }
-      _emitCombined(triggerCompleted: true);
-      return;
-    }
-
-    if (clean.isEmpty) {
-      if (_controllers[index].text.isNotEmpty) {
-        _controllers[index].clear();
-      }
-      if (index > 0) {
-        _focusNodes[index - 1].requestFocus();
-      }
-      _emitCombined(triggerCompleted: false);
-      return;
-    }
-
-    if (_controllers[index].text != clean) {
-      _syncing = true;
-      _controllers[index].value = TextEditingValue(
-        text: clean,
-        selection: const TextSelection.collapsed(offset: 1),
-      );
-      _syncing = false;
-    }
-    if (index < widget.field.length - 1) {
-      _focusNodes[index + 1].requestFocus();
-    } else {
-      _focusNodes[index].unfocus();
-    }
-    _emitCombined(triggerCompleted: true);
-  }
-
   @override
   void dispose() {
     _resendTimer?.cancel();
-    widget.field.controller?.removeListener(_onExternalControllerChanged);
-    _disposeCells();
+    (widget.field.controller ?? _ownedController)?.removeListener(
+      _onControllerChanged,
+    );
+    _ownedController?.dispose();
+    _focusNode.removeListener(_onFocusChanged);
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  Widget _buildAnimatedChar(String char, TextStyle textStyle) {
+    final child = widget.field.obscureText
+        ? (widget.field.obscuringWidget ??
+              Text(widget.field.obscuringCharacter, style: textStyle))
+        : Text(char, style: textStyle);
+
+    if (widget.field.pinAnimationType == OmniOtpAnimationType.none) {
+      return child;
+    }
+
+    return AnimatedSwitcher(
+      duration: widget.field.animationDuration,
+      switchInCurve: Curves.easeOutBack,
+      transitionBuilder: (c, anim) => switch (widget.field.pinAnimationType) {
+        OmniOtpAnimationType.scale => ScaleTransition(scale: anim, child: c),
+        OmniOtpAnimationType.fade => FadeTransition(opacity: anim, child: c),
+        OmniOtpAnimationType.slide => SlideTransition(
+          position: Tween<Offset>(
+            begin: const Offset(0, 0.35),
+            end: Offset.zero,
+          ).animate(anim),
+          child: FadeTransition(opacity: anim, child: c),
+        ),
+        OmniOtpAnimationType.rotation => RotationTransition(
+          turns: Tween<double>(begin: 0.9, end: 1.0).animate(anim),
+          child: ScaleTransition(scale: anim, child: c),
+        ),
+        OmniOtpAnimationType.none => c,
+      },
+      child: KeyedSubtree(key: ValueKey<String>(char), child: child),
+    );
+  }
+
+  BoxDecoration _makeCellDecoration({
+    required _ResolvedFieldConfig config,
+    required OmniOtpBoxStyle boxStyle,
+    required BorderRadius borderRadius,
+    required Color fillColor,
+    required Color borderColor,
+    required double borderWidth,
+    BoxShadow? shadow,
+  }) {
+    if (boxStyle == OmniOtpBoxStyle.underlined) {
+      return BoxDecoration(
+        color: Colors.transparent,
+        border: Border(
+          bottom: BorderSide(color: borderColor, width: math.max(borderWidth, 1.5)),
+        ),
+      );
+    }
+    return BoxDecoration(
+      color: boxStyle == OmniOtpBoxStyle.filled
+          ? fillColor
+          : config.ui.colors.cardColor,
+      borderRadius: borderRadius,
+      border: borderWidth <= 0 && boxStyle == OmniOtpBoxStyle.filled
+          ? null
+          : Border.all(color: borderColor, width: math.max(borderWidth, 1.0)),
+      boxShadow: shadow == null ? null : [shadow],
+    );
   }
 
   @override
@@ -4413,19 +4585,122 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
       fieldStyleOverride: widget.field.fieldStyle,
     );
     final boxStyle = widget.field.boxStyle ?? config.fieldTheme.otpBoxStyle;
-    final boxW = widget.field.boxWidth ?? config.fieldTheme.otpBoxWidth;
-    final boxH = widget.field.boxHeight ?? config.fieldTheme.otpBoxHeight;
+    final prefW =
+        widget.field.defaultPinTheme?.width ??
+        widget.field.boxWidth ??
+        config.fieldTheme.otpBoxWidth;
+    final boxH =
+        widget.field.defaultPinTheme?.height ??
+        widget.field.boxHeight ??
+        config.fieldTheme.otpBoxHeight;
     final gap = widget.field.boxSpacing ?? config.fieldTheme.otpBoxSpacing;
 
     final effectiveError = widget.field.errorText ?? widget.formState.errorText;
     final hasError = effectiveError != null && effectiveError.isNotEmpty;
-    final otpTextStyle =
+    final baseTextStyle =
         widget.field.textStyle ??
+        widget.field.defaultPinTheme?.textStyle ??
         config.ui.text.heading.copyWith(color: config.ui.colors.textColor);
+    final isDisabled = !widget.field.enabled || widget.field.isVerifying;
 
-    final effectiveBorderRadius = boxStyle == OmniOtpBoxStyle.underlined
-        ? BorderRadius.zero
-        : config.borderRadius;
+    final baseDefaultPin =
+        widget.field.defaultPinTheme ??
+        OmniPinTheme(
+          width: prefW,
+          height: boxH,
+          textStyle: baseTextStyle,
+          decoration: _makeCellDecoration(
+            config: config,
+            boxStyle: boxStyle,
+            borderRadius: config.borderRadius,
+            fillColor: config.fillColor,
+            borderColor: config.borderColor,
+            borderWidth: config.borderWidth,
+          ),
+        );
+
+    final effectiveFocusedPin =
+        widget.field.focusedPinTheme ??
+        baseDefaultPin.copyWith(
+          decoration: _makeCellDecoration(
+            config: config,
+            boxStyle: boxStyle,
+            borderRadius: config.borderRadius,
+            fillColor: config.fillColor,
+            borderColor: config.focusedBorderColor,
+            borderWidth: math.max(config.focusedBorderWidth, 1.8),
+            shadow: boxStyle == OmniOtpBoxStyle.underlined
+                ? null
+                : BoxShadow(
+                    color: config.focusedBorderColor.withValues(alpha: 0.16),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+          ),
+        );
+
+    final effectiveSubmittedPin =
+        widget.field.submittedPinTheme ??
+        baseDefaultPin.copyWith(
+          decoration: _makeCellDecoration(
+            config: config,
+            boxStyle: boxStyle,
+            borderRadius: config.borderRadius,
+            fillColor: widget.field.isVerified
+                ? config.successColor.withValues(alpha: 0.1)
+                : config.accentColor.withValues(alpha: 0.08),
+            borderColor: widget.field.isVerified
+                ? config.successColor
+                : config.accentColor.withValues(alpha: 0.72),
+            borderWidth: math.max(config.borderWidth, 1.2),
+          ),
+        );
+
+    final effectiveErrorPin =
+        widget.field.errorPinTheme ??
+        baseDefaultPin.copyWith(
+          textStyle: baseTextStyle.copyWith(color: config.errorColor),
+          decoration: _makeCellDecoration(
+            config: config,
+            boxStyle: boxStyle,
+            borderRadius: config.borderRadius,
+            fillColor: config.errorColor.withValues(alpha: 0.06),
+            borderColor: config.errorColor,
+            borderWidth: math.max(config.focusedBorderWidth, 1.6),
+          ),
+        );
+
+    final effectiveDisabledPin =
+        widget.field.disabledPinTheme ??
+        baseDefaultPin.copyWith(
+          textStyle: baseTextStyle.copyWith(
+            color: config.ui.colors.disabledTextColor,
+          ),
+          decoration: _makeCellDecoration(
+            config: config,
+            boxStyle: boxStyle,
+            borderRadius: config.borderRadius,
+            fillColor: config.ui.colors.disabledColor,
+            borderColor: config.ui.colors.disabledBorderColor,
+            borderWidth: config.borderWidth,
+          ),
+        );
+
+    final effectiveFollowingPin =
+        widget.field.followingPinTheme ?? baseDefaultPin;
+
+    final code = _sanitize(_ctrl.text);
+    final activeIndex = code.length >= widget.field.length
+        ? widget.field.length - 1
+        : code.length;
+
+    final labelLeadingIcon =
+        widget.field.showLabelIcon && config.showPrefixIcon
+        ? config.resolvePrefixIcon(
+            widget.field.prefixIcon,
+            OmniFieldIdentity.otp.defaultIcon,
+          )
+        : null;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -4434,88 +4709,144 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes> {
         if (widget.field.label != null && widget.field.label!.isNotEmpty) ...[
           Row(
             children: [
-              Icon(
-                OmniFieldIdentity.otp.defaultIcon,
-                size: 16,
-                color: config.accentColor,
-              ),
-              const SizedBox(width: 6),
+              if (labelLeadingIcon != null) ...[
+                IconTheme(
+                  data: IconThemeData(size: 16, color: config.accentColor),
+                  child: labelLeadingIcon,
+                ),
+                const SizedBox(width: 6),
+              ],
               Text(widget.field.label!, style: config.labelStyle),
             ],
           ),
           SizedBox(height: config.labelSpacing + 2),
         ],
-        Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: List.generate(widget.field.length, (i) {
-            final isFocused = _focusNodes[i].hasFocus;
-            final hasValue = _controllers[i].text.isNotEmpty;
-            final strokeColor = hasError
-                ? config.errorColor
-                : widget.field.isVerified
-                ? config.successColor
-                : isFocused
-                ? config.focusedBorderColor
-                : hasValue
-                ? config.accentColor.withValues(alpha: 0.7)
-                : config.borderColor;
-            final strokeWidth =
-                (isFocused || hasError) ? config.focusedBorderWidth : config.borderWidth;
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final n = widget.field.length;
+            final maxW = constraints.maxWidth;
+            final totalGap = gap * math.max(0, n - 1);
+            final responsiveCellW = (maxW.isFinite && widget.field.separatorBuilder == null)
+                ? math.min(prefW, math.max(24.0, (maxW - totalGap) / n))
+                : prefW;
 
-            InputBorder cellBorder(Color c, double w) {
-              final side = w <= 0 && boxStyle == OmniOtpBoxStyle.filled
-                  ? BorderSide.none
-                  : BorderSide(color: c, width: math.max(w, 1.0));
-              return boxStyle == OmniOtpBoxStyle.underlined
-                  ? UnderlineInputBorder(borderSide: side)
-                  : OutlineInputBorder(
-                      borderRadius: effectiveBorderRadius,
-                      borderSide: side,
-                    );
-            }
+            final cellsRow = Row(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: widget.field.mainAxisAlignment,
+              crossAxisAlignment: widget.field.crossAxisAlignment,
+              children: [
+                for (var i = 0; i < n; i++) ...[
+                  if (i > 0)
+                    widget.field.separatorBuilder?.call(context, i - 1) ??
+                        SizedBox(width: gap),
+                  Builder(
+                    builder: (_) {
+                      final hasChar = i < code.length;
+                      final isFocusedCell =
+                          _focusNode.hasFocus && i == activeIndex && !isDisabled;
 
-            final activeBorder = cellBorder(strokeColor, strokeWidth);
-            return SizedBox(
-              width: boxW,
-              height: boxH,
-              child: TextField(
-                controller: _controllers[i],
-                focusNode: _focusNodes[i],
-                enabled: widget.field.enabled && !widget.field.isVerifying,
-                autofocus: widget.field.autofocus && i == 0,
-                obscureText: widget.field.obscureText,
-                textAlign: TextAlign.center,
-                style: otpTextStyle,
-                cursorColor: config.accentColor,
-                keyboardType: widget.field.digitsOnly
-                    ? TextInputType.number
-                    : TextInputType.text,
-                textInputAction: i == widget.field.length - 1
-                    ? TextInputAction.done
-                    : TextInputAction.next,
-                autofillHints: i == 0 ? const [AutofillHints.oneTimeCode] : null,
-                inputFormatters: widget.field.digitsOnly
-                    ? [FilteringTextInputFormatter.digitsOnly]
-                    : null,
-                onChanged: (v) => _handleCellChanged(i, v),
-                decoration: InputDecoration(
-                  counterText: '',
-                  contentPadding: EdgeInsets.zero,
-                  filled: boxStyle != OmniOtpBoxStyle.outlined,
-                  fillColor: boxStyle == OmniOtpBoxStyle.filled
-                      ? config.fillColor
-                      : Colors.transparent,
-                  border: activeBorder,
-                  enabledBorder: activeBorder,
-                  focusedBorder: cellBorder(
-                    hasError ? config.errorColor : config.focusedBorderColor,
-                    math.max(config.focusedBorderWidth, 1.8),
+                      final OmniPinTheme cellTheme;
+                      if (isDisabled) {
+                        cellTheme = effectiveDisabledPin;
+                      } else if (hasError) {
+                        cellTheme = effectiveErrorPin;
+                      } else if (isFocusedCell) {
+                        cellTheme = effectiveFocusedPin;
+                      } else if (hasChar) {
+                        cellTheme = effectiveSubmittedPin;
+                      } else {
+                        cellTheme = effectiveFollowingPin;
+                      }
+
+                      final effectiveW = math.min(
+                        cellTheme.width ?? responsiveCellW,
+                        responsiveCellW,
+                      );
+                      final effectiveH = cellTheme.height ?? boxH;
+                      final style = cellTheme.textStyle ?? baseTextStyle;
+
+                      return AnimatedContainer(
+                        duration: widget.field.animationDuration,
+                        curve: Curves.easeOutCubic,
+                        width: effectiveW,
+                        height: effectiveH,
+                        margin: cellTheme.margin,
+                        padding: cellTheme.padding,
+                        constraints: cellTheme.constraints,
+                        decoration: cellTheme.decoration,
+                        alignment: Alignment.center,
+                        child: hasChar
+                            ? _buildAnimatedChar(code[i], style)
+                            : (isFocusedCell && widget.field.showCursor)
+                            ? (widget.field.cursor ??
+                                  Container(
+                                    width: 2,
+                                    height: effectiveH * 0.42,
+                                    decoration: BoxDecoration(
+                                      color: config.accentColor,
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ))
+                            : null,
+                      );
+                    },
                   ),
-                ),
+                ],
+              ],
+            );
+
+            final fittedRow = widget.field.separatorBuilder != null
+                ? FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: cellsRow,
+                  )
+                : cellsRow;
+
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: isDisabled ? null : () => _focusNode.requestFocus(),
+              child: Stack(
+                alignment: Alignment.centerLeft,
+                children: [
+                  IgnorePointer(child: fittedRow),
+                  Positioned.fill(
+                    child: Opacity(
+                      opacity: 0.001,
+                      child: TextField(
+                        controller: _ctrl,
+                        focusNode: _focusNode,
+                        enabled: !isDisabled,
+                        autofocus: widget.field.autofocus,
+                        showCursor: false,
+                        enableInteractiveSelection: false,
+                        cursorColor: Colors.transparent,
+                        style: const TextStyle(color: Colors.transparent),
+                        keyboardType: widget.field.digitsOnly
+                            ? TextInputType.number
+                            : TextInputType.text,
+                        textInputAction: TextInputAction.done,
+                        autofillHints: const [AutofillHints.oneTimeCode],
+                        inputFormatters: [
+                          if (widget.field.digitsOnly)
+                            FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(widget.field.length),
+                        ],
+                        onChanged: _handleInputChanged,
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                          counterText: '',
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             );
-          }),
+          },
         ),
         if (hasError) ...[
           const SizedBox(height: 6),
@@ -4595,6 +4926,14 @@ class OmniSearchField extends StatefulWidget {
     this.focusNode,
     this.hint = 'Search...',
     this.label,
+    this.prefixIcon,
+    this.prefix,
+    this.suffixIcon,
+    this.suffix,
+    this.showPrefixIcon = true,
+    this.showClearButton = true,
+    this.clearIcon,
+    this.filterIcon = Icons.tune_rounded,
     this.debounceDuration = const Duration(milliseconds: 280),
     this.onChanged,
     this.onSearchChanged,
@@ -4622,6 +4961,30 @@ class OmniSearchField extends StatefulWidget {
 
   /// ঐচ্ছিক লেবেল।
   final String? label;
+
+  /// কাস্টম সার্চ/প্রিফিক্স আইকন।
+  final Widget? prefixIcon;
+
+  /// ইনপুটের ভেতরে প্রিফিক্স উইজেট।
+  final Widget? prefix;
+
+  /// অতিরিক্ত কাস্টম সাফিক্স আইকন।
+  final Widget? suffixIcon;
+
+  /// ইনপুটের ভেতরে সাফিক্স উইজেট।
+  final Widget? suffix;
+
+  /// সার্চ প্রিফিক্স আইকন দেখাবে কি না।
+  final bool showPrefixIcon;
+
+  /// ক্লিয়ার বাটন দেখাবে কি না।
+  final bool showClearButton;
+
+  /// ক্লিয়ার বাটনের কাস্টম আইকন।
+  final IconData? clearIcon;
+
+  /// ফিল্টার বাটনের কাস্টম আইকন।
+  final IconData filterIcon;
 
   /// `onSearchChanged` কল হওয়ার ডিবাউন্স সময়।
   final Duration debounceDuration;
@@ -4726,13 +5089,16 @@ class _OmniSearchFieldState extends State<OmniSearchField> {
       identity: OmniFieldIdentity.search,
       fieldThemeOverride: widget.fieldTheme,
       fieldStyleOverride: pillOverride,
+      showClearButtonOverride: widget.showClearButton,
+      showPrefixIconOverride: widget.showPrefixIcon,
+      clearIconOverride: widget.clearIcon,
     );
 
     final suffix = _combineSuffixWidgets([
-      if (widget.enabled && _ctrl.text.isNotEmpty)
+      if (config.showClearButton && widget.enabled && _ctrl.text.isNotEmpty)
         IconButton(
           tooltip: 'Clear search',
-          icon: Icon(Icons.close_rounded, color: config.suffixIconColor),
+          icon: Icon(config.clearIcon, color: config.suffixIconColor),
           onPressed: () {
             _ctrl.clear();
             _debounce?.cancel();
@@ -4743,16 +5109,23 @@ class _OmniSearchFieldState extends State<OmniSearchField> {
       if (widget.onFilterPressed != null)
         IconButton(
           tooltip: 'Filter',
-          icon: Icon(Icons.tune_rounded, color: config.suffixIconColor),
+          icon: Icon(widget.filterIcon, color: config.suffixIconColor),
           onPressed: widget.enabled ? widget.onFilterPressed : null,
         ),
+      config.resolveSuffixIcon(widget.suffixIcon),
     ]);
 
     final decoration = config.buildDecoration(
       label: widget.label,
       hint: widget.hint,
-      prefixIcon: Icon(OmniFieldIdentity.search.defaultIcon),
+      prefixIcon: config.resolvePrefixIcon(
+        widget.prefixIcon,
+        OmniFieldIdentity.search.defaultIcon,
+        widgetShowPrefixIcon: widget.showPrefixIcon,
+      ),
+      prefix: widget.prefix,
       suffixIcon: suffix,
+      suffix: widget.suffix,
       enabled: widget.enabled,
       customDecoration: widget.decoration,
     );
@@ -4785,6 +5158,13 @@ class OmniMultilineField extends StatelessWidget {
     this.hint = 'Write your message here...',
     this.helperText,
     this.errorText,
+    this.prefixIcon,
+    this.prefix,
+    this.suffixIcon,
+    this.suffix,
+    this.showPrefixIcon = true,
+    this.showClearButton,
+    this.clearIcon,
     this.minLines = 3,
     this.maxLines = 6,
     this.maxLength,
@@ -4820,6 +5200,27 @@ class OmniMultilineField extends StatelessWidget {
 
   /// এরর ওভাররাইড।
   final String? errorText;
+
+  /// কাস্টম প্রিফিক্স আইকন।
+  final Widget? prefixIcon;
+
+  /// ইনপুটের ভেতরে প্রিফিক্স উইজেট।
+  final Widget? prefix;
+
+  /// কাস্টম সাফিক্স আইকন।
+  final Widget? suffixIcon;
+
+  /// ইনপুটের ভেতরে সাফিক্স উইজেট।
+  final Widget? suffix;
+
+  /// প্রিফিক্স আইকন দেখাবে কি না।
+  final bool showPrefixIcon;
+
+  /// ক্লিয়ার বাটন দেখাবে কি না।
+  final bool? showClearButton;
+
+  /// ক্লিয়ার বাটনের কাস্টম আইকন।
+  final IconData? clearIcon;
 
   /// সর্বনিম্ন লাইন।
   final int minLines;
@@ -4869,7 +5270,13 @@ class OmniMultilineField extends StatelessWidget {
     hint: hint,
     helperText: helperText,
     errorText: errorText,
-    prefixIcon: Icon(OmniFieldIdentity.multiline.defaultIcon),
+    prefixIcon: prefixIcon,
+    prefix: prefix,
+    suffixIcon: suffixIcon,
+    suffix: suffix,
+    showPrefixIcon: showPrefixIcon,
+    showClearButton: showClearButton,
+    clearIcon: clearIcon,
     keyboardType: TextInputType.multiline,
     textCapitalization: TextCapitalization.sentences,
     minLines: minLines,
@@ -4901,10 +5308,16 @@ class OmniUrlField extends StatelessWidget {
     this.hint = 'https://example.com',
     this.helperText,
     this.errorText,
+    this.prefixIcon,
+    this.prefix,
+    this.suffixIcon,
+    this.suffix,
+    this.showPrefixIcon = true,
     this.required = true,
     this.requiredMessage = 'Please enter a URL',
     this.invalidUrlMessage = 'Please enter a valid URL (e.g. https://site.com)',
     this.showClearButton = true,
+    this.clearIcon,
     this.validator,
     this.autovalidateMode,
     this.onChanged,
@@ -4937,6 +5350,21 @@ class OmniUrlField extends StatelessWidget {
   /// এরর ওভাররাইড।
   final String? errorText;
 
+  /// কাস্টম প্রিফিক্স আইকন।
+  final Widget? prefixIcon;
+
+  /// ইনপুটের ভেতরে প্রিফিক্স উইজেট।
+  final Widget? prefix;
+
+  /// কাস্টম সাফিক্স আইকন।
+  final Widget? suffixIcon;
+
+  /// ইনপুটের ভেতরে সাফিক্স উইজেট।
+  final Widget? suffix;
+
+  /// প্রিফিক্স আইকন দেখাবে কি না।
+  final bool showPrefixIcon;
+
   /// খালি রাখা যাবে কি না।
   final bool required;
 
@@ -4948,6 +5376,9 @@ class OmniUrlField extends StatelessWidget {
 
   /// ক্লিয়ার বাটন দেখাবে কি না।
   final bool showClearButton;
+
+  /// ক্লিয়ার বাটনের কাস্টম আইকন।
+  final IconData? clearIcon;
 
   /// কাস্টম ভ্যালিডেটর।
   final FormFieldValidator<String>? validator;
@@ -4985,11 +5416,16 @@ class OmniUrlField extends StatelessWidget {
     hint: hint,
     helperText: helperText,
     errorText: errorText,
-    prefixIcon: Icon(OmniFieldIdentity.url.defaultIcon),
+    prefixIcon: prefixIcon,
+    prefix: prefix,
+    suffixIcon: suffixIcon,
+    suffix: suffix,
+    showPrefixIcon: showPrefixIcon,
     keyboardType: TextInputType.url,
     textInputAction: TextInputAction.next,
     inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
     showClearButton: showClearButton,
+    clearIcon: clearIcon,
     validator:
         validator ??
         (v) => OmniValidators.url(

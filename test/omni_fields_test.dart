@@ -446,5 +446,171 @@ void main() {
         await t.pumpWidget(const SizedBox());
       },
     );
+
+    testWidgets(
+      'OmniOtpField Pinput architecture: exact 3, 4, 5, 6 boxes on 1 row, OmniPinTheme, separatorBuilder & obscureText',
+      (t) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+        t.view.devicePixelRatio = 1.0;
+        t.view.physicalSize = const Size(320, 760);
+        addTearDown(t.view.reset);
+
+        for (final count in const [3, 4, 5, 6]) {
+          final key = Key('otp_$count');
+          String? completed;
+          await t.pumpWidget(
+            OmniApp.material(
+              routes: [
+                OmniPage(
+                  '/',
+                  (_) => Scaffold(
+                    body: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: OmniOtpField(
+                        key: key,
+                        length: count,
+                        defaultPinTheme: const OmniPinTheme(
+                          width: 48,
+                          height: 52,
+                          decoration: BoxDecoration(
+                            border: Border.fromBorderSide(
+                              BorderSide(color: Colors.grey),
+                            ),
+                            borderRadius: BorderRadius.all(Radius.circular(12)),
+                          ),
+                        ),
+                        focusedPinTheme: const OmniPinTheme(
+                          width: 48,
+                          height: 52,
+                        ).copyBorderWith(
+                          border: const Border.fromBorderSide(
+                            BorderSide(color: Colors.blue, width: 2),
+                          ),
+                        ),
+                        submittedPinTheme: const OmniPinTheme(
+                          width: 48,
+                          height: 52,
+                        ).copyDecorationWith(color: const Color(0xFFE0F2FE)),
+                        separatorBuilder: count == 6
+                            ? (_, i) => Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 4),
+                                child: Text(i == 2 ? '-' : ''),
+                              )
+                            : null,
+                        onCompleted: (v) => completed = v,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+          await t.pumpAndSettle();
+
+          final cells = find.descendant(
+            of: find.byKey(key),
+            matching: find.byType(AnimatedContainer),
+          );
+          expect(cells, findsNWidgets(count));
+
+          // Verify all N boxes render on ONE crisp horizontal row even on 320px width:
+          final firstTop = t.getTopLeft(cells.at(0)).dy;
+          for (var i = 1; i < count; i++) {
+            expect(t.getTopLeft(cells.at(i)).dy, closeTo(firstTop, 0.5));
+          }
+
+          if (count == 6) {
+            expect(find.text('-'), findsOneWidget);
+          }
+
+          final code = List.generate(count, (i) => '${i + 1}').join();
+          final backingTf = find.descendant(
+            of: find.byKey(key),
+            matching: find.byType(TextField),
+          );
+          await t.enterText(backingTf, code);
+          await t.pumpAndSettle();
+          expect(completed, code);
+        }
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
+
+    testWidgets(
+      'Developer icon customization (prefixIcon, suffixIcon, showPrefixIcon, leadingIcon, clearIcon, OmniFieldStyle icons)',
+      (t) async {
+        SharedPreferences.setMockInitialValues(<String, Object>{});
+
+        await t.pumpWidget(
+          OmniApp.material(
+            omniTheme: const OmniTheme(
+              fieldTheme: OmniFieldTheme(
+                identityStyles: {
+                  OmniFieldIdentity.name: OmniFieldStyle(
+                    prefixIcon: Icon(Icons.badge_outlined),
+                    suffixIcon: Icon(Icons.verified_outlined),
+                  ),
+                },
+              ),
+            ),
+            routes: [
+              OmniPage(
+                '/',
+                (_) => Scaffold(
+                  body: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      const OmniEmailField(
+                        prefixIcon: Icon(Icons.mark_email_read_outlined),
+                        suffixIcon: Icon(Icons.star_border_rounded),
+                        clearIcon: Icons.backspace_outlined,
+                      ),
+                      const OmniNameField(label: 'Identity Icon Name'),
+                      const OmniTextField(
+                        label: 'No Prefix Field',
+                        showPrefixIcon: false,
+                      ),
+                      OmniPhoneField(
+                        leadingIcon: const Icon(Icons.phone_in_talk_rounded),
+                        countryDropdownIcon: Icons.keyboard_arrow_down_rounded,
+                      ),
+                      const OmniSearchField(
+                        prefixIcon: Icon(Icons.manage_search_rounded),
+                        filterIcon: Icons.filter_list_rounded,
+                        onFilterPressed: _noop,
+                      ),
+                      const OmniMultilineField(
+                        prefixIcon: Icon(Icons.edit_note_rounded),
+                      ),
+                      const OmniUrlField(
+                        prefixIcon: Icon(Icons.public_rounded),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+
+        expect(find.byIcon(Icons.mark_email_read_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.star_border_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.badge_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.verified_outlined), findsOneWidget);
+        expect(find.byIcon(Icons.text_fields_rounded), findsNothing);
+        expect(find.byIcon(Icons.phone_in_talk_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.keyboard_arrow_down_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.manage_search_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.filter_list_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.edit_note_rounded), findsOneWidget);
+        expect(find.byIcon(Icons.public_rounded), findsOneWidget);
+
+        await t.pumpWidget(const SizedBox());
+      },
+    );
   });
 }
+
+void _noop() {}
