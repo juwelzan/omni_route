@@ -234,8 +234,21 @@ class ExampleApp extends StatelessWidget {
 }
 
 // =============================================================================
-// Auth + Persistent Shell
+// Auth + Persistent Shell + Multi-Language Helper (OmniLang)
 // =============================================================================
+
+class _ExampleLang extends OmniLang {
+  const _ExampleLang([super.context]);
+
+  String get dashboardBanner => pick(
+    en: 'Switch language anywhere — all screens update instantly with zero reload!',
+    bn: 'যেকোনো জায়গায় ভাষা বদলান — রিলোড ছাড়াই পুরো অ্যাপ সাথে সাথে বদলে যাবে!',
+    ar: 'بدّل اللغة في أي مكان — تتحدث كل الشاشات فوراً بدون إعادة تحميل!',
+    hi: 'कहीं भी भाषा बदलें — बिना रीलोड सभी स्क्रीन तुरंत बदल जाएंगी!',
+    es: 'Cambia el idioma en cualquier lugar: todas las pantallas se actualizan al instante!',
+    fr: 'Changez de langue partout — tous les écrans se mettent à jour instantanément !',
+  );
+}
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -258,8 +271,13 @@ class _LoginScreenState extends State<LoginScreen> {
     final tk = context.tokens;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Sign in'),
-        actions: const [OmniThemeModeButton()],
+        title: OmniText(
+          en: 'Sign in',
+          bn: 'সাইন ইন',
+          ar: 'تسجيل الدخول',
+          hi: 'साइन इन',
+        ),
+        actions: const [OmniLanguageButton(), OmniThemeModeButton()],
       ),
       body: Center(
         child: SingleChildScrollView(
@@ -275,15 +293,26 @@ class _LoginScreenState extends State<LoginScreen> {
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Text('Welcome back', style: context.textStyles.heading),
+                      OmniText(
+                        en: 'Welcome back',
+                        bn: 'আবার স্বাগতম',
+                        ar: 'مرحباً بعودتك',
+                        hi: 'वापसी पर स्वागत है',
+                        style: context.textStyles.heading,
+                      ),
                       tk.gapXs,
                       Text(
-                        'Shared OmniFieldTheme + Gmail & Password validation',
+                        context.l10n(
+                          en: 'Shared OmniFieldTheme + Gmail & Password validation',
+                          bn: 'শেয়ার্ড OmniFieldTheme + জিমেইল ও পাসওয়ার্ড ভ্যালিডেশন',
+                          ar: 'ثيم موحد للحقول + التحقق من البريد وكلمة المرور',
+                          hi: 'शेयर्ड OmniFieldTheme + जीमेल और पासवर्ड सत्यापन',
+                        ),
                         style: context.textStyles.bodyMuted,
                       ),
                       tk.gapMd,
                       const OmniEmailField.gmail(
-                        label: 'Gmail Address',
+                        label: 'Gmail',
                         initialValue: 'student@gmail.com',
                       ),
                       tk.gapSm,
@@ -295,7 +324,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       tk.gapMd,
                       FilledButton(
                         onPressed: _submitLogin,
-                        child: const Text('Log in'),
+                        child: Text(
+                          context.l10n(
+                            en: 'Log in',
+                            bn: 'লগইন করুন',
+                            ar: 'تسجيل الدخول',
+                            hi: 'लॉग इन करें',
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -349,17 +385,43 @@ class HomeShell extends StatelessWidget {
           index,
           initialLocation: index == shell.currentIndex,
         ),
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+            icon: const Icon(Icons.dashboard),
+            label: context.l10n(
+              en: 'Dashboard',
+              bn: 'ড্যাশবোর্ড',
+              ar: 'لوحة التحكم',
+              hi: 'डैशबोर्ड',
+            ),
           ),
-          NavigationDestination(icon: Icon(Icons.school), label: 'Students'),
           NavigationDestination(
-            icon: Icon(Icons.text_fields_rounded),
-            label: 'Fields',
+            icon: const Icon(Icons.school),
+            label: context.l10n(
+              en: 'Students',
+              bn: 'শিক্ষার্থী',
+              ar: 'الطلاب',
+              hi: 'छात्र',
+            ),
           ),
-          NavigationDestination(icon: Icon(Icons.settings), label: 'Settings'),
+          NavigationDestination(
+            icon: const Icon(Icons.text_fields_rounded),
+            label: context.l10n(
+              en: 'Fields',
+              bn: 'ফিল্ডস',
+              ar: 'الحقول',
+              hi: 'फ़ील्ड्स',
+            ),
+          ),
+          NavigationDestination(
+            icon: const Icon(Icons.settings),
+            label: context.l10n(
+              en: 'Settings',
+              bn: 'সেটিংস',
+              ar: 'الإعدادات',
+              hi: 'सेटिंग्स',
+            ),
+          ),
         ],
       ),
     );
@@ -413,6 +475,7 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
       appBar: AppBar(
         title: Text('$screenTitle ($routePath)'),
         actions: [
+          const OmniLanguageButton(),
           const OmniThemeButton(),
           const OmniThemeModeButton(),
           IconButton(
@@ -436,6 +499,12 @@ class _DashboardScreenState extends OmniState<DashboardScreen> with OmniLifecycl
             children: [
               const WelcomeBadge().hosted(),
               const SizedBox(height: 12),
+              Text(
+                _ExampleLang(context).dashboardBanner,
+                textAlign: TextAlign.center,
+                style: context.textStyles.caption,
+              ),
+              const SizedBox(height: 8),
               Text('OmniLifecycle onShow count: $_showCount'),
               const SizedBox(height: 16),
               Wrap(
@@ -722,6 +791,7 @@ class SettingsScreen extends OmniStatelessWidget {
       appBar: AppBar(
         title: Text('$title ($routePath)'),
         actions: const [
+          OmniLanguageButton(),
           OmniFullscreenButton(),
           OmniThemeButton(),
           OmniThemeModeButton(),
@@ -738,9 +808,73 @@ class SettingsScreen extends OmniStatelessWidget {
           ),
           tk.gapMd,
           Card(
+            child: Padding(
+              padding: tk.cardPadding,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    context.l10n(
+                      en: 'Language & Country Code (OmniText)',
+                      bn: 'ভাষা ও কান্ট্রি কোড (OmniText)',
+                      ar: 'اللغة ورمز البلد (OmniText)',
+                      hi: 'भाषा और देश कोड (OmniText)',
+                    ),
+                    style: context.textStyles.title,
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_ExampleLang(context).dashboardBanner}\n'
+                    'Active: ${context.currentLanguage.flag} ${context.currentLanguage.nativeName} '
+                    '• Country enum: OmniCountryCode.${context.currentCountry.name} (${context.currentCountry.isoCode}) '
+                    '• RTL: ${context.isRtl}',
+                    style: context.textStyles.caption,
+                  ),
+                  tk.gapSm,
+                  const OmniLanguagePicker(
+                    languages: [
+                      OmniLanguage.en,
+                      OmniLanguage.bn,
+                      OmniLanguage.ar,
+                      OmniLanguage.hi,
+                      OmniLanguage.es,
+                      OmniLanguage.fr,
+                      OmniLanguage.de,
+                      OmniLanguage.ja,
+                    ],
+                  ),
+                  tk.gapSm,
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      for (final cc in const [
+                        OmniCountryCode.bd,
+                        OmniCountryCode.us,
+                        OmniCountryCode.gb,
+                        OmniCountryCode.sa,
+                        OmniCountryCode.ind,
+                      ])
+                        ActionChip(
+                          label: Text('${cc.flag} ${cc.isoCode}'),
+                          backgroundColor: context.currentCountry == cc
+                              ? ui.colors.primaryColor.withValues(alpha: 0.16)
+                              : null,
+                          onPressed: () => OmniText.setCountry(cc),
+                        ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          tk.gapMd,
+          Card(
             clipBehavior: Clip.antiAlias,
             child: Column(
               children: [
+                const OmniLanguageTile(),
+                Divider(height: 1, color: ui.colors.dividerColor),
                 const OmniThemeSettingsTile(showAnimationPicker: true),
                 Divider(height: 1, color: ui.colors.dividerColor),
                 ListTile(
@@ -1003,6 +1137,7 @@ class _FieldsPlaygroundScreenState extends OmniState<FieldsPlaygroundScreen> {
       appBar: AppBar(
         title: const Text('Predefined Fields (/fields)'),
         actions: const [
+          OmniLanguageButton(),
           OmniThemeButton(),
           OmniThemeModeButton(),
         ],

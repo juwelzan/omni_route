@@ -221,6 +221,27 @@ void main() {
       expect(find.byType(OmniUrlField), findsOneWidget);
       expect(find.byType(OmniMultilineField), findsOneWidget);
       expect(find.byType(OmniTextField), findsNWidgets(3));
+
+      // 5. Instant global localization via OmniText (ZERO reload across all screens & fields):
+      OmniText.setLanguage(OmniLanguage.bn);
+      await tester.pumpAndSettle();
+      expect(find.text('ড্যাশবোর্ড'), findsOneWidget);
+      expect(find.text('শিক্ষার্থী'), findsOneWidget);
+      expect(find.text('ফিল্ডস'), findsOneWidget);
+      expect(find.text('সেটিংস'), findsOneWidget);
+      expect(find.text('মোবাইল নাম্বার'), findsOneWidget);
+      expect(find.text('যাচাই করুন'), findsOneWidget);
+
+      OmniText.setCountry(OmniCountryCode.sa);
+      await tester.pumpAndSettle();
+      expect(find.text('لوحة التحكم'), findsOneWidget);
+      expect(
+        Directionality.of(tester.element(find.text('لوحة التحكم'))),
+        TextDirection.rtl,
+      );
+
+      OmniText.reset();
+      await tester.pumpAndSettle();
     },
   );
 }

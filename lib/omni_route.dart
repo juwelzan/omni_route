@@ -178,3 +178,23 @@ export 'src/responsive/omni_fields.dart'
         OmniTextField,
         OmniUrlField,
         OmniValidators;
+export 'src/responsive/omni_localization.dart'
+    show
+        OmniCountryCode,
+        OmniFallbackCupertinoLocalizationsDelegate,
+        OmniFallbackMaterialLocalizationsDelegate,
+        OmniFallbackWidgetsLocalizationsDelegate,
+        OmniL10nScope,
+        OmniLang,
+        OmniLanguage,
+        OmniLanguageButton,
+        OmniLanguagePicker,
+        OmniLanguagePickerLayout,
+        OmniLanguageTile,
+        OmniLocaleController,
+        OmniLocaleState,
+        OmniLocalization,
+        OmniLocalizationHost,
+        OmniText,
+        OmniTextContext,
+        showOmniLanguageSheet;

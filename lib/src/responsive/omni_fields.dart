@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'omni_localization.dart';
 import 'omni_styles.dart';
 
 /// প্রতিটি প্রি-ডিফাইনড ইনপুট ফিল্ডের নিজস্ব আইডেন্টিটি (`OmniFieldIdentity`)।
@@ -936,6 +937,95 @@ class OmniFieldThemeScope extends InheritedWidget {
       oldWidget.theme != theme;
 }
 
+const Map<String, OmniText> _omniFieldBuiltInTexts = <String, OmniText>{
+  'Email': OmniText(en: 'Email', bn: 'ইমেইল', ar: 'البريد الإلكتروني', hi: 'ईमेल'),
+  'Gmail': OmniText(en: 'Gmail', bn: 'জিমেইল', ar: 'جيميل', hi: 'जीमेल'),
+  'Password': OmniText(en: 'Password', bn: 'পাসওয়ার্ড', ar: 'كلمة المرور', hi: 'पासवर्ड'),
+  'New Password': OmniText(en: 'New Password', bn: 'নতুন পাসওয়ার্ড', ar: 'كلمة مرور جديدة', hi: 'नया पासवर्ड'),
+  'Confirm Password': OmniText(en: 'Confirm Password', bn: 'পাসওয়ার্ড নিশ্চিত করুন', ar: 'تأكيد كلمة المرور', hi: 'पासवर्ड की पुष्टि करें'),
+  'Full Name': OmniText(en: 'Full Name', bn: 'পূর্ণ নাম', ar: 'الاسم الكامل', hi: 'पूरा नाम'),
+  'First Name': OmniText(en: 'First Name', bn: 'নামের প্রথম অংশ', ar: 'الاسم الأول', hi: 'पहला नाम'),
+  'Last Name': OmniText(en: 'Last Name', bn: 'নামের শেষ অংশ', ar: 'اسم العائلة', hi: 'अंतिम नाम'),
+  'Username': OmniText(en: 'Username', bn: 'ইউজারনেম', ar: 'اسم المستخدم', hi: 'यूज़रनेम'),
+  'Mobile Number': OmniText(en: 'Mobile Number', bn: 'মোবাইল নাম্বার', ar: 'رقم الجوال', hi: 'मोबाइल नंबर'),
+  'Phone Number': OmniText(en: 'Phone Number', bn: 'ফোন নাম্বার', ar: 'رقم الهاتف', hi: 'फ़ोन नंबर'),
+  'Number': OmniText(en: 'Number', bn: 'সংখ্যা', ar: 'رقم', hi: 'संख्या'),
+  'Quantity': OmniText(en: 'Quantity', bn: 'পরিমাণ', ar: 'الكمية', hi: 'मात्रा'),
+  'Decimal Value': OmniText(en: 'Decimal Value', bn: 'দশমিক মান', ar: 'قيمة عشرية', hi: 'दशमलव मान'),
+  'Amount': OmniText(en: 'Amount', bn: 'টাকার পরিমাণ', ar: 'المبلغ', hi: 'राशि'),
+  'Verification Code': OmniText(en: 'Verification Code', bn: 'ভেরিফিকেশন কোড', ar: 'رمز التحقق', hi: 'सत्यापन कोड'),
+  'Search': OmniText(en: 'Search', bn: 'খুঁজুন', ar: 'بحث', hi: 'खोजें'),
+  'Notes': OmniText(en: 'Notes', bn: 'নোটস', ar: 'ملاحظات', hi: 'नोट्स'),
+  'Website URL': OmniText(en: 'Website URL', bn: 'ওয়েবসাইট লিংক', ar: 'رابط الموقع', hi: 'वेबसाइट लिंक'),
+  'Text': OmniText(en: 'Text', bn: 'টেক্সট', ar: 'نص', hi: 'टेक्स्ट'),
+  'Enter password': OmniText(en: 'Enter password', bn: 'পাসওয়ার্ড দিন', ar: 'أدخل كلمة المرور', hi: 'पासवर्ड दर्ज करें'),
+  'Create a strong password': OmniText(en: 'Create a strong password', bn: 'শক্তিশালী পাসওয়ার্ড তৈরি করুন', ar: 'أنشئ كلمة مرور قوية', hi: 'मजबूत पासवर्ड बनाएं'),
+  'Re-enter password': OmniText(en: 'Re-enter password', bn: 'পুনরায় পাসওয়ার্ড দিন', ar: 'أعد إدخال كلمة المرور', hi: 'पासवर्ड दोबारा दर्ज करें'),
+  'Enter your name': OmniText(en: 'Enter your name', bn: 'আপনার নাম লিখুন', ar: 'أدخل اسمك', hi: 'अपना नाम दर्ज करें'),
+  'Enter text': OmniText(en: 'Enter text', bn: 'টেক্সট লিখুন', ar: 'أدخل النص', hi: 'टेक्स्ट दर्ज करें'),
+  'Search...': OmniText(en: 'Search...', bn: 'খুঁজুন...', ar: 'ابحث...', hi: 'खोजें...'),
+  'Write here...': OmniText(en: 'Write here...', bn: 'এখানে লিখুন...', ar: 'اكتب هنا...', hi: 'यहाँ लिखें...'),
+  'Verify': OmniText(en: 'Verify', bn: 'যাচাই করুন', ar: 'تحقق', hi: 'सत्यापित करें'),
+  'Verified': OmniText(en: 'Verified', bn: 'যাচাইকৃত', ar: 'تم التحقق', hi: 'सत्यापित'),
+  'OTP Verified': OmniText(en: 'OTP Verified', bn: 'OTP যাচাই সম্পন্ন', ar: 'تم التحقق من الرمز', hi: 'OTP सत्यापित'),
+  'Verifying...': OmniText(en: 'Verifying...', bn: 'যাচাই হচ্ছে...', ar: 'جاري التحقق...', hi: 'सत्यापन हो रहा है...'),
+  'Resend Code': OmniText(en: 'Resend Code', bn: 'পুনরায় কোড পাঠান', ar: 'إعادة إرسال الرمز', hi: 'कोड पुनः भेजें'),
+  'Select Country Code': OmniText(en: 'Select Country Code', bn: 'দেশের কোড বাছাই করুন', ar: 'اختر رمز الدولة', hi: 'देश कोड चुनें'),
+  'Weak': OmniText(en: 'Weak', bn: 'দুর্বল', ar: 'ضعيف', hi: 'कमज़ोर'),
+  'Fair': OmniText(en: 'Fair', bn: 'মোটামুটি', ar: 'مقبول', hi: 'ठीक'),
+  'Good': OmniText(en: 'Good', bn: 'ভালো', ar: 'جيد', hi: 'अच्छा'),
+  'Strong': OmniText(en: 'Strong', bn: 'শক্তিশালী', ar: 'قوي', hi: 'मज़बूत'),
+  'This field is required': OmniText(en: 'This field is required', bn: 'এই ঘরটি পূরণ করা আবশ্যক', ar: 'هذا الحقل مطلوب', hi: 'यह फ़ील्ड आवश्यक है'),
+  'Please enter an email address': OmniText(en: 'Please enter an email address', bn: 'অনুগ্রহ করে ইমেইল ঠিকানা দিন', ar: 'الرجاء إدخال البريد الإلكتروني', hi: 'कृपया ईमेल पता दर्ज करें'),
+  'Please enter a valid email address': OmniText(en: 'Please enter a valid email address', bn: 'সঠিক ইমেইল ঠিকানা দিন', ar: 'الرجاء إدخال بريد إلكتروني صحيح', hi: 'कृपया सही ईमेल पता दर्ज करें'),
+  'Please enter a valid Gmail address (@gmail.com)': OmniText(en: 'Please enter a valid Gmail address (@gmail.com)', bn: 'সঠিক জিমেইল ঠিকানা (@gmail.com) দিন', ar: 'الرجاء إدخال عنوان Gmail صحيح', hi: 'कृपया सही Gmail पता (@gmail.com) दर्ज करें'),
+  'Please enter your Gmail address': OmniText(en: 'Please enter your Gmail address', bn: 'আপনার জিমেইল ঠিকানা দিন', ar: 'الرجاء إدخال بريدك على Gmail', hi: 'कृपया अपना Gmail पता दर्ज करें'),
+  'Please enter a valid @gmail.com address': OmniText(en: 'Please enter a valid @gmail.com address', bn: 'সঠিক @gmail.com ঠিকানা দিন', ar: 'الرجاء إدخال عنوان @gmail.com صحيح', hi: 'कृपया सही @gmail.com पता दर्ज करें'),
+  'Please enter a password': OmniText(en: 'Please enter a password', bn: 'অনুগ্রহ করে পাসওয়ার্ড দিন', ar: 'الرجاء إدخال كلمة المرور', hi: 'कृपया पासवर्ड दर्ज करें'),
+  'Please confirm your password': OmniText(en: 'Please confirm your password', bn: 'পাসওয়ার্ডটি পুনরায় নিশ্চিত করুন', ar: 'يرجى تأكيد كلمة المرور', hi: 'कृपया पासवर्ड की पुष्टि करें'),
+  'Passwords do not match': OmniText(en: 'Passwords do not match', bn: 'পাসওয়ার্ড দুটি মেলেনি', ar: 'كلمتا المرور غير متطابقتين', hi: 'पासवर्ड मेल नहीं खाते'),
+  'Include at least 1 uppercase letter': OmniText(en: 'Include at least 1 uppercase letter', bn: 'কমপক্ষে ১টি বড় হাতের অক্ষর (A-Z) দিন', ar: 'أضف حرفاً كبيراً واحداً على الأقل', hi: 'कम से कम 1 बड़ा अक्षर शामिल करें'),
+  'Include at least 1 lowercase letter': OmniText(en: 'Include at least 1 lowercase letter', bn: 'কমপক্ষে ১টি ছোট হাতের অক্ষর (a-z) দিন', ar: 'أضف حرفاً صغيراً واحداً على الأقل', hi: 'कम से कम 1 छोटा अक्षर शामिल करें'),
+  'Include at least 1 number': OmniText(en: 'Include at least 1 number', bn: 'কমপক্ষে ১টি সংখ্যা (0-9) দিন', ar: 'أضف رقماً واحداً على الأقل', hi: 'कम से कम 1 संख्या शामिल करें'),
+  'Include at least 1 special character': OmniText(en: 'Include at least 1 special character', bn: 'কমপক্ষে ১টি বিশেষ চিহ্ন (!@#) দিন', ar: 'أضف رمزاً خاصاً واحداً على الأقل', hi: 'कम से कम 1 विशेष चिह्न शामिल करें'),
+  'Please enter a name': OmniText(en: 'Please enter a name', bn: 'অনুগ্রহ করে নাম লিখুন', ar: 'الرجاء إدخال الاسم', hi: 'कृपया नाम दर्ज करें'),
+  'Spaces are not allowed': OmniText(en: 'Spaces are not allowed', bn: 'স্পেস ব্যবহার করা যাবে না', ar: 'غير مسموح بالمسافات', hi: 'स्पेस की अनुमति नहीं है'),
+  'Numbers are not allowed in name': OmniText(en: 'Numbers are not allowed in name', bn: 'নামে কোনো সংখ্যা দেওয়া যাবে না', ar: 'الأرقام غير مسموح بها في الاسم', hi: 'नाम में संख्या की अनुमति नहीं है'),
+  'Please enter a phone number': OmniText(en: 'Please enter a phone number', bn: 'মোবাইল নাম্বার দিন', ar: 'الرجاء إدخال رقم الهاتف', hi: 'कृपया फ़ोन नंबर दर्ज करें'),
+  'Enter a valid Bangladesh number (e.g. 01712-345678)': OmniText(en: 'Enter a valid Bangladesh number (e.g. 01712-345678)', bn: 'সঠিক বাংলাদেশি নাম্বার দিন (যেমন ০১৭১২-৩৪৫৬৭৮)', ar: 'أدخل رقم بنغلاديش صحيحاً', hi: 'सही बांग्लादेश नंबर दर्ज करें'),
+  'Verification code must contain only digits': OmniText(en: 'Verification code must contain only digits', bn: 'কোডে শুধুমাত্র সংখ্যা (0-9) থাকতে হবে', ar: 'يجب أن يحتوي الرمز على أرقام فقط', hi: 'सत्यापन कोड में केवल अंक होने चाहिए'),
+  'Please enter a number': OmniText(en: 'Please enter a number', bn: 'একটি সংখ্যা দিন', ar: 'الرجاء إدخال رقم', hi: 'कृपया संख्या दर्ज करें'),
+  'Please enter a valid number': OmniText(en: 'Please enter a valid number', bn: 'সঠিক সংখ্যা দিন', ar: 'الرجاء إدخال رقم صحيح', hi: 'कृपया सही संख्या दर्ज करें'),
+  'Negative values are not allowed': OmniText(en: 'Negative values are not allowed', bn: 'ঋণাত্মক সংখ্যা নেওয়া যাবে না', ar: 'القيم السالبة غير مسموح بها', hi: 'ऋणात्मक मान अनुमत नहीं हैं'),
+  'Please enter a URL': OmniText(en: 'Please enter a URL', bn: 'ওয়েবসাইট লিংক দিন', ar: 'الرجاء إدخال الرابط', hi: 'कृपया URL दर्ज करें'),
+  'Please enter a valid URL (e.g. https://site.com)': OmniText(en: 'Please enter a valid URL (e.g. https://site.com)', bn: 'সঠিক URL লিংক দিন (যেমন https://site.com)', ar: 'الرجاء إدخال رابط صحيح', hi: 'कृपया सही URL दर्ज करें'),
+};
+
+String _trField(String raw, [OmniLocaleState? state]) {
+  final effectiveState = state ?? OmniText.state;
+  if (effectiveState.language.languageCode == 'en' && !effectiveState.useLocaleDigits) {
+    return raw;
+  }
+  final entry = _omniFieldBuiltInTexts[raw];
+  if (entry != null) return entry.resolve(effectiveState);
+  return effectiveState.useLocaleDigits
+      ? OmniText.formatDigits(raw, language: effectiveState.language)
+      : raw;
+}
+
+String _trDynamic({
+  required String en,
+  required String bn,
+  String? ar,
+  String? hi,
+}) => OmniText.resolveTextFor(
+  OmniText.state,
+  en: en,
+  bn: bn,
+  ar: ar,
+  hi: hi,
+);
+
 /// প্রি-ডিফাইনড ফিল্ডগুলোর কমন স্ট্যান্ড-অ্যালোন ভ্যালিডেশন ও পার্সিং ইউটিলিটি।
 abstract final class OmniValidators {
   static final RegExp _emailRegex = RegExp(
@@ -964,11 +1054,11 @@ abstract final class OmniValidators {
     String invalidGmailMessage = 'Please enter a valid Gmail address (@gmail.com)',
   }) {
     final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) return required ? requiredMessage : null;
-    if (!_emailRegex.hasMatch(trimmed)) return invalidEmailMessage;
+    if (trimmed.isEmpty) return required ? _trField(requiredMessage) : null;
+    if (!_emailRegex.hasMatch(trimmed)) return _trField(invalidEmailMessage);
 
     if (gmailOnly && !_gmailDomainRegex.hasMatch(trimmed)) {
-      return invalidGmailMessage;
+      return _trField(invalidGmailMessage);
     }
     if (allowedDomains != null && allowedDomains.isNotEmpty) {
       final atIdx = trimmed.lastIndexOf('@');
@@ -977,7 +1067,13 @@ abstract final class OmniValidators {
         (d) => d.trim().toLowerCase().replaceFirst('@', '') == domain,
       );
       if (!matched) {
-        return 'Allowed email domain: ${allowedDomains.join(', ')}';
+        final joined = allowedDomains.join(', ');
+        return _trDynamic(
+          en: 'Allowed email domain: $joined',
+          bn: 'অনুমোদিত ইমেইল ডোমেইন: $joined',
+          ar: 'النطاقات المسموح بها: $joined',
+          hi: 'अनुमत ईमेल डोमेन: $joined',
+        );
       }
     }
     return null;
@@ -1010,21 +1106,26 @@ abstract final class OmniValidators {
     String requiredMessage = 'Please enter a password',
   }) {
     final raw = value ?? '';
-    if (raw.isEmpty) return required ? requiredMessage : null;
+    if (raw.isEmpty) return required ? _trField(requiredMessage) : null;
     if (raw.length < minLength) {
-      return 'Password must be at least $minLength characters';
+      return _trDynamic(
+        en: 'Password must be at least $minLength characters',
+        bn: 'পাসওয়ার্ড কমপক্ষে $minLength অক্ষরের হতে হবে',
+        ar: 'يجب أن تتكون كلمة المرور من $minLength أحرف على الأقل',
+        hi: 'पासवर्ड कम से कम $minLength अक्षरों का होना चाहिए',
+      );
     }
     if (requireUppercase && !RegExp(r'[A-Z]').hasMatch(raw)) {
-      return 'Include at least 1 uppercase letter';
+      return _trField('Include at least 1 uppercase letter');
     }
     if (requireLowercase && !RegExp(r'[a-z]').hasMatch(raw)) {
-      return 'Include at least 1 lowercase letter';
+      return _trField('Include at least 1 lowercase letter');
     }
     if (requireDigit && !RegExp(r'\d').hasMatch(raw)) {
-      return 'Include at least 1 number';
+      return _trField('Include at least 1 number');
     }
     if (requireSpecialChar && !RegExp(r'[^a-zA-Z0-9\s]').hasMatch(raw)) {
-      return 'Include at least 1 special character';
+      return _trField('Include at least 1 special character');
     }
     return null;
   }
@@ -1054,18 +1155,28 @@ abstract final class OmniValidators {
     String requiredMessage = 'Please enter a name',
   }) {
     final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) return required ? requiredMessage : null;
+    if (trimmed.isEmpty) return required ? _trField(requiredMessage) : null;
     if (!allowSpaces && trimmed.contains(' ')) {
-      return 'Spaces are not allowed';
+      return _trField('Spaces are not allowed');
     }
     if (trimmed.length < minLength) {
-      return 'Must be at least $minLength characters';
+      return _trDynamic(
+        en: 'Must be at least $minLength characters',
+        bn: 'কমপক্ষে $minLength অক্ষর হতে হবে',
+        ar: 'يجب أن يكون $minLength أحرف على الأقل',
+        hi: 'कम से कम $minLength अक्षर होने चाहिए',
+      );
     }
     if (maxLength != null && trimmed.length > maxLength) {
-      return 'Must be at most $maxLength characters';
+      return _trDynamic(
+        en: 'Must be at most $maxLength characters',
+        bn: 'সর্বোচ্চ $maxLength অক্ষর দেওয়া যাবে',
+        ar: 'يجب ألا يتجاوز $maxLength حرفاً',
+        hi: 'अधिकतम $maxLength अक्षर अनुमत हैं',
+      );
     }
     if (!allowDigits && RegExp(r'\d').hasMatch(trimmed)) {
-      return 'Numbers are not allowed in name';
+      return _trField('Numbers are not allowed in name');
     }
     return null;
   }
@@ -1083,19 +1194,25 @@ abstract final class OmniValidators {
     String? invalidMessage,
   }) {
     final digitsOnly = (value ?? '').replaceAll(RegExp(r'\D'), '');
-    if (digitsOnly.isEmpty) return required ? requiredMessage : null;
+    if (digitsOnly.isEmpty) return required ? _trField(requiredMessage) : null;
 
     if (countryCode == '+880') {
       final cleanRaw = (value ?? '').replaceAll(RegExp(r'[^\d+]'), '');
       if (validateBangladeshOperators) {
         if (!_bdPhoneRegex.hasMatch(cleanRaw)) {
           return invalidMessage ??
-              'Enter a valid Bangladesh number (e.g. 01712-345678)';
+              _trField('Enter a valid Bangladesh number (e.g. 01712-345678)');
         }
       } else {
         final expected = digitsOnly.startsWith('0') ? 11 : 10;
         if (digitsOnly.length != expected) {
-          return invalidMessage ?? 'Enter $expected digits for Bangladesh (+880)';
+          return invalidMessage ??
+              _trDynamic(
+                en: 'Enter $expected digits for Bangladesh (+880)',
+                bn: 'বাংলাদেশের (+880) জন্য ঠিক $expectedটি ডিজিট দিন',
+                ar: 'أدخل $expected أرقام لبنغلاديش (+880)',
+                hi: 'बांग्लादेश (+880) के लिए $expected अंक दर्ज करें',
+              );
         }
       }
       return null;
@@ -1107,8 +1224,18 @@ abstract final class OmniValidators {
       if (invalidMessage != null) return invalidMessage;
       final label = countryName.isNotEmpty ? '$countryName ' : '';
       return effMin == effMax
-          ? 'Enter exact $effMin digits for $label($countryCode)'
-          : 'Enter $effMin-$effMax digits for $label($countryCode)';
+          ? _trDynamic(
+              en: 'Enter exact $effMin digits for $label($countryCode)',
+              bn: '$label($countryCode)-এর জন্য ঠিক $effMinটি ডিজিট দিন',
+              ar: 'أدخل $effMin أرقام بالضبط لـ $label($countryCode)',
+              hi: '$label($countryCode) के लिए ठीक $effMin अंक दर्ज करें',
+            )
+          : _trDynamic(
+              en: 'Enter $effMin-$effMax digits for $label($countryCode)',
+              bn: '$label($countryCode)-এর জন্য $effMin-$effMaxটি ডিজিট দিন',
+              ar: 'أدخل $effMin-$effMax أرقام لـ $label($countryCode)',
+              hi: '$label($countryCode) के लिए $effMin-$effMax अंक दर्ज करें',
+            );
     }
     return null;
   }
@@ -1136,10 +1263,16 @@ abstract final class OmniValidators {
   }) {
     final clean = (value ?? '').trim();
     if (clean.length < length) {
-      return incompleteMessage ?? 'Enter the $length-digit verification code';
+      return incompleteMessage ??
+          _trDynamic(
+            en: 'Enter the $length-digit verification code',
+            bn: '$length-ডিজিটের ভেরিফিকেশন কোড দিন',
+            ar: 'أدخل رمز التحقق المكون من $length أرقام',
+            hi: '$length-अंकों का सत्यापन कोड दर्ज करें',
+          );
     }
     if (digitsOnly && !RegExp(r'^\d+$').hasMatch(clean)) {
-      return 'Verification code must contain only digits';
+      return _trField('Verification code must contain only digits');
     }
     return null;
   }
@@ -1156,14 +1289,30 @@ abstract final class OmniValidators {
     String invalidMessage = 'Please enter a valid number',
   }) {
     final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) return required ? requiredMessage : null;
+    if (trimmed.isEmpty) return required ? _trField(requiredMessage) : null;
     final parsed = allowDecimal
         ? double.tryParse(trimmed)
         : int.tryParse(trimmed);
-    if (parsed == null) return invalidMessage;
-    if (!allowNegative && parsed < 0) return 'Negative values are not allowed';
-    if (min != null && parsed < min) return 'Minimum value is $min';
-    if (max != null && parsed > max) return 'Maximum value is $max';
+    if (parsed == null) return _trField(invalidMessage);
+    if (!allowNegative && parsed < 0) {
+      return _trField('Negative values are not allowed');
+    }
+    if (min != null && parsed < min) {
+      return _trDynamic(
+        en: 'Minimum value is $min',
+        bn: 'সর্বনিম্ন মান হলো $min',
+        ar: 'الحد الأدنى للقيمة هو $min',
+        hi: 'न्यूनतम मान $min है',
+      );
+    }
+    if (max != null && parsed > max) {
+      return _trDynamic(
+        en: 'Maximum value is $max',
+        bn: 'সর্বোচ্চ মান হলো $max',
+        ar: 'الحد الأقصى للقيمة هو $max',
+        hi: 'अधिकतम मान $max है',
+      );
+    }
     return null;
   }
 
@@ -1175,8 +1324,8 @@ abstract final class OmniValidators {
     String invalidMessage = 'Please enter a valid URL (e.g. https://site.com)',
   }) {
     final trimmed = value?.trim() ?? '';
-    if (trimmed.isEmpty) return required ? requiredMessage : null;
-    if (!_urlRegex.hasMatch(trimmed)) return invalidMessage;
+    if (trimmed.isEmpty) return required ? _trField(requiredMessage) : null;
+    if (!_urlRegex.hasMatch(trimmed)) return _trField(invalidMessage);
     return null;
   }
 }
@@ -1364,6 +1513,7 @@ class _ResolvedFieldConfig {
     required this.autovalidateMode,
     required this.showPrefixIcon,
     required this.clearIcon,
+    required this.localeState,
     this.stylePrefixIcon,
     this.styleSuffixIcon,
   });
@@ -1394,6 +1544,7 @@ class _ResolvedFieldConfig {
   final AutovalidateMode autovalidateMode;
   final bool showPrefixIcon;
   final IconData clearIcon;
+  final OmniLocaleState localeState;
   final Widget? stylePrefixIcon;
   final Widget? styleSuffixIcon;
 
@@ -1421,6 +1572,7 @@ class _ResolvedFieldConfig {
     IconData? clearIconOverride,
     AutovalidateMode? autovalidateModeOverride,
   }) {
+    final localeState = OmniL10nScope.watch(context);
     final ui = context.ui;
     final isDark = ui.isDark;
     final shared = fieldThemeOverride ?? OmniFieldTheme.of(context);
@@ -1582,6 +1734,7 @@ class _ResolvedFieldConfig {
       autovalidateMode: autovalidateModeOverride ?? shared.autovalidateMode,
       showPrefixIcon: showPrefixIcon,
       clearIcon: clearIcon,
+      localeState: localeState,
       stylePrefixIcon: local?.prefixIcon ?? idStyle?.prefixIcon,
       styleSuffixIcon: local?.suffixIcon ?? idStyle?.suffixIcon,
     );
@@ -1624,10 +1777,12 @@ class _ResolvedFieldConfig {
     );
 
     final base = InputDecoration(
-      labelText: labelMode == OmniFieldLabelMode.floating ? label : null,
-      hintText: hint,
-      helperText: helperText,
-      errorText: errorText,
+      labelText: (labelMode == OmniFieldLabelMode.floating && label != null)
+          ? _trField(label, localeState)
+          : null,
+      hintText: hint == null ? null : _trField(hint, localeState),
+      helperText: helperText == null ? null : _trField(helperText, localeState),
+      errorText: errorText == null ? null : _trField(errorText, localeState),
       prefixText: prefixText,
       suffixText: suffixText,
       prefixIcon: prefixIcon,
@@ -1774,7 +1929,7 @@ class _OmniFieldInputShell extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label!, style: config.labelStyle),
+          Text(_trField(label!, config.localeState), style: config.labelStyle),
           SizedBox(height: config.labelSpacing),
           field,
         ],
@@ -2068,8 +2223,9 @@ class _OmniTextFieldState extends State<OmniTextField> {
       validator:
           widget.validator ??
           (widget.required
-              ? (v) =>
-                  (v ?? '').trim().isEmpty ? widget.requiredMessage : null
+              ? (v) => (v ?? '').trim().isEmpty
+                    ? _trField(widget.requiredMessage, config.localeState)
+                    : null
               : null),
       onChanged: widget.onChanged,
       onSubmitted: widget.onSubmitted,
@@ -2775,9 +2931,9 @@ class _OmniPasswordFieldState extends State<OmniPasswordField> {
     final target = widget.matchController?.text ?? widget.matchValue;
     if (target != null) {
       if ((v ?? '').isEmpty) {
-        return widget.required ? widget.requiredMessage : null;
+        return widget.required ? _trField(widget.requiredMessage) : null;
       }
-      if (v != target) return widget.mismatchMessage;
+      if (v != target) return _trField(widget.mismatchMessage);
       return null;
     }
     return OmniValidators.password(
@@ -2932,10 +3088,13 @@ class _OmniPasswordFieldState extends State<OmniPasswordField> {
             if (widget.strengthLabels.isNotEmpty) ...[
               const SizedBox(width: 8),
               Text(
-                widget.strengthLabels[(score - 1).clamp(
-                  0,
-                  widget.strengthLabels.length - 1,
-                )],
+                _trField(
+                  widget.strengthLabels[(score - 1).clamp(
+                    0,
+                    widget.strengthLabels.length - 1,
+                  )],
+                  config.localeState,
+                ),
                 style: config.ui.text.caption.copyWith(
                   color: barColor,
                   fontWeight: FontWeight.w600,
@@ -3816,7 +3975,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
     final picked = await showDialog<OmniCountryDialCode>(
       context: context,
       builder: (ctx) => SimpleDialog(
-        title: const Text('Select Country Code'),
+        title: Text(_trField('Select Country Code')),
         children: [
           for (final c in _countries)
             SimpleDialogOption(
@@ -3921,7 +4080,12 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
         Padding(
           padding: const EdgeInsets.only(right: 4),
           child: Text(
-            '${digitsOnly.length}/$maxAllowed',
+            config.localeState.useLocaleDigits
+                ? OmniText.formatDigits(
+                    '${digitsOnly.length}/$maxAllowed',
+                    language: config.localeState.language,
+                  )
+                : '${digitsOnly.length}/$maxAllowed',
             style: config.ui.text.caption.copyWith(
               color: isValid
                   ? config.successColor
@@ -3943,7 +4107,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
               color: config.successColor,
             ),
             label: Text(
-              widget.verifiedLabel,
+              _trField(widget.verifiedLabel, config.localeState),
               style: config.ui.text.caption.copyWith(
                 color: config.successColor,
                 fontWeight: FontWeight.w700,
@@ -3956,7 +4120,7 @@ class _OmniPhoneFieldState extends State<OmniPhoneField> {
           padding: const EdgeInsets.only(right: 4),
           child: TextButton(
             onPressed: widget.enabled && isValid ? widget.onVerifyPressed : null,
-            child: Text(widget.verifyLabel),
+            child: Text(_trField(widget.verifyLabel, config.localeState)),
           ),
         )
       else if (isValid && config.showValidationIcons)
@@ -5342,7 +5506,10 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                 ),
                 const SizedBox(width: 6),
               ],
-              Text(widget.field.label!, style: config.labelStyle),
+              Text(
+                _trField(widget.field.label!, config.localeState),
+                style: config.labelStyle,
+              ),
             ],
           ),
           SizedBox(height: config.labelSpacing + 2),
@@ -5980,7 +6147,10 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                               buildAnimatedCheckGlyph(20),
                               const SizedBox(width: 8),
                               Text(
-                                widget.field.verifiedLabel,
+                                _trField(
+                                  widget.field.verifiedLabel,
+                                  config.localeState,
+                                ),
                                 style: config.ui.text.button.copyWith(
                                   color: Colors.white,
                                 ),
@@ -6091,7 +6261,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  effectiveError!,
+                  _trField(effectiveError!, config.localeState),
                   style: config.ui.text.error.copyWith(color: config.errorColor),
                 ),
               ),
@@ -6107,7 +6277,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
               const SizedBox(width: 4),
               Flexible(
                 child: Text(
-                  widget.field.warningText!,
+                  _trField(widget.field.warningText!, config.localeState),
                   style: config.ui.text.warning.copyWith(color: warnColor),
                 ),
               ),
@@ -6115,7 +6285,10 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
           ),
         ] else if (widget.field.helperText != null) ...[
           const SizedBox(height: 6),
-          Text(widget.field.helperText!, style: config.ui.text.caption),
+          Text(
+            _trField(widget.field.helperText!, config.localeState),
+            style: config.ui.text.caption,
+          ),
         ],
         if (isVerifyingNow ||
             (isVerifiedNow &&
@@ -6132,7 +6305,10 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                   child: CircularProgressIndicator(strokeWidth: 2),
                 ),
                 const SizedBox(width: 8),
-                Text('Verifying...', style: config.ui.text.caption),
+                Text(
+                  _trField('Verifying...', config.localeState),
+                  style: config.ui.text.caption,
+                ),
               ] else if (isVerifiedNow) ...[
                 Icon(
                   Icons.verified_rounded,
@@ -6141,7 +6317,7 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  widget.field.verifiedLabel,
+                  _trField(widget.field.verifiedLabel, config.localeState),
                   style: config.ui.text.caption.copyWith(
                     color: config.successColor,
                     fontWeight: FontWeight.w700,
@@ -6150,7 +6326,21 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
               ] else if (widget.field.onResend != null) ...[
                 if (_remainingSeconds > 0)
                   Text(
-                    'Resend code in 00:${_remainingSeconds.toString().padLeft(2, '0')}',
+                    () {
+                      final sec = _remainingSeconds.toString().padLeft(2, '0');
+                      final raw = _trDynamic(
+                        en: 'Resend code in 00:$sec',
+                        bn: 'পুনরায় পাঠানো যাবে 00:$sec সেকেন্ডে',
+                        ar: 'إعادة الإرسال خلال 00:$sec',
+                        hi: '00:$sec में कोड पुनः भेजें',
+                      );
+                      return config.localeState.useLocaleDigits
+                          ? OmniText.formatDigits(
+                              raw,
+                              language: config.localeState.language,
+                            )
+                          : raw;
+                    }(),
                     style: config.ui.text.caption,
                   )
                 else
@@ -6162,7 +6352,12 @@ class _OmniOtpBoxesState extends State<_OmniOtpBoxes>
                           }
                         : null,
                     icon: const Icon(Icons.refresh_rounded, size: 16),
-                    label: Text(widget.field.resendButtonLabel),
+                    label: Text(
+                      _trField(
+                        widget.field.resendButtonLabel,
+                        config.localeState,
+                      ),
+                    ),
                   ),
               ],
             ],

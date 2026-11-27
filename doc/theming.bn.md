@@ -908,3 +908,35 @@ Form(
   ),
 )
 ```
+
+---
+
+## ১৩. শূন্য-সেটআপ টাইপ-সেইফ লোকালাইজেশন (`OmniText`, `OmniLanguage`, `OmniCountryCode`, `OmniLang`)
+
+কোনো `.arb`, `.yaml` বা কোড জেনারেটর ছাড়াই পুরো অ্যাপ, `OmniFields` ও সব স্ক্রিন এক ফাংশনে মুহূর্তেই যেকোনো ভাষায় বদলে যায় (কোনো রিলোড ছাড়াই!):
+
+```dart
+// ১. সরাসরি Widget বা কনস্ট্যান্ট হিসেবে:
+const OmniText(en: 'Welcome', bn: 'স্বাগতম', ar: 'مرحباً', hi: 'स्वागत है')
+
+// ২. যেকোনো স্ক্রিনে ১ লাইনে (এক্সট্রা ফাইল ছাড়াই):
+Text(context.l10n(en: 'Hello, $name!', bn: 'হ্যালো, $name!'))
+
+// ৩. টাইপ-সেইফ ভাষা ও কান্ট্রি কোড ইনাম (৬৫+ ভাষা ও দেশ) — ১ কলে পুরো অ্যাপ বদলায়!
+OmniText.setLanguage(OmniLanguage.bn);       // বাংলা
+OmniText.setCountry(OmniCountryCode.sa);     // সৌদি আরব + অটো RTL
+OmniText.change(OmniLanguage.ja);            // জাপানি
+
+// ৪. একাধিক ভাষা ও বড় অ্যাপের জন্য আলাদা সহজ ক্লাস (OmniLang):
+class AuthLang extends OmniLang {
+  const AuthLang([super.context]);
+  String get login => pick(en: 'Sign In', bn: 'লগইন', ar: 'تسجيل الدخول');
+}
+
+// ৫. রেডিমেড UI সুইচার (SharedPreferences-এ অটো সেভ):
+const OmniLanguageTile()     // Settings টাইল
+const OmniLanguagePicker()   // চিপস/কার্ড/ড্রপডাউন পিকার
+const OmniLanguageButton()   // হেডার টগল বাটন
+```
+
+*(বিস্তারিত তুলনা ও ব্যবহারের উদাহরণ: [LOCALIZATION.README.md](../LOCALIZATION.README.md))*

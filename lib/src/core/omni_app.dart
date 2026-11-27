@@ -7,6 +7,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
 import '../guards/omni_guard.dart';
+import '../responsive/omni_localization.dart';
 import '../responsive/omni_responsive_config.dart';
 import '../responsive/omni_responsive_scope.dart';
 import '../routing/omni_page.dart';
@@ -101,6 +102,8 @@ class OmniApp extends StatefulWidget {
     this.omniTheme,
     this.themes = const [],
     this.themeAnimation,
+    this.localization,
+    this.localeController,
     this.maxBreadcrumbs = 25,
   }) : _applyRootOverlay = true;
 
@@ -152,6 +155,8 @@ class OmniApp extends StatefulWidget {
     this.omniTheme,
     this.themes = const [],
     this.themeAnimation,
+    this.localization,
+    this.localeController,
     this.maxBreadcrumbs = 25,
     String title = '',
     ThemeData? theme,
@@ -177,6 +182,12 @@ class OmniApp extends StatefulWidget {
          final animSettings = OmniThemeScope.animationSettingsOf(context);
          final effThemeMode =
              themeModeBuilder?.call(context) ?? themeMode ?? resolved?.mode;
+         final l10n = _resolveL10n(
+           context,
+           locale: locale,
+           localizationsDelegates: localizationsDelegates,
+           supportedLocales: supportedLocales,
+         );
 
          MaterialApp buildMaterialApp(
            Duration animDuration,
@@ -192,9 +203,9 @@ class OmniApp extends StatefulWidget {
            themeAnimationDuration: animDuration,
            themeAnimationCurve: animCurve,
            color: color,
-           locale: locale,
-           localizationsDelegates: localizationsDelegates,
-           supportedLocales: supportedLocales,
+           locale: l10n.locale,
+           localizationsDelegates: l10n.delegates,
+           supportedLocales: l10n.supportedLocales,
            debugShowCheckedModeBanner: debugShowCheckedModeBanner,
            scaffoldMessengerKey: scaffoldMessengerKey,
            shortcuts: shortcuts,
@@ -315,6 +326,8 @@ class OmniApp extends StatefulWidget {
     this.onError,
     this.overlayBuilder,
     this.responsive = const OmniResponsiveConfig(),
+    this.localization,
+    this.localeController,
     this.maxBreadcrumbs = 25,
     String title = '',
     CupertinoThemeData? theme,
@@ -327,30 +340,71 @@ class OmniApp extends StatefulWidget {
     Map<Type, Action<Intent>>? actions,
     ScrollBehavior? scrollBehavior,
     TransitionBuilder? appBuilder,
-  }) : builder = ((_, router) => CupertinoApp.router(
-         title: title,
-         theme: theme,
-         color: color,
-         locale: locale,
-         localizationsDelegates: localizationsDelegates,
-         supportedLocales: supportedLocales,
-         debugShowCheckedModeBanner: debugShowCheckedModeBanner,
-         shortcuts: shortcuts,
-         actions: actions,
-         scrollBehavior: scrollBehavior,
-         routerConfig: router,
-         builder: _chainBuilders(
-           appBuilder,
-           overlayBuilder,
-           responsive,
-           minTextScale,
-           maxTextScale,
-         ),
-       )),
+  }) : builder = ((context, router) {
+         final l10n = _resolveL10n(
+           context,
+           locale: locale,
+           localizationsDelegates: localizationsDelegates,
+           supportedLocales: supportedLocales,
+         );
+         return CupertinoApp.router(
+           title: title,
+           theme: theme,
+           color: color,
+           locale: l10n.locale,
+           localizationsDelegates: l10n.delegates,
+           supportedLocales: l10n.supportedLocales,
+           debugShowCheckedModeBanner: debugShowCheckedModeBanner,
+           shortcuts: shortcuts,
+           actions: actions,
+           scrollBehavior: scrollBehavior,
+           routerConfig: router,
+           builder: _chainBuilders(
+             appBuilder,
+             overlayBuilder,
+             responsive,
+             minTextScale,
+             maxTextScale,
+           ),
+         );
+       }),
        omniTheme = null,
        themes = const [],
        themeAnimation = null,
        _applyRootOverlay = false;
+
+  static ({
+    Locale? locale,
+    Iterable<LocalizationsDelegate<dynamic>> delegates,
+    Iterable<Locale> supportedLocales,
+  })
+  _resolveL10n(
+    BuildContext context, {
+    Locale? locale,
+    Iterable<LocalizationsDelegate<dynamic>>? localizationsDelegates,
+    Iterable<Locale> supportedLocales = const <Locale>[Locale('en', 'US')],
+  }) {
+    final l10nScope = OmniL10nScope.maybeOf(context);
+    final l10nState = l10nScope?.notifier?.value;
+    final effectiveLocale = locale ?? l10nState?.effectiveLocale;
+    final delegates = <LocalizationsDelegate<dynamic>>[
+      ...?localizationsDelegates,
+      OmniFallbackMaterialLocalizationsDelegate.instance,
+      OmniFallbackCupertinoLocalizationsDelegate.instance,
+      OmniFallbackWidgetsLocalizationsDelegate.instance,
+    ];
+    final supported = <Locale>{
+      ...supportedLocales,
+      if (l10nScope != null)
+        for (final lang in l10nScope.config.supportedLanguages) lang.locale,
+      ?effectiveLocale,
+    };
+    return (
+      locale: effectiveLocale,
+      delegates: delegates,
+      supportedLocales: supported,
+    );
+  }
 
   static TransitionBuilder? _chainBuilders(
     TransitionBuilder? appBuilder,
@@ -583,6 +637,14 @@ class OmniApp extends StatefulWidget {
   /// Palette changes (`OmniThemeAnimation.circularReveal`, `.horizontalWipe`,
   /// `.diagonalSweep`, `.colorMorph`, etc.).
   final OmniThemeAnimation? themeAnimation;
+
+  /// Optional localization configuration ([OmniLocalization]); even when omitted,
+  /// [OmniText], `context.l10n(...)`, and `OmniText.setLanguage(...)` work
+  /// automatically across all screens with zero extra setup.
+  final OmniLocalization? localization;
+
+  /// Optional isolated [OmniLocaleController] override.
+  final OmniLocaleController? localeController;
 
   /// Bounded in-memory navigation/error breadcrumb capacity retained for
   /// `OmniRoute.breadcrumbs` and `OmniRoute.exportDiagnostics()` (`0` disables
@@ -1074,6 +1136,11 @@ class _OmniAppState extends State<OmniApp> {
     if (lifecycle != null) {
       child = OmniAppLifecycleScope(lifecycle: lifecycle, child: child);
     }
+    child = OmniLocalizationHost(
+      config: widget.localization ?? const OmniLocalization(),
+      controller: widget.localeController,
+      child: child,
+    );
     return OmniResponsiveScope(
       config: widget.responsive,
       minTextScale: widget.minTextScale,
