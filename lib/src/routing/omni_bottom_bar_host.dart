@@ -260,16 +260,30 @@ class _OmniPageBarHostState extends State<OmniPageBarHost> {
   static bool _isPage(Route<dynamic>? route) =>
       route is PageRoute && route.opaque;
 
-  /// Observer callbacks can arrive mid-build; act after the frame.
+  /// Whether widgets are being built right now. Observer callbacks arrive
+  /// mid-build inside frames, and also outside any frame: `runApp` and hot
+  /// restart build the first tree with the scheduler idle, and the
+  /// navigator reports its first push then. `debugBuilding` covers that
+  /// case; it is only tracked in debug, the only mode that asserts on a
+  /// mid-build `setState` (in release the host simply rebuilds).
+  static bool get _midBuild =>
+      SchedulerBinding.instance.schedulerPhase ==
+          SchedulerPhase.persistentCallbacks ||
+      (WidgetsBinding.instance.buildOwner?.debugBuilding ?? false);
+
+  /// Acts now, or after the frame when widgets are building (asking for a
+  /// frame if none is coming). Gestures — a back swipe — act at once, so
+  /// the bar never lags a frame behind the finger.
   void _defer(VoidCallback action) {
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      SchedulerBinding.instance.addPostFrameCallback((_) {
-        if (mounted) action();
-      });
-    } else {
+    if (!_midBuild) {
       action();
+      return;
     }
+    final scheduler = SchedulerBinding.instance;
+    scheduler.addPostFrameCallback((_) {
+      if (mounted) action();
+    });
+    scheduler.ensureVisualUpdate();
   }
 
   /// A hero flight parks the arriving route offstage for a frame, which

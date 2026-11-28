@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_route/omni_route.dart';
+import 'package:omni_route/src/routing/omni_bottom_bar_host.dart'
+    show OmniPageBarHost, OmniPageBarSlot;
 
 const _bar = OmniBottomNavigationBar(
   style: OmniBottomNavigationStyle.floatingBubble,
@@ -65,10 +67,10 @@ void main() {
     await t.pumpWidget(_app());
     await t.pumpAndSettle();
     final nav = t.state<NavigatorState>(find.byType(Navigator).first);
-    final route = ModalRoute.of(t.element(find.text('F')))!;
     final element = t.element(find.text('F'));
-    // As at app start / hot restart: the navigator reports a push while a
-    // widget below the host is building and the scheduler is idle.
+    final route = ModalRoute.of(element)!;
+    // What runApp / hot restart do: widgets build with the scheduler idle
+    // while the navigator reports a push.
     t.binding.buildOwner!.buildScope(element, () {
       for (final o in nav.widget.observers) {
         o.didPush(route, null);
@@ -82,34 +84,33 @@ void main() {
   testWidgets('first attach outside a frame (app start, hot restart)', (
     t,
   ) async {
-    // runApp builds the first tree outside any frame: the scheduler is idle
-    // while widgets build, and the navigator reports its first push then.
-    t.binding.attachRootWidget(
-      t.binding.wrapWithDefaultView(
-        RootRestorationScope(
-          restorationId: 'root',
-          child: _app(restorationScopeId: 'app'),
+    // runApp / hot restart build the first tree outside any frame (the
+    // scheduler is idle) and the navigator reports its first push during
+    // that build. The host must not setState then.
+    Widget host() => MaterialApp(
+      home: OmniPageBarHost(
+        builder: (context, observer) => Navigator(
+          observers: [observer],
+          pages: const [
+            MaterialPage<void>(
+              child: Scaffold(
+                body: Text('F'),
+                bottomNavigationBar: OmniPageBarSlot(bar: _bar),
+              ),
+            ),
+          ],
+          onDidRemovePage: (_) {},
         ),
       ),
     );
-    await t.pump();
-    await t.pumpAndSettle();
-    expect(t.takeException(), isNull);
-    expect(_bars, findsOneWidget);
-
-    // Hot restart: the whole tree is replaced the same way.
-    t.binding.attachRootWidget(
-      t.binding.wrapWithDefaultView(
-        RootRestorationScope(
-          restorationId: 'root',
-          child: _app(restorationScopeId: 'app'),
-        ),
-      ),
-    );
-    await t.pump();
-    await t.pumpAndSettle();
-    expect(t.takeException(), isNull);
-    expect(_bars, findsOneWidget);
+    for (var i = 0; i < 2; i++) {
+      t.binding.attachRootWidget(t.binding.wrapWithDefaultView(host()));
+      expect(t.takeException(), isNull);
+      await t.pump();
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull);
+      expect(_bars, findsOneWidget);
+    }
     await t.pumpWidget(const SizedBox());
   });
 
