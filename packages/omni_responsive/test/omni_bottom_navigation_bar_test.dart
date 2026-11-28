@@ -34,6 +34,17 @@ List<OmniBottomNavigationItem> _sampleItems({bool withBadges = false}) => [
   ),
 ];
 
+bool _barIgnoresInput(WidgetTester tester) => tester
+    .widget<IgnorePointer>(
+      find
+          .descendant(
+            of: find.byType(OmniBottomNavigationBar),
+            matching: find.byType(IgnorePointer),
+          )
+          .first,
+    )
+    .ignoring;
+
 void main() {
   testWidgets(
     'controller validation clamps negative, out-of-range, and valid indexes',
@@ -509,6 +520,116 @@ void main() {
           .ignoring,
       isFalse,
     );
+  });
+
+  testWidgets('hideOnScroll syncs offset when a controller attaches later', (
+    t,
+  ) async {
+    final scroll = ScrollController(
+      initialScrollOffset: 180,
+      keepScrollOffset: false,
+    );
+    final showList = ValueNotifier(false);
+    addTearDown(scroll.dispose);
+    addTearDown(showList.dispose);
+
+    await t.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<bool>(
+          valueListenable: showList,
+          builder: (_, visible, _) => Scaffold(
+            extendBody: true,
+            body: visible
+                ? ListView.builder(
+                    controller: scroll,
+                    itemCount: 40,
+                    itemBuilder: (_, i) =>
+                        SizedBox(height: 60, child: Text('Delayed $i')),
+                  )
+                : const SizedBox.expand(),
+            bottomNavigationBar: OmniBottomNavigationBar(
+              style: OmniBottomNavigationStyle.floating,
+              scrollController: scroll,
+              hideOnScroll: true,
+              items: _sampleItems(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(scroll.hasClients, isFalse);
+
+    showList.value = true;
+    await t.pumpAndSettle();
+
+    expect(scroll.position.pixels, 180);
+    expect(_barIgnoresInput(t), isFalse);
+
+    scroll.jumpTo(260);
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(_barIgnoresInput(t), isTrue);
+  });
+
+  testWidgets('hideOnScroll keeps visibility on restored offset attachment', (
+    t,
+  ) async {
+    final scroll = ScrollController();
+    final bucket = PageStorageBucket();
+    final showList = ValueNotifier(true);
+    addTearDown(scroll.dispose);
+    addTearDown(showList.dispose);
+
+    await t.pumpWidget(
+      MaterialApp(
+        home: PageStorage(
+          bucket: bucket,
+          child: ValueListenableBuilder<bool>(
+            valueListenable: showList,
+            builder: (_, visible, _) => Scaffold(
+              extendBody: true,
+              body: visible
+                  ? ListView.builder(
+                      key: const PageStorageKey('restored-scroll-list'),
+                      controller: scroll,
+                      itemCount: 40,
+                      itemBuilder: (_, i) =>
+                          SizedBox(height: 60, child: Text('Restored $i')),
+                    )
+                  : const SizedBox.expand(),
+              bottomNavigationBar: OmniBottomNavigationBar(
+                style: OmniBottomNavigationStyle.floating,
+                scrollController: scroll,
+                hideOnScroll: true,
+                items: _sampleItems(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    scroll.jumpTo(300);
+    await t.pumpAndSettle();
+    scroll.jumpTo(100);
+    await t.pumpAndSettle();
+    expect(_barIgnoresInput(t), isFalse);
+
+    showList.value = false;
+    await t.pumpAndSettle();
+    expect(scroll.hasClients, isFalse);
+
+    showList.value = true;
+    await t.pumpAndSettle();
+    expect(scroll.position.pixels, 100);
+    expect(t.takeException(), isNull);
+    expect(_barIgnoresInput(t), isFalse);
+
+    scroll.jumpTo(300);
+    await t.pumpAndSettle();
+    expect(_barIgnoresInput(t), isTrue);
   });
 
   testWidgets('hideOnScroll safely handles multiple attached positions', (

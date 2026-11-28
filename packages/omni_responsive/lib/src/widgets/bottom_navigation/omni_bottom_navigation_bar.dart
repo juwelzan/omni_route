@@ -312,11 +312,33 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       _lastScrollPixelsByPosition[position] = position.pixels;
     }
     controller.addListener(_onScroll);
+    _scheduleScrollPositionSync(controller);
   }
 
   void _detachScroll(ScrollController? controller) {
     controller?.removeListener(_onScroll);
     _lastScrollPixelsByPosition.clear();
+  }
+
+  void _scheduleScrollPositionSync(ScrollController controller) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !widget.hideOnScroll ||
+          widget.scrollController != controller) {
+        return;
+      }
+
+      final positions = controller.positions.toSet();
+      _lastScrollPixelsByPosition.removeWhere(
+        (position, _) => !positions.contains(position),
+      );
+      for (final position in positions) {
+        _lastScrollPixelsByPosition.putIfAbsent(
+          position,
+          () => position.pixels,
+        );
+      }
+    });
   }
 
   void _onScroll() {
@@ -334,7 +356,14 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
     for (final position in controller.positions) {
       final pixels = position.pixels;
-      final lastPixels = _lastScrollPixelsByPosition[position] ?? 0.0;
+      final lastPixels = _lastScrollPixelsByPosition[position];
+      if (lastPixels == null) {
+        _lastScrollPixelsByPosition[position] = pixels;
+        if (pixels <= position.minScrollExtent + 12) {
+          atScrollStart = true;
+        }
+        continue;
+      }
       final delta = pixels - lastPixels;
       _lastScrollPixelsByPosition[position] = pixels;
 
@@ -461,6 +490,10 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   Widget build(BuildContext context) {
     if (widget.items.isEmpty) {
       return const SizedBox.shrink();
+    }
+    final scrollController = widget.scrollController;
+    if (widget.hideOnScroll && scrollController != null) {
+      _scheduleScrollPositionSync(scrollController);
     }
     final subscribeRoute =
         widget.currentIndex == null &&
