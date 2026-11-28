@@ -232,13 +232,12 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   @override
   void initState() {
     super.initState();
-    assert(
-      widget.items.length >= 2,
-      'OmniBottomNavigationBar needs at least 2 items.',
-    );
-    final initial = (widget.currentIndex ?? widget.controller?.index ?? 0)
-        .clamp(0, widget.items.length - 1)
-        .toDouble();
+    final maxIndex = widget.items.isEmpty ? 0 : widget.items.length - 1;
+    final initial = widget.items.isEmpty
+        ? 0.0
+        : (widget.currentIndex ?? widget.controller?.index ?? 0)
+              .clamp(0, maxIndex)
+              .toDouble();
     _fromIndex = initial;
     _toIndex = initial;
     _travelCtrl = AnimationController(
@@ -253,10 +252,6 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   @override
   void didUpdateWidget(covariant OmniBottomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
-    assert(
-      widget.items.length >= 2,
-      'OmniBottomNavigationBar needs at least 2 items.',
-    );
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_onControllerChanged);
       widget.controller?.addListener(_onControllerChanged);
@@ -274,6 +269,11 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       _travelCtrl.duration = nextDuration;
     }
     if (oldWidget.items.length != widget.items.length) {
+      if (widget.items.isEmpty) {
+        _fromIndex = 0;
+        _toIndex = 0;
+        return;
+      }
       final maxIdx = (widget.items.length - 1).toDouble();
       _fromIndex = _fromIndex.clamp(0.0, maxIdx);
       _toIndex = _toIndex.clamp(0.0, maxIdx);
@@ -360,6 +360,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     BuildContext context,
     OmniRouteNavigationBridge? bridge,
   ) {
+    if (widget.items.isEmpty) return 0;
     final raw = widget.currentIndex ?? widget.controller?.index;
     if (raw != null) {
       return raw.clamp(0, widget.items.length - 1);
@@ -392,6 +393,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   }
 
   void _animateToIndex(int target) {
+    if (widget.items.isEmpty) return;
     final clamped = target.clamp(0, widget.items.length - 1).toDouble();
     if (_toIndex == clamped) return;
     _fromIndex =
@@ -455,6 +457,9 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.items.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final subscribeRoute =
         widget.currentIndex == null &&
         widget.controller == null &&

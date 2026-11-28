@@ -35,6 +35,69 @@ List<OmniBottomNavigationItem> _sampleItems({bool withBadges = false}) => [
 ];
 
 void main() {
+  testWidgets('item validation: empty list renders nothing safely', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: OmniBottomNavigationBar(
+            items: const [],
+            currentIndex: 10,
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    expect(find.byType(OmniBottomNavigationBar), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(OmniBottomNavigationBar),
+        matching: find.byType(IgnorePointer),
+      ),
+      findsNothing,
+    );
+  });
+
+  testWidgets('item validation: one item is rendered at index zero', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: OmniBottomNavigationBar(
+            items: const [
+              OmniBottomNavigationItem(
+                icon: Icon(Icons.home_outlined),
+                label: 'Only',
+              ),
+            ],
+            currentIndex: 20,
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    expect(find.text('Only'), findsOneWidget);
+  });
+
+  testWidgets('item validation: normal item list remains unchanged', (t) async {
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: OmniBottomNavigationBar(
+            items: _sampleItems(),
+            currentIndex: 1,
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(t.takeException(), isNull);
+    expect(find.text('Explore'), findsOneWidget);
+  });
+
   testWidgets('renders all 12 CollectUI styles without layout overflow', (
     t,
   ) async {
