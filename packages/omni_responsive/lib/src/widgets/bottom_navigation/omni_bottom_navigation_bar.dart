@@ -227,6 +227,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   late double _fromIndex;
   late double _toIndex;
   bool _scrollVisible = true;
+  bool _travelSyncQueued = false;
+  int _travelSyncGeneration = 0;
   final Map<ScrollPosition, double> _lastScrollPixelsByPosition = {};
 
   @override
@@ -257,6 +259,9 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_onControllerChanged);
       widget.controller?.addListener(_onControllerChanged);
+      if (widget.currentIndex == null && widget.controller != null) {
+        _animateToIndex(widget.controller!.index);
+      }
     }
     if (oldWidget.scrollController != widget.scrollController ||
         oldWidget.hideOnScroll != widget.hideOnScroll) {
@@ -471,10 +476,22 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
   double _currentTravelIndex(int activeIndex, Curve curve) {
     if (activeIndex.toDouble() != _toIndex) {
-      // Sync smoothly when route navigation changes activeIndex cleanly.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _animateToIndex(activeIndex);
-      });
+      // Coalesce build-triggered route updates and use the latest index.
+      if (!_travelSyncQueued) {
+        _travelSyncQueued = true;
+        final generation = ++_travelSyncGeneration;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || generation != _travelSyncGeneration) return;
+          _travelSyncQueued = false;
+          final latestIndex = _resolveActiveIndex(
+            context,
+            widget.currentIndex == null && widget.controller == null
+                ? OmniRouteNavigationBridge.maybeOf(context)
+                : OmniRouteNavigationBridge.readMaybeOf(context),
+          );
+          _animateToIndex(latestIndex);
+        });
+      }
     }
     final t = curve.transform(_travelCtrl.value);
     return lerpDouble(_fromIndex, _toIndex, t) ?? activeIndex.toDouble();
