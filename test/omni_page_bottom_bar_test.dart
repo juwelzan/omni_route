@@ -113,53 +113,6 @@ void main() {
     },
   );
 
-  testWidgets('outgoing page keeps its own tab during the transition', (
-    t,
-  ) async {
-    const bar = OmniBottomNavigationBar(
-      style: OmniBottomNavigationStyle.floatingBubble,
-      items: [
-        OmniBottomNavigationItem(
-          icon: Icon(Icons.home_outlined),
-          label: 'Feed',
-          routePath: '/feed',
-        ),
-        OmniBottomNavigationItem(
-          icon: Icon(Icons.explore_outlined),
-          label: 'Explore',
-          routePath: '/explore',
-        ),
-      ],
-    );
-    await t.pumpWidget(
-      OmniApp.material(
-        initialRoute: '/feed',
-        transition: OmniPages.fade,
-        routes: [
-          OmniPage('/feed', (_) => const Text('F'), bottomNavigationBar: bar),
-          OmniPage(
-            '/explore',
-            (_) => const Text('E'),
-            bottomNavigationBar: bar,
-          ),
-        ],
-      ),
-    );
-    await t.pumpAndSettle();
-    await t.tap(find.byIcon(Icons.explore_outlined));
-    await t.pump();
-    await t.pump(const Duration(milliseconds: 60));
-
-    // Both pages are on screen; each bar shows its own page's tab (the
-    // bubble style labels only the selected tab).
-    expect(find.text('F'), findsOneWidget);
-    expect(find.text('E'), findsOneWidget);
-    expect(find.text('Feed'), findsOneWidget);
-    expect(find.text('Explore'), findsOneWidget);
-    await t.pumpAndSettle();
-    expect(find.text('Feed'), findsNothing);
-  });
-
   testWidgets(
     'OmniPage supports extendBottomNavigationBar: false and OmniScreen hook',
     (t) async {

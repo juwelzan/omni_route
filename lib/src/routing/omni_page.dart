@@ -547,6 +547,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.bottomNavigationBarBuilder,
     this.extendBottomNavigationBar = true,
     this.hideBottomBarOnKeyboard = true,
+    this.bottomNavigationBarTransition = OmniPageBarTransition.slide,
   }) : _screen = null;
 
   /// Creates a route directly from a widget [screen], automatically using
@@ -576,6 +577,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.bottomNavigationBarBuilder,
     this.extendBottomNavigationBar = true,
     this.hideBottomBarOnKeyboard = true,
+    this.bottomNavigationBarTransition = OmniPageBarTransition.slide,
   }) : // Named `path` cannot be a private initializing formal alongside computed `get path`.
        // ignore: prefer_initializing_formals
        _path = path,
@@ -615,6 +617,11 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   /// Whether [bottomNavigationBar] collapses its bottom clearance when the
   /// software keyboard opens (default `true`).
   final bool hideBottomBarOnKeyboard;
+
+  /// How [bottomNavigationBar] behaves while pages change. By default it
+  /// stays fixed and only the page under it changes; pages that share a bar
+  /// keep one bar, whose indicator animates to the new tab.
+  final OmniPageBarTransition bottomNavigationBarTransition;
 
   final String? _path;
   final OmniScreenBuilder<S>? _screenBuilder;
@@ -804,13 +811,16 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
         // follows the newest route, so without this the page underneath a
         // transition would also slide its indicator to the new tab.
         return OmniPageBottomBarHost(
-          bottomNavigationBar: Builder(
-            builder: (barContext) => OmniRouteNavigationBridge(
-              currentLocation: state.matchedLocation,
-              onNavigate: OmniRouteNavigationBridge.readMaybeOf(
-                barContext,
-              )?.onNavigate,
-              child: bar,
+          bottomNavigationBar: OmniPageBarSlot(
+            transition: bottomNavigationBarTransition,
+            bar: Builder(
+              builder: (barContext) => OmniRouteNavigationBridge(
+                currentLocation: state.matchedLocation,
+                onNavigate: OmniRouteNavigationBridge.readMaybeOf(
+                  barContext,
+                )?.onNavigate,
+                child: bar,
+              ),
             ),
           ),
           extendBody: extendBottomNavigationBar,

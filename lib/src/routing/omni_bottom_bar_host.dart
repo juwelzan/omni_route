@@ -1,6 +1,9 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/scheduler.dart';
+import 'package:meta/meta.dart';
 
 import 'omni_route_state.dart';
 
@@ -149,5 +152,427 @@ class OmniPageBottomBarHost extends StatelessWidget {
         LayoutId(id: _PageBarSlot.bottomBar, child: bottomNavigationBar),
       ],
     );
+  }
+}
+
+// ── Persistent page bars ─────────────────────────────────────────────────────
+
+/// How an [OmniPage]'s `bottomNavigationBar` behaves while pages change.
+enum OmniPageBarTransition {
+  /// The bar stays fixed while the page under it changes; only its own
+  /// animation runs (indicator, notch). To or from a page without a bar it
+  /// slides down / up in step with the page transition. Default.
+  slide,
+
+  /// Like [slide], but to or from a page without a bar it fades.
+  fade,
+
+  /// The bar is part of the page and moves with the page transition.
+  withPage,
+}
+
+/// Keeps one bar per navigator fixed while its pages change.
+///
+/// Every page bar in this navigator is the same element, moved (GlobalKey)
+/// between the page that shows it and this host: while a page transition
+/// runs, the host draws the bar above the navigator — fixed in place — and
+/// the pages keep a same-sized empty slot; afterwards the new page takes it
+/// back. One element means one state, so the indicator animates from the
+/// old tab to the new one. Dialogs and sheets pushed on the navigator still
+/// cover the bar, because outside transitions it lives inside the page.
+@internal
+class OmniPageBarHost extends StatefulWidget {
+  /// Wraps the navigator built by [builder]; pass the given observer to it.
+  const OmniPageBarHost({super.key, required this.builder});
+
+  /// Builds the navigator with the host's observer added.
+  final Widget Function(BuildContext context, NavigatorObserver observer)
+  builder;
+
+  @override
+  State<OmniPageBarHost> createState() => _OmniPageBarHostState();
+}
+
+/// Token for "the host draws the bar right now".
+const Object _hostOwns = Object();
+
+class _BarClaim {
+  _BarClaim(this.route, this.bar, this.transition);
+
+  final Route<dynamic> route;
+  Widget bar;
+  OmniPageBarTransition transition;
+}
+
+class _Session {
+  _Session({
+    required this.incoming,
+    required this.outgoing,
+    required this.animation,
+    required this.pop,
+    required this.gesture,
+  });
+
+  /// Page becoming current.
+  final Route<dynamic>? incoming;
+
+  /// Page leaving.
+  final Route<dynamic>? outgoing;
+
+  /// The moving route's animation.
+  final Animation<double> animation;
+  final bool pop;
+
+  /// A back swipe that may still be cancelled.
+  final bool gesture;
+
+  /// 0 → 1 as [incoming] arrives.
+  double get progress => pop ? 1 - animation.value : animation.value;
+}
+
+class _OmniPageBarHostState extends State<OmniPageBarHost> {
+  final GlobalKey _barKey = GlobalKey(debugLabel: 'OmniPageBar');
+  late final _BarObserver _observer = _BarObserver(this);
+  final Map<Route<dynamic>, _BarClaim> _claims = {};
+
+  /// The route whose page draws the bar, [_hostOwns], or `null` (the
+  /// current page draws it until the host settles).
+  final ValueNotifier<Object?> owner = ValueNotifier<Object?>(null);
+
+  /// Last laid-out bar height, for the empty slots.
+  final ValueNotifier<double> barHeight = ValueNotifier<double>(0);
+
+  _Session? _session;
+  Route<dynamic>? _topPage;
+
+  @override
+  void dispose() {
+    _session?.animation.removeStatusListener(_onSessionStatus);
+    owner.dispose();
+    barHeight.dispose();
+    super.dispose();
+  }
+
+  static bool _isPage(Route<dynamic>? route) =>
+      route is PageRoute && route.opaque;
+
+  /// Observer callbacks can arrive mid-build; act after the frame.
+  void _defer(VoidCallback action) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        if (mounted) action();
+      });
+    } else {
+      action();
+    }
+  }
+
+  void _begin({
+    required Route<dynamic>? incoming,
+    required Route<dynamic>? outgoing,
+    required Animation<double>? animation,
+    bool pop = false,
+    bool gesture = false,
+  }) {
+    debugPrint('DBG begin in=${incoming?.settings.name} out=${outgoing?.settings.name} anim=${animation?.status} pop=$pop claims=${_claims.keys.map((r) => r.settings.name).toList()}');
+    _defer(() {
+      debugPrint('DBG run claims=${_claims.keys.map((r) => r.settings.name).toList()} status=${animation?.status}');
+      _endSession(settle: false);
+      final claim = _claims[incoming] ?? _claims[outgoing];
+      final animating =
+          animation != null &&
+          (animation.status == AnimationStatus.forward ||
+              animation.status == AnimationStatus.reverse ||
+              gesture);
+      if (claim == null ||
+          claim.transition == OmniPageBarTransition.withPage ||
+          !animating) {
+        _settle();
+        return;
+      }
+      _session = _Session(
+        incoming: incoming,
+        outgoing: outgoing,
+        animation: animation,
+        pop: pop,
+        gesture: gesture,
+      );
+      animation.addStatusListener(_onSessionStatus);
+      owner.value = _hostOwns;
+      setState(() {});
+    });
+  }
+
+  void _onSessionStatus(AnimationStatus status) {
+    if (status == AnimationStatus.completed ||
+        status == AnimationStatus.dismissed) {
+      _endSession(settle: true);
+    }
+  }
+
+  void _endSession({required bool settle}) {
+    final session = _session;
+    if (session == null) return;
+    session.animation.removeStatusListener(_onSessionStatus);
+    _session = null;
+    if (settle) _settle();
+  }
+
+  /// Hands the bar back to the top page.
+  void _settle() {
+    if (!mounted) return;
+    final top = _topPage;
+    final claim = top == null ? null : _claims[top];
+    owner.value = claim != null && top!.isActive ? top : null;
+    setState(() {});
+  }
+
+  void _register(_BarClaim claim) => _claims[claim.route] = claim;
+
+  void _unregister(_BarClaim claim) {
+    if (!identical(_claims[claim.route], claim)) return;
+    _claims.remove(claim.route);
+    if (owner.value == claim.route) _defer(_settle);
+  }
+
+  void _reportHeight(double height) {
+    if (height == barHeight.value) return;
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) barHeight.value = height;
+    });
+  }
+
+  Widget _keyed(Widget bar) => KeyedSubtree(
+    key: _barKey,
+    child: _BarSizeReporter(onHeight: _reportHeight, child: bar),
+  );
+
+  Widget? _buildOverlay() {
+    final session = _session;
+    if (session == null) return null;
+    final to = _claims[session.incoming];
+    final from = _claims[session.outgoing];
+    if (to == null && from == null) return null;
+    final mode = (to ?? from)!.transition;
+    return Positioned(
+      left: 0,
+      right: 0,
+      bottom: 0,
+      child: IgnorePointer(
+        child: AnimatedBuilder(
+          animation: session.animation,
+          builder: (context, _) {
+            // Both pages have a bar: it stays put and shows the page that
+            // is arriving (a back swipe keeps the current one until it
+            // commits).
+            if (to != null && from != null) {
+              return _keyed(session.gesture ? from.bar : to.bar);
+            }
+            final p = Curves.easeOutCubic.transform(
+              session.progress.clamp(0.0, 1.0),
+            );
+            final shown = to ?? from!;
+            final visible = to != null ? p : 1 - p; // 1 = fully on screen
+            final child = _keyed(shown.bar);
+            return mode == OmniPageBarTransition.fade
+                ? Opacity(opacity: visible, child: child)
+                : FractionalTranslation(
+                    translation: Offset(0, 1 - visible),
+                    child: child,
+                  );
+          },
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final overlay = _buildOverlay();
+    return _PageBarHostScope(
+      host: this,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [widget.builder(context, _observer), ?overlay],
+      ),
+    );
+  }
+}
+
+class _BarObserver extends NavigatorObserver {
+  _BarObserver(this.host);
+
+  final _OmniPageBarHostState host;
+
+  bool _isPage(Route<dynamic>? r) => _OmniPageBarHostState._isPage(r);
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (!_isPage(route)) return;
+    final outgoing = _isPage(previousRoute) ? previousRoute : host._topPage;
+    host._topPage = route;
+    host._begin(
+      incoming: route,
+      outgoing: outgoing,
+      animation: (route as PageRoute).animation,
+    );
+  }
+
+  @override
+  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    if (!_isPage(route)) return;
+    final incoming = _isPage(previousRoute) ? previousRoute : null;
+    host._topPage = incoming;
+    host._begin(
+      incoming: incoming,
+      outgoing: route,
+      animation: (route as PageRoute).animation,
+      pop: true,
+    );
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    debugPrint('DBG remove ${route.settings.name}');
+    if (host._topPage == route) {
+      host._topPage = _isPage(previousRoute) ? previousRoute : null;
+      host._defer(host._settle);
+    }
+  }
+
+  @override
+  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
+    if (!_isPage(newRoute)) return;
+    host._topPage = newRoute;
+    host._begin(
+      incoming: newRoute,
+      outgoing: oldRoute,
+      animation: (newRoute! as PageRoute).animation,
+    );
+  }
+
+  @override
+  void didStartUserGesture(
+    Route<dynamic> route,
+    Route<dynamic>? previousRoute,
+  ) {
+    if (!_isPage(route)) return;
+    host._begin(
+      incoming: _isPage(previousRoute) ? previousRoute : null,
+      outgoing: route,
+      animation: (route as PageRoute).animation,
+      pop: true,
+      gesture: true,
+    );
+  }
+}
+
+class _PageBarHostScope extends InheritedWidget {
+  const _PageBarHostScope({required this.host, required super.child});
+
+  final _OmniPageBarHostState host;
+
+  @override
+  bool updateShouldNotify(_PageBarHostScope old) => old.host != host;
+}
+
+/// Puts a page's bar into its navigator's [OmniPageBarHost] (or, with
+/// [OmniPageBarTransition.withPage] or no host, simply shows it).
+@internal
+class OmniPageBarSlot extends StatefulWidget {
+  /// Claims [bar] for the enclosing page.
+  const OmniPageBarSlot({
+    super.key,
+    required this.bar,
+    this.transition = OmniPageBarTransition.slide,
+  });
+
+  /// The page's bar.
+  final Widget bar;
+
+  /// How it behaves while pages change.
+  final OmniPageBarTransition transition;
+
+  @override
+  State<OmniPageBarSlot> createState() => _OmniPageBarSlotState();
+}
+
+class _OmniPageBarSlotState extends State<OmniPageBarSlot> {
+  _OmniPageBarHostState? _host;
+  _BarClaim? _claim;
+
+  @override
+  void dispose() {
+    final claim = _claim;
+    if (claim != null) _host?._unregister(claim);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final host = context
+        .dependOnInheritedWidgetOfExactType<_PageBarHostScope>()
+        ?.host;
+    final route = ModalRoute.of(context);
+    if (host == null ||
+        route == null ||
+        widget.transition == OmniPageBarTransition.withPage) {
+      final claim = _claim;
+      if (claim != null) _host?._unregister(claim);
+      _claim = null;
+      return widget.bar;
+    }
+    if (!identical(host, _host) || _claim?.route != route) {
+      final old = _claim;
+      if (old != null) _host?._unregister(old);
+      _claim = null;
+    }
+    _host = host;
+    final claim = _claim ??= _BarClaim(route, widget.bar, widget.transition);
+    claim
+      ..bar = widget.bar
+      ..transition = widget.transition;
+    host._register(claim);
+
+    return ValueListenableBuilder<Object?>(
+      valueListenable: host.owner,
+      builder: (context, owner, _) {
+        final owns = owner == route || (owner == null && route.isCurrent);
+        if (owns) return host._keyed(widget.bar);
+        return ValueListenableBuilder<double>(
+          valueListenable: host.barHeight,
+          builder: (context, h, _) => SizedBox(height: h),
+        );
+      },
+    );
+  }
+}
+
+class _BarSizeReporter extends SingleChildRenderObjectWidget {
+  const _BarSizeReporter({required this.onHeight, super.child});
+
+  final ValueChanged<double> onHeight;
+
+  @override
+  _RenderBarSizeReporter createRenderObject(BuildContext context) =>
+      _RenderBarSizeReporter(onHeight);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderBarSizeReporter renderObject,
+  ) => renderObject.onHeight = onHeight;
+}
+
+class _RenderBarSizeReporter extends RenderProxyBox {
+  _RenderBarSizeReporter(this.onHeight);
+
+  ValueChanged<double> onHeight;
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    onHeight(size.height);
   }
 }

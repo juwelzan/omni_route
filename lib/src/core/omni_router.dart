@@ -9,6 +9,7 @@ import '../bloc/omni_bloc.dart';
 import '../bloc/omni_bloc_scope.dart';
 import '../errors/omni_route_exception.dart';
 import '../guards/omni_guard.dart';
+import '../routing/omni_bottom_bar_host.dart';
 import '../routing/omni_page.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
@@ -1734,12 +1735,16 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     required List<Page<Object?>> pages,
     required List<NavigatorObserver> observers,
     String? restorationScopeId,
-  }) => Navigator(
-    key: key,
-    restorationScopeId: restorationScopeId,
-    pages: pages,
-    observers: [...observers, _observerFor(key)],
-    onDidRemovePage: _handlePageRemoved,
+  }) => OmniPageBarHost(
+    // Keeps OmniPage bottom bars fixed while this navigator's pages change.
+    key: ObjectKey(key),
+    builder: (context, barObserver) => Navigator(
+      key: key,
+      restorationScopeId: restorationScopeId,
+      pages: pages,
+      observers: [...observers, _observerFor(key), barObserver],
+      onDidRemovePage: _handlePageRemoved,
+    ),
   );
 
   List<Page<Object?>> _buildNavigatorPages(
