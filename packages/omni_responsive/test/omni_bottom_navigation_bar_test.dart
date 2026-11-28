@@ -712,7 +712,80 @@ void main() {
     );
   });
 
-  testWidgets('hideOnKeyboard hides bar when soft keyboard opens', (t) async {
+  testWidgets('hideOnKeyboard animates bar as keyboard opens and closes', (
+    t,
+  ) async {
+    final keyboardOpen = ValueNotifier(false);
+    addTearDown(keyboardOpen.dispose);
+
+    await t.pumpWidget(
+      MaterialApp(
+        home: ValueListenableBuilder<bool>(
+          valueListenable: keyboardOpen,
+          builder: (_, isOpen, _) => MediaQuery(
+            data: MediaQueryData(
+              size: const Size(400, 800),
+              viewInsets: EdgeInsets.only(bottom: isOpen ? 300 : 0),
+            ),
+            child: Scaffold(
+              body: const SizedBox.expand(),
+              bottomNavigationBar: OmniBottomNavigationBar(
+                style: OmniBottomNavigationStyle.floating,
+                animationDuration: const Duration(milliseconds: 400),
+                currentIndex: 0,
+                onTap: (_) {},
+                items: _sampleItems(),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(_barIgnoresInput(t), isFalse);
+
+    keyboardOpen.value = true;
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Home'), findsOneWidget);
+    expect(_barIgnoresInput(t), isTrue);
+    final slideFinder = find.descendant(
+      of: find.byType(OmniBottomNavigationBar),
+      matching: find.byType(SlideTransition),
+    );
+    final openingOffset = t
+        .widget<SlideTransition>(slideFinder.first)
+        .position
+        .value
+        .dy;
+    expect(openingOffset, greaterThan(0));
+    expect(openingOffset, lessThan(1.15));
+
+    await t.pumpAndSettle();
+    expect(_barIgnoresInput(t), isTrue);
+    expect(find.text('Home'), findsOneWidget);
+
+    keyboardOpen.value = false;
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 100));
+    expect(find.text('Home'), findsOneWidget);
+    final closingOffset = t
+        .widget<SlideTransition>(slideFinder.first)
+        .position
+        .value
+        .dy;
+    expect(closingOffset, greaterThan(0));
+    expect(closingOffset, lessThan(1.15));
+
+    await t.pumpAndSettle();
+    expect(_barIgnoresInput(t), isFalse);
+    expect(
+      t.widget<SlideTransition>(slideFinder.first).position.value,
+      Offset.zero,
+    );
+  });
+
+  testWidgets('hideOnKeyboard false keeps the bar visible', (t) async {
     await t.pumpWidget(
       MaterialApp(
         home: MediaQuery(
@@ -724,8 +797,7 @@ void main() {
             body: const SizedBox.expand(),
             bottomNavigationBar: OmniBottomNavigationBar(
               style: OmniBottomNavigationStyle.floating,
-              currentIndex: 0,
-              onTap: (_) {},
+              hideOnKeyboard: false,
               items: _sampleItems(),
             ),
           ),
@@ -733,6 +805,7 @@ void main() {
       ),
     );
     await t.pumpAndSettle();
-    expect(find.text('Home'), findsNothing);
+    expect(_barIgnoresInput(t), isFalse);
+    expect(find.text('Home'), findsOneWidget);
   });
 }

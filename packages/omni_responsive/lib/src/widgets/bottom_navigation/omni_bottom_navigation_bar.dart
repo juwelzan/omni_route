@@ -531,10 +531,6 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       },
     );
 
-    if (keyboardOpen) {
-      return const SizedBox.shrink();
-    }
-
     return IgnorePointer(
       ignoring: !visible,
       child: AnimatedSlide(
