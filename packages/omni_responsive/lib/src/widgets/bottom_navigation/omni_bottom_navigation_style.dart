@@ -348,6 +348,7 @@ class OmniBottomNavigationStyleData
     this.indicatorCurve,
     this.enableHaptics,
     this.enableScaleAnimation,
+    this.notch,
   });
 
   /// Default style preset.
@@ -470,6 +471,9 @@ class OmniBottomNavigationStyleData
   /// Enables press-down micro-bounce on tab taps.
   final bool? enableScaleAnimation;
 
+  /// Orb and cut-out of the notched styles.
+  final OmniBottomNavigationNotch? notch;
+
   @override
   OmniBottomNavigationStyleData copyWith({
     OmniBottomNavigationStyle? style,
@@ -512,6 +516,7 @@ class OmniBottomNavigationStyleData
     Curve? indicatorCurve,
     bool? enableHaptics,
     bool? enableScaleAnimation,
+    OmniBottomNavigationNotch? notch,
   }) => OmniBottomNavigationStyleData(
     style: style ?? this.style,
     labelMode: labelMode ?? this.labelMode,
@@ -554,6 +559,7 @@ class OmniBottomNavigationStyleData
     indicatorCurve: indicatorCurve ?? this.indicatorCurve,
     enableHaptics: enableHaptics ?? this.enableHaptics,
     enableScaleAnimation: enableScaleAnimation ?? this.enableScaleAnimation,
+    notch: notch ?? this.notch,
   );
 
   @override
@@ -641,6 +647,7 @@ class OmniBottomNavigationStyleData
       enableScaleAnimation: t < 0.5
           ? enableScaleAnimation
           : other.enableScaleAnimation,
+      notch: OmniBottomNavigationNotch.lerp(notch, other.notch, t),
     );
   }
 }
@@ -712,6 +719,7 @@ class _ResolvedNavLook {
     required this.indicatorCurve,
     required this.enableHaptics,
     required this.enableScaleAnimation,
+    required this.notch,
   });
 
   final OmniBottomNavigationStyle style;
@@ -747,6 +755,7 @@ class _ResolvedNavLook {
   final Curve indicatorCurve;
   final bool enableHaptics;
   final bool enableScaleAnimation;
+  final OmniBottomNavigationNotch notch;
 
   static _ResolvedNavLook resolve(
     BuildContext context,
@@ -1134,6 +1143,9 @@ class _ResolvedNavLook {
             ext?.enableScaleAnimation,
           ) ??
           true,
+      notch:
+          pick(widget.notch, inline?.notch, ext?.notch) ??
+          OmniBottomNavigationNotch.standard,
     );
   }
 }

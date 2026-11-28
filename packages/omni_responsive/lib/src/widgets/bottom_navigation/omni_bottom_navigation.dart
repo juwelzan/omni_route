@@ -11,11 +11,13 @@ library;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, lerpDouble;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../omni_colors.dart';
 
 part 'omni_bottom_navigation_style.dart';
+part 'omni_bottom_navigation_notch.dart';
 part 'omni_bottom_navigation_painters.dart';
 part 'omni_bottom_navigation_bar.dart';

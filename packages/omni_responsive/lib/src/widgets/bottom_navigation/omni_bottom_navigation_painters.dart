@@ -1,67 +1,104 @@
 part of 'omni_bottom_navigation.dart';
 
-/// Builds a mathematically smooth $C^1$ cubic Bézier inward wave/cradle notch
-/// path along the top edge of a docked or rounded bar.
-Path _buildCurvedNotchPath({
+/// The bar's outline with [cut] taken out of its top edge at [notchCenterX].
+///
+/// The notch is never shifted away from [notchCenterX] (the orb is drawn
+/// there): near the bar's ends the top corner on that side shrinks instead,
+/// so orb and cut always line up.
+Path _buildNotchedBarPath({
   required Size size,
   required double topOffset,
   required double notchCenterX,
-  required double notchRadius,
-  required double notchDepth,
+  required _NotchCut cut,
   required double cornerRadius,
 }) {
   final rCorner = cornerRadius
       .clamp(0.0, math.min(size.width * 0.25, 36.0))
       .toDouble();
-  final cx = notchCenterX
-      .clamp(
-        rCorner + notchRadius * 0.9,
-        math.max(
-          rCorner + notchRadius * 0.9,
-          size.width - rCorner - notchRadius * 0.9,
-        ),
-      )
-      .toDouble();
-  final leftShoulder = math.max(rCorner, cx - notchRadius * 1.48);
-  final rightShoulder = math.min(size.width - rCorner, cx + notchRadius * 1.48);
+  final top = topOffset;
   final bottom = size.height;
+  final cx = notchCenterX;
+  final r = cut.radius;
 
-  final path = Path()..moveTo(0, topOffset + rCorner);
-
-  if (rCorner > 0) {
-    path.quadraticBezierTo(0, topOffset, rCorner, topOffset);
+  // Half-width of the cut along the top edge; 0 when there is none.
+  var halfWidth = 0.0;
+  var dx = 0.0;
+  var fillet = 0.0;
+  var shape = cut.shape;
+  if (shape == OmniNotchShape.smooth && cut.depth > 0.01) {
+    halfWidth = r * cut.spread;
+  } else if (shape == OmniNotchShape.circular &&
+      cut.centerDepth.abs() < r - 0.01) {
+    dx = math.sqrt(r * r - cut.centerDepth * cut.centerDepth);
+    fillet = math.min(6.0, r * 0.25);
+    halfWidth = dx + fillet;
   } else {
-    path.lineTo(0, topOffset);
+    shape = OmniNotchShape.none;
   }
 
-  path
-    ..lineTo(leftShoulder, topOffset)
-    ..cubicTo(
-      cx - notchRadius * 0.78,
-      topOffset,
-      cx - notchRadius * 0.68,
-      topOffset + notchDepth,
-      cx,
-      topOffset + notchDepth,
-    )
-    ..cubicTo(
-      cx + notchRadius * 0.68,
-      topOffset + notchDepth,
-      cx + notchRadius * 0.78,
-      topOffset,
-      rightShoulder,
-      topOffset,
-    )
-    ..lineTo(size.width - rCorner, topOffset);
+  final rL = shape == OmniNotchShape.none
+      ? rCorner
+      : math.min(rCorner, math.max(0.0, cx - halfWidth));
+  final rR = shape == OmniNotchShape.none
+      ? rCorner
+      : math.min(rCorner, math.max(0.0, size.width - (cx + halfWidth)));
 
+  final path = Path()..moveTo(0, top + rL);
+  if (rL > 0) {
+    path.quadraticBezierTo(0, top, rL, top);
+  } else {
+    path.lineTo(0, top);
+  }
+
+  switch (shape) {
+    case OmniNotchShape.smooth:
+      final k = cut.spread / 1.48;
+      path
+        ..lineTo(cx - halfWidth, top)
+        ..cubicTo(
+          cx - r * 0.78 * k,
+          top,
+          cx - r * 0.68 * k,
+          top + cut.depth,
+          cx,
+          top + cut.depth,
+        )
+        ..cubicTo(
+          cx + r * 0.68 * k,
+          top + cut.depth,
+          cx + r * 0.78 * k,
+          top,
+          cx + halfWidth,
+          top,
+        );
+    case OmniNotchShape.circular:
+      final cy = top + cut.centerDepth;
+      final rect = Rect.fromCircle(center: Offset(cx, cy), radius: r);
+      final thetaL = math.atan2(top - cy, -dx);
+      final thetaR = math.atan2(top - cy, dx);
+      final delta = fillet / r;
+      final start = thetaL - delta;
+      final sweep = thetaR - thetaL - 2 * math.pi + 2 * delta;
+      path
+        ..lineTo(cx - halfWidth, top)
+        ..quadraticBezierTo(
+          cx - dx,
+          top,
+          cx + r * math.cos(start),
+          cy + r * math.sin(start),
+        )
+        ..arcTo(rect, start, sweep, false)
+        ..quadraticBezierTo(cx + dx, top, cx + halfWidth, top);
+    case OmniNotchShape.none:
+      break;
+  }
+
+  path.lineTo(size.width - rR, top);
+  if (rR > 0) {
+    path.quadraticBezierTo(size.width, top, size.width, top + rR);
+  }
   if (rCorner > 0) {
     path
-      ..quadraticBezierTo(
-        size.width,
-        topOffset,
-        size.width,
-        topOffset + rCorner,
-      )
       ..lineTo(size.width, bottom - rCorner)
       ..quadraticBezierTo(size.width, bottom, size.width - rCorner, bottom)
       ..lineTo(rCorner, bottom)
@@ -71,15 +108,13 @@ Path _buildCurvedNotchPath({
       ..lineTo(size.width, bottom)
       ..lineTo(0, bottom);
   }
-
   return path..close();
 }
 
 class _CurvedNotchBarPainter extends CustomPainter {
   const _CurvedNotchBarPainter({
     required this.notchCenterX,
-    required this.notchRadius,
-    required this.notchDepth,
+    required this.cut,
     required this.topOffset,
     required this.cornerRadius,
     required this.backgroundColor,
@@ -90,8 +125,7 @@ class _CurvedNotchBarPainter extends CustomPainter {
   });
 
   final double notchCenterX;
-  final double notchRadius;
-  final double notchDepth;
+  final _NotchCut cut;
   final double topOffset;
   final double cornerRadius;
   final Color backgroundColor;
@@ -102,21 +136,19 @@ class _CurvedNotchBarPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final path = _buildCurvedNotchPath(
+    final path = _buildNotchedBarPath(
       size: size,
       topOffset: topOffset,
       notchCenterX: notchCenterX,
-      notchRadius: notchRadius,
-      notchDepth: notchDepth,
+      cut: cut,
       cornerRadius: cornerRadius,
     );
 
     for (final s in shadows) {
-      final shadowPaint = s.toPaint();
       canvas
         ..save()
         ..translate(s.offset.dx, s.offset.dy)
-        ..drawPath(path, shadowPaint)
+        ..drawPath(path, s.toPaint())
         ..restore();
     }
 
@@ -143,47 +175,42 @@ class _CurvedNotchBarPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _CurvedNotchBarPainter old) =>
       old.notchCenterX != notchCenterX ||
-      old.notchRadius != notchRadius ||
-      old.notchDepth != notchDepth ||
+      old.cut != cut ||
       old.topOffset != topOffset ||
       old.cornerRadius != cornerRadius ||
       old.backgroundColor != backgroundColor ||
       old.backgroundGradient != backgroundGradient ||
       old.borderColor != borderColor ||
       old.borderWidth != borderWidth ||
-      old.shadows != shadows;
+      !listEquals(old.shadows, shadows);
 }
 
 class _CurvedNotchClipper extends CustomClipper<Path> {
   const _CurvedNotchClipper({
     required this.notchCenterX,
-    required this.notchRadius,
-    required this.notchDepth,
+    required this.cut,
     required this.topOffset,
     required this.cornerRadius,
   });
 
   final double notchCenterX;
-  final double notchRadius;
-  final double notchDepth;
+  final _NotchCut cut;
   final double topOffset;
   final double cornerRadius;
 
   @override
-  Path getClip(Size size) => _buildCurvedNotchPath(
+  Path getClip(Size size) => _buildNotchedBarPath(
     size: size,
     topOffset: topOffset,
     notchCenterX: notchCenterX,
-    notchRadius: notchRadius,
-    notchDepth: notchDepth,
+    cut: cut,
     cornerRadius: cornerRadius,
   );
 
   @override
   bool shouldReclip(covariant _CurvedNotchClipper old) =>
       old.notchCenterX != notchCenterX ||
-      old.notchRadius != notchRadius ||
-      old.notchDepth != notchDepth ||
+      old.cut != cut ||
       old.topOffset != topOffset ||
       old.cornerRadius != cornerRadius;
 }

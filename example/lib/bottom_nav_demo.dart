@@ -30,6 +30,14 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
   bool _gradientAccent = false;
   bool _enableBlur = false;
 
+  /// Notch customization (curved notch & centre FAB styles). Starts as the
+  /// package default; "Reset" goes back to it.
+  OmniBottomNavigationNotch _notch = OmniBottomNavigationNotch.standard;
+
+  bool get _hasNotch =>
+      _style == OmniBottomNavigationStyle.curvedNotch ||
+      _style == OmniBottomNavigationStyle.centerFabNotch;
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -153,6 +161,14 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
                     ),
                 ],
               ),
+              if (_hasNotch) ...[
+                tk.gapMd,
+                _NotchPanel(
+                  notch: _notch,
+                  showTravel: _style == OmniBottomNavigationStyle.curvedNotch,
+                  onChanged: (n) => setState(() => _notch = n),
+                ),
+              ],
               tk.gapMd,
               Text('Label Behaviour', style: context.textStyles.title),
               tk.gapXs,
@@ -237,6 +253,7 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
             scrollController: _scrollController,
             hideOnScroll: _hideOnScroll,
             enableBlur: _enableBlur,
+            notch: _notch,
             indicatorGradient: _gradientAccent
                 ? LinearGradient(
                     colors: [colors.primaryColor, colors.secondaryColor],
@@ -394,6 +411,178 @@ class _OmniPageNavBody extends StatelessWidget {
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+/// Live controls for [OmniBottomNavigationNotch]: shape, tab-switch motion,
+/// orb size, lift, gap, depth and wave width.
+class _NotchPanel extends StatelessWidget {
+  const _NotchPanel({
+    required this.notch,
+    required this.showTravel,
+    required this.onChanged,
+  });
+
+  final OmniBottomNavigationNotch notch;
+  final bool showTravel;
+  final ValueChanged<OmniBottomNavigationNotch> onChanged;
+
+  // Shown values when a field is left to its default (50 px orb).
+  double get _orb => notch.orbSize ?? 50;
+  double get _lift => notch.lift ?? _orb * 0.4;
+  double get _gap => notch.gap ?? _orb * 0.12;
+  double get _depth => notch.depth ?? (_orb - _lift + _gap) * 0.72;
+
+  OmniBottomNavigationNotch _with({
+    OmniNotchShape? shape,
+    OmniNotchTravel? travel,
+    double? orbSize,
+    double? lift,
+    double? gap,
+    double? depth,
+    double? spread,
+  }) => OmniBottomNavigationNotch(
+    shape: shape ?? notch.shape,
+    travel: travel ?? notch.travel,
+    orbSize: orbSize ?? notch.orbSize,
+    lift: lift ?? notch.lift,
+    gap: gap ?? notch.gap,
+    depth: depth ?? notch.depth,
+    spread: spread ?? notch.spread,
+  );
+
+  Widget _slider(
+    BuildContext context,
+    String label,
+    double value,
+    double min,
+    double max,
+    ValueChanged<double> onChanged,
+  ) => Row(
+    children: [
+      SizedBox(width: 92, child: Text(label)),
+      Expanded(
+        child: Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          onChanged: onChanged,
+        ),
+      ),
+      SizedBox(
+        width: 40,
+        child: Text(value.toStringAsFixed(value < 3 ? 2 : 0)),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final isDefault = notch == OmniBottomNavigationNotch.standard;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Notch & orb',
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: isDefault
+                      ? null
+                      : () => onChanged(OmniBottomNavigationNotch.standard),
+                  icon: const Icon(Icons.restart_alt_rounded),
+                  label: Text(isDefault ? 'Default' : 'Reset'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SegmentedButton<OmniNotchShape>(
+              segments: const [
+                ButtonSegment(
+                  value: OmniNotchShape.smooth,
+                  label: Text('Smooth'),
+                ),
+                ButtonSegment(
+                  value: OmniNotchShape.circular,
+                  label: Text('Circle'),
+                ),
+                ButtonSegment(value: OmniNotchShape.none, label: Text('None')),
+              ],
+              selected: {notch.shape},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) => onChanged(_with(shape: s.first)),
+            ),
+            if (showTravel) ...[
+              const SizedBox(height: 8),
+              SegmentedButton<OmniNotchTravel>(
+                segments: const [
+                  ButtonSegment(
+                    value: OmniNotchTravel.slide,
+                    label: Text('Slide'),
+                  ),
+                  ButtonSegment(value: OmniNotchTravel.dip, label: Text('Dip')),
+                  ButtonSegment(value: OmniNotchTravel.pop, label: Text('Pop')),
+                ],
+                selected: {notch.travel},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => onChanged(_with(travel: s.first)),
+              ),
+            ],
+            const SizedBox(height: 4),
+            _slider(
+              context,
+              'Orb size',
+              _orb,
+              36,
+              72,
+              (v) => onChanged(_with(orbSize: v)),
+            ),
+            _slider(
+              context,
+              'Lift',
+              _lift,
+              0,
+              40,
+              (v) => onChanged(_with(lift: v)),
+            ),
+            if (notch.shape != OmniNotchShape.none)
+              _slider(
+                context,
+                'Gap',
+                _gap,
+                0,
+                16,
+                (v) => onChanged(_with(gap: v)),
+              ),
+            if (notch.shape == OmniNotchShape.smooth) ...[
+              _slider(
+                context,
+                'Depth',
+                _depth,
+                0,
+                48,
+                (v) => onChanged(_with(depth: v)),
+              ),
+              _slider(
+                context,
+                'Wave width',
+                notch.spread,
+                1,
+                2.4,
+                (v) => onChanged(_with(spread: v)),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

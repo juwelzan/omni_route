@@ -148,8 +148,11 @@ export 'src/widgets/bottom_navigation/omni_bottom_navigation.dart'
         OmniBottomNavigationController,
         OmniBottomNavigationItem,
         OmniBottomNavigationItemBuilder,
+        OmniBottomNavigationNotch,
         OmniBottomNavigationStyle,
-        OmniBottomNavigationStyleData;
+        OmniBottomNavigationStyleData,
+        OmniNotchShape,
+        OmniNotchTravel;
 export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'
     show
         OmniScalableSheet,

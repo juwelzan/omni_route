@@ -85,6 +85,20 @@
     from tab 0.
   - Reduce motion snaps the indicator.
   - The bar repaints on its own layer.
+- New `OmniBottomNavigationNotch` (`notch:` on the bar and on
+  `OmniBottomNavigationStyleData`) customizes the orb and cut-out of
+  `curvedNotch` and `centerFabNotch`. The default is unchanged.
+  - `shape`: `OmniNotchShape.smooth` (default wave), `circular` (hugs the
+    orb, like a Material notched bar) or `none`.
+  - `travel`: `OmniNotchTravel.slide` (default), `dip` (orb sinks and the
+    cut flattens while moving) or `pop` (closes on the old tab, opens on
+    the new).
+  - Sizes: `orbSize`, `lift`, `gap`, `depth`, `spread` (wave width) and
+    `orbShadow`. Every size follows the orb when left unset.
+- Curved notch: on the first or last tab of a rounded bar, the cut was
+  pushed inwards away from the corner while the orb stayed put, so the
+  card looked wrongly cut. The cut now always sits under the orb, and the
+  corner on that side shrinks instead.
 
 **Text size**
 - New app-wide text size: `OmniTextSize` (small / medium / large / extra

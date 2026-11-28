@@ -67,6 +67,7 @@ class OmniBottomNavigationBar extends StatefulWidget {
     this.indicatorCurve,
     this.enableHaptics,
     this.enableScaleAnimation,
+    this.notch,
     this.itemBuilder,
   });
 
@@ -212,6 +213,12 @@ class OmniBottomNavigationBar extends StatefulWidget {
 
   /// Scales tabs slightly on press-down & bounces on release when `true`.
   final bool? enableScaleAnimation;
+
+  /// Orb size, cut-out shape and depth, gap, lift and tab-switch motion of
+  /// [OmniBottomNavigationStyle.curvedNotch] and
+  /// [OmniBottomNavigationStyle.centerFabNotch]. `null` uses the theme's,
+  /// else [OmniBottomNavigationNotch.standard].
+  final OmniBottomNavigationNotch? notch;
 
   /// Optional custom per-item builder for full visual freedom.
   final OmniBottomNavigationItemBuilder? itemBuilder;
@@ -1052,7 +1059,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     required bool rtl,
     required OmniRouteNavigationBridge? bridge,
   }) {
-    const topHeadroom = 22.0;
+    final geometry = look.notch._resolve(50);
+    final topHeadroom = geometry.headroom;
     final isFloating = margin != EdgeInsets.zero;
     final barRadius = isFloating
         ? (look.borderRadius > 0 ? look.borderRadius : 28.0)
@@ -1060,6 +1068,31 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final innerSafeBottom = isFloating ? 0.0 : safeBottom;
     final totalHeight = topHeadroom + look.height + innerSafeBottom;
     final count = widget.items.length;
+
+    // Tab-switch motion: where the orb is, how deep the cut is, how big and
+    // how low the orb sits at this frame.
+    final moving = _fromIndex != _toIndex && _travelCtrl.value < 1;
+    final v = _travelCtrl.value;
+    var position = travelIndex;
+    var cutScale = 1.0;
+    var orbScale = 1.0;
+    var orbDrop = 0.0;
+    if (moving) {
+      switch (look.notch.travel) {
+        case OmniNotchTravel.slide:
+          break;
+        case OmniNotchTravel.dip:
+          final m = math.sin(math.pi * v);
+          cutScale = 1 - 0.65 * m;
+          orbScale = 1 - 0.12 * m;
+          orbDrop = math.max(0.0, geometry.lift) * 0.7 * m;
+        case OmniNotchTravel.pop:
+          position = v < 0.5 ? _fromIndex : _toIndex;
+          cutScale = math.cos(math.pi * v).abs();
+          orbScale = cutScale;
+      }
+    }
+    final cut = geometry.cut(scale: cutScale);
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -1084,9 +1117,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                 );
                 final usableW = constraints.maxWidth - horizontalPad.horizontal;
                 final slotW = usableW / count;
-                final visualIndex = rtl
-                    ? (count - 1 - travelIndex)
-                    : travelIndex;
+                final visualIndex = rtl ? (count - 1 - position) : position;
                 final notchCx =
                     horizontalPad.left + slotW * (visualIndex + 0.5);
                 final activeItem = widget.items[activeIndex];
@@ -1094,13 +1125,13 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                     activeItem.indicatorColor ??
                     activeItem.activeColor ??
                     look.activeColor;
+                final orbSize = geometry.orbSize;
 
                 Widget waveBackground = CustomPaint(
                   size: Size(constraints.maxWidth, totalHeight),
                   painter: _CurvedNotchBarPainter(
                     notchCenterX: notchCx,
-                    notchRadius: 31,
-                    notchDepth: 26,
+                    cut: cut,
                     topOffset: topHeadroom,
                     cornerRadius: barRadius,
                     backgroundColor: look.backgroundColor,
@@ -1115,8 +1146,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                   waveBackground = ClipPath(
                     clipper: _CurvedNotchClipper(
                       notchCenterX: notchCx,
-                      notchRadius: 31,
-                      notchDepth: 26,
+                      cut: cut,
                       topOffset: topHeadroom,
                       cornerRadius: barRadius,
                     ),
@@ -1167,6 +1197,10 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                                         look: look,
                                         item: widget.items[i],
                                         selected: i == activeIndex,
+                                        sunkenOrb: math.max(
+                                          0.0,
+                                          orbSize - geometry.lift,
+                                        ),
                                       ),
                               ),
                             ),
@@ -1174,46 +1208,54 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                       ),
                     ),
                     Positioned(
-                      left: notchCx - 25,
-                      top: 2,
-                      width: 50,
-                      height: 50,
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => _handleItemTap(
-                          activeIndex,
-                          activeIndex,
-                          look,
-                          bridge,
-                        ),
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: look.indicatorGradient == null
-                                ? orbColor
-                                : null,
-                            gradient: look.indicatorGradient,
-                            boxShadow: [
-                              BoxShadow(
-                                color: orbColor.withValues(alpha: 0.38),
-                                blurRadius: 16,
-                                offset: const Offset(0, 6),
-                              ),
-                            ],
+                      left: notchCx - orbSize / 2,
+                      top: geometry.orbTop + orbDrop,
+                      width: orbSize,
+                      height: orbSize,
+                      child: Transform.scale(
+                        scale: orbScale,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: () => _handleItemTap(
+                            activeIndex,
+                            activeIndex,
+                            look,
+                            bridge,
                           ),
-                          child: Center(
-                            child: AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
-                              transitionBuilder: (child, anim) =>
-                                  ScaleTransition(scale: anim, child: child),
-                              child: KeyedSubtree(
-                                key: ValueKey(activeIndex),
-                                child: _buildBadgedIcon(
-                                  item: activeItem,
-                                  look: look,
-                                  selected: true,
-                                  color: look.activeContentColor,
-                                  size: look.selectedIconSize,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: look.indicatorGradient == null
+                                  ? orbColor
+                                  : null,
+                              gradient: look.indicatorGradient,
+                              boxShadow:
+                                  look.notch.orbShadow ??
+                                  [
+                                    BoxShadow(
+                                      color: orbColor.withValues(alpha: 0.38),
+                                      blurRadius: 16,
+                                      offset: const Offset(0, 6),
+                                    ),
+                                  ],
+                            ),
+                            child: Center(
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 220),
+                                transitionBuilder: (child, anim) =>
+                                    ScaleTransition(scale: anim, child: child),
+                                child: KeyedSubtree(
+                                  key: ValueKey(activeIndex),
+                                  child: _buildBadgedIcon(
+                                    item: activeItem,
+                                    look: look,
+                                    selected: true,
+                                    color: look.activeContentColor,
+                                    size: math.min(
+                                      look.selectedIconSize,
+                                      orbSize * 0.52,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -1235,21 +1277,25 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     required _ResolvedNavLook look,
     required OmniBottomNavigationItem item,
     required bool selected,
+    required double sunkenOrb,
   }) {
     final accent = item.activeColor ?? look.activeColor;
     final showLabel = _shouldShowLabel(look.labelMode, look.style, selected);
     if (selected) {
       if (!showLabel) return const SizedBox.shrink();
-      return Align(
-        alignment: const Alignment(0, 0.72),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 2),
-          child: Text(
-            item.label,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
-            style: look.selectedLabelStyle.copyWith(color: accent),
+      // Under the part of the orb that sinks into the bar.
+      return Padding(
+        padding: EdgeInsets.only(top: math.min(sunkenOrb, look.height * 0.5)),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              item.label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: look.selectedLabelStyle.copyWith(color: accent),
+            ),
           ),
         ),
       );
@@ -1299,7 +1345,10 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
           tooltip: 'Action',
           onPressed: () => widget.onReselect?.call(activeIndex),
         );
-    final topHeadroom = math.max(20.0, action.size * 0.44);
+    final geometry = look.notch._resolve(action.size);
+    final cut = geometry.cut();
+    final orbSize = geometry.orbSize;
+    final topHeadroom = geometry.headroom;
     final isFloating = margin != EdgeInsets.zero;
     final barRadius = isFloating
         ? (look.borderRadius > 0 ? look.borderRadius : 28.0)
@@ -1307,8 +1356,10 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final innerSafeBottom = isFloating ? 0.0 : safeBottom;
     final totalHeight = topHeadroom + look.height + innerSafeBottom;
     final leftCount = widget.items.length ~/ 2;
-    final notchRadius = action.size * 0.62;
-    final notchDepth = action.size * 0.52;
+    // Room between the left and right tabs for the button and its cut.
+    final centerGap = cut.shape == OmniNotchShape.none
+        ? orbSize + 12
+        : geometry.radius * 1.95;
 
     return Align(
       alignment: Alignment.bottomCenter,
@@ -1333,8 +1384,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                   size: Size(constraints.maxWidth, totalHeight),
                   painter: _CurvedNotchBarPainter(
                     notchCenterX: centerX,
-                    notchRadius: notchRadius,
-                    notchDepth: notchDepth,
+                    cut: cut,
                     topOffset: topHeadroom,
                     cornerRadius: barRadius,
                     backgroundColor: look.backgroundColor,
@@ -1348,8 +1398,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                   backdrop = ClipPath(
                     clipper: _CurvedNotchClipper(
                       notchCenterX: centerX,
-                      notchRadius: notchRadius,
-                      notchDepth: notchDepth,
+                      cut: cut,
                       topOffset: topHeadroom,
                       cornerRadius: barRadius,
                     ),
@@ -1366,7 +1415,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                 final slots = <Widget>[];
                 for (var i = 0; i < widget.items.length; i++) {
                   if (i == leftCount) {
-                    slots.add(SizedBox(width: notchRadius * 1.95));
+                    slots.add(SizedBox(width: centerGap));
                   }
                   final item = widget.items[i];
                   final selected = i == activeIndex;
@@ -1403,13 +1452,15 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                   children: [
                     Positioned.fill(child: backdrop),
                     Positioned(
-                      left: centerX - action.size * 0.5,
-                      top: 0,
-                      width: action.size,
-                      height: action.size,
+                      left: centerX - orbSize * 0.5,
+                      top: geometry.orbTop,
+                      width: orbSize,
+                      height: orbSize,
                       child: _ActionOrbButton(
                         action: action,
                         defaultColor: look.activeColor,
+                        diameter: orbSize,
+                        shadows: look.notch.orbShadow,
                       ),
                     ),
                     Positioned.fill(
@@ -2006,11 +2057,19 @@ class _ActionOrbButton extends StatefulWidget {
     required this.action,
     required this.defaultColor,
     this.compact = false,
+    this.diameter,
+    this.shadows,
   });
 
   final OmniBottomNavigationAction action;
   final Color defaultColor;
   final bool compact;
+
+  /// Overrides the action's size (the notch's `orbSize`).
+  final double? diameter;
+
+  /// Overrides the glow (the notch's `orbShadow`).
+  final List<BoxShadow>? shadows;
 
   @override
   State<_ActionOrbButton> createState() => _ActionOrbButtonState();
@@ -2022,7 +2081,8 @@ class _ActionOrbButtonState extends State<_ActionOrbButton> {
   @override
   Widget build(BuildContext context) {
     final a = widget.action;
-    final diameter = widget.compact ? math.min(a.size, 46.0) : a.size;
+    final diameter =
+        widget.diameter ?? (widget.compact ? math.min(a.size, 46.0) : a.size);
     final bg = a.backgroundColor ?? widget.defaultColor;
     final isDarkBg =
         ThemeData.estimateBrightnessForColor(bg) == Brightness.dark;
@@ -2048,14 +2108,16 @@ class _ActionOrbButtonState extends State<_ActionOrbButton> {
             color: a.gradient == null ? bg : null,
             gradient: a.gradient,
             shape: a.shape ?? const CircleBorder(),
-            shadows: [
-              if (a.showGlow)
-                BoxShadow(
-                  color: bg.withValues(alpha: _pressed ? 0.24 : 0.42),
-                  blurRadius: _pressed ? 8 : a.elevation * 1.8,
-                  offset: Offset(0, _pressed ? 2 : 6),
-                ),
-            ],
+            shadows:
+                widget.shadows ??
+                [
+                  if (a.showGlow)
+                    BoxShadow(
+                      color: bg.withValues(alpha: _pressed ? 0.24 : 0.42),
+                      blurRadius: _pressed ? 8 : a.elevation * 1.8,
+                      offset: Offset(0, _pressed ? 2 : 6),
+                    ),
+                ],
           ),
           child: Center(
             child: IconTheme.merge(
