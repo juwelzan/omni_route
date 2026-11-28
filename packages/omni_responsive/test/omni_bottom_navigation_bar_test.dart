@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_responsive/omni_responsive.dart';
+import 'package:omni_responsive/src/widgets/bottom_navigation/omni_bottom_navigation.dart'
+    as omni_navigation_internal;
 
 List<OmniBottomNavigationItem> _sampleItems({bool withBadges = false}) => [
   OmniBottomNavigationItem(
@@ -46,6 +48,77 @@ bool _barIgnoresInput(WidgetTester tester) => tester
     .ignoring;
 
 void main() {
+  testWidgets('route matching normalizes suffixes and respects segments', (
+    t,
+  ) async {
+    final items = [
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.home_outlined),
+        label: 'Home',
+        routePath: '/home',
+      ),
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.person_outline),
+        label: 'Student',
+        routePath: '/student',
+        matchPrefix: true,
+      ),
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.people_outline),
+        label: 'Students',
+        routePath: '/students/',
+        matchPrefix: true,
+      ),
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.school_outlined),
+        label: 'Student details',
+        routePath: '/students/detail/',
+        matchPrefix: true,
+      ),
+    ];
+
+    Future<void> expectSelected(
+      String location,
+      List<OmniBottomNavigationItem> routeItems,
+      String label,
+    ) async {
+      await t.pumpWidget(
+        MaterialApp(
+          home: omni_navigation_internal.OmniRouteNavigationBridge(
+            currentLocation: location,
+            onNavigate: null,
+            child: Scaffold(
+              bottomNavigationBar: OmniBottomNavigationBar(
+                labelMode: OmniBottomNavLabelMode.selectedOnly,
+                items: routeItems,
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      for (final item in routeItems) {
+        expect(
+          find.text(item.label),
+          item.label == label ? findsOneWidget : findsNothing,
+          reason: 'Unexpected selection for $location',
+        );
+      }
+    }
+
+    await expectSelected('/students', items, 'Students');
+    await expectSelected('/students/?class=1#roster', items, 'Students');
+    await expectSelected('/students#roster?class=1', items, 'Students');
+    await expectSelected('/students/42/', items, 'Students');
+    await expectSelected(
+      '/students/detail/42?tab=profile#top',
+      items,
+      'Student details',
+    );
+    await expectSelected('/students', items.take(2).toList(), 'Home');
+  });
+
   testWidgets(
     'controller validation clamps negative, out-of-range, and valid indexes',
     (t) async {

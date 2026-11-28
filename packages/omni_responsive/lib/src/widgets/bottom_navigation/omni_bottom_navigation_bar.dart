@@ -405,22 +405,33 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   }
 
   int? _matchRouteIndex(String location) {
-    final clean = location.split('?').first.split('#').first;
+    final clean = _normalizeRoutePath(location);
     var bestIndex = -1;
     var bestLen = -1;
     for (var i = 0; i < widget.items.length; i++) {
       final route = widget.items[i].routePath;
       if (route == null || route.isEmpty) continue;
-      if (clean == route) return i;
+      final normalizedRoute = _normalizeRoutePath(route);
+      if (clean == normalizedRoute) return i;
       if (widget.items[i].matchPrefix) {
-        final normalized = route.endsWith('/') ? route : '$route/';
-        if (clean.startsWith(normalized) && route.length > bestLen) {
+        final prefix = normalizedRoute == '/'
+            ? normalizedRoute
+            : '$normalizedRoute/';
+        if (clean.startsWith(prefix) && normalizedRoute.length > bestLen) {
           bestIndex = i;
-          bestLen = route.length;
+          bestLen = normalizedRoute.length;
         }
       }
     }
     return bestIndex >= 0 ? bestIndex : null;
+  }
+
+  String _normalizeRoutePath(String path) {
+    var normalized = path.split('?').first.split('#').first;
+    while (normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.substring(0, normalized.length - 1);
+    }
+    return normalized;
   }
 
   void _animateToIndex(int target) {
