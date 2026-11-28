@@ -35,6 +35,86 @@ List<OmniBottomNavigationItem> _sampleItems({bool withBadges = false}) => [
 ];
 
 void main() {
+  testWidgets(
+    'controller validation clamps negative, out-of-range, and valid indexes',
+    (t) async {
+      final controller = OmniBottomNavigationController(initialIndex: -5);
+      addTearDown(controller.dispose);
+
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            bottomNavigationBar: OmniBottomNavigationBar(
+              controller: controller,
+              items: _sampleItems(),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(controller.index, 0);
+
+      controller.select(-10);
+      await t.pump();
+      expect(controller.index, 0);
+
+      controller.select(99);
+      await t.pump();
+      expect(controller.index, 3);
+
+      controller.select(2);
+      await t.pump();
+      expect(controller.index, 2);
+
+      var notifications = 0;
+      controller.addListener(() => notifications++);
+      controller.select(2);
+      await t.pump();
+      expect(notifications, 0);
+      controller.select(1);
+      await t.pump();
+      expect(notifications, 1);
+    },
+  );
+
+  testWidgets('controller index is clamped when the item count shrinks', (
+    t,
+  ) async {
+    final controller = OmniBottomNavigationController(initialIndex: 3);
+    addTearDown(controller.dispose);
+    var items = _sampleItems();
+
+    await t.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => MaterialApp(
+          home: Scaffold(
+            bottomNavigationBar: OmniBottomNavigationBar(
+              controller: controller,
+              items: items,
+            ),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(controller.index, 3);
+
+    items = _sampleItems().take(1).toList();
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          bottomNavigationBar: OmniBottomNavigationBar(
+            controller: controller,
+            items: items,
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(controller.index, 0);
+  });
+
   testWidgets('item validation: empty list renders nothing safely', (t) async {
     await t.pumpWidget(
       MaterialApp(

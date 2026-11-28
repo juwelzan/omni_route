@@ -245,6 +245,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       duration: widget.animationDuration ?? const Duration(milliseconds: 340),
       value: 1,
     );
+    widget.controller?._syncItemCount(widget.items.length);
     widget.controller?.addListener(_onControllerChanged);
     _attachScroll(widget.scrollController);
   }
@@ -252,6 +253,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   @override
   void didUpdateWidget(covariant OmniBottomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
+    widget.controller?._syncItemCount(widget.items.length);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_onControllerChanged);
       widget.controller?.addListener(_onControllerChanged);

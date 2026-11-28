@@ -237,10 +237,11 @@ class OmniBottomNavigationAction {
 class OmniBottomNavigationController extends ChangeNotifier {
   /// Creates a controller starting at [initialIndex] and visibility [visible].
   OmniBottomNavigationController({int initialIndex = 0, bool visible = true})
-    : _index = initialIndex,
+    : _index = initialIndex < 0 ? 0 : initialIndex,
       _isVisible = visible;
 
   int _index;
+  int? _itemCount;
   bool _isVisible;
   bool _disposed = false;
 
@@ -250,11 +251,26 @@ class OmniBottomNavigationController extends ChangeNotifier {
   /// Whether the navigation bar is currently revealed.
   bool get isVisible => _isVisible;
 
+  void _syncItemCount(int itemCount) {
+    _itemCount = itemCount;
+    if (_disposed) return;
+    final nextIndex = itemCount == 0 ? 0 : _index.clamp(0, itemCount - 1);
+    if (nextIndex != _index) {
+      _index = nextIndex;
+      notifyListeners();
+    }
+  }
+
   /// Switches programmatically to tab [index] and reveals the bar if hidden.
   void select(int index) {
     if (_disposed) return;
-    if (_index == index && _isVisible) return;
-    _index = index;
+    final nextIndex = switch (_itemCount) {
+      null => index < 0 ? 0 : index,
+      0 => 0,
+      final count => index.clamp(0, count - 1),
+    };
+    if (_index == nextIndex && _isVisible) return;
+    _index = nextIndex;
     _isVisible = true;
     notifyListeners();
   }
