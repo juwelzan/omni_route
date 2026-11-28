@@ -23,6 +23,10 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   late final ValueNotifier<int> _detent = ValueNotifier(_metrics.publicIndex);
   late final _SheetScrollController _scroll = _SheetScrollController(this);
   final ValueNotifier<bool> _scrolled = ValueNotifier(false);
+  late final Listenable _handleListenable = Listenable.merge([
+    _detent,
+    _scrolled,
+  ]);
   int _dragStartSortedIndex = 0;
   Widget? _header;
   WidgetBuilder? _headerBuilder;
@@ -673,24 +677,23 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     final hasIosChrome = showClose || hasTitle || _trailing != null;
     final frostedChrome = floating || style == OmniSheetStyle.cupertino;
 
-    Widget buildReactiveHandle({bool compact = false}) =>
-        ValueListenableBuilder<int>(
-          valueListenable: _detent,
-          builder: (context, _, _) => _SheetHandle(
-            style: style,
-            color: look.handle,
-            hint: _handleHint(context),
-            onTap: _onHandleTap,
-            interactive: _canActivateHandle,
-            compact: compact,
-          ),
-        );
+    Widget buildReactiveHandle({bool compact = false}) => ListenableBuilder(
+      listenable: _handleListenable,
+      builder: (context, _) => _SheetHandle(
+        style: style,
+        color: look.handle,
+        hint: _handleHint(context),
+        onTap: _onHandleTap,
+        interactive: _canActivateHandle,
+        compact: compact,
+      ),
+    );
 
     Widget? pinnedTop;
     if (hasIosChrome) {
-      final chromeBar = ValueListenableBuilder<int>(
-        valueListenable: _detent,
-        builder: (context, _, _) => _IosFloatingChrome(
+      final chromeBar = ListenableBuilder(
+        listenable: _handleListenable,
+        builder: (context, _) => _IosFloatingChrome(
           style: style,
           look: look,
           showHandle: showHandle,
@@ -838,7 +841,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     final distinctCount = _heights.isNotEmpty ? _heights.length : detentCount;
     return distinctCount > 1 ||
         _config.isDismissible ||
-        _config.scrolling.handleTapScrollsToTop;
+        (_config.scrolling.handleTapScrollsToTop && _scrolled.value);
   }
 
   bool _onScroll(ScrollNotification n) {
@@ -858,6 +861,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       return _metrics.sortedIndex < distinctCount - 1
           ? (l?.collapsedIconTapHint ?? 'Expand')
           : (l?.expandedIconTapHint ?? 'Collapse');
+    }
+    if (_config.scrolling.handleTapScrollsToTop && _scrolled.value) {
+      return 'Scroll to top';
     }
     return l?.modalBarrierDismissLabel ?? 'Dismiss';
   }

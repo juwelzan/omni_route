@@ -17,6 +17,11 @@ Widget _page({
   OmniScalableSheetController? controller,
   OmniSheetScrolling scrolling = const OmniSheetScrolling(),
   OmniSheetStyle style = OmniSheetStyle.material,
+  List<OmniSheetDetent> detents = const [
+    OmniSheetDetent.height(140),
+    OmniSheetDetent.medium,
+    OmniSheetDetent.large,
+  ],
   int initialDetent = 1,
   bool showHandle = false,
   WidgetBuilder builder = _rows,
@@ -32,11 +37,7 @@ Widget _page({
       showHandle: showHandle,
       animateOnOpen: false,
       scrolling: scrolling,
-      detents: const [
-        OmniSheetDetent.height(140),
-        OmniSheetDetent.medium,
-        OmniSheetDetent.large,
-      ],
+      detents: detents,
       initialDetent: initialDetent,
       header: (_) => const SizedBox(
         key: _header,
@@ -171,6 +172,35 @@ void main() {
     await t.pumpAndSettle();
     expect(_sheetTop(t), isNot(top), reason: 'second tap: next detent');
   });
+
+  testWidgets(
+    'single-detent handle exposes scroll-to-top semantics only when actionable',
+    (t) async {
+      final semantics = t.ensureSemantics();
+      try {
+        await t.pumpWidget(
+          _page(
+            detents: const [OmniSheetDetent.large],
+            initialDetent: 0,
+            showHandle: true,
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.bySemanticsLabel('Dismiss'), findsNothing);
+
+        await _scrollList(t, 200);
+        expect(find.bySemanticsLabel('Scroll to top'), findsOneWidget);
+
+        await t.tap(find.bySemanticsLabel('Scroll to top'));
+        await t.pumpAndSettle();
+        expect(_scrollOffset(t), 0);
+        expect(find.bySemanticsLabel('Scroll to top'), findsNothing);
+        expect(t.takeException(), isNull);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
 
   testWidgets('expandBeforeScroll: false scrolls the list at any size', (
     t,

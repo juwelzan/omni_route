@@ -264,6 +264,7 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     );
     _controller._state = this;
     _controller._detent.value = widget.initialDetent;
+    _popScopeListenable = _createPopScopeListenable(_controller);
   }
 
   @override
@@ -296,8 +297,21 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
       motion: widget.motion,
     );
     if (oldWidget.controller != widget.controller) {
-      (oldWidget.controller ?? _ownController)?._state = null;
-      _controller._state = this;
+      final previousController = oldWidget.controller ?? _ownController;
+      previousController?._state = null;
+      final nextController = _controller;
+      nextController._state = this;
+      nextController._detent.value =
+          _view?._metrics.publicIndex ??
+          previousController?._detent.value ??
+          widget.initialDetent;
+      nextController._shown.value =
+          previousController?._shown.value ?? (_presence.value > 0);
+      final view = _view;
+      nextController._height._update(
+        view == null ? 0 : view._extent.value * _presence.value,
+      );
+      _popScopeListenable = _createPopScopeListenable(nextController);
     }
     _style = widget.style.resolve(_platformOf(context));
     _config = _buildConfig();
@@ -498,11 +512,11 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     return metrics.publicToSorted[publicDetent] == 0;
   }
 
-  late final Listenable _popScopeListenable = Listenable.merge([
-    _controller._detent,
-    _controller._shown,
-    _popVersion,
-  ]);
+  late Listenable _popScopeListenable;
+
+  Listenable _createPopScopeListenable(
+    OmniScalableSheetController controller,
+  ) => Listenable.merge([controller._detent, controller._shown, _popVersion]);
 
   @override
   Widget build(BuildContext context) {

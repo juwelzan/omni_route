@@ -137,6 +137,52 @@ void main() {
     expect(changes, [1, 2, 0, 1]);
   });
 
+  testWidgets('replacement controller synchronizes current sheet state', (
+    t,
+  ) async {
+    final firstController = OmniScalableSheetController();
+    final nextController = OmniScalableSheetController();
+    final controller = ValueNotifier(firstController);
+    addTearDown(firstController.dispose);
+    addTearDown(nextController.dispose);
+    addTearDown(controller.dispose);
+
+    await t.pumpWidget(
+      ValueListenableBuilder<OmniScalableSheetController>(
+        valueListenable: controller,
+        builder: (_, value, _) => _page(
+          controller: value,
+          initialDetent: 1,
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    final expanding = firstController.expand();
+    await t.pumpAndSettle();
+    await expanding;
+    final hiding = firstController.hide();
+    await t.pumpAndSettle();
+    await hiding;
+    expect(firstController.isShown.value, isFalse);
+
+    controller.value = nextController;
+    await t.pumpAndSettle();
+
+    expect(nextController.detent.value, 2);
+    expect(nextController.isShown.value, isFalse);
+    expect(nextController.height.value, 0);
+
+    final showing = nextController.show();
+    await t.pumpAndSettle();
+    await showing;
+    expect(nextController.detent.value, 2);
+    expect(nextController.isShown.value, isTrue);
+    expect(nextController.height.value, 600);
+    expect(_rect(t).top, 0);
+    expect(t.takeException(), isNull);
+  });
+
   testWidgets('hide and show; a dismissible sheet can be dragged away', (
     t,
   ) async {
