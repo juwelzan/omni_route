@@ -293,7 +293,18 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   OmniRouteNavigationBridge? _bridge;
 
   bool _scrollVisible = true;
-  final Map<ScrollPosition, double> _lastScrollPixelsByPosition = {};
+  bool _accessibleNavigation = false;
+  final Map<ScrollPosition, _ScrollTrack> _scrollTracks = {};
+  bool _scrollSyncPending = false;
+
+  /// Downward travel (one direction, summed) that hides the bar.
+  static const double _hideScrollDistance = 24;
+
+  /// Upward travel that shows it again.
+  static const double _showScrollDistance = 16;
+
+  /// Within this distance of the top the bar is always shown.
+  static const double _scrollStartSlop = 12;
 
   @override
   void initState() {
@@ -312,6 +323,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _accessibleNavigation =
+        MediaQuery.maybeAccessibleNavigationOf(context) ?? false;
     _bridge = OmniRouteNavigationBridge.readMaybeOf(context);
     _syncActiveIndex();
   }
@@ -408,40 +421,61 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
   void _attachScroll(ScrollController? controller) {
     if (controller == null || !widget.hideOnScroll) return;
-    _lastScrollPixelsByPosition.clear();
+    _scrollTracks.clear();
     for (final position in controller.positions) {
-      _lastScrollPixelsByPosition[position] = position.pixels;
+      _scrollTracks[position] = _ScrollTrack(_clampedPixels(position));
     }
     controller.addListener(_onScroll);
-    _scheduleScrollPositionSync(controller);
+    _scheduleScrollTrackSync();
   }
 
-  void _detachScroll(ScrollController? controller) {
-    controller?.removeListener(_onScroll);
-    _lastScrollPixelsByPosition.clear();
-  }
-
-  void _scheduleScrollPositionSync(ScrollController controller) {
+  /// Records the starting offset of scrollables that attached to the
+  /// controller since the last check (attaching doesn't notify listeners),
+  /// so their first scroll already counts. At most one check is pending, no
+  /// matter how often the bar rebuilds.
+  void _scheduleScrollTrackSync() {
+    if (_scrollSyncPending) return;
+    _scrollSyncPending = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted ||
-          !widget.hideOnScroll ||
-          widget.scrollController != controller) {
+      _scrollSyncPending = false;
+      final controller = widget.scrollController;
+      if (!mounted || !widget.hideOnScroll || controller == null) return;
+      final positions = controller.positions;
+      if (_scrollTracks.length == positions.length &&
+          positions.every(_scrollTracks.containsKey)) {
         return;
       }
-
-      final positions = controller.positions.toSet();
-      _lastScrollPixelsByPosition.removeWhere(
-        (position, _) => !positions.contains(position),
-      );
+      final live = positions.toSet();
+      _scrollTracks.removeWhere((position, _) => !live.contains(position));
       for (final position in positions) {
-        _lastScrollPixelsByPosition.putIfAbsent(
+        _scrollTracks.putIfAbsent(
           position,
-          () => position.pixels,
+          () => _ScrollTrack(_clampedPixels(position)),
         );
       }
     });
   }
 
+  void _detachScroll(ScrollController? controller) {
+    controller?.removeListener(_onScroll);
+    _scrollTracks.clear();
+  }
+
+  /// Offset without overscroll, so an iOS bounce at either end doesn't
+  /// count as a direction change.
+  static double _clampedPixels(ScrollPosition position) {
+    if (!position.hasContentDimensions) return position.pixels;
+    return position.pixels.clamp(
+      position.minScrollExtent,
+      math.max(position.minScrollExtent, position.maxScrollExtent),
+    );
+  }
+
+  /// Hides or shows the bar once the list has moved [_hideScrollDistance]
+  /// down / [_showScrollDistance] up in one direction, summed over the
+  /// notifications. A slow drag (1–2 px per frame) therefore hides it too,
+  /// and a small jitter in the other direction resets the sum instead of
+  /// flipping the bar.
   void _onScroll() {
     final controller = widget.scrollController;
     if (!widget.hideOnScroll ||
@@ -450,45 +484,62 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
         !mounted) {
       return;
     }
-    if (MediaQuery.maybeAccessibleNavigationOf(context) ?? false) {
+    if (_accessibleNavigation) {
       // Screen reader on: the bar stays put (see build).
       if (!_scrollVisible) setState(() => _scrollVisible = true);
       return;
+    }
+
+    final positions = controller.positions;
+    if (_scrollTracks.length > positions.length) {
+      // A scrollable that shared this controller was disposed.
+      final live = positions.toSet();
+      _scrollTracks.removeWhere((position, _) => !live.contains(position));
     }
 
     var movedDown = false;
     var movedUp = false;
     var atScrollStart = false;
 
-    for (final position in controller.positions) {
-      final pixels = position.pixels;
-      final lastPixels = _lastScrollPixelsByPosition[position];
-      if (lastPixels == null) {
-        _lastScrollPixelsByPosition[position] = pixels;
-        if (pixels <= position.minScrollExtent + 12) {
-          atScrollStart = true;
-        }
+    for (final position in positions) {
+      final pixels = _clampedPixels(position);
+      if (position.hasContentDimensions &&
+          pixels <= position.minScrollExtent + _scrollStartSlop) {
+        atScrollStart = true;
+      }
+      final track = _scrollTracks[position];
+      if (track == null) {
+        // First notification of a newly attached scrollable: baseline only.
+        _scrollTracks[position] = _ScrollTrack(pixels);
         continue;
       }
-      final delta = pixels - lastPixels;
-      _lastScrollPixelsByPosition[position] = pixels;
-
-      if (pixels <= position.minScrollExtent + 12) {
-        atScrollStart = true;
-      } else if (delta > 10) {
+      final delta = pixels - track.last;
+      track.last = pixels;
+      if (delta == 0) continue;
+      // Reversing direction starts a new run.
+      if ((delta > 0) != (track.run > 0)) track.run = 0;
+      track.run += delta;
+      if (track.run >= _hideScrollDistance) {
         movedDown = true;
-      } else if (delta < -8) {
+      } else if (track.run <= -_showScrollDistance) {
         movedUp = true;
       }
     }
 
-    if (atScrollStart) {
-      if (!_scrollVisible) setState(() => _scrollVisible = true);
-    } else if (movedUp && !_scrollVisible) {
-      setState(() => _scrollVisible = true);
-    } else if (movedDown && _scrollVisible) {
-      setState(() => _scrollVisible = false);
+    final bool next;
+    if (atScrollStart || movedUp) {
+      next = true;
+    } else if (movedDown) {
+      next = false;
+    } else {
+      return;
     }
+    if (next == _scrollVisible) return;
+    // Each change needs a fresh run in the new direction.
+    for (final track in _scrollTracks.values) {
+      track.run = 0;
+    }
+    setState(() => _scrollVisible = next);
   }
 
   bool get _hasRoutePaths => widget.items.any((e) => e.routePath != null);
@@ -602,10 +653,6 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     if (widget.items.isEmpty) {
       return const SizedBox.shrink();
     }
-    final scrollController = widget.scrollController;
-    if (widget.hideOnScroll && scrollController != null) {
-      _scheduleScrollPositionSync(scrollController);
-    }
     // Route-driven bars subscribe so a navigation reaches
     // didChangeDependencies (which retargets the indicator); bars driven by
     // an index or a controller only read the bridge for `onNavigate`.
@@ -616,6 +663,10 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final bridge = subscribeRoute
         ? OmniRouteNavigationBridge.maybeOf(context)
         : OmniRouteNavigationBridge.readMaybeOf(context);
+    if (widget.hideOnScroll && widget.scrollController != null) {
+      // A rebuild of the page often means a list (re)attached.
+      _scheduleScrollTrackSync();
+    }
     final activeIndex = _activeIndex.clamp(0, widget.items.length - 1);
     final look = _ResolvedNavLook.resolve(context, widget);
     _travelCurve = look.indicatorCurve;
@@ -627,8 +678,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
         widget.hideOnKeyboard && MediaQuery.viewInsetsOf(context).bottom > 0;
     // With a screen reader (or switch access) the bar must stay reachable:
     // scrolling never hides it. Explicit hides (controller) still apply.
-    final scrollHides =
-        widget.hideOnScroll && !MediaQuery.accessibleNavigationOf(context);
+    final scrollHides = widget.hideOnScroll && !_accessibleNavigation;
     final visible =
         !keyboardOpen &&
         (widget.controller?.isVisible ?? true) &&
@@ -2331,4 +2381,15 @@ class _ActionOrbButtonState extends State<_ActionOrbButton> {
 
     return btn;
   }
+}
+
+/// Hide-on-scroll state of one [ScrollPosition].
+class _ScrollTrack {
+  _ScrollTrack(this.last);
+
+  /// Offset at the previous notification.
+  double last;
+
+  /// Distance moved in the current direction (positive = down).
+  double run = 0;
 }

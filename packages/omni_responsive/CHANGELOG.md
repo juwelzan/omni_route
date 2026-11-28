@@ -106,6 +106,15 @@
   - Reduced motion (`disableAnimations`) now covers every bar animation:
     show/hide, fades, press scale, bubble width, pills and the orb icon,
     not only the indicator.
+- `hideOnScroll`:
+  - Hides after 24 px of downward scrolling and shows after 16 px upward,
+    summed across frames. A slow drag hides the bar too; before, every
+    single frame had to move more than 10 px.
+  - Jitter in both directions no longer flips the bar.
+  - The rubber-band bounce at the end of an iOS list no longer brings it
+    back.
+  - Rebuilding the bar no longer queues a new post-frame callback each
+    time; at most one is pending.
 - New `itemLayout:` (`OmniBottomNavItemLayout`): `stacked` (default),
   `inline` (icon and label side by side, the pill around both, as in
   Material 3 Expressive) or `adaptive` (inline from 600 wide). It applies
