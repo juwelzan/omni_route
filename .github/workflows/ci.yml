@@ -28,7 +28,9 @@ jobs:
           xargs dart format --output=none --set-exit-if-changed
 
       - name: Analyze
-        run: flutter analyze
+        # Keep info diagnostics visible; Flutter 3.47+ deprecates the legacy
+        # Material/Cupertino entrypoint imports. Errors and warnings stay fatal.
+        run: flutter analyze --no-fatal-infos
 
       - name: Test omni_route
         run: flutter test
