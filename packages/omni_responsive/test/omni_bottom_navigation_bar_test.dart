@@ -309,6 +309,76 @@ void main() {
     }
   });
 
+  testWidgets('all styles fit RTL small and large screens with large text', (
+    t,
+  ) async {
+    const sizes = [Size(320, 568), Size(1920, 1080)];
+    final items = [
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.home_outlined),
+        label: 'Dashboard',
+      ),
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.explore_outlined),
+        label: 'Explore destinations',
+      ),
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.chat_bubble_outline_rounded),
+        label: 'Messages and updates',
+      ),
+      const OmniBottomNavigationItem(
+        icon: Icon(Icons.person_outline_rounded),
+        label: 'Profile settings',
+      ),
+    ];
+
+    for (final size in sizes) {
+      for (final style in OmniBottomNavigationStyle.values) {
+        await t.pumpWidget(
+          MaterialApp(
+            home: MediaQuery(
+              data: MediaQueryData(
+                size: size,
+                textScaler: const TextScaler.linear(2.5),
+              ),
+              child: Directionality(
+                textDirection: TextDirection.rtl,
+                child: Scaffold(
+                  extendBody: true,
+                  body: const SizedBox.expand(),
+                  bottomNavigationBar: OmniBottomNavigationBar(
+                    style: style,
+                    currentIndex: 0,
+                    onTap: (_) {},
+                    selectedLabelStyle: const TextStyle(
+                      fontSize: 17,
+                      height: 1.2,
+                    ),
+                    centerAction:
+                        style == OmniBottomNavigationStyle.centerFabNotch ||
+                            style == OmniBottomNavigationStyle.splitIsland
+                        ? OmniBottomNavigationAction(
+                            icon: const Icon(Icons.add_rounded),
+                            onPressed: () {},
+                          )
+                        : null,
+                    items: items,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(
+          t.takeException(),
+          isNull,
+          reason: '$style at $size with 2.5x text in RTL',
+        );
+      }
+    }
+  });
+
   testWidgets(
     'floatingBubble expands selected item label and switches cleanly',
     (t) async {

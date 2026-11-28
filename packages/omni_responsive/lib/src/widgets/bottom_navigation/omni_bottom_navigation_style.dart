@@ -1022,6 +1022,33 @@ class _ResolvedNavLook {
         ) ??
         baseLabelStyle.copyWith(fontWeight: FontWeight.w700);
 
+    final textScaler = MediaQuery.textScalerOf(context);
+    double labelLineHeight(TextStyle style) {
+      final fontSize = style.fontSize ?? 11.5;
+      return fontSize * (style.height ?? 1.0);
+    }
+
+    double scaledLabelLineHeight(TextStyle style) {
+      final fontSize = style.fontSize ?? 11.5;
+      return textScaler.scale(fontSize) * (style.height ?? 1.0);
+    }
+
+    final baseLabelHeight = math
+        .max(
+          labelLineHeight(baseLabelStyle),
+          labelLineHeight(selectedLabelStyle),
+        )
+        .toDouble();
+    final scaledLabelHeight = math
+        .max(
+          scaledLabelLineHeight(baseLabelStyle),
+          scaledLabelLineHeight(selectedLabelStyle),
+        )
+        .toDouble();
+    final scaledHeight = scaledLabelHeight > baseLabelHeight
+        ? height + scaledLabelHeight - baseLabelHeight + 8
+        : height;
+
     final iconSize =
         pick(widget.iconSize, inline?.iconSize, ext?.iconSize) ?? 23.0;
     final selectedIconSize =
@@ -1059,7 +1086,7 @@ class _ResolvedNavLook {
             ext?.badgeTextColor,
           ) ??
           Colors.white,
-      height: height,
+      height: scaledHeight,
       margin: margin,
       padding: padding,
       borderRadius: borderRadius,
