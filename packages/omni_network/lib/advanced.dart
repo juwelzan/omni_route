@@ -58,7 +58,8 @@ export 'src/realtime/web_socket.dart' show WebSocketConnector;
 export 'src/realtime/ws_protocol.dart'
     show WsProtocol, DefaultWsProtocol, WsInboundPacket, WsLogRecord;
 export 'src/queue/offline_queue.dart';
-export 'src/queue/queued_request.dart' hide unpersistedHeaders;
+export 'src/queue/queued_request.dart'
+    hide unpersistedHeaders, isUnpersistedHeader, persistableHeaders;
 export 'src/resilience/circuit_breaker.dart';
 export 'src/transfer/multipart.dart' show MultipartBody, ProgressCallback;
 export 'src/transfer/stream_target.dart' show OmniStreamResponse;

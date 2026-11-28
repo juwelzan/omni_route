@@ -1,5 +1,23 @@
 ## Unreleased
 
+- **Offline queue never stores credentials**:
+  - Besides `Authorization`, `Proxy-Authorization` and `Cookie`, it now
+    drops `X-API-Key`, `Api-Key`, `X-Auth-Token`, `X-Access-Token`,
+    `X-Refresh-Token`, `X-Session-Token`, `X-CSRF-Token`, `X-XSRF-Token`,
+    `X-Amz-Security-Token`, and any header the log `Redactor` treats as
+    secret (names holding `token`, `secret`, `session`, `apikey`,
+    `password`, `signature`, …). Matching ignores case; `Idempotency-Key`
+    is kept.
+  - New `OfflineQueue(sensitiveHeaders: {...})` adds your own header names.
+  - `QueuedRequest.toJson` / `fromJson` drop credential headers too, so an
+    item built by hand, or a record written by an older version, never
+    writes or restores them.
+  - Before a replay, credential headers still on a stored item are
+    removed, so a stale one can no longer override the client's current
+    `auth`, default headers or interceptors.
+  - **Behaviour change:** a credential set only on the individual request
+    is not replayed. Set it on the client instead.
+
 - **Faster `FileCacheStore`**: entries are now one binary file each (small
   JSON header + raw body, no base64) with a lazily built in-memory index.
   `removeUrl` (run after every successful POST/PUT/PATCH/DELETE) no longer

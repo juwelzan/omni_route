@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:omni_network/advanced.dart';
@@ -143,6 +144,166 @@ void main() {
     token = 'NEW';
     await q.flush();
     expect(mock.requests.last.headers['authorization'], 'Bearer NEW');
+  });
+
+  group('credential headers', () {
+    const secrets = {
+      'X-API-Key': 'secret-api-key',
+      'x-auth-token': 'secret-auth',
+      'X-CSRF-Token': 'secret-csrf',
+      'X-XSRF-TOKEN': 'secret-xsrf',
+      'Proxy-Authorization': 'Basic secret-proxy',
+      'X-Access-Token': 'secret-access',
+      'X-Amz-Security-Token': 'secret-amz',
+      'X-Session-Id': 'secret-session', // Redactor rule: "session"
+      'X-Client-Secret': 'secret-client', // Redactor rule: "secret"
+      'X-Request-Signature': 'secret-sig', // Redactor rule: "signature"
+    };
+    const safe = {
+      'X-Keep': '1',
+      'Accept': 'application/json',
+      'Content-Language': 'bn',
+      'X-Request-Id': 'r-1',
+    };
+
+    void expectNoSecrets(Object json) {
+      final text = jsonEncode(json);
+      for (final v in secrets.values) {
+        expect(text, isNot(contains(v)), reason: v);
+      }
+    }
+
+    test('known and token-like headers are dropped, any case', () async {
+      final item = await queue.enqueue(
+        const OmniRequest.post(
+          '/a',
+          headers: {...secrets, ...safe, 'Idempotency-Key': 'idem-1'},
+        ),
+      );
+      expect(item.headers, {...safe, 'Idempotency-Key': 'idem-1'});
+      expectNoSecrets(item.toJson());
+    });
+
+    test('sendOrQueue drops them before queuing', () async {
+      final r = await queue.sendOrQueue(
+        const OmniRequest.post('/a', headers: {...secrets, ...safe}),
+      );
+      final item = (r as Queued).item;
+      expect(item.headers.keys.toSet(), {...safe.keys, 'Idempotency-Key'});
+      expectNoSecrets((await queue.pending).single.toJson());
+    });
+
+    test('sensitiveHeaders adds names, case-insensitively', () async {
+      final q = OfflineQueue(
+        client: api,
+        sensitiveHeaders: const {'x-device-id', 'X-TENANT'},
+      );
+      addTearDown(q.close);
+      final item = await q.enqueue(
+        const OmniRequest.post(
+          '/a',
+          headers: {'X-Device-ID': 'd', 'x-tenant': 't', 'X-Keep': '1'},
+        ),
+      );
+      expect(item.headers.keys.toSet(), {'X-Keep', 'Idempotency-Key'});
+    });
+
+    test('toJson never writes them, even for a hand-built item', () {
+      final item = QueuedRequest(
+        id: '1',
+        method: HttpMethod.post,
+        path: '/a',
+        createdAt: DateTime.utc(2026),
+        headers: {...secrets, 'Authorization': 'Bearer secret-bearer'},
+      );
+      final json = item.toJson();
+      expectNoSecrets(json);
+      expect(jsonEncode(json), isNot(contains('secret-bearer')));
+    });
+
+    test('fromJson drops them from records of older versions', () {
+      final back = QueuedRequest.fromJson({
+        'id': '1',
+        'method': 'post',
+        'path': '/a',
+        'query': <String, Object?>{},
+        'headers': {...secrets, 'Cookie': 's=1', 'Idempotency-Key': 'k'},
+        'body': null,
+        'createdAt': '2026-01-01T00:00:00.000Z',
+        'attempts': 0,
+        'tag': null,
+      });
+      expect(back.headers, {'Idempotency-Key': 'k'});
+    });
+
+    test('a stale stored credential never overrides the current one', () async {
+      final store = MemoryQueueStore()
+        ..add(
+          QueuedRequest(
+            id: 'legacy',
+            method: HttpMethod.post,
+            path: '/a',
+            createdAt: DateTime.utc(2026),
+            headers: const {
+              'X-API-Key': 'STALE',
+              'X-Device-Id': 'STALE-DEVICE',
+              'Idempotency-Key': 'k',
+              'X-Keep': '1',
+            },
+          ),
+        );
+      final client = OmniNetwork(
+        baseUrl: 'https://h.io',
+        transport: mock,
+        headers: const {'X-API-Key': 'CURRENT'},
+      );
+      addTearDown(client.close);
+      final q = OfflineQueue(
+        client: client,
+        store: store,
+        sensitiveHeaders: const {'x-device-id'},
+      );
+      addTearDown(q.close);
+      online = true;
+      await q.flush();
+      final sent = mock.requests.last.headers.map(
+        (k, v) => MapEntry(k.toLowerCase(), v),
+      );
+      expect(sent['x-api-key'], 'CURRENT');
+      expect(sent.containsKey('x-device-id'), isFalse);
+      expect(sent['idempotency-key'], 'k');
+      expect(sent['x-keep'], '1');
+      expect(store.all(), isEmpty);
+    });
+
+    test('FileQueueStore never writes them to disk', () async {
+      final dir = await Directory.systemTemp.createTemp('omni_queue_');
+      addTearDown(() => dir.delete(recursive: true));
+      final store = FileQueueStore(directory: dir.path);
+      final q = OfflineQueue(client: api, store: store);
+      addTearDown(q.close);
+      await q.enqueue(
+        const OmniRequest.post(
+          '/a',
+          headers: {...secrets, 'Authorization': 'Bearer secret-bearer'},
+        ),
+      );
+      // A hand-built item added straight to the store is scrubbed too.
+      await store.add(
+        QueuedRequest(
+          id: 'raw',
+          method: HttpMethod.post,
+          path: '/b',
+          createdAt: DateTime.utc(2026),
+          headers: secrets,
+        ),
+      );
+      final onDisk = await File('${dir.path}/queue.json').readAsString();
+      for (final v in [...secrets.values, 'secret-bearer']) {
+        expect(onDisk, isNot(contains(v)), reason: v);
+      }
+      expect(await store.all(), hasLength(2));
+    });
   });
 
   group('flush', () {

@@ -85,8 +85,14 @@ final class Queued extends QueueResult {
 /// * `PUT`, `PATCH` and `DELETE` change or remove existing data and need
 ///   `allowDestructive: true`.
 /// * Multipart/streamed bodies cannot be queued.
-/// * Credentials (`Authorization`, `Cookie`) are never stored; the client's
-///   auth adds a current token on replay.
+/// * Credential headers are never stored: `Authorization`, `Cookie`,
+///   `X-API-Key`, CSRF and session headers, any header whose name holds
+///   `token`, `secret`, `session`, `apikey`, `password` or `signature`, and
+///   your own [sensitiveHeaders] (all case-insensitive; `Idempotency-Key`
+///   is kept). They are also removed from items before a replay, so the
+///   client's `auth`, default headers and interceptors supply current
+///   values. Put credentials there, not on the individual request, or a
+///   replay is sent without them.
 ///
 /// [flush] replays oldest first, one at a time, and stops at the first
 /// temporary failure so order is preserved. Connectivity detection is not
@@ -94,8 +100,12 @@ final class Queued extends QueueResult {
 /// (e.g. from a Flutter connectivity plugin).
 final class OfflineQueue {
   /// Creates a queue that replays through [client].
-  OfflineQueue({required this.client, QueueStore? store, this.maxAttempts = 5})
-    : store = store ?? MemoryQueueStore();
+  OfflineQueue({
+    required this.client,
+    QueueStore? store,
+    this.maxAttempts = 5,
+    this.sensitiveHeaders = const {},
+  }) : store = store ?? MemoryQueueStore();
 
   /// Client used for replays.
   final OmniNetwork client;
@@ -105,6 +115,10 @@ final class OfflineQueue {
 
   /// Temporary failures tolerated per item before it is dead-lettered.
   final int maxAttempts;
+
+  /// Extra header names (case-insensitive) never stored, in addition to
+  /// the built-in credential headers (see the class notes).
+  final Set<String> sensitiveHeaders;
 
   final StreamController<QueueEvent> _events = StreamController.broadcast();
   Future<void>? _flushing;
@@ -190,10 +204,7 @@ final class OfflineQueue {
         );
       }
     }
-    final headers = {
-      for (final e in r.headers.entries)
-        if (!unpersistedHeaders.contains(e.key.toLowerCase())) e.key: e.value,
-    };
+    final headers = persistableHeaders(r.headers, sensitiveHeaders);
     if (r.header('idempotency-key') == null) {
       headers['Idempotency-Key'] = QueuedRequest.randomId();
     }
@@ -253,8 +264,14 @@ final class OfflineQueue {
     for (final item in await store.all()) {
       if (_closed) return;
       try {
+        // Items from a store written by an older version (or by hand) may
+        // still hold credentials; never let a stale one override the
+        // client's current value.
         final res = await client.sendRaw(
-          item.toRequest().copyWith(retry: RetryPolicy.none),
+          item.toRequest().copyWith(
+            headers: persistableHeaders(item.headers, sensitiveHeaders),
+            retry: RetryPolicy.none,
+          ),
         );
         final s = res.statusCode;
         if (s < 400) {

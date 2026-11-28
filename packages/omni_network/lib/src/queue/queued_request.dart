@@ -9,13 +9,51 @@ export 'file_queue_store_stub.dart'
     if (dart.library.io) 'file_queue_store_io.dart';
 
 import '../core/omni_request.dart';
+import '../log/redactor.dart';
 
-/// Headers never written to a queue store (credentials are re-added by the
-/// client's auth when the request is replayed).
+/// Credential headers never written to a queue store, in lower case.
+///
+/// [isUnpersistedHeader] also drops any header the log [Redactor] treats as
+/// secret (names containing `token`, `secret`, `session`, `apikey`,
+/// `password`, `signature`, …). Credentials belong on the client (its
+/// `auth`, default headers or an interceptor): those are applied again when
+/// a request is replayed, so a replay always carries current values.
 const Set<String> unpersistedHeaders = {
   'authorization',
   'proxy-authorization',
   'cookie',
+  'x-api-key',
+  'api-key',
+  'x-auth-token',
+  'x-access-token',
+  'x-refresh-token',
+  'x-session-token',
+  'x-csrf-token',
+  'x-xsrf-token',
+  'x-amz-security-token',
+};
+
+const _redactor = Redactor();
+
+/// Whether header [name] must not be persisted by an `OfflineQueue`:
+/// one of [unpersistedHeaders], a header the log [Redactor] treats as
+/// secret, or one of [extra] (all case-insensitive). The
+/// `Idempotency-Key` is always kept.
+bool isUnpersistedHeader(String name, [Set<String> extra = const {}]) {
+  final lower = name.toLowerCase();
+  if (lower == 'idempotency-key') return false;
+  return unpersistedHeaders.contains(lower) ||
+      _redactor.isSecretHeader(lower) ||
+      extra.any((h) => h.toLowerCase() == lower);
+}
+
+/// Copy of [headers] without the ones [isUnpersistedHeader] rejects.
+Map<String, String> persistableHeaders(
+  Map<String, String> headers, [
+  Set<String> extra = const {},
+]) => {
+  for (final e in headers.entries)
+    if (!isUnpersistedHeader(e.key, extra)) e.key: e.value,
 };
 
 /// A request waiting in an `OfflineQueue`. Serialisable with [toJson].
@@ -46,8 +84,10 @@ final class QueuedRequest {
   /// Query parameters (strings or lists of strings).
   final Map<String, Object?> query;
 
-  /// Headers, without credentials (see [unpersistedHeaders]); includes the
-  /// `Idempotency-Key`.
+  /// Headers, without credentials (see `OfflineQueue`); includes the
+  /// `Idempotency-Key`. [toJson] and [fromJson] drop credentials again, so
+  /// an item built by hand or written by an older version never stores or
+  /// restores them.
   final Map<String, String> headers;
 
   /// Body: a JSON value, a `String`, a `Uint8List`, or `null`.
@@ -93,7 +133,7 @@ final class QueuedRequest {
     'method': method.name,
     'path': path,
     'query': query,
-    'headers': headers,
+    'headers': persistableHeaders(headers),
     'body': switch (body) {
       null => null,
       Uint8List() => {'bytes': base64Encode(body! as Uint8List)},
@@ -113,7 +153,9 @@ final class QueuedRequest {
       method: HttpMethod.values.byName(json['method']! as String),
       path: json['path']! as String,
       query: Map<String, Object?>.from(json['query']! as Map),
-      headers: Map<String, String>.from(json['headers']! as Map),
+      headers: persistableHeaders(
+        Map<String, String>.from(json['headers']! as Map),
+      ),
       body: b == null
           ? null
           : b.containsKey('bytes')
@@ -137,8 +179,8 @@ final class QueuedRequest {
 }
 
 /// Persistence for an `OfflineQueue`, in FIFO order. Implement on disk
-/// for durability (store `QueuedRequest.toJson()`); credentials are never
-/// part of a [QueuedRequest].
+/// for durability (store `QueuedRequest.toJson()`, which never contains
+/// credential headers).
 abstract interface class QueueStore {
   /// All items, oldest first.
   FutureOr<List<QueuedRequest>> all();
