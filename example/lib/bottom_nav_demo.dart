@@ -136,7 +136,10 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
                 onPressed: () => context.to<OmniPageNavFeedScreen>(),
               ),
               tk.gapMd,
-              Text('CollectUI & Platform Modes', style: context.textStyles.title),
+              Text(
+                'CollectUI & Platform Modes',
+                style: context.textStyles.title,
+              ),
               tk.gapXs,
               Wrap(
                 spacing: 8,
@@ -301,8 +304,7 @@ class OmniPageNavFeedScreen extends OmniStatelessWidget {
   @override
   Widget build(BuildContext context) => _OmniPageNavBody(
     title: 'OmniPage Direct Feed',
-    subtitle:
-        'Embedded straight inside OmniPage.screen(..., bottomNavigationBar: const OmniBottomNavigationBar(...)) with auto route sync.',
+    subtitle: 'Embedded straight inside OmniPage.screen(..., bottomNavigationBar: const OmniBottomNavigationBar(...)) with auto route sync.',
     icon: Icons.dynamic_feed_rounded,
     color: const Color(0xFF2563EB),
   );

@@ -125,12 +125,8 @@ Simulation _settlingSpring(
 );
 
 class _SettlingSimulation extends Simulation {
-  _SettlingSimulation(
-    this._inner,
-    this._end, {
-    this.minValue,
-    this.maxValue,
-  }) : super(tolerance: _inner.tolerance);
+  _SettlingSimulation(this._inner, this._end, {this.minValue, this.maxValue})
+    : super(tolerance: _inner.tolerance);
 
   final SpringSimulation _inner;
   final double _end;

@@ -243,8 +243,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     _toIndex = initial;
     _travelCtrl = AnimationController(
       vsync: this,
-      duration:
-          widget.animationDuration ?? const Duration(milliseconds: 340),
+      duration: widget.animationDuration ?? const Duration(milliseconds: 340),
       value: 1,
     );
     widget.controller?.addListener(_onControllerChanged);
@@ -279,7 +278,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       _fromIndex = _fromIndex.clamp(0.0, maxIdx);
       _toIndex = _toIndex.clamp(0.0, maxIdx);
     }
-    if (widget.currentIndex != null && widget.currentIndex != _toIndex.round()) {
+    if (widget.currentIndex != null &&
+        widget.currentIndex != _toIndex.round()) {
       _animateToIndex(widget.currentIndex!);
     }
   }
@@ -376,7 +376,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   void _animateToIndex(int target) {
     final clamped = target.clamp(0, widget.items.length - 1).toDouble();
     if (_toIndex == clamped) return;
-    _fromIndex = lerpDouble(_fromIndex, _toIndex, _travelCtrl.value) ?? _toIndex;
+    _fromIndex =
+        lerpDouble(_fromIndex, _toIndex, _travelCtrl.value) ?? _toIndex;
     _toIndex = clamped;
     _travelCtrl.forward(from: 0);
   }
@@ -587,8 +588,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     );
 
     if (look.style == OmniBottomNavigationStyle.topIndicator) {
-      final slotCount =
-          widget.items.length + (effectiveAction != null ? 1 : 0);
+      final slotCount = widget.items.length + (effectiveAction != null ? 1 : 0);
       final mappedIndex = _mapTabIndexWithCenterAction(
         travelIndex,
         widget.items.length,
@@ -602,7 +602,9 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
               child: LayoutBuilder(
                 builder: (_, constraints) {
                   final slotW = constraints.maxWidth / slotCount;
-                  final normIndex = rtl ? (slotCount - 1 - mappedIndex) : mappedIndex;
+                  final normIndex = rtl
+                      ? (slotCount - 1 - mappedIndex)
+                      : mappedIndex;
                   final cx = slotW * (normIndex + 0.5);
                   return CustomPaint(
                     painter: _SpotlightGlowPainter(
@@ -775,7 +777,9 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       return LayoutBuilder(
         builder: (_, constraints) {
           final slotW = constraints.maxWidth / slotCount;
-          final visualIndex = rtl ? (slotCount - 1 - mappedTravel) : mappedTravel;
+          final visualIndex = rtl
+              ? (slotCount - 1 - mappedTravel)
+              : mappedTravel;
           final pillW = math.max(36.0, slotW * (0.88 + stretch));
           final pillLeft = (slotW * (visualIndex + 0.5) - pillW * 0.5)
               .clamp(0.0, math.max(0.0, constraints.maxWidth - pillW))
@@ -831,8 +835,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                 curve: look.curve,
                 width: i == activeIndex ? selectedW : unselectedW,
                 child: _NavTabTapTarget(
-                  label:
-                      widget.items[i].semanticLabel ?? widget.items[i].label,
+                  label: widget.items[i].semanticLabel ?? widget.items[i].label,
                   tooltip: widget.items[i].tooltip,
                   selected: i == activeIndex,
                   enableScale: look.enableScaleAnimation,
@@ -858,7 +861,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final accent = item.activeColor ?? look.activeColor;
     final bubbleFill =
         item.indicatorColor ??
-        (widget.indicatorColor ?? accent.withValues(alpha: look.isDark ? 0.24 : 0.14));
+        (widget.indicatorColor ??
+            accent.withValues(alpha: look.isDark ? 0.24 : 0.14));
     final showLabel = _shouldShowLabel(look.labelMode, look.style, selected);
 
     return Center(
@@ -946,11 +950,13 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                 final horizontalPad = look.padding.resolve(
                   Directionality.of(context),
                 );
-                final usableW =
-                    constraints.maxWidth - horizontalPad.horizontal;
+                final usableW = constraints.maxWidth - horizontalPad.horizontal;
                 final slotW = usableW / count;
-                final visualIndex = rtl ? (count - 1 - travelIndex) : travelIndex;
-                final notchCx = horizontalPad.left + slotW * (visualIndex + 0.5);
+                final visualIndex = rtl
+                    ? (count - 1 - travelIndex)
+                    : travelIndex;
+                final notchCx =
+                    horizontalPad.left + slotW * (visualIndex + 0.5);
                 final activeItem = widget.items[activeIndex];
                 final orbColor =
                     activeItem.indicatorColor ??
@@ -1012,8 +1018,12 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                                 tooltip: widget.items[i].tooltip,
                                 selected: i == activeIndex,
                                 enableScale: look.enableScaleAnimation,
-                                onTap: () =>
-                                    _handleItemTap(i, activeIndex, look, bridge),
+                                onTap: () => _handleItemTap(
+                                  i,
+                                  activeIndex,
+                                  look,
+                                  bridge,
+                                ),
                                 child: widget.itemBuilder != null
                                     ? widget.itemBuilder!(
                                         context,
@@ -1038,8 +1048,12 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                       height: 50,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () =>
-                            _handleItemTap(activeIndex, activeIndex, look, bridge),
+                        onTap: () => _handleItemTap(
+                          activeIndex,
+                          activeIndex,
+                          look,
+                          bridge,
+                        ),
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -1231,7 +1245,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                         tooltip: item.tooltip,
                         selected: selected,
                         enableScale: look.enableScaleAnimation,
-                        onTap: () => _handleItemTap(i, activeIndex, look, bridge),
+                        onTap: () =>
+                            _handleItemTap(i, activeIndex, look, bridge),
                         child: widget.itemBuilder != null
                             ? widget.itemBuilder!(
                                 context,
@@ -1498,9 +1513,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                   gradient: selected ? look.indicatorGradient : null,
                   borderRadius: BorderRadius.circular(look.indicatorRadius),
                   border: Border.all(
-                    color: selected
-                        ? Colors.transparent
-                        : look.borderColor,
+                    color: selected ? Colors.transparent : look.borderColor,
                     width: look.borderWidth,
                   ),
                   boxShadow: [
@@ -1508,8 +1521,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                       color: selected
                           ? accent.withValues(alpha: 0.34)
                           : (look.isDark
-                              ? const Color(0x36000000)
-                              : const Color(0x140F172A)),
+                                ? const Color(0x36000000)
+                                : const Color(0x140F172A)),
                       blurRadius: selected ? 18 : 10,
                       offset: Offset(0, selected ? 8 : 4),
                     ),
@@ -1535,14 +1548,15 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                         maxLines: 1,
                         softWrap: false,
                         overflow: TextOverflow.ellipsis,
-                        style: (selected
-                                ? look.selectedLabelStyle
-                                : look.labelStyle)
-                            .copyWith(
-                              color: selected
-                                  ? look.activeContentColor
-                                  : look.inactiveColor,
-                            ),
+                        style:
+                            (selected
+                                    ? look.selectedLabelStyle
+                                    : look.labelStyle)
+                                .copyWith(
+                                  color: selected
+                                      ? look.activeContentColor
+                                      : look.inactiveColor,
+                                ),
                       ),
                     ],
                   ],

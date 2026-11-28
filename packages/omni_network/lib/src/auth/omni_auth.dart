@@ -135,12 +135,10 @@ final class OmniAuth implements AuthProvider {
   Future<void> _save(Tokens? t, {required int epoch}) {
     _tokens = t;
     _loaded = true;
-    return _writeChain = _writeChain
-        .catchError((Object _) {})
-        .then((_) async {
-          if (epoch != _epoch) return;
-          await storage.write(t);
-        });
+    return _writeChain = _writeChain.catchError((Object _) {}).then((_) async {
+      if (epoch != _epoch) return;
+      await storage.write(t);
+    });
   }
 
   void _emit() {

@@ -463,11 +463,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
   @internal
   void forcePopPage(ValueKey<String> pageKey, [Object? result]) {
     if (_disposed) return;
-    final removed = _removePageByKey(
-      _rootStack,
-      pageKey,
-      keepLastFrame: true,
-    );
+    final removed = _removePageByKey(_rootStack, pageKey, keepLastFrame: true);
     if (removed != null) {
       _completeRemovedFrame(removed, result);
       _lastNavKind = OmniNavigationKind.pop;
@@ -1438,11 +1434,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
           if (hit != null) return hit;
         case _StatefulShellFrame():
           for (final b in f.branches) {
-            final hit = _removePageByKey(
-              b,
-              key,
-              keepLastFrame: keepLastFrame,
-            );
+            final hit = _removePageByKey(b, key, keepLastFrame: keepLastFrame);
             if (hit != null) return hit;
           }
       }
@@ -1493,7 +1485,10 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
             frames[i] = _StatefulShellFrame(
               statefulShell: freshSS,
               key: f.key,
-              currentIndex: f.currentIndex.clamp(0, freshSS.branches.length - 1),
+              currentIndex: f.currentIndex.clamp(
+                0,
+                freshSS.branches.length - 1,
+              ),
               branches: branches,
             );
           }
@@ -1513,11 +1508,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     final key = page.key;
     if (key is! ValueKey<String>) return;
     final popFuture = _pendingPopFutures.remove(key);
-    final removed = _removePageByKey(
-      _rootStack,
-      key,
-      keepLastFrame: true,
-    );
+    final removed = _removePageByKey(_rootStack, key, keepLastFrame: true);
     if (removed is _PageFrame) {
       final completer = removed.completer;
       if (completer != null && !completer.isCompleted) {
@@ -1552,7 +1543,7 @@ class OmniRouter extends ChangeNotifier implements RouterConfig<Uri> {
     final targetUri = initialLocation
         ? _normalizeUri(_normalizeParse(branch.defaultLocation))
         : (_topPageFrameIn(shellFrame.branches[index])?.uri ??
-            _normalizeUri(_normalizeParse(branch.defaultLocation)));
+              _normalizeUri(_normalizeParse(branch.defaultLocation)));
 
     void commitSwitch() {
       shellFrame.currentIndex = index;

@@ -348,7 +348,8 @@ void main() {
             WsLogRecord(
               uri: 'wss://api.test/live?token=WS-SECRET&v=1',
               direction: 'err',
-              summary: 'failed connecting wss://api.test/live?key=API-KEY-SECRET',
+              summary:
+                  'failed connecting wss://api.test/live?key=API-KEY-SECRET',
               timestamp: DateTime(2026, 1, 1),
             ),
           )
@@ -360,7 +361,8 @@ void main() {
               latency: const Duration(milliseconds: 10),
               timestamp: DateTime(2026, 1, 1),
               promptPreview: 'Bearer PROMPT-SECRET',
-              error: 'https://generativelanguage.googleapis.com?key=GEMINI-SECRET',
+              error:
+                  'https://generativelanguage.googleapis.com?key=GEMINI-SECRET',
             ),
           )
           ..logRoute('/auth?token=ROUTE-SECRET -> /home');
@@ -368,7 +370,8 @@ void main() {
         final md = inspector.toMarkdownReport();
         final allText = [
           md,
-          for (final l in inspector.logs) '${l.title} ${l.subtitle} ${l.copyText}',
+          for (final l in inspector.logs)
+            '${l.title} ${l.subtitle} ${l.copyText}',
         ].join('\n');
 
         for (final secret in [

@@ -199,12 +199,10 @@ class OmniScalableSheetController {
       _state?._view?.snapTo(index) ?? Future<void>.value();
 
   /// Animates to the largest detent.
-  Future<void> expand() =>
-      _state?._view?._expand() ?? Future<void>.value();
+  Future<void> expand() => _state?._view?._expand() ?? Future<void>.value();
 
   /// Animates to the smallest detent.
-  Future<void> collapse() =>
-      _state?._view?._collapse() ?? Future<void>.value();
+  Future<void> collapse() => _state?._view?._collapse() ?? Future<void>.value();
 
   /// Brings a hidden sheet back.
   Future<void> show() => _state?._setShown(true) ?? Future<void>.value();

@@ -402,7 +402,10 @@ void main() {
       // Default allowBadProxyCertificate (false) rejects untrusted HTTPS even
       // over an HTTP CONNECT tunnel, while trustedProxyCertificateBytes trusts
       // the explicit CA cleanly and release builds disable bypass.
-      final connectProxy = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final connectProxy = await ServerSocket.bind(
+        InternetAddress.loopbackIPv4,
+        0,
+      );
       addTearDown(connectProxy.close);
       connectProxy.listen((clientSocket) {
         final upstreamFuture = Socket.connect(
@@ -482,18 +485,53 @@ void main() {
         'subjectAltName=DNS:localhost,IP:127.0.0.1\n',
       );
       await Process.run('openssl', [
-        'req', '-x509', '-newkey', 'rsa:2048', '-keyout', caKey, '-out', caPem,
-        '-days', '2', '-nodes', '-subj', '/CN=Test Proxy CA',
-        '-addext', 'basicConstraints=critical,CA:TRUE',
-        '-addext', 'keyUsage=critical,keyCertSign,cRLSign',
+        'req',
+        '-x509',
+        '-newkey',
+        'rsa:2048',
+        '-keyout',
+        caKey,
+        '-out',
+        caPem,
+        '-days',
+        '2',
+        '-nodes',
+        '-subj',
+        '/CN=Test Proxy CA',
+        '-addext',
+        'basicConstraints=critical,CA:TRUE',
+        '-addext',
+        'keyUsage=critical,keyCertSign,cRLSign',
       ]);
       await Process.run('openssl', [
-        'req', '-new', '-newkey', 'rsa:2048', '-keyout', srvKey, '-out', srvCsr,
-        '-nodes', '-subj', '/CN=localhost',
+        'req',
+        '-new',
+        '-newkey',
+        'rsa:2048',
+        '-keyout',
+        srvKey,
+        '-out',
+        srvCsr,
+        '-nodes',
+        '-subj',
+        '/CN=localhost',
       ]);
       final sign = await Process.run('openssl', [
-        'x509', '-req', '-in', srvCsr, '-CA', caPem, '-CAkey', caKey,
-        '-CAcreateserial', '-out', srvPem, '-days', '2', '-extfile', srvExt,
+        'x509',
+        '-req',
+        '-in',
+        srvCsr,
+        '-CA',
+        caPem,
+        '-CAkey',
+        caKey,
+        '-CAcreateserial',
+        '-out',
+        srvPem,
+        '-days',
+        '2',
+        '-extfile',
+        srvExt,
       ]);
       expect(sign.exitCode, 0, reason: '${sign.stderr}');
 
@@ -624,10 +662,7 @@ void main() {
         OmniNetwork.isReleaseBuild = prevRelease;
       }
 
-      expect(
-        () => CertificatePinMatcher(const []),
-        throwsArgumentError,
-      );
+      expect(() => CertificatePinMatcher(const []), throwsArgumentError);
     });
   });
 

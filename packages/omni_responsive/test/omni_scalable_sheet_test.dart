@@ -335,46 +335,43 @@ void main() {
     },
   );
 
-  testWidgets('unsorted detents work with expand, collapse, dimFromDetent, and back button', (
-    t,
-  ) async {
-    final controller = OmniScalableSheetController();
-    addTearDown(controller.dispose);
-    final changes = <int>[];
-    await t.pumpWidget(
-      _page(
-        controller: controller,
-        detents: const [
-          OmniSheetDetent.large,
-          OmniSheetDetent.medium,
-          _peek,
-        ],
-        initialDetent: 0, // large
-        dimFromDetent: 1, // medium -> dims above medium
-        onDetentChanged: changes.add,
-      ),
-    );
-    await t.pumpAndSettle();
-    expect(controller.detent.value, 0);
-    expect(_rect(t).top, 0);
+  testWidgets(
+    'unsorted detents work with expand, collapse, dimFromDetent, and back button',
+    (t) async {
+      final controller = OmniScalableSheetController();
+      addTearDown(controller.dispose);
+      final changes = <int>[];
+      await t.pumpWidget(
+        _page(
+          controller: controller,
+          detents: const [OmniSheetDetent.large, OmniSheetDetent.medium, _peek],
+          initialDetent: 0, // large
+          dimFromDetent: 1, // medium -> dims above medium
+          onDetentChanged: changes.add,
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(controller.detent.value, 0);
+      expect(_rect(t).top, 0);
 
-    // Back collapses to smallest detent (index 2 = _peek).
-    await t.binding.handlePopRoute();
-    await t.pumpAndSettle();
-    expect(controller.detent.value, 2);
-    expect(_rect(t).top, 600 - 140);
+      // Back collapses to smallest detent (index 2 = _peek).
+      await t.binding.handlePopRoute();
+      await t.pumpAndSettle();
+      expect(controller.detent.value, 2);
+      expect(_rect(t).top, 600 - 140);
 
-    controller.expand();
-    await t.pumpAndSettle();
-    expect(controller.detent.value, 0);
-    expect(_rect(t).top, 0);
+      controller.expand();
+      await t.pumpAndSettle();
+      expect(controller.detent.value, 0);
+      expect(_rect(t).top, 0);
 
-    controller.collapse();
-    await t.pumpAndSettle();
-    expect(controller.detent.value, 2);
-    expect(_rect(t).top, 600 - 140);
-    expect(changes, [0, 2, 0, 2]);
-  });
+      controller.collapse();
+      await t.pumpAndSettle();
+      expect(controller.detent.value, 2);
+      expect(_rect(t).top, 600 - 140);
+      expect(changes, [0, 2, 0, 2]);
+    },
+  );
 
   testWidgets('dynamic detent changes remap active detent safely', (t) async {
     final controller = OmniScalableSheetController();
@@ -400,55 +397,60 @@ void main() {
     expect(_rect(t).top, 0);
 
     // Insert medium in the middle -> large moves to index 2.
-    detents.value = const [_peek, OmniSheetDetent.medium, OmniSheetDetent.large];
+    detents.value = const [
+      _peek,
+      OmniSheetDetent.medium,
+      OmniSheetDetent.large,
+    ];
     await t.pumpAndSettle();
     expect(controller.detent.value, 2);
     expect(_rect(t).top, 0);
   });
 
-  testWidgets('hide, show, and expand keep isShown synchronized and floating sheet clips bounds', (
-    t,
-  ) async {
-    final controller = OmniScalableSheetController();
-    addTearDown(controller.dispose);
-    var bodyTaps = 0;
-    await t.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: OmniScalableSheet(
-            controller: controller,
-            animateOnOpen: false,
-            style: OmniSheetStyle.floating,
-            detents: const [_peek, OmniSheetDetent.large],
-            initialDetent: 0,
-            body: Align(
-              alignment: Alignment.topCenter,
-              child: TextButton(
-                onPressed: () => bodyTaps++,
-                child: const Text('bg tap'),
+  testWidgets(
+    'hide, show, and expand keep isShown synchronized and floating sheet clips bounds',
+    (t) async {
+      final controller = OmniScalableSheetController();
+      addTearDown(controller.dispose);
+      var bodyTaps = 0;
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OmniScalableSheet(
+              controller: controller,
+              animateOnOpen: false,
+              style: OmniSheetStyle.floating,
+              detents: const [_peek, OmniSheetDetent.large],
+              initialDetent: 0,
+              body: Align(
+                alignment: Alignment.topCenter,
+                child: TextButton(
+                  onPressed: () => bodyTaps++,
+                  child: const Text('bg tap'),
+                ),
               ),
+              builder: (_) => const SizedBox.expand(key: _box),
             ),
-            builder: (_) => const SizedBox.expand(key: _box),
           ),
         ),
-      ),
-    );
-    await t.pumpAndSettle();
-    expect(controller.isShown.value, isTrue);
+      );
+      await t.pumpAndSettle();
+      expect(controller.isShown.value, isTrue);
 
-    controller.hide();
-    await t.pumpAndSettle();
-    expect(controller.isShown.value, isFalse);
+      controller.hide();
+      await t.pumpAndSettle();
+      expect(controller.isShown.value, isFalse);
 
-    // Tapping above the hidden sheet hits the underlying page cleanly.
-    await t.tap(find.text('bg tap'));
-    expect(bodyTaps, 1);
+      // Tapping above the hidden sheet hits the underlying page cleanly.
+      await t.tap(find.text('bg tap'));
+      expect(bodyTaps, 1);
 
-    controller.show();
-    await t.pumpAndSettle();
-    expect(controller.isShown.value, isTrue);
-    expect(_rect(t).bottom, lessThanOrEqualTo(600));
-  });
+      controller.show();
+      await t.pumpAndSettle();
+      expect(controller.isShown.value, isTrue);
+      expect(_rect(t).bottom, lessThanOrEqualTo(600));
+    },
+  );
 
   testWidgets('hidden scalable sheet is excluded from semantics and focus', (
     t,
@@ -509,11 +511,13 @@ bool _hasCompiledSemanticsLabel(WidgetTester t, String label) {
       return !found;
     });
   }
+
   void visitPipeline(PipelineOwner owner) {
     final root = owner.semanticsOwner?.rootSemanticsNode;
     if (root != null) visitSemantics(root);
     if (!found) owner.visitChildren(visitPipeline);
   }
+
   visitPipeline(t.binding.rootPipelineOwner);
   return found;
 }

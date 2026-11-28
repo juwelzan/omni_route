@@ -1057,7 +1057,9 @@ final class OmniAi {
       completer.completeError(error);
     }
 
-    detachParent = cancelToken?.attach(() => settleError(const CancelledFailure()));
+    detachParent = cancelToken?.attach(
+      () => settleError(const CancelledFailure()),
+    );
 
     void startAttempt(int index) {
       final (target, provider) = targets[index];

@@ -361,7 +361,8 @@ class _RenderSheet extends RenderBox
         final publicToSorted = List<int>.filled(_detents.length, 0);
         final sortedToPublic = <int>[];
         for (final entry in entries) {
-          if (heights.isEmpty || (entry.height - heights.last).abs() > epsilon) {
+          if (heights.isEmpty ||
+              (entry.height - heights.last).abs() > epsilon) {
             heights.add(entry.height);
             sortedToPublic.add(entry.publicIndex);
           }

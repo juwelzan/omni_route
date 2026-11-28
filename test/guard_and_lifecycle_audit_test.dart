@@ -9,7 +9,8 @@ class _PageView extends StatelessWidget {
   final String label;
 
   @override
-  Widget build(BuildContext context) => Scaffold(body: Center(child: Text(label)));
+  Widget build(BuildContext context) =>
+      Scaffold(body: Center(child: Text(label)));
 }
 
 class _DummyCubit extends Cubit<int> {
@@ -28,56 +29,59 @@ class _ChildScreen extends OmniStatelessWidget {
 
 void main() {
   group('Async & sync guard error handling', () {
-    testWidgets('sync allow, sync redirect, async allow, async redirect & ordering', (
+    testWidgets(
+      'sync allow, sync redirect, async allow, async redirect & ordering',
+      (t) async {
+        final order = <String>[];
+        await t.pumpWidget(
+          OmniApp(
+            transition: OmniPages.none,
+            guards: [
+              OmniGuard.fn((c, s) {
+                order.add('sync:${s.matchedLocation}');
+                if (s.matchedLocation == '/sync-redir') return '/target';
+                return null;
+              }),
+              OmniGuard.fn((c, s) async {
+                await Future<void>.delayed(Duration.zero);
+                order.add('async:${s.matchedLocation}');
+                if (s.matchedLocation == '/async-redir') return '/target';
+                return null;
+              }),
+            ],
+            routes: [
+              OmniPage('/', (_) => const _PageView('home')),
+              OmniPage('/sync-redir', (_) => const _PageView('sync-redir')),
+              OmniPage('/async-redir', (_) => const _PageView('async-redir')),
+              OmniPage('/target', (_) => const _PageView('target')),
+            ],
+            builder: (_, r) => MaterialApp.router(routerConfig: r),
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(find.text('home'), findsOneWidget);
+        expect(order, ['sync:/', 'async:/']);
+
+        order.clear();
+        OmniRoute.go('/sync-redir');
+        await t.pumpAndSettle();
+        expect(find.text('target'), findsOneWidget);
+        // Async guard did NOT run for `/sync-redir` because sync guard redirected first.
+        expect(order, ['sync:/sync-redir', 'sync:/target', 'async:/target']);
+
+        order.clear();
+        final pushFuture = OmniRoute.push<Object?>('/async-redir');
+        await t.pumpAndSettle();
+        expect(find.text('target'), findsOneWidget);
+        OmniRoute.pop('done');
+        await t.pumpAndSettle();
+        expect(await pushFuture, 'done');
+      },
+    );
+
+    testWidgets('sync throw & async throw route to error page cleanly', (
       t,
     ) async {
-      final order = <String>[];
-      await t.pumpWidget(
-        OmniApp(
-          transition: OmniPages.none,
-          guards: [
-            OmniGuard.fn((c, s) {
-              order.add('sync:${s.matchedLocation}');
-              if (s.matchedLocation == '/sync-redir') return '/target';
-              return null;
-            }),
-            OmniGuard.fn((c, s) async {
-              await Future<void>.delayed(Duration.zero);
-              order.add('async:${s.matchedLocation}');
-              if (s.matchedLocation == '/async-redir') return '/target';
-              return null;
-            }),
-          ],
-          routes: [
-            OmniPage('/', (_) => const _PageView('home')),
-            OmniPage('/sync-redir', (_) => const _PageView('sync-redir')),
-            OmniPage('/async-redir', (_) => const _PageView('async-redir')),
-            OmniPage('/target', (_) => const _PageView('target')),
-          ],
-          builder: (_, r) => MaterialApp.router(routerConfig: r),
-        ),
-      );
-      await t.pumpAndSettle();
-      expect(find.text('home'), findsOneWidget);
-      expect(order, ['sync:/', 'async:/']);
-
-      order.clear();
-      OmniRoute.go('/sync-redir');
-      await t.pumpAndSettle();
-      expect(find.text('target'), findsOneWidget);
-      // Async guard did NOT run for `/sync-redir` because sync guard redirected first.
-      expect(order, ['sync:/sync-redir', 'sync:/target', 'async:/target']);
-
-      order.clear();
-      final pushFuture = OmniRoute.push<Object?>('/async-redir');
-      await t.pumpAndSettle();
-      expect(find.text('target'), findsOneWidget);
-      OmniRoute.pop('done');
-      await t.pumpAndSettle();
-      expect(await pushFuture, 'done');
-    });
-
-    testWidgets('sync throw & async throw route to error page cleanly', (t) async {
       await t.pumpWidget(
         OmniApp(
           transition: OmniPages.none,
@@ -123,34 +127,35 @@ void main() {
       expect(await f2, isNull);
     });
 
-    testWidgets('async guard timeout & initial guard failure do not stall app', (
-      t,
-    ) async {
-      await t.pumpWidget(
-        OmniApp(
-          transition: OmniPages.none,
-          guardTimeout: const Duration(milliseconds: 20),
-          initialRoute: '/hang',
-          notFound: (_, _, err) => _PageView('init-err:$err'),
-          guards: [
-            OmniGuard.fn((c, s) {
-              if (s.matchedLocation == '/hang') {
-                return Completer<String?>().future;
-              }
-              return null;
-            }),
-          ],
-          routes: [
-            OmniPage('/', (_) => const _PageView('home')),
-            OmniPage('/hang', (_) => const _PageView('hang')),
-          ],
-          builder: (_, r) => MaterialApp.router(routerConfig: r),
-        ),
-      );
-      await t.pump(const Duration(milliseconds: 40));
-      await t.pumpAndSettle();
-      expect(find.textContaining('TimeoutException'), findsOneWidget);
-    });
+    testWidgets(
+      'async guard timeout & initial guard failure do not stall app',
+      (t) async {
+        await t.pumpWidget(
+          OmniApp(
+            transition: OmniPages.none,
+            guardTimeout: const Duration(milliseconds: 20),
+            initialRoute: '/hang',
+            notFound: (_, _, err) => _PageView('init-err:$err'),
+            guards: [
+              OmniGuard.fn((c, s) {
+                if (s.matchedLocation == '/hang') {
+                  return Completer<String?>().future;
+                }
+                return null;
+              }),
+            ],
+            routes: [
+              OmniPage('/', (_) => const _PageView('home')),
+              OmniPage('/hang', (_) => const _PageView('hang')),
+            ],
+            builder: (_, r) => MaterialApp.router(routerConfig: r),
+          ),
+        );
+        await t.pump(const Duration(milliseconds: 40));
+        await t.pumpAndSettle();
+        expect(find.textContaining('TimeoutException'), findsOneWidget);
+      },
+    );
 
     testWidgets('invalid redirect URI fails safely and routes to error page', (
       t,
@@ -183,93 +188,95 @@ void main() {
       expect(await f, isNull);
     });
 
-    testWidgets('simultaneous push superseded completes unresolved future cleanly', (
+    testWidgets(
+      'simultaneous push superseded completes unresolved future cleanly',
+      (t) async {
+        final gate = Completer<String?>();
+        await t.pumpWidget(
+          OmniApp(
+            transition: OmniPages.none,
+            guards: [
+              OmniGuard.fn((c, s) {
+                if (s.matchedLocation == '/slow') return gate.future;
+                return null;
+              }),
+            ],
+            routes: [
+              OmniPage('/', (_) => const _PageView('home')),
+              OmniPage('/slow', (_) => const _PageView('slow')),
+              OmniPage('/fast', (_) => const _PageView('fast')),
+            ],
+            builder: (_, r) => MaterialApp.router(routerConfig: r),
+          ),
+        );
+        await t.pumpAndSettle();
+
+        final slowFuture = OmniRoute.push<Object?>('/slow');
+        // Immediately supersede while `/slow` guard is still pending.
+        OmniRoute.go('/fast');
+        await t.pumpAndSettle();
+
+        expect(find.text('fast'), findsOneWidget);
+        expect(await slowFuture, isNull);
+        // Completing gate late is safely ignored.
+        gate.complete(null);
+        await t.pumpAndSettle();
+        expect(find.text('fast'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'query-stripping redirect is honored; async redirect loop caught',
+      (t) async {
+        await t.pumpWidget(
+          OmniApp(
+            transition: OmniPages.none,
+            notFound: (_, _, err) => _PageView('loop:$err'),
+            guards: [
+              OmniGuard.fn((c, s) {
+                if (s.matchedLocation == '/search' && s.uri.query.isNotEmpty) {
+                  return '/search';
+                }
+                return null;
+              }),
+              OmniGuard.fn((c, s) async {
+                await Future<void>.delayed(Duration.zero);
+                if (s.matchedLocation == '/a') return '/b';
+                if (s.matchedLocation == '/b') return '/a';
+                return null;
+              }),
+            ],
+            routes: [
+              OmniPage('/', (_) => const _PageView('home')),
+              OmniPage('/search', (p) => _PageView('search:${p.query('q')}')),
+              OmniPage('/a', (_) => const _PageView('a')),
+              OmniPage('/b', (_) => const _PageView('b')),
+            ],
+            builder: (_, r) => MaterialApp.router(routerConfig: r),
+          ),
+        );
+        await t.pumpAndSettle();
+
+        OmniRoute.go('/search?q=1');
+        await t.pumpAndSettle();
+        expect(find.text('search:null'), findsOneWidget);
+
+        OmniRoute.go('/a');
+        await t.pumpAndSettle();
+        expect(find.textContaining('loop:OmniRouteException'), findsOneWidget);
+      },
+    );
+
+    testWidgets('guard refresh stream errors do not escape uncaught', (
       t,
     ) async {
-      final gate = Completer<String?>();
-      await t.pumpWidget(
-        OmniApp(
-          transition: OmniPages.none,
-          guards: [
-            OmniGuard.fn((c, s) {
-              if (s.matchedLocation == '/slow') return gate.future;
-              return null;
-            }),
-          ],
-          routes: [
-            OmniPage('/', (_) => const _PageView('home')),
-            OmniPage('/slow', (_) => const _PageView('slow')),
-            OmniPage('/fast', (_) => const _PageView('fast')),
-          ],
-          builder: (_, r) => MaterialApp.router(routerConfig: r),
-        ),
-      );
-      await t.pumpAndSettle();
-
-      final slowFuture = OmniRoute.push<Object?>('/slow');
-      // Immediately supersede while `/slow` guard is still pending.
-      OmniRoute.go('/fast');
-      await t.pumpAndSettle();
-
-      expect(find.text('fast'), findsOneWidget);
-      expect(await slowFuture, isNull);
-      // Completing gate late is safely ignored.
-      gate.complete(null);
-      await t.pumpAndSettle();
-      expect(find.text('fast'), findsOneWidget);
-    });
-
-    testWidgets('query-stripping redirect is honored; async redirect loop caught', (
-      t,
-    ) async {
-      await t.pumpWidget(
-        OmniApp(
-          transition: OmniPages.none,
-          notFound: (_, _, err) => _PageView('loop:$err'),
-          guards: [
-            OmniGuard.fn((c, s) {
-              if (s.matchedLocation == '/search' && s.uri.query.isNotEmpty) {
-                return '/search';
-              }
-              return null;
-            }),
-            OmniGuard.fn((c, s) async {
-              await Future<void>.delayed(Duration.zero);
-              if (s.matchedLocation == '/a') return '/b';
-              if (s.matchedLocation == '/b') return '/a';
-              return null;
-            }),
-          ],
-          routes: [
-            OmniPage('/', (_) => const _PageView('home')),
-            OmniPage('/search', (p) => _PageView('search:${p.query('q')}')),
-            OmniPage('/a', (_) => const _PageView('a')),
-            OmniPage('/b', (_) => const _PageView('b')),
-          ],
-          builder: (_, r) => MaterialApp.router(routerConfig: r),
-        ),
-      );
-      await t.pumpAndSettle();
-
-      OmniRoute.go('/search?q=1');
-      await t.pumpAndSettle();
-      expect(find.text('search:null'), findsOneWidget);
-
-      OmniRoute.go('/a');
-      await t.pumpAndSettle();
-      expect(find.textContaining('loop:OmniRouteException'), findsOneWidget);
-    });
-
-    testWidgets('guard refresh stream errors do not escape uncaught', (t) async {
       final ctrl = StreamController<int>.broadcast();
       addTearDown(ctrl.close);
 
       await t.pumpWidget(
         OmniApp(
           transition: OmniPages.none,
-          guards: [
-            OmniGuard.fn((_, _) => null, refresh: (_) => ctrl.stream),
-          ],
+          guards: [OmniGuard.fn((_, _) => null, refresh: (_) => ctrl.stream)],
           routes: [OmniPage('/', (_) => const _PageView('home'))],
           builder: (_, r) => MaterialApp.router(routerConfig: r),
         ),
@@ -509,7 +516,10 @@ void main() {
               (_) => const _PageView('home'),
               routes: [OmniPage.screen(const _ChildScreen())],
             ),
-            OmniPage('/files/*rest', (p) => _PageView('file:${p.path('rest')}')),
+            OmniPage(
+              '/files/*rest',
+              (p) => _PageView('file:${p.path('rest')}'),
+            ),
           ],
           builder: (_, r) => MaterialApp.router(routerConfig: r),
         ),
@@ -574,7 +584,10 @@ void main() {
         ),
       );
       await t.pumpAndSettle();
-      expect(find.textContaining('group-err:OmniRouteException'), findsOneWidget);
+      expect(
+        find.textContaining('group-err:OmniRouteException'),
+        findsOneWidget,
+      );
     });
 
     testWidgets('pushPublic opens public route during route-based onboarding', (

@@ -26,8 +26,7 @@ Path _buildCurvedNotchPath({
   final rightShoulder = math.min(size.width - rCorner, cx + notchRadius * 1.48);
   final bottom = size.height;
 
-  final path = Path()
-    ..moveTo(0, topOffset + rCorner);
+  final path = Path()..moveTo(0, topOffset + rCorner);
 
   if (rCorner > 0) {
     path.quadraticBezierTo(0, topOffset, rCorner, topOffset);
@@ -57,7 +56,12 @@ Path _buildCurvedNotchPath({
 
   if (rCorner > 0) {
     path
-      ..quadraticBezierTo(size.width, topOffset, size.width, topOffset + rCorner)
+      ..quadraticBezierTo(
+        size.width,
+        topOffset,
+        size.width,
+        topOffset + rCorner,
+      )
       ..lineTo(size.width, bottom - rCorner)
       ..quadraticBezierTo(size.width, bottom, size.width - rCorner, bottom)
       ..lineTo(rCorner, bottom)
@@ -217,14 +221,17 @@ class _SpotlightGlowPainter extends CustomPainter {
       ..close();
 
     final beamPaint = Paint()
-      ..shader = LinearGradient(
-        begin: Alignment.topCenter,
-        end: Alignment.bottomCenter,
-        colors: [
-          color.withValues(alpha: isDark ? 0.34 : 0.22),
-          color.withValues(alpha: 0.0),
-        ],
-      ).createShader(Rect.fromLTWH(cx - halfBottom, 3, halfBottom * 2, beamBottom));
+      ..shader =
+          LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              color.withValues(alpha: isDark ? 0.34 : 0.22),
+              color.withValues(alpha: 0.0),
+            ],
+          ).createShader(
+            Rect.fromLTWH(cx - halfBottom, 3, halfBottom * 2, beamBottom),
+          );
     canvas.drawPath(cone, beamPaint);
 
     final barRect = RRect.fromRectAndRadius(

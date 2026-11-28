@@ -38,9 +38,7 @@ class _SheetLook {
           ? omni.borderColor
           : omni.hintTextColor.withValues(alpha: 0.48);
     } else if (floating) {
-      background = isDark
-          ? const Color(0xFF1C1C1E)
-          : const Color(0xFFF4F4F7);
+      background = isDark ? const Color(0xFF1C1C1E) : const Color(0xFFF4F4F7);
       handle = isDark ? const Color(0xFF545458) : const Color(0xFFC2C2C7);
       divider = isDark ? const Color(0x26FFFFFF) : const Color(0x18000000);
     } else if (cupertinoApp) {
@@ -216,10 +214,7 @@ class _OmniSheetCloseButtonState extends State<OmniSheetCloseButton> {
                             fill,
                           )
                         : fill,
-                    border: Border.all(
-                      color: rim,
-                      width: _focused ? 2.0 : 0.6,
-                    ),
+                    border: Border.all(color: rim, width: _focused ? 2.0 : 0.6),
                     boxShadow: _pressed
                         ? const [
                             BoxShadow(
@@ -405,13 +400,12 @@ class _IosFloatingChrome extends StatelessWidget {
         ? CupertinoTheme.of(context).textTheme.navTitleTextStyle.color
         : theme.colorScheme.onSurface;
     final titleStyle =
-        (theme.textTheme.titleMedium ?? const TextStyle(fontSize: 17))
-            .copyWith(
-              fontSize: 17,
-              fontWeight: FontWeight.w600,
-              letterSpacing: -0.35,
-              color: textColor,
-            );
+        (theme.textTheme.titleMedium ?? const TextStyle(fontSize: 17)).copyWith(
+          fontSize: 17,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.35,
+          color: textColor,
+        );
     final hasTitle = title != null && title!.isNotEmpty;
     final hasBar = showCloseButton || hasTitle || trailing != null;
 

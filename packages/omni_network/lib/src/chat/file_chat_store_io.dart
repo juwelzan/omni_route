@@ -155,8 +155,9 @@ final class FileChatStore implements ChatStore {
   Future<void> saveAiMessages(String threadId, List<AiMessage> messages) =>
       _synchronized(
         'ai:$threadId',
-        () =>
-            _atomicWrite(_aiFile(threadId), [for (final m in messages) m.toJson()]),
+        () => _atomicWrite(_aiFile(threadId), [
+          for (final m in messages) m.toJson(),
+        ]),
       );
 
   @override

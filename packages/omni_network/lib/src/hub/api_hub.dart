@@ -227,7 +227,8 @@ final class OmniApiHub {
     for (final c in oldClients) {
       await c.close();
     }
-    _aiSupportClient?.enableLogging = currentEnvironment?.enableLogging ?? false;
+    _aiSupportClient?.enableLogging =
+        currentEnvironment?.enableLogging ?? false;
     final oldChat = _chats.values.toList();
     _chats.clear();
     for (final ch in oldChat) {

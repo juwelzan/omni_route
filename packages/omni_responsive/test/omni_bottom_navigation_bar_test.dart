@@ -55,7 +55,8 @@ void main() {
                   style: style,
                   currentIndex: selected,
                   onTap: (i) => setState(() => selected = i),
-                  centerAction: style == OmniBottomNavigationStyle.centerFabNotch ||
+                  centerAction:
+                      style == OmniBottomNavigationStyle.centerFabNotch ||
                           style == OmniBottomNavigationStyle.splitIsland
                       ? OmniBottomNavigationAction(
                           icon: const Icon(Icons.qr_code_scanner_rounded),
@@ -63,7 +64,9 @@ void main() {
                           onPressed: () {},
                         )
                       : null,
-                  items: _sampleItems(withBadges: style == OmniBottomNavigationStyle.floating),
+                  items: _sampleItems(
+                    withBadges: style == OmniBottomNavigationStyle.floating,
+                  ),
                 ),
               ),
             ),
@@ -79,36 +82,37 @@ void main() {
     }
   });
 
-  testWidgets('floatingBubble expands selected item label and switches cleanly', (
-    t,
-  ) async {
-    var selected = 0;
-    await t.pumpWidget(
-      MaterialApp(
-        home: StatefulBuilder(
-          builder: (context, setState) => Scaffold(
-            body: const SizedBox.expand(),
-            bottomNavigationBar: OmniBottomNavigationBar(
-              style: OmniBottomNavigationStyle.floatingBubble,
-              currentIndex: selected,
-              onTap: (i) => setState(() => selected = i),
-              items: _sampleItems(),
+  testWidgets(
+    'floatingBubble expands selected item label and switches cleanly',
+    (t) async {
+      var selected = 0;
+      await t.pumpWidget(
+        MaterialApp(
+          home: StatefulBuilder(
+            builder: (context, setState) => Scaffold(
+              body: const SizedBox.expand(),
+              bottomNavigationBar: OmniBottomNavigationBar(
+                style: OmniBottomNavigationStyle.floatingBubble,
+                currentIndex: selected,
+                onTap: (i) => setState(() => selected = i),
+                items: _sampleItems(),
+              ),
             ),
           ),
         ),
-      ),
-    );
-    await t.pumpAndSettle();
+      );
+      await t.pumpAndSettle();
 
-    expect(find.text('Home'), findsOneWidget);
-    expect(find.text('Explore'), findsNothing);
+      expect(find.text('Home'), findsOneWidget);
+      expect(find.text('Explore'), findsNothing);
 
-    await t.tap(find.byIcon(Icons.explore_outlined));
-    await t.pumpAndSettle();
-    expect(selected, 1);
-    expect(find.text('Explore'), findsOneWidget);
-    expect(find.text('Home'), findsNothing);
-  });
+      await t.tap(find.byIcon(Icons.explore_outlined));
+      await t.pumpAndSettle();
+      expect(selected, 1);
+      expect(find.text('Explore'), findsOneWidget);
+      expect(find.text('Home'), findsNothing);
+    },
+  );
 
   testWidgets('centerFabNotch & splitIsland trigger centerAction callback', (
     t,
@@ -183,37 +187,38 @@ void main() {
     expect(find.byIcon(Icons.person_rounded), findsOneWidget);
   });
 
-  testWidgets('glass renders BackdropFilter blur & custom Gradient themes work', (
-    t,
-  ) async {
-    await t.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(
-          extensions: const [
-            OmniBottomNavigationStyleData(
-              blurSigma: 22,
-              backgroundOpacity: 0.72,
-              indicatorGradient: LinearGradient(
-                colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
+  testWidgets(
+    'glass renders BackdropFilter blur & custom Gradient themes work',
+    (t) async {
+      await t.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [
+              OmniBottomNavigationStyleData(
+                blurSigma: 22,
+                backgroundOpacity: 0.72,
+                indicatorGradient: LinearGradient(
+                  colors: [Color(0xFF2563EB), Color(0xFF7C3AED)],
+                ),
               ),
+            ],
+          ),
+          home: Scaffold(
+            extendBody: true,
+            body: const SizedBox.expand(),
+            bottomNavigationBar: OmniBottomNavigationBar(
+              style: OmniBottomNavigationStyle.glass,
+              currentIndex: 1,
+              onTap: (_) {},
+              items: _sampleItems(),
             ),
-          ],
-        ),
-        home: Scaffold(
-          extendBody: true,
-          body: const SizedBox.expand(),
-          bottomNavigationBar: OmniBottomNavigationBar(
-            style: OmniBottomNavigationStyle.glass,
-            currentIndex: 1,
-            onTap: (_) {},
-            items: _sampleItems(),
           ),
         ),
-      ),
-    );
-    await t.pumpAndSettle();
-    expect(find.byType(BackdropFilter), findsOneWidget);
-  });
+      );
+      await t.pumpAndSettle();
+      expect(find.byType(BackdropFilter), findsOneWidget);
+    },
+  );
 
   testWidgets('badges, labelMode, press scale, haptics & controller work', (
     t,
@@ -272,28 +277,32 @@ void main() {
     controller.hide();
     await t.pumpAndSettle();
     expect(
-      t.widget<IgnorePointer>(
-        find
-            .descendant(
-              of: find.byType(OmniBottomNavigationBar),
-              matching: find.byType(IgnorePointer),
-            )
-            .first,
-      ).ignoring,
+      t
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(OmniBottomNavigationBar),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
       isTrue,
     );
 
     controller.show();
     await t.pumpAndSettle();
     expect(
-      t.widget<IgnorePointer>(
-        find
-            .descendant(
-              of: find.byType(OmniBottomNavigationBar),
-              matching: find.byType(IgnorePointer),
-            )
-            .first,
-      ).ignoring,
+      t
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(OmniBottomNavigationBar),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
       isFalse,
     );
   });
@@ -329,28 +338,32 @@ void main() {
     scroll.jumpTo(300);
     await t.pumpAndSettle();
     expect(
-      t.widget<IgnorePointer>(
-        find
-            .descendant(
-              of: find.byType(OmniBottomNavigationBar),
-              matching: find.byType(IgnorePointer),
-            )
-            .first,
-      ).ignoring,
+      t
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(OmniBottomNavigationBar),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
       isTrue,
     );
 
     scroll.jumpTo(120);
     await t.pumpAndSettle();
     expect(
-      t.widget<IgnorePointer>(
-        find
-            .descendant(
-              of: find.byType(OmniBottomNavigationBar),
-              matching: find.byType(IgnorePointer),
-            )
-            .first,
-      ).ignoring,
+      t
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(OmniBottomNavigationBar),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
       isFalse,
     );
   });

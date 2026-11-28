@@ -43,7 +43,9 @@ final class NewPet {
         name: json['name'] as String,
         tag: json['tag'] as String?,
         class$: json['class'] as String?,
-        status: json['status'] == null ? null : PetStatus.fromJson(json['status'] as String),
+        status: json['status'] == null
+            ? null
+            : PetStatus.fromJson(json['status'] as String),
       );
 
   /// The pet's name.
@@ -91,15 +93,28 @@ final class Pet {
         name: json['name'] as String,
         tag: json['tag'] as String?,
         class$: json['class'] as String?,
-        status: json['status'] == null ? null : PetStatus.fromJson(json['status'] as String),
+        status: json['status'] == null
+            ? null
+            : PetStatus.fromJson(json['status'] as String),
         id: (json['id'] as num).toInt(),
         createdAt: DateTime.parse(json['created_at'] as String),
         weight: (json['weight'] as num?)?.toDouble(),
         vaccinated: json['vaccinated'] as bool?,
-        tags: json['tags'] == null ? null : (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
-        owner: json['owner'] == null ? null : PetOwner.fromJson(json['owner'] as Map<String, dynamic>),
-        history: json['history'] == null ? null : (json['history'] as List<dynamic>).map((e) => PetHistoryItem.fromJson(e as Map<String, dynamic>)).toList(),
-        extra: json['extra'] == null ? null : (json['extra'] as Map<String, dynamic>).map((k, e) => MapEntry(k, e)),
+        tags: json['tags'] == null
+            ? null
+            : (json['tags'] as List<dynamic>).map((e) => e as String).toList(),
+        owner: json['owner'] == null
+            ? null
+            : PetOwner.fromJson(json['owner'] as Map<String, dynamic>),
+        history: json['history'] == null
+            ? null
+            : (json['history'] as List<dynamic>)
+                .map((e) => PetHistoryItem.fromJson(e as Map<String, dynamic>))
+                .toList(),
+        extra: json['extra'] == null
+            ? null
+            : (json['extra'] as Map<String, dynamic>)
+                .map((k, e) => MapEntry(k, e)),
         variant: json['variant'],
       );
 
@@ -154,7 +169,8 @@ final class Pet {
         if (vaccinated != null) 'vaccinated': vaccinated,
         if (tags != null) 'tags': tags,
         if (owner != null) 'owner': owner?.toJson(),
-        if (history != null) 'history': history?.map((e) => e.toJson()).toList(),
+        if (history != null)
+          'history': history?.map((e) => e.toJson()).toList(),
         if (extra != null) 'extra': extra,
         if (variant != null) 'variant': variant,
       };
@@ -172,7 +188,9 @@ final class PetOwner {
   /// Decodes a JSON object.
   factory PetOwner.fromJson(Map<String, dynamic> json) => PetOwner(
         name: json['name'] as String?,
-        since: json['since'] == null ? null : DateTime.parse(json['since'] as String),
+        since: json['since'] == null
+            ? null
+            : DateTime.parse(json['since'] as String),
       );
 
   /// name
@@ -216,39 +234,60 @@ final class PetHistoryItem {
 
 /// Endpoints of Pet Store.
 abstract final class PetStoreApi {
-
   /// List all pets
   ///
   /// Query `limit`.
   ///
   /// Header parameter `X-Trace-Id`: pass via `headers`.
-  static final listPets = Endpoint.getList<Pet>('/pets', decoder: Pet.fromJson, name: 'listPets', description: 'List all pets', tags: {'pets'});
+  static final listPets = Endpoint.getList<Pet>('/pets',
+      decoder: Pet.fromJson,
+      name: 'listPets',
+      description: 'List all pets',
+      tags: {'pets'});
 
   /// Create a pet
   ///
   /// Body: `NewPet` as JSON (`body: x.toJson()`).
-  static final createPet = Endpoint.post<Pet>('/pets', decoder: Pet.fromJson, name: 'createPet', description: 'Create a pet', tags: {'pets'});
+  static final createPet = Endpoint.post<Pet>('/pets',
+      decoder: Pet.fromJson,
+      name: 'createPet',
+      description: 'Create a pet',
+      tags: {'pets'});
 
   /// Info for a specific pet
   ///
   /// Path `petId` (`pet-id`).
-  static final showPetById = Endpoint.get<Pet>('/pets/{petId}', decoder: Pet.fromJson, name: 'show_pet_by_id', description: 'Info for a specific pet', tags: {'pets'});
+  static final showPetById = Endpoint.get<Pet>('/pets/{petId}',
+      decoder: Pet.fromJson,
+      name: 'show_pet_by_id',
+      description: 'Info for a specific pet',
+      tags: {'pets'});
 
   /// Path `petId` (`pet-id`).
   ///
   /// Deprecated by the API.
   @Deprecated('Deprecated by the API')
-  static final deletePet = Endpoint.delete<void>('/pets/{petId}', name: 'deletePet');
+  static final deletePet =
+      Endpoint.delete<void>('/pets/{petId}', name: 'deletePet');
 
   /// Upload a photo
   ///
   /// Path `petId`.
   ///
   /// Body: multipart/form-data.
-  static final postPetsPetIdPhoto = Endpoint.post<String>('/pets/{petId}/photo', name: 'postPetsPetIdPhoto', description: 'Upload a photo');
+  static final postPetsPetIdPhoto = Endpoint.post<String>('/pets/{petId}/photo',
+      name: 'postPetsPetIdPhoto', description: 'Upload a photo');
 
-  static final getStats = Endpoint.get<Map<String, dynamic>>('/stats', name: 'getStats');
+  static final getStats =
+      Endpoint.get<Map<String, dynamic>>('/stats', name: 'getStats');
 
   /// Every endpoint above.
-  static final registry = EndpointRegistry([listPets, createPet, showPetById, deletePet, postPetsPetIdPhoto, getStats]);
+  static final registry = EndpointRegistry([
+    listPets,
+    createPet,
+    showPetById,
+    deletePet,
+    postPetsPetIdPhoto,
+    getStats
+  ]);
 }

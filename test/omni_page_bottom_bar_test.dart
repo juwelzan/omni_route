@@ -63,7 +63,9 @@ void main() {
               '/feed',
               (_) => Builder(
                 builder: (ctx) => Padding(
-                  padding: EdgeInsets.only(bottom: MediaQuery.paddingOf(ctx).bottom),
+                  padding: EdgeInsets.only(
+                    bottom: MediaQuery.paddingOf(ctx).bottom,
+                  ),
                   child: const Center(child: Text('Feed Page Body')),
                 ),
               ),
@@ -191,12 +193,18 @@ void main() {
             branches: [
               OmniBranch(
                 routes: [
-                  OmniPage('/tab-a', (_) => const Center(child: Text('View A'))),
+                  OmniPage(
+                    '/tab-a',
+                    (_) => const Center(child: Text('View A')),
+                  ),
                 ],
               ),
               OmniBranch(
                 routes: [
-                  OmniPage('/tab-b', (_) => const Center(child: Text('View B'))),
+                  OmniPage(
+                    '/tab-b',
+                    (_) => const Center(child: Text('View B')),
+                  ),
                 ],
               ),
             ],

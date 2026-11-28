@@ -160,7 +160,8 @@ class _SheetsDemoScreenState extends OmniState<SheetsDemoScreen> {
                 _DemoTile(
                   icon: Icons.apps_rounded,
                   title: 'iOS Floating Grid (Fee)',
-                  subtitle: 'Floating card, grabber, iOS circular × close & bounces',
+                  subtitle:
+                      'Floating card, grabber, iOS circular × close & bounces',
                   onTap: _openIosFloatingGrid,
                 ),
                 _DemoTile(
@@ -649,10 +650,8 @@ class _IosFeeGridSheet extends StatelessWidget {
             textAlign: TextAlign.center,
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              height: 1.18,
-              fontWeight: FontWeight.w500,
-            ),
+            style: Theme.of(context).textTheme.bodySmall
+                ?.copyWith(height: 1.18, fontWeight: FontWeight.w500),
           ),
         ],
       );

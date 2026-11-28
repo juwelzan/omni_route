@@ -88,8 +88,7 @@ class _SheetScrollPosition extends ScrollPositionWithSingleContext {
 
       final max = sheet._heights.last;
       final canScrollContent =
-          maxScrollExtent > minScrollExtent ||
-          physics is BouncingScrollPhysics;
+          maxScrollExtent > minScrollExtent || physics is BouncingScrollPhysics;
 
       // Dragging up while expandBeforeScroll is enabled: expand the sheet up
       // to max, then cleanly hand off remaining drag to scroll content.

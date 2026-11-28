@@ -132,14 +132,14 @@ final class OmniCache {
 
   static bool _isCredentialHeader(String name) {
     final lower = name.toLowerCase();
-    return _credentialHeaders.contains(lower) || _redactor.isSecretHeader(lower);
+    return _credentialHeaders.contains(lower) ||
+        _redactor.isSecretHeader(lower);
   }
 
   List<MapEntry<String, String>> _credentialEntries(TransportRequest r) {
     final out = [
       for (final e in r.headers.entries)
-        if (_isCredentialHeader(e.key))
-          MapEntry(e.key.toLowerCase(), e.value),
+        if (_isCredentialHeader(e.key)) MapEntry(e.key.toLowerCase(), e.value),
     ]..sort((a, b) => a.key.compareTo(b.key));
     return out;
   }

@@ -328,8 +328,9 @@ final class SseConnection {
           if (!_events.isClosed) _events.add(e);
         }, onError: _addError);
         try {
-          await for (final text
-              in const Utf8Decoder(allowMalformed: true).bind(res.body)) {
+          await for (final text in const Utf8Decoder(
+            allowMalformed: true,
+          ).bind(res.body)) {
             parser.add(text);
           }
           if (eventsInAttempt > 0) {

@@ -220,9 +220,7 @@ bool matchesCertificateHost(Uint8List certDer, String host) {
       (pattern) => _matchDnsPattern(pattern, normalizedHost),
     );
   }
-  return names.commonNames.any(
-    (cn) => _matchDnsPattern(cn, normalizedHost),
-  );
+  return names.commonNames.any((cn) => _matchDnsPattern(cn, normalizedHost));
 }
 
 List<int>? _tryParseIpBytes(String host) {
@@ -266,7 +264,11 @@ bool _matchDnsPattern(String rawPattern, String host) {
   return true;
 }
 
-({List<String> dnsNames, List<Uint8List> ipAddresses, List<String> commonNames})?
+({
+  List<String> dnsNames,
+  List<Uint8List> ipAddresses,
+  List<String> commonNames,
+})?
 _extractCertificateNames(Uint8List certDer) {
   final outer = _readTlv(certDer, 0);
   if (outer == null || outer.tag != 0x30) return null;
@@ -306,9 +308,7 @@ _extractCertificateNames(Uint8List certDer) {
     if (extWrapper.tag != 0xA3) continue;
 
     final extSeq = _readTlv(certDer, extWrapper.contentStart);
-    if (extSeq == null ||
-        extSeq.tag != 0x30 ||
-        extSeq.next > extWrapper.next) {
+    if (extSeq == null || extSeq.tag != 0x30 || extSeq.next > extWrapper.next) {
       continue;
     }
 
@@ -427,8 +427,7 @@ String? _decodeAsn1String(
     case 0x1E: // BMPString (UTF-16BE)
       if (view.length.isOdd) return null;
       final units = <int>[
-        for (var i = 0; i < view.length; i += 2)
-          (view[i] << 8) | view[i + 1],
+        for (var i = 0; i < view.length; i += 2) (view[i] << 8) | view[i + 1],
       ];
       return String.fromCharCodes(units);
     default:

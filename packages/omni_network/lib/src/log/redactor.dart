@@ -185,7 +185,8 @@ final class Redactor {
     var out = input.replaceAllMapped(_uriInTextPattern, (m) {
       var raw = m.group(0)!;
       var suffix = '';
-      while (raw.isNotEmpty && _trailingUriPunct.contains(raw[raw.length - 1])) {
+      while (raw.isNotEmpty &&
+          _trailingUriPunct.contains(raw[raw.length - 1])) {
         suffix = raw[raw.length - 1] + suffix;
         raw = raw.substring(0, raw.length - 1);
       }
@@ -194,10 +195,7 @@ final class Redactor {
       return '${uri(parsed)}$suffix';
     });
 
-    out = out.replaceAllMapped(
-      _bearerPattern,
-      (m) => '${m.group(1)} $mask',
-    );
+    out = out.replaceAllMapped(_bearerPattern, (m) => '${m.group(1)} $mask');
 
     out = out.replaceAllMapped(_kvSecretPattern, (m) {
       final prefix = m.group(1)!;

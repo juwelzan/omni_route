@@ -745,15 +745,17 @@ class _ResolvedNavLook {
     T? pick<T>(T? a, T? b, T? c) => a ?? b ?? c;
 
     final style =
-        widget.style ?? inline?.style ?? ext?.style ?? OmniBottomNavigationStyle.floating;
+        widget.style ??
+        inline?.style ??
+        ext?.style ??
+        OmniBottomNavigationStyle.floating;
     final labelMode =
         widget.labelMode ??
         inline?.labelMode ??
         ext?.labelMode ??
         OmniBottomNavLabelMode.styleDefault;
 
-    final basePrimary =
-        omni?.primaryColor ?? theme.colorScheme.primary;
+    final basePrimary = omni?.primaryColor ?? theme.colorScheme.primary;
     final activeColor =
         pick(
           widget.activeColor,
@@ -822,7 +824,7 @@ class _ResolvedNavLook {
       OmniBottomNavigationStyle.floatingCircles => activeColor,
       _ =>
         omni?.navIndicatorColor ??
-        activeColor.withValues(alpha: isDark ? 0.22 : 0.13),
+            activeColor.withValues(alpha: isDark ? 0.22 : 0.13),
     };
 
     final indicatorColor =
@@ -859,9 +861,7 @@ class _ResolvedNavLook {
         pick(null, inline?.borderColor, ext?.borderColor) ??
         (style == OmniBottomNavigationStyle.glass
             ? (isDark ? const Color(0x38FFFFFF) : const Color(0xAAFFFFFF))
-            : (isDark
-                ? const Color(0x1EFFFFFF)
-                : const Color(0x14000000)));
+            : (isDark ? const Color(0x1EFFFFFF) : const Color(0x14000000)));
 
     final borderWidth =
         pick(widget.borderWidth, inline?.borderWidth, ext?.borderWidth) ??
@@ -938,8 +938,10 @@ class _ResolvedNavLook {
           OmniBottomNavigationStyle.slidingPill ||
           OmniBottomNavigationStyle.glass ||
           OmniBottomNavigationStyle.floating ||
-          OmniBottomNavigationStyle.splitIsland =>
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          OmniBottomNavigationStyle.splitIsland => const EdgeInsets.symmetric(
+            horizontal: 8,
+            vertical: 4,
+          ),
           OmniBottomNavigationStyle.floatingCircles =>
             const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
           _ => const EdgeInsets.symmetric(horizontal: 8),
@@ -954,21 +956,18 @@ class _ResolvedNavLook {
         style == OmniBottomNavigationStyle.glass ||
         style == OmniBottomNavigationStyle.cupertino;
 
-    final defaultShadows = style.isFloatingByDefault &&
+    final defaultShadows =
+        style.isFloatingByDefault &&
             style != OmniBottomNavigationStyle.floatingCircles
         ? [
             BoxShadow(
-              color: isDark
-                  ? const Color(0x52000000)
-                  : const Color(0x1C0F172A),
+              color: isDark ? const Color(0x52000000) : const Color(0x1C0F172A),
               blurRadius: elevation ?? 26,
               spreadRadius: -4,
               offset: const Offset(0, 10),
             ),
             BoxShadow(
-              color: isDark
-                  ? const Color(0x28000000)
-                  : const Color(0x0D0F172A),
+              color: isDark ? const Color(0x28000000) : const Color(0x0D0F172A),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -1065,7 +1064,11 @@ class _ResolvedNavLook {
           ) ??
           const Duration(milliseconds: 340),
       curve:
-          pick(widget.animationCurve, inline?.animationCurve, ext?.animationCurve) ??
+          pick(
+            widget.animationCurve,
+            inline?.animationCurve,
+            ext?.animationCurve,
+          ) ??
           Curves.easeOutCubic,
       indicatorCurve:
           pick(
@@ -1075,7 +1078,11 @@ class _ResolvedNavLook {
           ) ??
           Curves.easeOutBack,
       enableHaptics:
-          pick(widget.enableHaptics, inline?.enableHaptics, ext?.enableHaptics) ??
+          pick(
+            widget.enableHaptics,
+            inline?.enableHaptics,
+            ext?.enableHaptics,
+          ) ??
           true,
       enableScaleAnimation:
           pick(

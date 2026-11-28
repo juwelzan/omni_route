@@ -104,13 +104,15 @@ final class FileVectorStore implements AiVectorStore {
     int topK = 5,
     double minScore = -1.0,
     Map<String, Object?>? where,
-  }) => _synchronized(() async => rankVectorDocuments(
-    (await _readMap()).values,
-    queryEmbedding,
-    topK: topK,
-    minScore: minScore,
-    where: where,
-  ));
+  }) => _synchronized(
+    () async => rankVectorDocuments(
+      (await _readMap()).values,
+      queryEmbedding,
+      topK: topK,
+      minScore: minScore,
+      where: where,
+    ),
+  );
 
   @override
   Future<List<VectorSearchHit>> search(

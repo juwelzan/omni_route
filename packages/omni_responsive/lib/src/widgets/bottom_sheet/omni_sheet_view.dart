@@ -50,7 +50,8 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   OmniSheetMotion get _motion => _host.effectiveMotion;
   bool get _contentSized => _config.detents.first._isContent;
   double get _available => _metrics.available;
-  bool get _canDragSheet => _config.enableDrag && !_disposed && !_host.isClosing;
+  bool get _canDragSheet =>
+      _config.enableDrag && !_disposed && !_host.isClosing;
 
   @override
   void initState() {
@@ -74,17 +75,17 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _retargetQueued = false;
       final next = _pendingRetargetSortedIndex;
       _pendingRetargetSortedIndex = null;
-      if (next == null || !mounted || _disposed || _dragging || _metrics.settled) {
+      if (next == null ||
+          !mounted ||
+          _disposed ||
+          _dragging ||
+          _metrics.settled) {
         return;
       }
       if (_heights.isEmpty) return;
       final clamped = next.clamp(0, _heights.length - 1);
       final pub = _metrics.publicIndex.clamp(0, _config.detents.length - 1);
-      _snapSorted(
-        clamped,
-        publicIndex: pub,
-        velocity: _extent.velocity,
-      );
+      _snapSorted(clamped, publicIndex: pub, velocity: _extent.velocity);
     });
   }
 
@@ -202,7 +203,8 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   @override
   Future<void> snapTo(int index) {
     RangeError.checkValidIndex(index, _config.detents, 'index');
-    if (_heights.isEmpty || _metrics.publicToSorted.length != _config.detents.length) {
+    if (_heights.isEmpty ||
+        _metrics.publicToSorted.length != _config.detents.length) {
       _metrics.publicIndex = index;
       if (_detent.value != index) {
         _detent.value = index;
@@ -235,11 +237,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _metrics.publicIndex = 0;
       return Future<void>.value();
     }
-    return _snapSorted(
-      0,
-      publicIndex: _metrics.sortedToPublic[0],
-      velocity: 0,
-    );
+    return _snapSorted(0, publicIndex: _metrics.sortedToPublic[0], velocity: 0);
   }
 
   @override
@@ -647,12 +645,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     final showHandle = route.showHandle ?? route.enableDrag;
     final hasTitle = route.title != null && route.title!.isNotEmpty;
     final showClose =
-        route.showCloseButton ??
-        (floating && route.isDismissible);
-    final hasIosChrome =
-        showClose || hasTitle || _trailing != null;
-    final frostedChrome =
-        floating || style == OmniSheetStyle.cupertino;
+        route.showCloseButton ?? (floating && route.isDismissible);
+    final hasIosChrome = showClose || hasTitle || _trailing != null;
+    final frostedChrome = floating || style == OmniSheetStyle.cupertino;
 
     Widget buildReactiveHandle({bool compact = false}) =>
         ValueListenableBuilder<int>(

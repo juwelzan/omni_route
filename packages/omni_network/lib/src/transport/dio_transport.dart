@@ -20,9 +20,7 @@ import 'transport.dart';
 /// and SHA-256 certificate pinning are handled cleanly at the transport layer.
 final class DioTransport implements ProgressReportingTransport {
   /// Creates a transport. Pass [dio] to customise the client or interceptors.
-  DioTransport({Dio? dio})
-    : _dio = dio ?? Dio(),
-      _httpClientFactory = null;
+  DioTransport({Dio? dio}) : _dio = dio ?? Dio(), _httpClientFactory = null;
 
   DioTransport._(this._dio, this._httpClientFactory);
 

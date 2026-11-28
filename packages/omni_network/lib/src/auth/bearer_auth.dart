@@ -164,10 +164,7 @@ final class BearerAuth implements AuthProvider {
           );
   }
 
-  static Future<T> _raceCancel<T>(
-    Future<T> work,
-    Future<void>? cancelWhen,
-  ) {
+  static Future<T> _raceCancel<T>(Future<T> work, Future<void>? cancelWhen) {
     if (cancelWhen == null) return work;
     return Future.any([
       work,
