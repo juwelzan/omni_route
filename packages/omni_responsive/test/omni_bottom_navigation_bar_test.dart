@@ -307,7 +307,7 @@ void main() {
     );
   });
 
-  testWidgets('hideOnScroll slides bar away on downward drag and back on up', (
+  testWidgets('hideOnScroll with one attached position slides bar on scroll', (
     t,
   ) async {
     final scroll = ScrollController();
@@ -353,6 +353,86 @@ void main() {
 
     scroll.jumpTo(120);
     await t.pumpAndSettle();
+    expect(
+      t
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(OmniBottomNavigationBar),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
+      isFalse,
+    );
+  });
+
+  testWidgets('hideOnScroll safely handles multiple attached positions', (
+    t,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          extendBody: true,
+          body: Row(
+            children: [
+              Expanded(
+                child: ListView.builder(
+                  controller: scroll,
+                  itemCount: 40,
+                  itemBuilder: (_, i) =>
+                      SizedBox(height: 60, child: Text('Left $i')),
+                ),
+              ),
+              Expanded(
+                child: ListView.builder(
+                  controller: scroll,
+                  itemCount: 40,
+                  itemBuilder: (_, i) =>
+                      SizedBox(height: 60, child: Text('Right $i')),
+                ),
+              ),
+            ],
+          ),
+          bottomNavigationBar: OmniBottomNavigationBar(
+            style: OmniBottomNavigationStyle.floating,
+            scrollController: scroll,
+            hideOnScroll: true,
+            currentIndex: 0,
+            onTap: (_) {},
+            items: _sampleItems(),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+
+    expect(scroll.positions, hasLength(2));
+
+    scroll.jumpTo(300);
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(
+      t
+          .widget<IgnorePointer>(
+            find
+                .descendant(
+                  of: find.byType(OmniBottomNavigationBar),
+                  matching: find.byType(IgnorePointer),
+                )
+                .first,
+          )
+          .ignoring,
+      isTrue,
+    );
+
+    scroll.jumpTo(120);
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
     expect(
       t
           .widget<IgnorePointer>(

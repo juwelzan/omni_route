@@ -227,7 +227,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   late double _fromIndex;
   late double _toIndex;
   bool _scrollVisible = true;
-  double _lastScrollPixels = 0;
+  final Map<ScrollPosition, double> _lastScrollPixelsByPosition = {};
 
   @override
   void initState() {
@@ -305,34 +305,52 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
   void _attachScroll(ScrollController? controller) {
     if (controller == null || !widget.hideOnScroll) return;
-    if (controller.hasClients) {
-      _lastScrollPixels = controller.position.pixels;
+    _lastScrollPixelsByPosition.clear();
+    for (final position in controller.positions) {
+      _lastScrollPixelsByPosition[position] = position.pixels;
     }
     controller.addListener(_onScroll);
   }
 
   void _detachScroll(ScrollController? controller) {
     controller?.removeListener(_onScroll);
+    _lastScrollPixelsByPosition.clear();
   }
 
   void _onScroll() {
     final controller = widget.scrollController;
-    if (!widget.hideOnScroll || controller == null || !controller.hasClients) {
+    if (!widget.hideOnScroll ||
+        controller == null ||
+        !controller.hasClients ||
+        !mounted) {
       return;
     }
-    final pos = controller.position;
-    final pixels = pos.pixels;
-    final delta = pixels - _lastScrollPixels;
-    _lastScrollPixels = pixels;
 
-    if (pixels <= pos.minScrollExtent + 12) {
-      if (!_scrollVisible && mounted) setState(() => _scrollVisible = true);
-      return;
+    var movedDown = false;
+    var movedUp = false;
+    var atScrollStart = false;
+
+    for (final position in controller.positions) {
+      final pixels = position.pixels;
+      final lastPixels = _lastScrollPixelsByPosition[position] ?? 0.0;
+      final delta = pixels - lastPixels;
+      _lastScrollPixelsByPosition[position] = pixels;
+
+      if (pixels <= position.minScrollExtent + 12) {
+        atScrollStart = true;
+      } else if (delta > 10) {
+        movedDown = true;
+      } else if (delta < -8) {
+        movedUp = true;
+      }
     }
-    if (delta > 10 && _scrollVisible) {
-      setState(() => _scrollVisible = false);
-    } else if (delta < -8 && !_scrollVisible) {
+
+    if (atScrollStart) {
+      if (!_scrollVisible) setState(() => _scrollVisible = true);
+    } else if (movedUp && !_scrollVisible) {
       setState(() => _scrollVisible = true);
+    } else if (movedDown && _scrollVisible) {
+      setState(() => _scrollVisible = false);
     }
   }
 
