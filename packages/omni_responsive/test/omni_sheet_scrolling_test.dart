@@ -54,6 +54,25 @@ double _sheetTop(WidgetTester t) => t.getTopLeft(find.byKey(_header)).dy;
 double _scrollOffset(WidgetTester t) =>
     t.state<ScrollableState>(find.byType(Scrollable)).position.pixels;
 
+double _scrollOffsetWithin(WidgetTester t, Key key) => t
+    .state<ScrollableState>(
+      find
+          .descendant(of: find.byKey(key), matching: find.byType(Scrollable))
+          .first,
+    )
+    .position
+    .pixels;
+
+List<double> _scrollOffsetsWithin(WidgetTester t, Key key) => find
+    .descendant(of: find.byKey(key), matching: find.byType(Scrollable))
+    .evaluate()
+    .map(
+      (element) => ((element as StatefulElement).state as ScrollableState)
+          .position
+          .pixels,
+    )
+    .toList();
+
 double _separatorOpacity(WidgetTester t) => t
     .widget<AnimatedOpacity>(
       find.descendant(
@@ -493,6 +512,137 @@ void main() {
         OmniSheet.of(t.element(find.byKey(_list))).isScrolled.value,
         isFalse,
       );
+    },
+  );
+
+  testWidgets(
+    'ListView, GridView, and CustomScrollView transfer remaining drag at detents',
+    (t) async {
+      final cases = <(String, WidgetBuilder)>[
+        (
+          'ListView',
+          (_) => ListView(
+            key: _list,
+            children: [
+              for (var i = 0; i < 60; i++)
+                SizedBox(height: 50, child: Text('row $i')),
+            ],
+          ),
+        ),
+        (
+          'GridView',
+          (_) => GridView.builder(
+            key: _list,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              mainAxisExtent: 80,
+            ),
+            itemCount: 60,
+            itemBuilder: (_, i) => Text('grid $i'),
+          ),
+        ),
+        (
+          'CustomScrollView',
+          (_) => CustomScrollView(
+            key: _list,
+            slivers: [
+              SliverList.builder(
+                itemCount: 60,
+                itemBuilder: (_, i) =>
+                    SizedBox(height: 50, child: Text('sliver $i')),
+              ),
+            ],
+          ),
+        ),
+      ];
+
+      for (final (name, builder) in cases) {
+        await t.pumpWidget(const SizedBox());
+        await t.pumpWidget(_page(initialDetent: 1, builder: builder));
+        await t.pumpAndSettle();
+
+        await t.timedDragFrom(
+          const Offset(400, 450),
+          const Offset(0, -450),
+          const Duration(milliseconds: 900),
+        );
+        await t.pumpAndSettle();
+        expect(_sheetTop(t), 0, reason: '$name expanded to maximum');
+        expect(
+          _scrollOffsetWithin(t, _list),
+          greaterThan(0),
+          reason: '$name receives the remainder past maximum',
+        );
+
+        await t.timedDragFrom(
+          const Offset(400, 450),
+          const Offset(0, 650),
+          const Duration(milliseconds: 1100),
+        );
+        await t.pumpAndSettle();
+        expect(
+          _scrollOffsetWithin(t, _list),
+          0,
+          reason: '$name returns to its top before collapsing the sheet',
+        );
+        expect(_sheetTop(t), 460, reason: '$name lets the sheet reach minimum');
+      }
+    },
+  );
+
+  testWidgets(
+    'NestedScrollView scrolls its content and the sheet remains draggable',
+    (t) async {
+      const nested = Key('nested');
+      const innerList = Key('nested-inner-list');
+
+      await t.pumpWidget(
+        _page(
+          initialDetent: 1,
+          builder: (_) => NestedScrollView(
+            key: nested,
+            headerSliverBuilder: (_, _) => [
+              const SliverToBoxAdapter(child: SizedBox(height: 100)),
+            ],
+            body: ListView(
+              key: innerList,
+              children: [
+                for (var i = 0; i < 60; i++)
+                  SizedBox(height: 50, child: Text('nested row $i')),
+              ],
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      await t.timedDrag(
+        find.byKey(_header),
+        const Offset(0, -350),
+        const Duration(milliseconds: 700),
+      );
+      await t.pumpAndSettle();
+      expect(_sheetTop(t), 0, reason: 'header drag expands the sheet');
+
+      await t.timedDragFrom(
+        const Offset(400, 450),
+        const Offset(0, -450),
+        const Duration(milliseconds: 900),
+      );
+      await t.pumpAndSettle();
+      expect(
+        _scrollOffsetsWithin(t, nested).any((pixels) => pixels > 0),
+        isTrue,
+        reason: 'NestedScrollView content scrolls inside the expanded sheet',
+      );
+
+      await t.timedDrag(
+        find.byKey(_header),
+        const Offset(0, 650),
+        const Duration(milliseconds: 1100),
+      );
+      await t.pumpAndSettle();
+      expect(_sheetTop(t), 460, reason: 'header drag reaches minimum');
     },
   );
 }

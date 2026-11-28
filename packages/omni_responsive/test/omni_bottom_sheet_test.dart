@@ -544,6 +544,90 @@ void main() {
     expect(_rect(t).bottom, 350);
   });
 
+  testWidgets(
+    'safe area and keyboard changes retarget an active detent during resize',
+    (t) async {
+      t.view.devicePixelRatio = 1;
+      t.view.physicalSize = const Size(800, 600);
+      addTearDown(() {
+        t.view.resetPhysicalSize();
+        t.view.resetDevicePixelRatio();
+      });
+
+      final geometry =
+          ValueNotifier<({EdgeInsets padding, EdgeInsets viewInsets})>((
+            padding: const EdgeInsets.only(top: 20, bottom: 30),
+            viewInsets: EdgeInsets.zero,
+          ));
+      addTearDown(geometry.dispose);
+      await t.pumpWidget(
+        _app(
+          builder: (context, child) =>
+              ValueListenableBuilder<
+                ({EdgeInsets padding, EdgeInsets viewInsets})
+              >(
+                valueListenable: geometry,
+                builder: (_, value, _) => MediaQuery(
+                  data: MediaQuery.of(context).copyWith(
+                    padding: value.padding,
+                    viewInsets: value.viewInsets,
+                  ),
+                  child: child!,
+                ),
+              ),
+        ),
+      );
+
+      showOmniBottomSheet<void>(
+        context: _ctx,
+        style: OmniSheetStyle.material,
+        useSafeArea: true,
+        showHandle: false,
+        detents: const [OmniSheetDetent.medium, OmniSheetDetent.large],
+        initialDetent: 0,
+        builder: (_) => const SizedBox.expand(key: _box),
+      );
+      await t.pumpAndSettle();
+      expect(
+        _rect(t).top,
+        310,
+        reason: 'medium detent below the top safe area',
+      );
+
+      final sheet = OmniSheet.of(t.element(find.byKey(_box)));
+      sheet.snapTo(1);
+      await t.pump(const Duration(milliseconds: 40));
+
+      geometry.value = (
+        padding: const EdgeInsets.only(top: 40, bottom: 30),
+        viewInsets: const EdgeInsets.only(bottom: 180),
+      );
+      await t.pump(const Duration(milliseconds: 40));
+      t.view.physicalSize = const Size(800, 500);
+      geometry.value = (
+        padding: const EdgeInsets.only(top: 40, bottom: 30),
+        viewInsets: const EdgeInsets.only(bottom: 140),
+      );
+      await t.pumpAndSettle();
+
+      expect(sheet.detent.value, 1);
+      expect(_rect(t).top, 40);
+      expect(_rect(t).bottom, 360);
+      expect(_rect(t).height, 320);
+      expect(t.takeException(), isNull);
+
+      geometry.value = (
+        padding: const EdgeInsets.only(top: 40, bottom: 30),
+        viewInsets: EdgeInsets.zero,
+      );
+      await t.pumpAndSettle();
+      expect(_rect(t).top, 40);
+      expect(_rect(t).bottom, 470);
+      expect(_rect(t).height, 430);
+      expect(t.takeException(), isNull);
+    },
+  );
+
   group('detent validation and mapping', () {
     test('runtime validation rejects invalid configurations', () {
       Widget dummy(BuildContext _) => const SizedBox();
