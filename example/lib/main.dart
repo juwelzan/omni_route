@@ -110,152 +110,162 @@ class ExampleApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return OmniApp.material(
-      title: 'OmniRoute Example',
-      screenMode: OmniScreenMode.edgeToEdge,
-      orientation: OmniOrientation.portraitOnMobile,
-      omniTheme: const OmniTheme(
-        id: 'ocean',
-        name: 'Ocean',
-        seedColor: Color(0xFF2563EB),
-        secondaryColor: Color(0xFF0EA5E9),
-        statusBar: OmniStatusBarStyle.transparent(),
-        systemNavigationBar: OmniSystemNavigationBarStyle.transparent(),
-        light: OmniColorPalette(
-          surfaceColor: Color(0xFFF8FAFC),
-          cardColor: Colors.white,
+    // The bottom-nav demo switches how OmniPage bars behave while pages
+    // change; OmniApp keeps its router when it rebuilds.
+    return ValueListenableBuilder<OmniPageBarTransition>(
+      valueListenable: omniPageBarMode,
+      builder: (context, barMode, _) => OmniApp.material(
+        bottomBarTransition: barMode,
+        title: 'OmniRoute Example',
+        screenMode: OmniScreenMode.edgeToEdge,
+        orientation: OmniOrientation.portraitOnMobile,
+        omniTheme: const OmniTheme(
+          id: 'ocean',
+          name: 'Ocean',
+          seedColor: Color(0xFF2563EB),
+          secondaryColor: Color(0xFF0EA5E9),
+          statusBar: OmniStatusBarStyle.transparent(),
+          systemNavigationBar: OmniSystemNavigationBarStyle.transparent(),
+          light: OmniColorPalette(
+            surfaceColor: Color(0xFFF8FAFC),
+            cardColor: Colors.white,
+          ),
+          dark: OmniColorPalette(
+            primaryColor: Color(0xFF3B82F6),
+            secondaryColor: Color(0xFF38BDF8),
+            surfaceColor: Color(0xFF0B1120),
+            cardColor: Color(0xFF131C31),
+          ),
+          // ১টি কমন OmniFieldTheme পুরো অ্যাপের সব ফিল্ডে প্রযোজ্য,
+          // কিন্তু identityStyles দিয়ে প্রতিটি ফিল্ডের আলাদা আইডেন্টিটি থাকে:
+          fieldTheme: OmniFieldTheme(
+            variant: OmniInputVariant.outlined,
+            labelMode: OmniFieldLabelMode.above,
+            borderRadius: 14,
+            showClearButton: true,
+            identityStyles: {
+              OmniFieldIdentity.email: OmniFieldStyle(
+                accentColor: Color(0xFF0284C7),
+                darkAccentColor: Color(0xFF38BDF8),
+              ),
+              OmniFieldIdentity.password: OmniFieldStyle(
+                accentColor: Color(0xFF7C3AED),
+                darkAccentColor: Color(0xFFA78BFA),
+              ),
+              OmniFieldIdentity.phone: OmniFieldStyle(
+                accentColor: Color(0xFF059669),
+                darkAccentColor: Color(0xFF34D399),
+              ),
+              OmniFieldIdentity.otp: OmniFieldStyle(
+                accentColor: Color(0xFFD97706),
+                darkAccentColor: Color(0xFFFBBF24),
+              ),
+            },
+          ),
+          persistMode: true,
         ),
-        dark: OmniColorPalette(
-          primaryColor: Color(0xFF3B82F6),
-          secondaryColor: Color(0xFF38BDF8),
-          surfaceColor: Color(0xFF0B1120),
-          cardColor: Color(0xFF131C31),
-        ),
-        // ১টি কমন OmniFieldTheme পুরো অ্যাপের সব ফিল্ডে প্রযোজ্য,
-        // কিন্তু identityStyles দিয়ে প্রতিটি ফিল্ডের আলাদা আইডেন্টিটি থাকে:
-        fieldTheme: OmniFieldTheme(
-          variant: OmniInputVariant.outlined,
-          labelMode: OmniFieldLabelMode.above,
-          borderRadius: 14,
-          showClearButton: true,
-          identityStyles: {
-            OmniFieldIdentity.email: OmniFieldStyle(
-              accentColor: Color(0xFF0284C7),
-              darkAccentColor: Color(0xFF38BDF8),
-            ),
-            OmniFieldIdentity.password: OmniFieldStyle(
-              accentColor: Color(0xFF7C3AED),
-              darkAccentColor: Color(0xFFA78BFA),
-            ),
-            OmniFieldIdentity.phone: OmniFieldStyle(
-              accentColor: Color(0xFF059669),
-              darkAccentColor: Color(0xFF34D399),
-            ),
-            OmniFieldIdentity.otp: OmniFieldStyle(
-              accentColor: Color(0xFFD97706),
-              darkAccentColor: Color(0xFFFBBF24),
-            ),
-          },
-        ),
-        persistMode: true,
+        themes: OmniTheme.presets,
+        initialRoute: '/dashboard',
+        transition: OmniPages.fadeSlide,
+        guards: const [AuthGuard()],
+        blocs: [
+          OmniBloc((_) => AuthBloc(), global: true),
+          OmniBloc((_) => ClassicStudentBloc()),
+        ],
+        routes: [
+          OmniPage('/login', (_) => const LoginScreen()),
+          OmniPage.screen(
+            const ConfirmLogoutScreen(),
+            transition: OmniPages.dialog(),
+          ),
+          OmniPage.screen(const BottomNavDemoScreen()),
+          OmniPage.screen(
+            const OmniPageNavFeedScreen(),
+            bottomNavigationBar: omniPageDemoSharedBar,
+          ),
+          OmniPage.screen(
+            const OmniPageNavExploreScreen(),
+            bottomNavigationBar: omniPageDemoSharedBar,
+          ),
+          OmniPage.screen(
+            const OmniPageNavSavedScreen(),
+            bottomNavigationBar: omniPageDemoSharedBar,
+          ),
+          // No bar: the shared bar slides away while this page comes in.
+          OmniPage.screen(const OmniPageNavDetailsScreen()),
+          OmniPage(
+            '/classic-student/:id',
+            (p) => ClassicStudentDetailScreen(id: p.pathInt('id')),
+            name: 'classic_student',
+            provide: const [Provide<ClassicStudentBloc>()],
+          ),
+          OmniStatefulShell(
+            builder: (context, state, shell) => HomeShell(shell: shell),
+            branches: [
+              // Branch 0: Dashboard (.hosted() + OmniLifecycle + OmniState)
+              OmniBranch(routes: [OmniPage.screen(const DashboardScreen())]),
+              // Branch 1: Students (Lazy page-entry StudentBloc + OmniRouteGroup)
+              OmniBranch(
+                routes: [
+                  OmniPage.screen(
+                    const StudentListScreen(),
+                    routes: [
+                      OmniRouteGroup(
+                        scopeKey: (s) => s.pathParameters['id'],
+                        provide: [
+                          Provide.bloc(
+                            (c) => StudentDetailBloc(
+                              OmniParams.of(c).pathInt('id'),
+                            ),
+                          ),
+                        ],
+                        routes: [
+                          OmniPage(
+                            ':id',
+                            (p) => StudentDetailScreen(id: p.pathInt('id')),
+                          ),
+                          OmniPage(
+                            ':id/edit',
+                            (p) => StudentEditScreen(id: p.pathInt('id')),
+                            transition: OmniPages.slideUp,
+                            onExit: (ctx) =>
+                                StudentEditScreen.confirmLeave(ctx),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              // Branch 2: Interactive Playground of ALL Predefined Fields ('/fields')
+              OmniBranch(
+                routes: [OmniPage.screen(const FieldsPlaygroundScreen())],
+              ),
+              // Branch 3: Settings -> nested '/settings/profile'
+              OmniBranch(
+                routes: [
+                  OmniPage.screen(
+                    const SettingsScreen(),
+                    routes: [
+                      OmniPage.screen(const ProfileScreen(), path: 'profile'),
+                      OmniPage.screen(
+                        const SheetsDemoScreen(),
+                        path: 'sheets',
+                        routes: [
+                          OmniPage.screen(
+                            const ScalableSheetDemoScreen(),
+                            path: 'scalable',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
       ),
-      themes: OmniTheme.presets,
-      initialRoute: '/dashboard',
-      transition: OmniPages.fadeSlide,
-      guards: const [AuthGuard()],
-      blocs: [
-        OmniBloc((_) => AuthBloc(), global: true),
-        OmniBloc((_) => ClassicStudentBloc()),
-      ],
-      routes: [
-        OmniPage('/login', (_) => const LoginScreen()),
-        OmniPage.screen(
-          const ConfirmLogoutScreen(),
-          transition: OmniPages.dialog(),
-        ),
-        OmniPage.screen(const BottomNavDemoScreen()),
-        OmniPage.screen(
-          const OmniPageNavFeedScreen(),
-          bottomNavigationBar: omniPageDemoSharedBar,
-        ),
-        OmniPage.screen(
-          const OmniPageNavExploreScreen(),
-          bottomNavigationBar: omniPageDemoSharedBar,
-        ),
-        OmniPage.screen(
-          const OmniPageNavSavedScreen(),
-          bottomNavigationBar: omniPageDemoSharedBar,
-        ),
-        OmniPage(
-          '/classic-student/:id',
-          (p) => ClassicStudentDetailScreen(id: p.pathInt('id')),
-          name: 'classic_student',
-          provide: const [Provide<ClassicStudentBloc>()],
-        ),
-        OmniStatefulShell(
-          builder: (context, state, shell) => HomeShell(shell: shell),
-          branches: [
-            // Branch 0: Dashboard (.hosted() + OmniLifecycle + OmniState)
-            OmniBranch(routes: [OmniPage.screen(const DashboardScreen())]),
-            // Branch 1: Students (Lazy page-entry StudentBloc + OmniRouteGroup)
-            OmniBranch(
-              routes: [
-                OmniPage.screen(
-                  const StudentListScreen(),
-                  routes: [
-                    OmniRouteGroup(
-                      scopeKey: (s) => s.pathParameters['id'],
-                      provide: [
-                        Provide.bloc(
-                          (c) =>
-                              StudentDetailBloc(OmniParams.of(c).pathInt('id')),
-                        ),
-                      ],
-                      routes: [
-                        OmniPage(
-                          ':id',
-                          (p) => StudentDetailScreen(id: p.pathInt('id')),
-                        ),
-                        OmniPage(
-                          ':id/edit',
-                          (p) => StudentEditScreen(id: p.pathInt('id')),
-                          transition: OmniPages.slideUp,
-                          onExit: (ctx) => StudentEditScreen.confirmLeave(ctx),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            // Branch 2: Interactive Playground of ALL Predefined Fields ('/fields')
-            OmniBranch(
-              routes: [OmniPage.screen(const FieldsPlaygroundScreen())],
-            ),
-            // Branch 3: Settings -> nested '/settings/profile'
-            OmniBranch(
-              routes: [
-                OmniPage.screen(
-                  const SettingsScreen(),
-                  routes: [
-                    OmniPage.screen(const ProfileScreen(), path: 'profile'),
-                    OmniPage.screen(
-                      const SheetsDemoScreen(),
-                      path: 'sheets',
-                      routes: [
-                        OmniPage.screen(
-                          const ScalableSheetDemoScreen(),
-                          path: 'scalable',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ],
-        ),
-      ],
     );
   }
 }

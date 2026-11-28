@@ -19,10 +19,12 @@ const _bar = OmniBottomNavigationBar(
 );
 
 Widget _app({
-  OmniPageBarTransition transition = OmniPageBarTransition.slide,
+  OmniPageBarTransition? transition = OmniPageBarTransition.slide,
+  OmniPageBarTransition appTransition = OmniPageBarTransition.slide,
   OmniPageType? pageTransition,
 }) => OmniApp.material(
   initialRoute: '/feed',
+  bottomBarTransition: appTransition,
   transition: pageTransition ?? OmniPages.fadeSlide,
   routes: [
     OmniPage(
@@ -30,7 +32,18 @@ Widget _app({
       (_) => const Center(child: Text('F')),
       bottomNavigationBar: _bar,
       bottomNavigationBarTransition: transition,
-      routes: [OmniPage('detail', (_) => const Center(child: Text('D')))],
+      routes: [
+        OmniPage('detail', (_) => const Center(child: Text('D'))),
+        OmniPage(
+          'more',
+          (_) => const ColoredBox(
+            color: Colors.white,
+            child: Center(child: Text('M')),
+          ),
+          bottomNavigationBar: _bar,
+          bottomNavigationBarTransition: transition,
+        ),
+      ],
     ),
     OmniPage(
       '/explore',
@@ -124,6 +137,55 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('E'), findsNothing);
     expect(_bars, findsOneWidget);
+  });
+
+  testWidgets('iOS back swipe: bar stays put, cancel or commit', (t) async {
+    await t.pumpWidget(_app(pageTransition: OmniPages.cupertino));
+    await t.pumpAndSettle();
+    final state = t.state(_bars);
+    final rest = t.getRect(_bars);
+    OmniRoute.go('/feed/more');
+    await t.pumpAndSettle();
+    expect(find.text('M'), findsOneWidget);
+    expect(t.getRect(_bars), rest);
+
+    // A short swipe is cancelled.
+    final g = await t.startGesture(const Offset(5, 300));
+    await g.moveBy(const Offset(120, 0));
+    await t.pump();
+    expect(t.getRect(_bars), rest);
+    await g.up();
+    await t.pumpAndSettle();
+    expect(find.text('M'), findsOneWidget);
+    expect(t.getRect(_bars), rest);
+
+    // A long one goes back.
+    final g2 = await t.startGesture(const Offset(5, 300));
+    for (var i = 0; i < 10; i++) {
+      await g2.moveBy(const Offset(60, 0));
+      await t.pump(const Duration(milliseconds: 16));
+      expect(t.getRect(_bars), rest);
+    }
+    await g2.up();
+    await t.pumpAndSettle();
+    expect(find.text('M'), findsNothing);
+    expect(find.text('F'), findsOneWidget);
+    expect(t.getRect(_bars), rest);
+    expect(t.state(_bars), same(state));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('OmniApp.bottomBarTransition is the default for pages', (
+    t,
+  ) async {
+    await t.pumpWidget(
+      _app(transition: null, appTransition: OmniPageBarTransition.withPage),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.byIcon(Icons.explore_outlined));
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 60));
+    expect(_bars, findsNWidgets(2));
+    await t.pumpAndSettle();
   });
 
   testWidgets('withPage: each page brings its own bar along', (t) async {

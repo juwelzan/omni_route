@@ -284,6 +284,12 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
   }
 }
 
+/// How the `OmniPage` bars behave while pages change; the example app passes
+/// it to `OmniApp.bottomBarTransition`.
+final omniPageBarMode = ValueNotifier<OmniPageBarTransition>(
+  OmniPageBarTransition.slide,
+);
+
 /// Shared bar embedded directly into three [OmniPage] routes without any
 /// outer `OmniStatefulShell` or `Scaffold.bottomNavigationBar`.
 const omniPageDemoSharedBar = OmniBottomNavigationBar(
@@ -410,10 +416,93 @@ class _OmniPageNavBody extends StatelessWidget {
               ),
             ),
           ),
+          tk.gapSm,
+          const _PageBarModeCard(),
         ],
       ),
     );
   }
+}
+
+/// Picks [omniPageBarMode] and opens a page without a bar.
+class _PageBarModeCard extends StatelessWidget {
+  const _PageBarModeCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final tk = context.tokens;
+    return Card(
+      child: Padding(
+        padding: tk.cardPadding,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Bar while pages change', style: context.textStyles.title),
+            tk.gapXs,
+            Text(
+              'Fixed: the bar stays put and only its indicator moves. '
+              'With page: the bar travels with each page.',
+              style: context.textStyles.bodyMuted,
+            ),
+            tk.gapSm,
+            ValueListenableBuilder<OmniPageBarTransition>(
+              valueListenable: omniPageBarMode,
+              builder: (context, mode, _) =>
+                  SegmentedButton<OmniPageBarTransition>(
+                    segments: const [
+                      ButtonSegment(
+                        value: OmniPageBarTransition.slide,
+                        label: Text('Fixed · slide'),
+                      ),
+                      ButtonSegment(
+                        value: OmniPageBarTransition.fade,
+                        label: Text('Fixed · fade'),
+                      ),
+                      ButtonSegment(
+                        value: OmniPageBarTransition.withPage,
+                        label: Text('With page'),
+                      ),
+                    ],
+                    selected: {mode},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (s) => omniPageBarMode.value = s.first,
+                  ),
+            ),
+            tk.gapSm,
+            OutlinedButton.icon(
+              icon: const Icon(Icons.open_in_new_rounded),
+              label: const Text('Open a page without a bar'),
+              onPressed: () => context.push('/omni-page-nav/details'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// A page without a bottom bar: the fixed bar slides (or fades) away while
+/// it comes in, and back when it is closed.
+class OmniPageNavDetailsScreen extends OmniStatelessWidget {
+  /// Creates the details screen.
+  const OmniPageNavDetailsScreen({super.key});
+
+  @override
+  String get routePath => '/omni-page-nav/details';
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(title: const Text('Details (no bar)')),
+    body: const Center(
+      child: Padding(
+        padding: EdgeInsets.all(24),
+        child: Text(
+          'This page has no bottom bar. Go back to see it return.',
+          textAlign: TextAlign.center,
+        ),
+      ),
+    ),
+  );
 }
 
 /// Live controls for [OmniBottomNavigationNotch]: shape, tab-switch motion,

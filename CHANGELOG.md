@@ -93,9 +93,20 @@
   and to bottom sheets (spring-back behind a "Discard?" dialog, header
   state kept while scrolling, chat lists) — see omni_responsive's
   CHANGELOG.
-- An `OmniPage(bottomNavigationBar: ...)` bar follows its own page's
-  location, so during a transition the outgoing page's bar no longer
-  slides to the new tab as well.
+- `OmniPage(bottomNavigationBar: ...)` bars stay fixed while pages change.
+  - Only the page under the bar transitions.
+  - Pages that share a bar keep one bar (one state), whose indicator
+    animates to the new tab.
+  - For a page without a bar, the bar slides down in step with the
+    transition, and back up on return.
+  - A cancelled iOS back swipe leaves the bar untouched.
+  - Dialogs and sheets still cover the bar.
+  - New `OmniPageBarTransition`, set per page with
+    `bottomNavigationBarTransition:` or app-wide with
+    `OmniApp(bottomBarTransition:)`:
+    - `slide` (default): fixed, slides for pages without a bar.
+    - `fade`: fixed, fades for pages without a bar.
+    - `withPage`: the old behaviour, where the bar moves with its page.
 - Install docs use one repository tag (`ref: v0.5.0`) for every package;
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step

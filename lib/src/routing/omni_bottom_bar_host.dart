@@ -208,10 +208,14 @@ class _Session {
   _Session({
     required this.incoming,
     required this.outgoing,
+    required this.route,
     required this.animation,
     required this.pop,
     required this.gesture,
   });
+
+  /// The route whose transition this is.
+  final Route<dynamic> route;
 
   /// Page becoming current.
   final Route<dynamic>? incoming;
@@ -268,23 +272,29 @@ class _OmniPageBarHostState extends State<OmniPageBarHost> {
     }
   }
 
+  /// A hero flight parks the arriving route offstage for a frame, which
+  /// swaps its animation for an always-complete one; that is not the end of
+  /// the transition.
+  static bool _offstage(Route<dynamic> route) =>
+      route is ModalRoute && route.offstage;
+
   void _begin({
+    required Route<dynamic> route,
     required Route<dynamic>? incoming,
     required Route<dynamic>? outgoing,
-    required Animation<double>? animation,
     bool pop = false,
     bool gesture = false,
   }) {
-    debugPrint('DBG begin in=${incoming?.settings.name} out=${outgoing?.settings.name} anim=${animation?.status} pop=$pop claims=${_claims.keys.map((r) => r.settings.name).toList()}');
+    final animation = route is ModalRoute ? route.animation : null;
     _defer(() {
-      debugPrint('DBG run claims=${_claims.keys.map((r) => r.settings.name).toList()} status=${animation?.status}');
       _endSession(settle: false);
       final claim = _claims[incoming] ?? _claims[outgoing];
       final animating =
           animation != null &&
-          (animation.status == AnimationStatus.forward ||
-              animation.status == AnimationStatus.reverse ||
-              gesture);
+          (gesture ||
+              _offstage(route) ||
+              animation.status == AnimationStatus.forward ||
+              animation.status == AnimationStatus.reverse);
       if (claim == null ||
           claim.transition == OmniPageBarTransition.withPage ||
           !animating) {
@@ -292,6 +302,7 @@ class _OmniPageBarHostState extends State<OmniPageBarHost> {
         return;
       }
       _session = _Session(
+        route: route,
         incoming: incoming,
         outgoing: outgoing,
         animation: animation,
@@ -305,6 +316,8 @@ class _OmniPageBarHostState extends State<OmniPageBarHost> {
   }
 
   void _onSessionStatus(AnimationStatus status) {
+    final session = _session;
+    if (session == null || _offstage(session.route)) return;
     if (status == AnimationStatus.completed ||
         status == AnimationStatus.dismissed) {
       _endSession(settle: true);
@@ -412,11 +425,7 @@ class _BarObserver extends NavigatorObserver {
     if (!_isPage(route)) return;
     final outgoing = _isPage(previousRoute) ? previousRoute : host._topPage;
     host._topPage = route;
-    host._begin(
-      incoming: route,
-      outgoing: outgoing,
-      animation: (route as PageRoute).animation,
-    );
+    host._begin(route: route, incoming: route, outgoing: outgoing);
   }
 
   @override
@@ -424,17 +433,11 @@ class _BarObserver extends NavigatorObserver {
     if (!_isPage(route)) return;
     final incoming = _isPage(previousRoute) ? previousRoute : null;
     host._topPage = incoming;
-    host._begin(
-      incoming: incoming,
-      outgoing: route,
-      animation: (route as PageRoute).animation,
-      pop: true,
-    );
+    host._begin(route: route, incoming: incoming, outgoing: route, pop: true);
   }
 
   @override
   void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    debugPrint('DBG remove ${route.settings.name}');
     if (host._topPage == route) {
       host._topPage = _isPage(previousRoute) ? previousRoute : null;
       host._defer(host._settle);
@@ -445,11 +448,7 @@ class _BarObserver extends NavigatorObserver {
   void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
     if (!_isPage(newRoute)) return;
     host._topPage = newRoute;
-    host._begin(
-      incoming: newRoute,
-      outgoing: oldRoute,
-      animation: (newRoute! as PageRoute).animation,
-    );
+    host._begin(route: newRoute!, incoming: newRoute, outgoing: oldRoute);
   }
 
   @override
@@ -459,9 +458,9 @@ class _BarObserver extends NavigatorObserver {
   ) {
     if (!_isPage(route)) return;
     host._begin(
+      route: route,
       incoming: _isPage(previousRoute) ? previousRoute : null,
       outgoing: route,
-      animation: (route as PageRoute).animation,
       pop: true,
       gesture: true,
     );

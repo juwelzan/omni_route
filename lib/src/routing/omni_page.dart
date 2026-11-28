@@ -547,7 +547,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.bottomNavigationBarBuilder,
     this.extendBottomNavigationBar = true,
     this.hideBottomBarOnKeyboard = true,
-    this.bottomNavigationBarTransition = OmniPageBarTransition.slide,
+    this.bottomNavigationBarTransition,
   }) : _screen = null;
 
   /// Creates a route directly from a widget [screen], automatically using
@@ -577,7 +577,7 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
     this.bottomNavigationBarBuilder,
     this.extendBottomNavigationBar = true,
     this.hideBottomBarOnKeyboard = true,
-    this.bottomNavigationBarTransition = OmniPageBarTransition.slide,
+    this.bottomNavigationBarTransition,
   }) : // Named `path` cannot be a private initializing formal alongside computed `get path`.
        // ignore: prefer_initializing_formals
        _path = path,
@@ -618,10 +618,12 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
   /// software keyboard opens (default `true`).
   final bool hideBottomBarOnKeyboard;
 
-  /// How [bottomNavigationBar] behaves while pages change. By default it
-  /// stays fixed and only the page under it changes; pages that share a bar
-  /// keep one bar, whose indicator animates to the new tab.
-  final OmniPageBarTransition bottomNavigationBarTransition;
+  /// How [bottomNavigationBar] behaves while pages change (default:
+  /// `OmniApp.bottomBarTransition`, which is [OmniPageBarTransition.slide]).
+  /// With `slide` / `fade` the bar stays fixed and only the page under it
+  /// changes; pages that share a bar keep one bar, whose indicator animates
+  /// to the new tab.
+  final OmniPageBarTransition? bottomNavigationBarTransition;
 
   final String? _path;
   final OmniScreenBuilder<S>? _screenBuilder;
@@ -812,7 +814,8 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
         // transition would also slide its indicator to the new tab.
         return OmniPageBottomBarHost(
           bottomNavigationBar: OmniPageBarSlot(
-            transition: bottomNavigationBarTransition,
+            transition:
+                bottomNavigationBarTransition ?? config.bottomBarTransition,
             bar: Builder(
               builder: (barContext) => OmniRouteNavigationBridge(
                 currentLocation: state.matchedLocation,
@@ -962,6 +965,7 @@ class OmniPageConfig extends InheritedWidget {
   const OmniPageConfig({
     super.key,
     required this.transition,
+    this.bottomBarTransition = OmniPageBarTransition.slide,
     required this.titles,
     this.titleColor,
     required this.errorBuilder,
@@ -980,6 +984,9 @@ class OmniPageConfig extends InheritedWidget {
 
   /// Default page transition.
   final OmniPageType transition;
+
+  /// Default behaviour of page bottom bars while pages change.
+  final OmniPageBarTransition bottomBarTransition;
 
   /// Whether pages update browser / OS app-switcher titles.
   final bool titles;
@@ -1003,6 +1010,7 @@ class OmniPageConfig extends InheritedWidget {
   @override
   bool updateShouldNotify(OmniPageConfig old) =>
       old.transition != transition ||
+      old.bottomBarTransition != bottomBarTransition ||
       old.titles != titles ||
       old.titleColor != titleColor ||
       old.errorBuilder != errorBuilder ||

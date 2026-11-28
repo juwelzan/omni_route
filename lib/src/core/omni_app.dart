@@ -9,6 +9,7 @@ import '../bloc/omni_bloc_scope.dart';
 import '../guards/omni_guard.dart';
 import 'package:omni_responsive/integration.dart';
 import 'package:omni_responsive/omni_responsive.dart';
+import '../routing/omni_bottom_bar_host.dart' show OmniPageBarTransition;
 import '../routing/omni_page.dart';
 import '../routing/omni_route_registry.dart';
 import '../routing/omni_route_state.dart';
@@ -58,6 +59,7 @@ class OmniApp extends StatefulWidget {
     this.initialRoute = '/',
     this.resolveInitialRoute,
     this.transition = OmniPages.material,
+    this.bottomBarTransition = OmniPageBarTransition.slide,
     this.guards = const [],
     this.guardTimeout,
     this.refreshListenable,
@@ -114,6 +116,7 @@ class OmniApp extends StatefulWidget {
     this.initialRoute = '/',
     this.resolveInitialRoute,
     this.transition = OmniPages.material,
+    this.bottomBarTransition = OmniPageBarTransition.slide,
     this.guards = const [],
     this.guardTimeout,
     this.refreshListenable,
@@ -296,6 +299,7 @@ class OmniApp extends StatefulWidget {
     this.initialRoute = '/',
     this.resolveInitialRoute,
     this.transition = OmniPages.cupertino,
+    this.bottomBarTransition = OmniPageBarTransition.slide,
     this.guards = const [],
     this.guardTimeout,
     this.refreshListenable,
@@ -455,6 +459,11 @@ class OmniApp extends StatefulWidget {
   /// Default page transition used for every [OmniPage] unless overridden per
   /// route, per group, or per navigation call (`animated: false` / `transition:`).
   final OmniPageType transition;
+
+  /// How `OmniPage(bottomNavigationBar: ...)` bars behave while pages change
+  /// (a page's own `bottomNavigationBarTransition` wins). Default: fixed in
+  /// place, sliding away for pages without a bar.
+  final OmniPageBarTransition bottomBarTransition;
 
   /// App-wide guards evaluated in order on every navigation.
   final List<OmniGuard> guards;
@@ -1108,6 +1117,7 @@ class _OmniAppState extends State<OmniApp> {
 
     return OmniPageConfig(
       transition: widget.transition,
+      bottomBarTransition: widget.bottomBarTransition,
       titles: widget.setTitles,
       titleColor: widget.titleColor,
       errorBuilder: widget.notFound ?? defaultOmniErrorBuilder,
