@@ -1,5 +1,20 @@
 ## Unreleased
 
+- **`timeout` is one deadline for the whole request**:
+  - It used to restart for every retry attempt, so `timeout: 5s` with three
+    attempts could take 15 s plus the backoff.
+  - It now starts once request interceptors are done and covers every
+    attempt, retry delay, redirect, token wait and wait for a
+    `maxConcurrentRequests` slot.
+  - A retry whose delay (backoff or `Retry-After`) would not leave time to
+    try again is skipped: the last response or error is returned at once,
+    instead of sleeping into a `TimeoutFailure`.
+  - A `TimeoutFailure` caused by the deadline itself is not retried.
+  - Waiting for a token (`auth.current` / refresh) now ends at the deadline
+    with `TimeoutFailure`, even if the auth provider never answers.
+  - Downloads and uploads keep their own `timeout` / `idleTimeout` per
+    attempt.
+
 - **Offline queue never stores credentials**:
   - Besides `Authorization`, `Proxy-Authorization` and `Cookie`, it now
     drops `X-API-Key`, `Api-Key`, `X-Auth-Token`, `X-Access-Token`,

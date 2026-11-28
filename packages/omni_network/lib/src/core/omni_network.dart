@@ -65,7 +65,11 @@ final class OmniNetwork {
   /// * [baseUrl]: joined with relative request paths (`/users` and `users`
   ///   both resolve under it, including its path, e.g. `/v1/users`).
   /// * [headers]: default headers, overridden per request.
-  /// * [timeout]: overall deadline per request (connect + send + receive).
+  /// * [timeout]: overall deadline per request, started once request
+  ///   interceptors are done and shared by every attempt, retry delay,
+  ///   redirect, token wait and concurrency-slot wait. A retry is skipped
+  ///   when its delay would not leave time to try again (the last response
+  ///   or error is returned). Downloads and uploads keep their own limits.
   /// * [connectTimeout], [sendTimeout], [receiveTimeout]: stage-specific
   ///   transport timeouts enforced per phase on `DioTransport`.
   /// * [proxy]: HTTP proxy (`'192.168.0.105:8888'` or `'PROXY host:port'`),
@@ -1976,7 +1980,19 @@ final class OmniNetwork {
         final r = current;
         current = await _guard(() => i.onRequest(r));
       }
-      var response = await _withRetry(current, t, epoch);
+      final sending = current;
+      final limit = sending.timeout ?? timeout;
+      // The deadline starts once request interceptors are done, like the
+      // old per-attempt timer, and then covers every attempt and wait.
+      var response = t == null
+          ? await _Deadline.run(
+              limit,
+              Stopwatch()..start(),
+              () => _withRetry(sending, t, epoch),
+            )
+          // A transfer never inherits the deadline of a request it was
+          // started from (e.g. inside an interceptor).
+          : await _Deadline.clear(() => _withRetry(sending, t, epoch));
       for (final i in interceptors.reversed) {
         final res = response;
         final r = current;
@@ -2041,10 +2057,15 @@ final class OmniNetwork {
               );
         if (last || !policy.statuses.contains(res.statusCode)) return res;
         wait = policy.delayFor(attempt, res);
-        if (wait == null) return res;
+        // No time left to wait and try again: this response is the answer.
+        if (wait == null || !_Deadline.fits(wait)) return res;
       } on OmniNetworkException catch (e) {
         if (last || !policy.retriesError(e)) rethrow;
+        // The overall deadline itself ran out: nothing left to retry with.
+        if (e is TimeoutFailure && _Deadline.expired) rethrow;
         wait = policy.backoff(attempt);
+        // Report the real cause now instead of sleeping into a timeout.
+        if (!_Deadline.fits(wait)) rethrow;
       }
       await _sleep(wait, request);
       _checkStillWanted(request, epoch);
@@ -2140,19 +2161,29 @@ final class OmniNetwork {
     Future<T> Function(CancelSignal signal) op,
   ) async {
     final signal = CancelSignal();
+    final deadline = _Deadline.current;
+    final timer = deadline == null
+        ? null
+        : Timer(deadline.remaining, () => signal.cancel(_Reason.timeout));
     final detach = request.cancelToken?.attach(
       () => signal.cancel(_Reason.user),
     );
     _pending.add(signal);
     try {
-      return await op(signal);
+      return await Future.any<T>([
+        op(signal),
+        // Ends the wait even if the auth provider ignores the signal.
+        signal.whenCancelled.then<T>((_) => throw const CancelledFailure()),
+      ]);
     } on CancelledFailure {
       if (signal.isCancelled) {
         final reason = await signal.whenCancelled;
         if (reason == _Reason.closed) throw const ClosedFailure();
+        if (reason == _Reason.timeout) throw TimeoutFailure(deadline!.limit);
       }
       rethrow;
     } finally {
+      timer?.cancel();
       detach?.call();
       _pending.remove(signal);
     }
@@ -2251,10 +2282,21 @@ final class OmniNetwork {
   ) async {
     final uri = safeUri(resolved.uri);
     final signal = CancelSignal();
-    final limit = t == null ? request.timeout ?? timeout : t.overall;
+    // Ordinary requests share the deadline started in `_pipeline` across
+    // retries, redirects, token waits and the slot queue; transfers keep
+    // their own per-attempt `overall` limit.
+    final deadline = t == null ? _Deadline.current : null;
+    final limit = t == null
+        ? deadline?.limit ?? request.timeout ?? timeout
+        : t.overall;
+    // With no time left the timer fires on the next event-loop turn: an
+    // answer that is already there still wins, anything else is cancelled.
     final timer = limit == null
         ? null
-        : Timer(limit, () => signal.cancel(_Reason.timeout));
+        : Timer(
+            deadline?.remaining ?? limit,
+            () => signal.cancel(_Reason.timeout),
+          );
     Timer? idle;
     final idleLimit = t?.idle ?? timeout;
     void kick() {
@@ -2743,6 +2785,51 @@ final class _Shared {
 }
 
 enum _Reason { timeout, idle, closed, user }
+
+/// The overall deadline of one request, started in `_pipeline` and shared
+/// (through a zone) by every attempt, retry delay, redirect hop, token wait
+/// and concurrency-slot wait made for it.
+final class _Deadline {
+  _Deadline(this.limit, this._watch);
+
+  /// The request's `timeout`.
+  final Duration limit;
+  final Stopwatch _watch;
+
+  static final Object _key = Object();
+
+  /// The deadline of the request being sent, if any.
+  static _Deadline? get current => Zone.current[_key] as _Deadline?;
+
+  /// Runs [body] under a deadline of [limit] measured by [watch].
+  static Future<T> run<T>(
+    Duration limit,
+    Stopwatch watch,
+    Future<T> Function() body,
+  ) => runZoned(body, zoneValues: {_key: _Deadline(limit, watch)});
+
+  /// Runs [body] outside any deadline.
+  static Future<T> clear<T>(Future<T> Function() body) =>
+      current == null ? body() : runZoned(body, zoneValues: {_key: null});
+
+  /// Whether the current deadline has passed.
+  static bool get expired => current?.isExpired ?? false;
+
+  /// Whether a wait of [delay] still leaves time for another attempt.
+  static bool fits(Duration delay) {
+    final d = current;
+    return d == null || delay < d.remaining;
+  }
+
+  /// Time left (never negative).
+  Duration get remaining {
+    final left = limit - _watch.elapsed;
+    return left.isNegative ? Duration.zero : left;
+  }
+
+  /// Whether no time is left.
+  bool get isExpired => remaining == Duration.zero;
+}
 
 final class _Transfer {
   _Transfer({
