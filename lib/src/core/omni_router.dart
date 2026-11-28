@@ -2426,6 +2426,7 @@ class _OmniRouterHostState extends State<_OmniRouterHost>
     // A different router (hot reload, or one built in a parent's build):
     // follow the new one instead of rendering a stale stack.
     oldWidget.router.removeListener(_onRouterChanged);
+    oldWidget.router._detachHost(context);
     widget.router
       ..addListener(_onRouterChanged)
       .._attachHost(context)

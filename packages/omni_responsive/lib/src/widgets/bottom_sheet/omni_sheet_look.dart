@@ -469,55 +469,43 @@ class _IosFloatingChrome extends StatelessWidget {
 }
 
 /// The pinned header: always drags the sheet (it is outside the scroll
-/// view) and shows a blurred tint / separator while content is scrolled under it.
+/// view) and fades in a separator while the content is scrolled.
+///
+/// The subtree never changes shape with [scrolled], so state inside the
+/// header (a search field, its focus) survives scrolling. The content
+/// scrolls below the header, not under it, so there is nothing to blur.
 class _SheetHeader extends StatelessWidget {
   const _SheetHeader({
     required this.scrolled,
     required this.dividerColor,
-    required this.backgroundColor,
     required this.frosted,
     required this.child,
   });
 
   final ValueListenable<bool> scrolled;
   final Color dividerColor;
-  final Color backgroundColor;
   final bool frosted;
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => ValueListenableBuilder<bool>(
-    valueListenable: scrolled,
-    builder: (context, isScrolled, sep) {
-      Widget header = Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          child,
-          // Space is always reserved, so the separator never shifts content.
-          AnimatedOpacity(
-            opacity: isScrolled ? 1 : 0,
-            duration: const Duration(milliseconds: 160),
-            child: sep,
-          ),
-        ],
-      );
-      if (frosted && isScrolled) {
-        header = ClipRect(
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-            child: ColoredBox(
-              color: backgroundColor.withValues(alpha: 0.78),
-              child: header,
-            ),
-          ),
-        );
-      }
-      return header;
-    },
-    child: SizedBox(
-      height: frosted ? 0.5 : 1.0,
-      child: ColoredBox(color: dividerColor),
-    ),
+  Widget build(BuildContext context) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      child,
+      // Space is always reserved, so the separator never shifts content.
+      ValueListenableBuilder<bool>(
+        valueListenable: scrolled,
+        builder: (context, isScrolled, sep) => AnimatedOpacity(
+          opacity: isScrolled ? 1 : 0,
+          duration: const Duration(milliseconds: 160),
+          child: sep,
+        ),
+        child: SizedBox(
+          height: frosted ? 0.5 : 1.0,
+          child: ColoredBox(color: dividerColor),
+        ),
+      ),
+    ],
   );
 }

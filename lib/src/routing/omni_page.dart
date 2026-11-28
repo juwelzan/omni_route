@@ -11,6 +11,8 @@ import '../core/omni_app_features.dart';
 import '../core/omni_router.dart';
 import '../errors/omni_route_exception.dart';
 import '../guards/omni_guard.dart';
+import 'package:omni_responsive/integration.dart'
+    show OmniRouteNavigationBridge;
 import 'package:omni_responsive/omni_responsive.dart';
 import '../screens/omni_screen.dart';
 import '../screens/omni_screen_host.dart';
@@ -798,8 +800,19 @@ class OmniPage<S extends Widget> extends OmniRouteBase {
             bottomNavigationBar ??
             omniScreen?.buildBottomNavigationBar(ctx);
         if (bar == null) return body;
+        // Pin the bar to this page's own location. The app-wide bridge
+        // follows the newest route, so without this the page underneath a
+        // transition would also slide its indicator to the new tab.
         return OmniPageBottomBarHost(
-          bottomNavigationBar: bar,
+          bottomNavigationBar: Builder(
+            builder: (barContext) => OmniRouteNavigationBridge(
+              currentLocation: state.matchedLocation,
+              onNavigate: OmniRouteNavigationBridge.readMaybeOf(
+                barContext,
+              )?.onNavigate,
+              child: bar,
+            ),
+          ),
           extendBody: extendBottomNavigationBar,
           hideOnKeyboard: hideBottomBarOnKeyboard,
           child: body,

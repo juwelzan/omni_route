@@ -223,25 +223,42 @@ class OmniBottomNavigationBar extends StatefulWidget {
 
 class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     with SingleTickerProviderStateMixin {
+  /// Last indicator position per item list. Bars built from the same `items`
+  /// list (one shared `const` bar on several routes) pick up where the
+  /// previous one stopped, so a freshly pushed page slides the indicator from
+  /// the old tab instead of jumping or sweeping in from tab 0.
+  static final Expando<double> _lastTravelByItems = Expando<double>(
+    'OmniBottomNavigationBar.travel',
+  );
+
   late final AnimationController _travelCtrl;
-  late double _fromIndex;
-  late double _toIndex;
+
+  /// Indicator position (in tab units) where the current travel started.
+  double _fromIndex = 0;
+
+  /// Tab the indicator is travelling to.
+  double _toIndex = 0;
+
+  /// Resolved selected tab (from [OmniBottomNavigationBar.currentIndex], the
+  /// controller, or the route), kept in state so the indicator and the
+  /// selected colours always agree within a frame.
+  int _activeIndex = 0;
+  bool _resolvedOnce = false;
+  bool _reduceMotion = false;
+  Curve _travelCurve = Curves.easeOutCubic;
+
+  /// Bridge seen in the last dependency pass. Controller notifications use
+  /// it instead of looking the tree up, since they can arrive while this
+  /// element is deactivated (e.g. a replacement bar syncs the shared
+  /// controller in its initState).
+  OmniRouteNavigationBridge? _bridge;
+
   bool _scrollVisible = true;
-  bool _travelSyncQueued = false;
-  int _travelSyncGeneration = 0;
   final Map<ScrollPosition, double> _lastScrollPixelsByPosition = {};
 
   @override
   void initState() {
     super.initState();
-    final maxIndex = widget.items.isEmpty ? 0 : widget.items.length - 1;
-    final initial = widget.items.isEmpty
-        ? 0.0
-        : (widget.currentIndex ?? widget.controller?.index ?? 0)
-              .clamp(0, maxIndex)
-              .toDouble();
-    _fromIndex = initial;
-    _toIndex = initial;
     _travelCtrl = AnimationController(
       vsync: this,
       duration: widget.animationDuration ?? const Duration(milliseconds: 340),
@@ -253,42 +270,33 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    _bridge = OmniRouteNavigationBridge.readMaybeOf(context);
+    _syncActiveIndex();
+  }
+
+  @override
   void didUpdateWidget(covariant OmniBottomNavigationBar oldWidget) {
     super.didUpdateWidget(oldWidget);
     widget.controller?._syncItemCount(widget.items.length);
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller?.removeListener(_onControllerChanged);
       widget.controller?.addListener(_onControllerChanged);
-      if (widget.currentIndex == null && widget.controller != null) {
-        _animateToIndex(widget.controller!.index);
-      }
     }
     if (oldWidget.scrollController != widget.scrollController ||
         oldWidget.hideOnScroll != widget.hideOnScroll) {
       _detachScroll(oldWidget.scrollController);
       _attachScroll(widget.scrollController);
     }
-    final nextDuration =
-        widget.animationDuration ??
-        widget.theme?.animationDuration ??
-        const Duration(milliseconds: 340);
-    if (_travelCtrl.duration != nextDuration) {
-      _travelCtrl.duration = nextDuration;
-    }
     if (oldWidget.items.length != widget.items.length) {
-      if (widget.items.isEmpty) {
-        _fromIndex = 0;
-        _toIndex = 0;
-        return;
-      }
-      final maxIdx = (widget.items.length - 1).toDouble();
+      final maxIdx = math.max(0, widget.items.length - 1).toDouble();
       _fromIndex = _fromIndex.clamp(0.0, maxIdx);
       _toIndex = _toIndex.clamp(0.0, maxIdx);
     }
-    if (widget.currentIndex != null &&
-        widget.currentIndex != _toIndex.round()) {
-      _animateToIndex(widget.currentIndex!);
-    }
+    _bridge = OmniRouteNavigationBridge.readMaybeOf(context);
+    _syncActiveIndex();
   }
 
   @override
@@ -299,15 +307,64 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     super.dispose();
   }
 
+  /// Re-resolves the selected tab and starts the indicator towards it. Runs
+  /// from the lifecycle hooks (never from `build`), so a route change, a
+  /// controller change and a new `currentIndex` all retarget in the same frame
+  /// they arrive in.
+  void _syncActiveIndex() {
+    final next = _resolveActiveIndex(_bridge);
+    _activeIndex = next;
+    if (widget.items.isEmpty) {
+      _fromIndex = 0;
+      _toIndex = 0;
+      return;
+    }
+    if (!_resolvedOnce) {
+      _resolvedOnce = true;
+      final last = _lastTravelByItems[widget.items];
+      final maxIdx = (widget.items.length - 1).toDouble();
+      if (last != null && last != next && !_reduceMotion) {
+        _fromIndex = last.clamp(0.0, maxIdx);
+        _toIndex = next.toDouble();
+        _travelCtrl.forward(from: 0);
+      } else {
+        _fromIndex = next.toDouble();
+        _toIndex = next.toDouble();
+        _travelCtrl.value = 1;
+      }
+      _lastTravelByItems[widget.items] = next.toDouble();
+      return;
+    }
+    _animateToIndex(next);
+  }
+
+  /// Where the indicator is drawn at controller value [v]. The curve may
+  /// overshoot (the default `easeOutBack` does); the overshoot is softly
+  /// limited to a fraction of a tab so the indicator never visits a
+  /// neighbouring tab on the way.
+  double _travelAt(double v) {
+    final from = _fromIndex;
+    final to = _toIndex;
+    if (from == to || v >= 1) return to;
+    if (v <= 0) return from;
+    final pos = from + (to - from) * _travelCurve.transform(v);
+    final lo = math.min(from, to);
+    final hi = math.max(from, to);
+    if (pos > hi) return hi + _softLimit(pos - hi);
+    if (pos < lo) return lo - _softLimit(lo - pos);
+    return pos;
+  }
+
+  static const double _maxOvershoot = 0.14;
+
+  static double _softLimit(double excess) =>
+      _maxOvershoot * excess / (excess + _maxOvershoot);
+
   void _onControllerChanged() {
     if (!mounted) return;
-    final ctrl = widget.controller;
-    if (ctrl != null) {
-      if (widget.currentIndex == null) {
-        _animateToIndex(ctrl.index);
-      }
-      setState(() {});
-    }
+    if (widget.controller == null) return;
+    // Index and visibility both live on the controller.
+    setState(_syncActiveIndex);
   }
 
   void _attachScroll(ScrollController? controller) {
@@ -392,10 +449,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
   bool get _hasRoutePaths => widget.items.any((e) => e.routePath != null);
 
-  int _resolveActiveIndex(
-    BuildContext context,
-    OmniRouteNavigationBridge? bridge,
-  ) {
+  int _resolveActiveIndex(OmniRouteNavigationBridge? bridge) {
     if (widget.items.isEmpty) return 0;
     final raw = widget.currentIndex ?? widget.controller?.index;
     if (raw != null) {
@@ -443,8 +497,16 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     if (widget.items.isEmpty) return;
     final clamped = target.clamp(0, widget.items.length - 1).toDouble();
     if (_toIndex == clamped) return;
-    _fromIndex =
-        lerpDouble(_fromIndex, _toIndex, _travelCtrl.value) ?? _toIndex;
+    _lastTravelByItems[widget.items] = clamped;
+    if (_reduceMotion) {
+      _fromIndex = clamped;
+      _toIndex = clamped;
+      _travelCtrl.value = 1;
+      return;
+    }
+    // Start from where the indicator is drawn right now (curve applied), so
+    // an interrupted travel continues smoothly instead of jumping back.
+    _fromIndex = _travelAt(_travelCtrl.value);
     _toIndex = clamped;
     _travelCtrl.forward(from: 0);
   }
@@ -474,29 +536,6 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     }
   }
 
-  double _currentTravelIndex(int activeIndex, Curve curve) {
-    if (activeIndex.toDouble() != _toIndex) {
-      // Coalesce build-triggered route updates and use the latest index.
-      if (!_travelSyncQueued) {
-        _travelSyncQueued = true;
-        final generation = ++_travelSyncGeneration;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || generation != _travelSyncGeneration) return;
-          _travelSyncQueued = false;
-          final latestIndex = _resolveActiveIndex(
-            context,
-            widget.currentIndex == null && widget.controller == null
-                ? OmniRouteNavigationBridge.maybeOf(context)
-                : OmniRouteNavigationBridge.readMaybeOf(context),
-          );
-          _animateToIndex(latestIndex);
-        });
-      }
-    }
-    final t = curve.transform(_travelCtrl.value);
-    return lerpDouble(_fromIndex, _toIndex, t) ?? activeIndex.toDouble();
-  }
-
   bool _shouldShowLabel(
     OmniBottomNavLabelMode mode,
     OmniBottomNavigationStyle style,
@@ -523,6 +562,9 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     if (widget.hideOnScroll && scrollController != null) {
       _scheduleScrollPositionSync(scrollController);
     }
+    // Route-driven bars subscribe so a navigation reaches
+    // didChangeDependencies (which retargets the indicator); bars driven by
+    // an index or a controller only read the bridge for `onNavigate`.
     final subscribeRoute =
         widget.currentIndex == null &&
         widget.controller == null &&
@@ -530,8 +572,12 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final bridge = subscribeRoute
         ? OmniRouteNavigationBridge.maybeOf(context)
         : OmniRouteNavigationBridge.readMaybeOf(context);
-    final activeIndex = _resolveActiveIndex(context, bridge);
+    final activeIndex = _activeIndex.clamp(0, widget.items.length - 1);
     final look = _ResolvedNavLook.resolve(context, widget);
+    _travelCurve = look.indicatorCurve;
+    if (_travelCtrl.duration != look.duration) {
+      _travelCtrl.duration = look.duration;
+    }
 
     final keyboardOpen =
         widget.hideOnKeyboard && MediaQuery.viewInsetsOf(context).bottom > 0;
@@ -547,7 +593,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final rawContent = AnimatedBuilder(
       animation: _travelCtrl,
       builder: (context, _) {
-        final travel = _currentTravelIndex(activeIndex, look.indicatorCurve);
+        final travel = _travelAt(_travelCtrl.value);
         return _buildStyledShell(
           context: context,
           look: look,
@@ -570,7 +616,11 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
           duration: Duration(
             milliseconds: (look.duration.inMilliseconds * 0.7).round(),
           ),
-          child: Material(type: MaterialType.transparency, child: rawContent),
+          // The indicator repaints every frame while it travels; keep that
+          // from repainting the page behind the bar.
+          child: RepaintBoundary(
+            child: Material(type: MaterialType.transparency, child: rawContent),
+          ),
         ),
       ),
     );
@@ -1872,7 +1922,14 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   ) {
     if (!hasCenter) return tabIndex;
     final leftCount = itemCount ~/ 2;
-    return tabIndex >= leftCount ? tabIndex + 1.0 : tabIndex;
+    if (leftCount == 0) return tabIndex + 1.0;
+    // Continuous across the centre slot: between the last left tab and the
+    // first right tab the indicator glides over the action instead of
+    // teleporting past it.
+    final lastLeft = (leftCount - 1).toDouble();
+    if (tabIndex <= lastLeft) return tabIndex;
+    if (tabIndex >= leftCount) return tabIndex + 1.0;
+    return lastLeft + (tabIndex - lastLeft) * 2.0;
   }
 }
 

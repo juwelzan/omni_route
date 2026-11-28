@@ -298,7 +298,9 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     );
     if (oldWidget.controller != widget.controller) {
       final previousController = oldWidget.controller ?? _ownController;
-      previousController?._state = null;
+      if (identical(previousController?._state, this)) {
+        previousController?._state = null;
+      }
       final nextController = _controller;
       nextController._state = this;
       nextController._detent.value =
@@ -319,7 +321,8 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
 
   @override
   void dispose() {
-    _controller._state = null;
+    // A replacement sheet may already have taken the controller over.
+    if (identical(_controller._state, this)) _controller._state = null;
     _ownController?.dispose();
     _presence.dispose();
     _dimmed.dispose();

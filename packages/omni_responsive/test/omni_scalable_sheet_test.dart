@@ -150,10 +150,7 @@ void main() {
     await t.pumpWidget(
       ValueListenableBuilder<OmniScalableSheetController>(
         valueListenable: controller,
-        builder: (_, value, _) => _page(
-          controller: value,
-          initialDetent: 1,
-        ),
+        builder: (_, value, _) => _page(controller: value, initialDetent: 1),
       ),
     );
     await t.pumpAndSettle();

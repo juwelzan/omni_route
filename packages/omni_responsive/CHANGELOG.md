@@ -64,6 +64,27 @@
   rest of the same gesture to the sheet. New pinned `header:` that always
   drags the sheet and shows a separator while content is scrolled
   (`OmniSheet.of(context).isScrolled`).
+- Bottom sheets: a drag-dismiss refused by a `PopScope` that opens a
+  "Discard?" dialog now springs the sheet back behind the dialog (it stayed
+  half-way down). State inside a pinned header (a search field, its focus)
+  is no longer reset when the list scrolls, and the header no longer runs
+  a backdrop blur over its own solid background. A reversed (chat) list in
+  a sheet scrolls instead of dragging the sheet. A replaced
+  `OmniScalableSheet` no longer detaches a controller its successor took.
+- `OmniBottomNavigationBar` indicator:
+  - Switching tabs while the indicator is still moving continues from where
+    it is drawn; it used to jump back first (4 → 3 → 2 bounced).
+  - The default `easeOutBack` overshoot is capped at ~0.14 of a tab, so a
+    long jump no longer swings into the neighbouring tab.
+  - With a `centerAction`, the sliding pill glides over the centre slot
+    instead of teleporting past it.
+  - The indicator retargets in the same frame as the route, controller or
+    `currentIndex` change; it no longer waits a frame.
+  - Bars that share one `items` list (one `const` bar on several routes)
+    continue from the previous tab on a new page, instead of sweeping in
+    from tab 0.
+  - Reduce motion snaps the indicator.
+  - The bar repaints on its own layer.
 
 **Text size**
 - New app-wide text size: `OmniTextSize` (small / medium / large / extra

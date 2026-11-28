@@ -47,10 +47,18 @@ class _SheetScrollPosition extends ScrollPositionWithSingleContext {
     super.beginActivity(newActivity);
   }
 
+  /// Only a top-down vertical list hands drags to the sheet. In a reversed
+  /// list (a chat) "drag down at the top" means the opposite end, so it just
+  /// scrolls; the handle and header still move the sheet.
+  bool get _couplesWithSheet => axisDirection == AxisDirection.down;
+
   @override
   void applyUserOffset(double delta) {
     if (delta == 0) return;
-    if (sheet._disposed || !sheet.mounted || !sheet._canDragSheet) {
+    if (sheet._disposed ||
+        !sheet.mounted ||
+        !sheet._canDragSheet ||
+        !_couplesWithSheet) {
       if (_driving) {
         _driving = false;
         if (!sheet._disposed && sheet.mounted) sheet._dragEnd(0);

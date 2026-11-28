@@ -403,8 +403,10 @@ class _RouteSheetHost<T> implements _SheetHost {
     try {
       await nav.maybePop<T>();
       // Navigator.maybePop returns true even when PopScope vetoes the pop, so
-      // check whether the route actually began leaving or ceased to be current.
-      final gone = !route.isActive || !route.isCurrent || route._closing;
+      // check whether the route actually began leaving. Not `isCurrent`: a
+      // PopScope that asks "Discard?" pushes a dialog on top, and the sheet
+      // must still spring back behind it.
+      final gone = !route.isActive || route._closing;
       if (!gone) route._popVelocity = null;
       return gone;
     } finally {

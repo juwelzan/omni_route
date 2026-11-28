@@ -88,6 +88,14 @@
   rest of the same gesture to the sheet. New pinned `header:` that always
   drags the sheet and shows a separator while content is scrolled
   (`OmniSheet.of(context).isScrolled`).
+- Fixes to the bottom navigation indicator (no bounce-back when switching
+  tabs mid-animation, capped overshoot, smooth glide past a centre action)
+  and to bottom sheets (spring-back behind a "Discard?" dialog, header
+  state kept while scrolling, chat lists) — see omni_responsive's
+  CHANGELOG.
+- An `OmniPage(bottomNavigationBar: ...)` bar follows its own page's
+  location, so during a transition the outgoing page's bar no longer
+  slides to the new tab as well.
 - Install docs use one repository tag (`ref: v0.5.0`) for every package;
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step

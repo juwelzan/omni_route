@@ -709,7 +709,6 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       pinnedTop = _SheetHeader(
         scrolled: _scrolled,
         dividerColor: look.divider,
-        backgroundColor: look.background,
         frosted: frostedChrome,
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -726,7 +725,6 @@ class _OmniSheetViewState extends State<_OmniSheetView>
           _SheetHeader(
             scrolled: _scrolled,
             dividerColor: look.divider,
-            backgroundColor: look.background,
             frosted: frostedChrome,
             child: customHeader,
           ),
