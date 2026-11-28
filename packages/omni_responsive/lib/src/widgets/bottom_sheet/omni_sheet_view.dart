@@ -39,6 +39,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   double _raw = 0;
   bool _dragging = false;
   bool _disposed = false;
+  bool _dismissInFlight = false;
   bool _retargetQueued = false;
   int? _pendingRetargetSortedIndex;
   bool _scrollRefreshQueued = false;
@@ -400,16 +401,39 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   }
 
   Future<void> _dismiss(double velocity) async {
-    final base = math.max(_extent.value, 1.0);
-    final gone = await _host.dismiss(-velocity / base);
-    // Refused (a PopScope, or the host keeps it): spring back.
-    if (!gone && mounted && !_disposed) {
-      _host.settlePresence(0);
-      _snapSorted(
-        _metrics.sortedIndex,
-        publicIndex: _metrics.publicIndex,
-        velocity: 0,
-      );
+    if (_dismissInFlight || _disposed || !mounted) return;
+    _dismissInFlight = true;
+    try {
+      final base = math.max(_extent.value, 1.0);
+      var gone = false;
+      try {
+        gone = await _host.dismiss(-velocity / base);
+      } catch (error, stackTrace) {
+        FlutterError.reportError(
+          FlutterErrorDetails(
+            exception: error,
+            stack: stackTrace,
+            library: 'omni_responsive bottom sheet',
+            context: ErrorDescription('while dismissing a bottom sheet'),
+          ),
+        );
+      }
+
+      // Refused (a PopScope, or the host keeps it): spring back.
+      if (!gone &&
+          mounted &&
+          !_disposed &&
+          !_host.isClosing &&
+          _presence.value > 0) {
+        _host.settlePresence(0);
+        _snapSorted(
+          _metrics.sortedIndex,
+          publicIndex: _metrics.publicIndex,
+          velocity: 0,
+        );
+      }
+    } finally {
+      _dismissInFlight = false;
     }
   }
 

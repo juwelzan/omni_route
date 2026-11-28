@@ -23,6 +23,7 @@ Widget _page({
   int? dimFromDetent,
   ValueChanged<int>? onDetentChanged,
   VoidCallback? onDismissed,
+  bool? showCloseButton,
   VoidCallback? onBodyTap,
   WidgetBuilder? builder,
   PreferredSizeWidget? appBar,
@@ -40,6 +41,7 @@ Widget _page({
       dimFromDetent: dimFromDetent,
       onDetentChanged: onDetentChanged,
       onDismissed: onDismissed,
+      showCloseButton: showCloseButton,
       body: Align(
         alignment: Alignment.topCenter,
         child: TextButton(
@@ -168,6 +170,66 @@ void main() {
     await t.pumpAndSettle();
     expect(dismissed, 1);
     expect(controller.isShown.value, isFalse);
+  });
+
+  testWidgets('failed dismissal callback is reported without an async error', (
+    t,
+  ) async {
+    final reportedErrors = <FlutterErrorDetails>[];
+    final previousErrorHandler = FlutterError.onError;
+    FlutterError.onError = reportedErrors.add;
+    addTearDown(() => FlutterError.onError = previousErrorHandler);
+
+    var dismissalCallbacks = 0;
+    await t.pumpWidget(
+      _page(
+        isDismissible: true,
+        initialDetent: 0,
+        onDismissed: () {
+          dismissalCallbacks++;
+          throw StateError('dismiss callback failed');
+        },
+      ),
+    );
+    await t.pumpAndSettle();
+
+    await t.timedDrag(
+      find.byKey(_box),
+      const Offset(0, 120),
+      const Duration(milliseconds: 500),
+    );
+    await t.pumpAndSettle();
+
+    expect(dismissalCallbacks, 1);
+    expect(reportedErrors, hasLength(1));
+    expect(reportedErrors.single.exception, isA<StateError>());
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('repeated close-button dismissal requests complete once', (
+    t,
+  ) async {
+    var dismissalCallbacks = 0;
+    await t.pumpWidget(
+      _page(
+        style: OmniSheetStyle.cupertino,
+        isDismissible: true,
+        initialDetent: 0,
+        showCloseButton: true,
+        onDismissed: () => dismissalCallbacks++,
+      ),
+    );
+    await t.pumpAndSettle();
+
+    final closeButton = t.widget<OmniSheetCloseButton>(
+      find.byType(OmniSheetCloseButton),
+    );
+    closeButton.onPressed!();
+    closeButton.onPressed!();
+    await t.pumpAndSettle();
+
+    expect(dismissalCallbacks, 1);
+    expect(t.takeException(), isNull);
   });
 
   testWidgets('floating style keeps its margins on the page', (t) async {
