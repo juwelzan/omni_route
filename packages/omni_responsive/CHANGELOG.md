@@ -99,6 +99,41 @@
   pushed inwards away from the corner while the orb stayed put, so the
   card looked wrongly cut. The cut now always sits under the orb, and the
   corner on that side shrinks instead.
+- `OmniBottomNavigationBar` accessibility:
+  - With a screen reader or switch access on (`accessibleNavigation`),
+    `hideOnScroll` no longer hides the bar. A manual `controller.hide()`
+    still works.
+  - Reduced motion (`disableAnimations`) now covers every bar animation:
+    show/hide, fades, press scale, bubble width, pills and the orb icon,
+    not only the indicator.
+- New `itemLayout:` (`OmniBottomNavItemLayout`): `stacked` (default),
+  `inline` (icon and label side by side, the pill around both, as in
+  Material 3 Expressive) or `adaptive` (inline from 600 wide). It applies
+  to every style except `curvedNotch` and `floatingBubble`.
+- New `docked:`: `true` makes any style a classic edge-to-edge bar, `false`
+  floats a docked style as a card, `null` keeps the style's own placement.
+- `topIndicator`: new `indicatorAtBottom:` draws the accent as an
+  underline, and `showSpotlight: false` drops the light cone.
+- New `syncSystemNavigationBar:` (opt-in). A docked bar colours Android's
+  system navigation bar to match, with contrasting icons; a floating bar
+  keeps it transparent. When the bar hides, the page's own style applies
+  again.
+- New `OmniContextualActionBar` / `OmniContextualAction` for selection
+  mode:
+  - It replaces the navigation bar in the same slot with a close button, a
+    title ("3 selected") and actions.
+  - Actions that don't fit go into an overflow menu; destructive actions are
+    tinted.
+  - System back leaves selection mode first.
+  - The bar underneath keeps its state, but can't be tapped or focused and
+    screen readers skip it.
+  - Reduced motion swaps instantly.
+- All of the new options can also be set on `OmniBottomNavigationStyleData`.
+- `OmniAdaptiveDestination` (`OmniStatefulShell.adaptive`):
+  - New `badgeCount`, `badgeText` and `showDotBadge`, shown on Material's
+    `NavigationBar`, on the Omni bar and on the rail.
+  - New `semanticLabel`, used by the Omni bar and the rail.
+  - The rail now shows `tooltip`.
 
 **Text size**
 - New app-wide text size: `OmniTextSize` (small / medium / large / extra

@@ -21,3 +21,4 @@ part 'omni_bottom_navigation_style.dart';
 part 'omni_bottom_navigation_notch.dart';
 part 'omni_bottom_navigation_painters.dart';
 part 'omni_bottom_navigation_bar.dart';
+part 'omni_contextual_action_bar.dart';

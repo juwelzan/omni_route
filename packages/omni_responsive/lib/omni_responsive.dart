@@ -142,6 +142,7 @@ export 'src/omni_text_scale.dart'
 export 'src/omni_theme_override.dart' show OmniThemeOverride;
 export 'src/widgets/bottom_navigation/omni_bottom_navigation.dart'
     show
+        OmniBottomNavItemLayout,
         OmniBottomNavLabelMode,
         OmniBottomNavigationAction,
         OmniBottomNavigationBar,
@@ -151,6 +152,8 @@ export 'src/widgets/bottom_navigation/omni_bottom_navigation.dart'
         OmniBottomNavigationNotch,
         OmniBottomNavigationStyle,
         OmniBottomNavigationStyleData,
+        OmniContextualAction,
+        OmniContextualActionBar,
         OmniNotchShape,
         OmniNotchTravel;
 export 'src/widgets/bottom_sheet/omni_bottom_sheet.dart'

@@ -85,6 +85,20 @@ enum OmniBottomNavigationStyle {
   };
 }
 
+/// How an item's icon and label are arranged.
+enum OmniBottomNavItemLayout {
+  /// Label under the icon (default).
+  stacked,
+
+  /// Icon and label side by side, the selected indicator around both — the
+  /// Material 3 Expressive layout for wide bars.
+  inline,
+
+  /// [inline] when the window is at least 600 wide (tablets, landscape
+  /// phones), else [stacked].
+  adaptive,
+}
+
 /// Controls when item text labels are displayed in [OmniBottomNavigationBar].
 enum OmniBottomNavLabelMode {
   /// Automatically uses the authentic label convention of the chosen
@@ -349,6 +363,11 @@ class OmniBottomNavigationStyleData
     this.enableHaptics,
     this.enableScaleAnimation,
     this.notch,
+    this.itemLayout,
+    this.syncSystemNavigationBar,
+    this.docked,
+    this.indicatorAtBottom,
+    this.showSpotlight,
   });
 
   /// Default style preset.
@@ -474,6 +493,22 @@ class OmniBottomNavigationStyleData
   /// Orb and cut-out of the notched styles.
   final OmniBottomNavigationNotch? notch;
 
+  /// Icon / label arrangement.
+  final OmniBottomNavItemLayout? itemLayout;
+
+  /// Colours Android's system navigation bar to match a docked bar.
+  final bool? syncSystemNavigationBar;
+
+  /// `true` docks the bar edge to edge, `false` floats it; `null` keeps the
+  /// style's own placement.
+  final bool? docked;
+
+  /// `topIndicator`: draws the accent at the bottom (an underline).
+  final bool? indicatorAtBottom;
+
+  /// `topIndicator`: draws the light cone under the accent.
+  final bool? showSpotlight;
+
   @override
   OmniBottomNavigationStyleData copyWith({
     OmniBottomNavigationStyle? style,
@@ -517,6 +552,11 @@ class OmniBottomNavigationStyleData
     bool? enableHaptics,
     bool? enableScaleAnimation,
     OmniBottomNavigationNotch? notch,
+    OmniBottomNavItemLayout? itemLayout,
+    bool? syncSystemNavigationBar,
+    bool? docked,
+    bool? indicatorAtBottom,
+    bool? showSpotlight,
   }) => OmniBottomNavigationStyleData(
     style: style ?? this.style,
     labelMode: labelMode ?? this.labelMode,
@@ -560,6 +600,12 @@ class OmniBottomNavigationStyleData
     enableHaptics: enableHaptics ?? this.enableHaptics,
     enableScaleAnimation: enableScaleAnimation ?? this.enableScaleAnimation,
     notch: notch ?? this.notch,
+    itemLayout: itemLayout ?? this.itemLayout,
+    syncSystemNavigationBar:
+        syncSystemNavigationBar ?? this.syncSystemNavigationBar,
+    docked: docked ?? this.docked,
+    indicatorAtBottom: indicatorAtBottom ?? this.indicatorAtBottom,
+    showSpotlight: showSpotlight ?? this.showSpotlight,
   );
 
   @override
@@ -648,6 +694,13 @@ class OmniBottomNavigationStyleData
           ? enableScaleAnimation
           : other.enableScaleAnimation,
       notch: OmniBottomNavigationNotch.lerp(notch, other.notch, t),
+      itemLayout: t < 0.5 ? itemLayout : other.itemLayout,
+      syncSystemNavigationBar: t < 0.5
+          ? syncSystemNavigationBar
+          : other.syncSystemNavigationBar,
+      docked: t < 0.5 ? docked : other.docked,
+      indicatorAtBottom: t < 0.5 ? indicatorAtBottom : other.indicatorAtBottom,
+      showSpotlight: t < 0.5 ? showSpotlight : other.showSpotlight,
     );
   }
 }
@@ -720,6 +773,12 @@ class _ResolvedNavLook {
     required this.enableHaptics,
     required this.enableScaleAnimation,
     required this.notch,
+    required this.reduceMotion,
+    required this.inlineItems,
+    required this.syncSystemNavigationBar,
+    required this.floating,
+    required this.indicatorAtBottom,
+    required this.showSpotlight,
   });
 
   final OmniBottomNavigationStyle style;
@@ -757,6 +816,25 @@ class _ResolvedNavLook {
   final bool enableScaleAnimation;
   final OmniBottomNavigationNotch notch;
 
+  /// The platform asked for reduced motion: every animation in the bar
+  /// ([duration] is then zero) finishes at once.
+  final bool reduceMotion;
+
+  /// Icon and label side by side ([OmniBottomNavItemLayout] resolved).
+  final bool inlineItems;
+
+  /// Drive the system navigation bar colour from this bar.
+  final bool syncSystemNavigationBar;
+
+  /// Detached from the screen edge (margin, rounded card).
+  final bool floating;
+
+  final bool indicatorAtBottom;
+  final bool showSpotlight;
+
+  /// [d] unless motion is reduced.
+  Duration motion(Duration d) => reduceMotion ? Duration.zero : d;
+
   static _ResolvedNavLook resolve(
     BuildContext context,
     OmniBottomNavigationBar widget,
@@ -766,6 +844,7 @@ class _ResolvedNavLook {
     final omni = theme.extension<OmniColors>();
     final ext = theme.extension<OmniBottomNavigationStyleData>();
     final inline = widget.theme;
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
     T? pick<T>(T? a, T? b, T? c) => a ?? b ?? c;
 
@@ -905,21 +984,32 @@ class _ResolvedNavLook {
           OmniBottomNavigationStyle.centerFabNotch => 0.7,
         };
 
+    final docked = pick(widget.docked, inline?.docked, ext?.docked);
+    final explicitRadius = pick(
+      widget.borderRadius,
+      inline?.borderRadius,
+      ext?.borderRadius,
+    );
+    final styleRadius = switch (style) {
+      OmniBottomNavigationStyle.floating ||
+      OmniBottomNavigationStyle.floatingBubble ||
+      OmniBottomNavigationStyle.slidingPill ||
+      OmniBottomNavigationStyle.glass ||
+      OmniBottomNavigationStyle.splitIsland => 30.0,
+      OmniBottomNavigationStyle.glowingDot ||
+      OmniBottomNavigationStyle.floatingCircles => 26.0,
+      OmniBottomNavigationStyle.curvedNotch ||
+      OmniBottomNavigationStyle.centerFabNotch ||
+      OmniBottomNavigationStyle.topIndicator ||
+      OmniBottomNavigationStyle.materialPill ||
+      OmniBottomNavigationStyle.cupertino => 0.0,
+    };
     final borderRadius =
-        pick(widget.borderRadius, inline?.borderRadius, ext?.borderRadius) ??
-        switch (style) {
-          OmniBottomNavigationStyle.floating ||
-          OmniBottomNavigationStyle.floatingBubble ||
-          OmniBottomNavigationStyle.slidingPill ||
-          OmniBottomNavigationStyle.glass ||
-          OmniBottomNavigationStyle.splitIsland => 30.0,
-          OmniBottomNavigationStyle.glowingDot ||
-          OmniBottomNavigationStyle.floatingCircles => 26.0,
-          OmniBottomNavigationStyle.curvedNotch ||
-          OmniBottomNavigationStyle.centerFabNotch ||
-          OmniBottomNavigationStyle.topIndicator ||
-          OmniBottomNavigationStyle.materialPill ||
-          OmniBottomNavigationStyle.cupertino => 0.0,
+        explicitRadius ??
+        switch (docked) {
+          true => 0.0,
+          false => styleRadius > 0 ? styleRadius : 28.0,
+          null => styleRadius,
         };
 
     final indicatorRadius =
@@ -950,11 +1040,20 @@ class _ResolvedNavLook {
           OmniBottomNavigationStyle.topIndicator => 68.0,
         };
 
-    final margin =
-        pick(widget.margin, inline?.margin, ext?.margin) ??
-        (style.isFloatingByDefault
-            ? const EdgeInsets.fromLTRB(16, 4, 16, 10)
-            : EdgeInsets.zero);
+    const floatingMargin = EdgeInsets.fromLTRB(16, 4, 16, 10);
+    final explicitMargin = pick(widget.margin, inline?.margin, ext?.margin);
+    final margin = switch (docked) {
+      true => EdgeInsets.zero,
+      false => explicitMargin ?? floatingMargin,
+      null =>
+        explicitMargin ??
+            (style.isFloatingByDefault ? floatingMargin : EdgeInsets.zero),
+    };
+    final floating = switch (docked) {
+      true => false,
+      false => true,
+      null => style.isFloatingByDefault || margin != EdgeInsets.zero,
+    };
 
     final padding =
         pick(widget.padding, inline?.padding, ext?.padding) ??
@@ -1108,13 +1207,14 @@ class _ResolvedNavLook {
       shadows: shadows,
       labelStyle: baseLabelStyle,
       selectedLabelStyle: selectedLabelStyle,
-      duration:
-          pick(
-            widget.animationDuration,
-            inline?.animationDuration,
-            ext?.animationDuration,
-          ) ??
-          const Duration(milliseconds: 340),
+      duration: reduceMotion
+          ? Duration.zero
+          : pick(
+                  widget.animationDuration,
+                  inline?.animationDuration,
+                  ext?.animationDuration,
+                ) ??
+                const Duration(milliseconds: 340),
       curve:
           pick(
             widget.animationCurve,
@@ -1146,6 +1246,40 @@ class _ResolvedNavLook {
       notch:
           pick(widget.notch, inline?.notch, ext?.notch) ??
           OmniBottomNavigationNotch.standard,
+      reduceMotion: reduceMotion,
+      inlineItems: switch (pick(
+            widget.itemLayout,
+            inline?.itemLayout,
+            ext?.itemLayout,
+          ) ??
+          OmniBottomNavItemLayout.stacked) {
+        OmniBottomNavItemLayout.stacked => false,
+        OmniBottomNavItemLayout.inline => true,
+        OmniBottomNavItemLayout.adaptive =>
+          MediaQuery.sizeOf(context).width >= 600,
+      },
+      syncSystemNavigationBar:
+          pick(
+            widget.syncSystemNavigationBar,
+            inline?.syncSystemNavigationBar,
+            ext?.syncSystemNavigationBar,
+          ) ??
+          false,
+      floating: floating,
+      indicatorAtBottom:
+          pick(
+            widget.indicatorAtBottom,
+            inline?.indicatorAtBottom,
+            ext?.indicatorAtBottom,
+          ) ??
+          false,
+      showSpotlight:
+          pick(
+            widget.showSpotlight,
+            inline?.showSpotlight,
+            ext?.showSpotlight,
+          ) ??
+          true,
     );
   }
 }

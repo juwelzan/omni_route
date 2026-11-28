@@ -107,6 +107,14 @@
     - `slide` (default): fixed, slides for pages without a bar.
     - `fade`: fixed, fades for pages without a bar.
     - `withPage`: the old behaviour, where the bar moves with its page.
+- Bottom navigation additions in omni_responsive (see its CHANGELOG):
+  - Accessibility fixes: a screen reader keeps the bar on screen, and
+    reduced motion covers every bar animation.
+  - Side-by-side icon and label (`itemLayout`).
+  - `docked:` placement and a `topIndicator` underline.
+  - Opt-in Android system nav bar colour sync.
+  - Selection-mode `OmniContextualActionBar`.
+  - Badges, `semanticLabel` and rail tooltips on `OmniAdaptiveDestination`.
 - Install docs use one repository tag (`ref: v0.5.0`) for every package;
   WebSocket/SSE are documented as part of `omni_network` (no extra package).
 - The whole repository is `dart format`-clean again, so CI's format step

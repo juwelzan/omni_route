@@ -221,12 +221,20 @@ class _SpotlightGlowPainter extends CustomPainter {
     required this.barWidth,
     required this.color,
     required this.isDark,
+    this.atBottom = false,
+    this.cone = true,
   });
 
   final double centerX;
   final double barWidth;
   final Color color;
   final bool isDark;
+
+  /// Accent along the bottom edge (an underline), the cone rising from it.
+  final bool atBottom;
+
+  /// Draws the light cone.
+  final bool cone;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -236,33 +244,45 @@ class _SpotlightGlowPainter extends CustomPainter {
           math.max(barWidth * 0.6, size.width - barWidth * 0.6),
         )
         .toDouble();
-    final halfTop = barWidth * 0.45;
-    final halfBottom = barWidth * 0.92;
-    final beamBottom = size.height * 0.88;
+    final halfNear = barWidth * 0.45;
+    final halfFar = barWidth * 0.92;
+    // Distances from the accent's edge.
+    final near = atBottom ? size.height - 3 : 3.0;
+    final far = atBottom ? size.height * 0.12 : size.height * 0.88;
 
-    final cone = Path()
-      ..moveTo(cx - halfTop, 3)
-      ..lineTo(cx + halfTop, 3)
-      ..lineTo(cx + halfBottom, beamBottom)
-      ..lineTo(cx - halfBottom, beamBottom)
-      ..close();
-
-    final beamPaint = Paint()
-      ..shader =
-          LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              color.withValues(alpha: isDark ? 0.34 : 0.22),
-              color.withValues(alpha: 0.0),
-            ],
-          ).createShader(
-            Rect.fromLTWH(cx - halfBottom, 3, halfBottom * 2, beamBottom),
-          );
-    canvas.drawPath(cone, beamPaint);
+    if (cone) {
+      final beam = Path()
+        ..moveTo(cx - halfNear, near)
+        ..lineTo(cx + halfNear, near)
+        ..lineTo(cx + halfFar, far)
+        ..lineTo(cx - halfFar, far)
+        ..close();
+      final beamPaint = Paint()
+        ..shader =
+            LinearGradient(
+              begin: atBottom ? Alignment.bottomCenter : Alignment.topCenter,
+              end: atBottom ? Alignment.topCenter : Alignment.bottomCenter,
+              colors: [
+                color.withValues(alpha: isDark ? 0.34 : 0.22),
+                color.withValues(alpha: 0.0),
+              ],
+            ).createShader(
+              Rect.fromLTRB(
+                cx - halfFar,
+                math.min(near, far),
+                cx + halfFar,
+                math.max(near, far),
+              ),
+            );
+      canvas.drawPath(beam, beamPaint);
+    }
 
     final barRect = RRect.fromRectAndRadius(
-      Rect.fromCenter(center: Offset(cx, 2), width: barWidth, height: 3.6),
+      Rect.fromCenter(
+        center: Offset(cx, atBottom ? size.height - 2 : 2),
+        width: barWidth,
+        height: 3.6,
+      ),
       const Radius.circular(3),
     );
     final barPaint = Paint()..color = color;
@@ -274,5 +294,7 @@ class _SpotlightGlowPainter extends CustomPainter {
       old.centerX != centerX ||
       old.barWidth != barWidth ||
       old.color != color ||
-      old.isDark != isDark;
+      old.isDark != isDark ||
+      old.atBottom != atBottom ||
+      old.cone != cone;
 }

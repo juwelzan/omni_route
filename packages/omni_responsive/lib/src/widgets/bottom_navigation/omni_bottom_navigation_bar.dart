@@ -68,6 +68,11 @@ class OmniBottomNavigationBar extends StatefulWidget {
     this.enableHaptics,
     this.enableScaleAnimation,
     this.notch,
+    this.itemLayout,
+    this.syncSystemNavigationBar,
+    this.docked,
+    this.indicatorAtBottom,
+    this.showSpotlight,
     this.itemBuilder,
   });
 
@@ -219,6 +224,33 @@ class OmniBottomNavigationBar extends StatefulWidget {
   /// [OmniBottomNavigationStyle.centerFabNotch]. `null` uses the theme's,
   /// else [OmniBottomNavigationNotch.standard].
   final OmniBottomNavigationNotch? notch;
+
+  /// Icon / label arrangement (default [OmniBottomNavItemLayout.stacked]).
+  /// Applies to every style except `curvedNotch` (its orb) and
+  /// `floatingBubble` (already side by side).
+  final OmniBottomNavItemLayout? itemLayout;
+
+  /// Colours Android's system navigation bar (3-button / gesture area) to
+  /// match this bar while it is docked to the bottom edge, with icons that
+  /// contrast; a floating bar keeps it transparent so the page shows
+  /// through. Off by default — the page's `OmniSystemUi` style applies.
+  /// When the bar hides (scroll, keyboard, controller) the page's style
+  /// applies again.
+  final bool? syncSystemNavigationBar;
+
+  /// `true` docks the bar edge to edge (no margin, square corners — a
+  /// classic full-width bar in any style); `false` floats a docked style as
+  /// a rounded card; `null` keeps the style's placement. The island styles
+  /// (`splitIsland`, `floatingCircles`) always float.
+  final bool? docked;
+
+  /// [OmniBottomNavigationStyle.topIndicator]: draws the sliding accent at
+  /// the bottom of the bar, as an underline.
+  final bool? indicatorAtBottom;
+
+  /// [OmniBottomNavigationStyle.topIndicator]: draws the light cone from
+  /// the accent (default `true`).
+  final bool? showSpotlight;
 
   /// Optional custom per-item builder for full visual freedom.
   final OmniBottomNavigationItemBuilder? itemBuilder;
@@ -418,6 +450,11 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
         !mounted) {
       return;
     }
+    if (MediaQuery.maybeAccessibleNavigationOf(context) ?? false) {
+      // Screen reader on: the bar stays put (see build).
+      if (!_scrollVisible) setState(() => _scrollVisible = true);
+      return;
+    }
 
     var movedDown = false;
     var movedUp = false;
@@ -588,10 +625,14 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
 
     final keyboardOpen =
         widget.hideOnKeyboard && MediaQuery.viewInsetsOf(context).bottom > 0;
+    // With a screen reader (or switch access) the bar must stay reachable:
+    // scrolling never hides it. Explicit hides (controller) still apply.
+    final scrollHides =
+        widget.hideOnScroll && !MediaQuery.accessibleNavigationOf(context);
     final visible =
         !keyboardOpen &&
         (widget.controller?.isVisible ?? true) &&
-        (!widget.hideOnScroll || _scrollVisible);
+        (!scrollHides || _scrollVisible);
 
     final safeBottom = widget.respectSafeArea
         ? MediaQuery.paddingOf(context).bottom
@@ -612,7 +653,19 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       },
     );
 
-    return IgnorePointer(
+    Widget content = Material(
+      type: MaterialType.transparency,
+      child: rawContent,
+    );
+    if (look.syncSystemNavigationBar) {
+      // Inside the slide, so a hidden bar gives the system bar back to the
+      // page.
+      content = AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _systemNavigationBarStyle(context, look),
+        child: content,
+      );
+    }
+    final Widget bar = IgnorePointer(
       ignoring: !visible,
       child: AnimatedSlide(
         offset: visible ? Offset.zero : const Offset(0, 1.15),
@@ -625,11 +678,39 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
           ),
           // The indicator repaints every frame while it travels; keep that
           // from repainting the page behind the bar.
-          child: RepaintBoundary(
-            child: Material(type: MaterialType.transparency, child: rawContent),
-          ),
+          child: RepaintBoundary(child: content),
         ),
       ),
+    );
+    return bar;
+  }
+
+  /// Floating bars float on the page: the system bar stays transparent.
+  bool _isFloating(_ResolvedNavLook look) => switch (look.style) {
+    OmniBottomNavigationStyle.splitIsland ||
+    OmniBottomNavigationStyle.floatingCircles => true,
+    _ => look.floating,
+  };
+
+  SystemUiOverlayStyle _systemNavigationBarStyle(
+    BuildContext context,
+    _ResolvedNavLook look,
+  ) {
+    final floating = _isFloating(look);
+    final color = floating ? const Color(0x00000000) : look.backgroundColor;
+    final darkSurface = floating
+        ? look.isDark
+        : ThemeData.estimateBrightnessForColor(
+                look.backgroundColor.withValues(alpha: 1),
+              ) ==
+              Brightness.dark;
+    return SystemUiOverlayStyle(
+      systemNavigationBarColor: color,
+      systemNavigationBarDividerColor: const Color(0x00000000),
+      systemNavigationBarIconBrightness: darkSurface
+          ? Brightness.light
+          : Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
     );
   }
 
@@ -706,8 +787,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     required bool rtl,
     required OmniRouteNavigationBridge? bridge,
   }) {
-    final isFloating =
-        look.style.isFloatingByDefault || margin != EdgeInsets.zero;
+    final isFloating = look.floating;
     final resolvedRadius = look.borderRadius > 0
         ? BorderRadius.circular(look.borderRadius)
         : BorderRadius.zero;
@@ -753,6 +833,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                           widget.items[activeIndex].activeColor ??
                           look.glowColor,
                       isDark: look.isDark,
+                      atBottom: look.indicatorAtBottom,
+                      cone: look.showSpotlight,
                     ),
                   );
                 },
@@ -1061,7 +1143,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
   }) {
     final geometry = look.notch._resolve(50);
     final topHeadroom = geometry.headroom;
-    final isFloating = margin != EdgeInsets.zero;
+    final isFloating = look.floating;
     final barRadius = isFloating
         ? (look.borderRadius > 0 ? look.borderRadius : 28.0)
         : 0.0;
@@ -1241,7 +1323,9 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                             ),
                             child: Center(
                               child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 220),
+                                duration: look.motion(
+                                  const Duration(milliseconds: 220),
+                                ),
                                 transitionBuilder: (child, anim) =>
                                     ScaleTransition(scale: anim, child: child),
                                 child: KeyedSubtree(
@@ -1349,7 +1433,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     final cut = geometry.cut();
     final orbSize = geometry.orbSize;
     final topHeadroom = geometry.headroom;
-    final isFloating = margin != EdgeInsets.zero;
+    final isFloating = look.floating;
     final barRadius = isFloating
         ? (look.borderRadius > 0 ? look.borderRadius : 28.0)
         : 0.0;
@@ -1711,7 +1795,8 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                     ),
                   ],
                 ),
-                child: Column(
+                child: Flex(
+                  direction: look.inlineItems ? Axis.horizontal : Axis.vertical,
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1725,21 +1810,25 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
                       size: selected ? look.selectedIconSize : look.iconSize,
                     ),
                     if (showLabel) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        item.label,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style:
-                            (selected
-                                    ? look.selectedLabelStyle
-                                    : look.labelStyle)
-                                .copyWith(
-                                  color: selected
-                                      ? look.activeContentColor
-                                      : look.inactiveColor,
-                                ),
+                      look.inlineItems
+                          ? const SizedBox(width: 6)
+                          : const SizedBox(height: 3),
+                      Flexible(
+                        child: Text(
+                          item.label,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          style:
+                              (selected
+                                      ? look.selectedLabelStyle
+                                      : look.labelStyle)
+                                  .copyWith(
+                                    color: selected
+                                        ? look.activeContentColor
+                                        : look.inactiveColor,
+                                  ),
+                        ),
                       ),
                     ],
                   ],
@@ -1798,6 +1887,20 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       color: fg,
       size: selected ? look.selectedIconSize : look.iconSize,
     );
+
+    if (look.inlineItems) {
+      return _buildInlineItemContent(
+        look: look,
+        item: item,
+        icon: icon,
+        selected: selected,
+        showLabel: showLabel,
+        fg: fg,
+        accent: accent,
+        pill: isM3 || hasTonalPill,
+        dot: isGlowingDot,
+      );
+    }
 
     if (isM3 || hasTonalPill) {
       final pillColor = item.indicatorColor ?? look.indicatorColor;
@@ -1891,6 +1994,83 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
     );
   }
 
+  /// Icon and label in one row; tonal-pill styles wrap both in the pill.
+  Widget _buildInlineItemContent({
+    required _ResolvedNavLook look,
+    required OmniBottomNavigationItem item,
+    required Widget icon,
+    required bool selected,
+    required bool showLabel,
+    required Color fg,
+    required Color accent,
+    required bool pill,
+    required bool dot,
+  }) {
+    Widget row = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon,
+        if (showLabel) ...[
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              item.label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: (selected ? look.selectedLabelStyle : look.labelStyle)
+                  .copyWith(color: fg),
+            ),
+          ),
+        ],
+      ],
+    );
+    if (pill) {
+      final pillColor = item.indicatorColor ?? look.indicatorColor;
+      row = AnimatedContainer(
+        duration: look.duration,
+        curve: look.curve,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected && look.indicatorGradient == null
+              ? pillColor
+              : pillColor.withValues(alpha: 0),
+          gradient: selected ? look.indicatorGradient : null,
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: row,
+      );
+    }
+    if (dot) {
+      row = Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          row,
+          const SizedBox(height: 3),
+          AnimatedScale(
+            scale: selected ? 1.0 : 0.0,
+            duration: look.duration,
+            curve: look.indicatorCurve,
+            child: Container(
+              width: 14,
+              height: 4,
+              decoration: BoxDecoration(
+                color: accent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: row,
+      ),
+    );
+  }
+
   Widget _buildBadgedIcon({
     required OmniBottomNavigationItem item,
     required _ResolvedNavLook look,
@@ -1903,7 +2083,7 @@ class _OmniBottomNavigationBarState extends State<OmniBottomNavigationBar>
       data: IconThemeData(color: color, size: size),
       child: AnimatedScale(
         scale: selected && look.enableScaleAnimation ? 1.08 : 1.0,
-        duration: const Duration(milliseconds: 220),
+        duration: look.motion(const Duration(milliseconds: 220)),
         curve: look.indicatorCurve,
         child: rawIcon,
       ),
@@ -2014,6 +2194,7 @@ class _NavTabTapTargetState extends State<_NavTabTapTarget> {
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     Widget body = GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTapDown: (_) => _setPressed(true),
@@ -2025,7 +2206,9 @@ class _NavTabTapTargetState extends State<_NavTabTapTarget> {
         child: widget.enableScale
             ? AnimatedScale(
                 scale: _pressed ? 0.90 : 1.0,
-                duration: Duration(milliseconds: _pressed ? 80 : 200),
+                duration: reduceMotion
+                    ? Duration.zero
+                    : Duration(milliseconds: _pressed ? 80 : 200),
                 curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
                 child: widget.child,
               )
@@ -2080,6 +2263,7 @@ class _ActionOrbButtonState extends State<_ActionOrbButton> {
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final a = widget.action;
     final diameter =
         widget.diameter ?? (widget.compact ? math.min(a.size, 46.0) : a.size);
@@ -2099,7 +2283,9 @@ class _ActionOrbButtonState extends State<_ActionOrbButton> {
       },
       child: AnimatedScale(
         scale: _pressed ? 0.88 : 1.0,
-        duration: Duration(milliseconds: _pressed ? 85 : 210),
+        duration: reduceMotion
+            ? Duration.zero
+            : Duration(milliseconds: _pressed ? 85 : 210),
         curve: _pressed ? Curves.easeOut : Curves.easeOutBack,
         child: Container(
           width: diameter,

@@ -29,6 +29,16 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
   bool _showBadges = true;
   bool _gradientAccent = false;
   bool _enableBlur = false;
+  OmniBottomNavItemLayout _itemLayout = OmniBottomNavItemLayout.stacked;
+
+  /// `null` = the style's own placement.
+  bool? _docked;
+  bool _syncSystemBar = false;
+  bool _underline = false;
+  bool _spotlight = true;
+
+  /// Feed cards picked in selection mode (long-press a card).
+  final Set<int> _selected = {};
 
   /// Notch customization (curved notch & centre FAB styles). Starts as the
   /// package default; "Reset" goes back to it.
@@ -225,63 +235,183 @@ class _BottomNavDemoScreenState extends OmniState<BottomNavDemoScreen> {
                       value: _enableBlur,
                       onChanged: (v) => setState(() => _enableBlur = v),
                     ),
+                    SwitchListTile(
+                      title: const Text('Match Android system nav bar'),
+                      subtitle: const Text(
+                        'Docked bar colours the 3-button / gesture area',
+                      ),
+                      value: _syncSystemBar,
+                      onChanged: (v) => setState(() => _syncSystemBar = v),
+                    ),
+                    if (_style == OmniBottomNavigationStyle.topIndicator) ...[
+                      SwitchListTile(
+                        title: const Text('Underline (accent at the bottom)'),
+                        value: _underline,
+                        onChanged: (v) => setState(() => _underline = v),
+                      ),
+                      SwitchListTile(
+                        title: const Text('Spotlight cone'),
+                        value: _spotlight,
+                        onChanged: (v) => setState(() => _spotlight = v),
+                      ),
+                    ],
                   ],
                 ),
               ),
               tk.gapMd,
+              Text('Icon & label', style: context.textStyles.title),
+              tk.gapXs,
+              SegmentedButton<OmniBottomNavItemLayout>(
+                segments: const [
+                  ButtonSegment(
+                    value: OmniBottomNavItemLayout.stacked,
+                    label: Text('Stacked'),
+                  ),
+                  ButtonSegment(
+                    value: OmniBottomNavItemLayout.inline,
+                    label: Text('Side by side'),
+                  ),
+                  ButtonSegment(
+                    value: OmniBottomNavItemLayout.adaptive,
+                    label: Text('Adaptive'),
+                  ),
+                ],
+                selected: {_itemLayout},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) =>
+                    setState(() => _itemLayout = s.first),
+              ),
+              tk.gapMd,
+              Text('Placement', style: context.textStyles.title),
+              tk.gapXs,
+              SegmentedButton<int>(
+                segments: const [
+                  ButtonSegment(value: 0, label: Text('Style default')),
+                  ButtonSegment(value: 1, label: Text('Docked')),
+                  ButtonSegment(value: 2, label: Text('Floating')),
+                ],
+                selected: {
+                  switch (_docked) {
+                    null => 0,
+                    true => 1,
+                    false => 2,
+                  },
+                },
+                showSelectedIcon: false,
+                onSelectionChanged: (s) => setState(
+                  () => _docked = switch (s.first) {
+                    1 => true,
+                    2 => false,
+                    _ => null,
+                  },
+                ),
+              ),
+              tk.gapMd,
               Text('Scrollable Feed Preview', style: context.textStyles.title),
+              Text(
+                'Long-press cards to select them: actions replace the bar.',
+                style: context.textStyles.caption,
+              ),
               tk.gapXs,
               for (var i = 1; i <= 16; i++)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 8),
                   child: Card(
                     child: ListTile(
-                      leading: CircleAvatar(child: Text('$i')),
+                      selected: _selected.contains(i),
+                      leading: CircleAvatar(
+                        child: _selected.contains(i)
+                            ? const Icon(Icons.check_rounded)
+                            : Text('$i'),
+                      ),
                       title: Text('Mobile Pattern Card #$i'),
                       subtitle: const Text(
                         'Scroll down to test blur backdrop & hideOnScroll',
                       ),
+                      onLongPress: () => setState(() => _toggle(i)),
+                      onTap: _selected.isEmpty
+                          ? null
+                          : () => setState(() => _toggle(i)),
                     ),
                   ),
                 ),
             ],
           ),
-          bottomNavigationBar: OmniBottomNavigationBar(
-            style: _style,
-            labelMode: _labelMode,
-            controller: _navController,
-            scrollController: _scrollController,
-            hideOnScroll: _hideOnScroll,
-            enableBlur: _enableBlur,
-            notch: _notch,
-            indicatorGradient: _gradientAccent
-                ? LinearGradient(
-                    colors: [colors.primaryColor, colors.secondaryColor],
-                  )
-                : null,
-            activeContentColor: _gradientAccent ? Colors.white : null,
-            centerAction: _showCenterAction
-                ? OmniBottomNavigationAction(
-                    icon: const Icon(Icons.add_rounded),
-                    tooltip: 'Quick Create',
-                    gradient: LinearGradient(
+          bottomNavigationBar: OmniContextualActionBar(
+            active: _selected.isNotEmpty,
+            title: '${_selected.length} selected',
+            onClose: () => setState(_selected.clear),
+            actions: [
+              OmniContextualAction(
+                icon: const Icon(Icons.share_outlined),
+                label: 'Share',
+                onPressed: () => _snack(context, 'Share'),
+              ),
+              OmniContextualAction(
+                icon: const Icon(Icons.archive_outlined),
+                label: 'Archive',
+                onPressed: () => _snack(context, 'Archive'),
+              ),
+              OmniContextualAction(
+                icon: const Icon(Icons.delete_outline_rounded),
+                label: 'Delete',
+                destructive: true,
+                onPressed: () {
+                  _snack(context, 'Delete');
+                  setState(_selected.clear);
+                },
+              ),
+            ],
+            child: OmniBottomNavigationBar(
+              style: _style,
+              itemLayout: _itemLayout,
+              docked: _docked,
+              syncSystemNavigationBar: _syncSystemBar,
+              indicatorAtBottom: _underline,
+              showSpotlight: _spotlight,
+              labelMode: _labelMode,
+              controller: _navController,
+              scrollController: _scrollController,
+              hideOnScroll: _hideOnScroll,
+              enableBlur: _enableBlur,
+              notch: _notch,
+              indicatorGradient: _gradientAccent
+                  ? LinearGradient(
                       colors: [colors.primaryColor, colors.secondaryColor],
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Center action on ${_style.label}!'),
-                        ),
-                      );
-                    },
-                  )
-                : null,
-            items: items,
+                    )
+                  : null,
+              activeContentColor: _gradientAccent ? Colors.white : null,
+              centerAction: _showCenterAction
+                  ? OmniBottomNavigationAction(
+                      icon: const Icon(Icons.add_rounded),
+                      tooltip: 'Quick Create',
+                      gradient: LinearGradient(
+                        colors: [colors.primaryColor, colors.secondaryColor],
+                      ),
+                      onPressed: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('Center action on ${_style.label}!'),
+                          ),
+                        );
+                      },
+                    )
+                  : null,
+              items: items,
+            ),
           ),
         );
       },
     );
   }
+
+  void _toggle(int i) =>
+      _selected.contains(i) ? _selected.remove(i) : _selected.add(i);
+
+  void _snack(BuildContext context, String action) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$action ${_selected.length} item(s)')),
+      );
 }
 
 /// How the `OmniPage` bars behave while pages change; the example app passes

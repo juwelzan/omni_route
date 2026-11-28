@@ -15,6 +15,10 @@ class OmniAdaptiveDestination {
     required this.label,
     this.selectedIcon,
     this.tooltip,
+    this.badgeCount,
+    this.badgeText,
+    this.showDotBadge = false,
+    this.semanticLabel,
   });
 
   /// Default icon displayed when tab is inactive.
@@ -28,6 +32,55 @@ class OmniAdaptiveDestination {
 
   /// Optional accessibility tooltip on hover/long-press.
   final String? tooltip;
+
+  /// Number badge (`99+` above 99; hidden at 0 or `null`).
+  final int? badgeCount;
+
+  /// Text badge (wins over [badgeCount]).
+  final String? badgeText;
+
+  /// Small dot badge when there is no number or text.
+  final bool showDotBadge;
+
+  /// Screen-reader name (default: [label]) for the Omni bar
+  /// (`bottomBarStyle`) and the rail. Material's `NavigationBar` reads
+  /// [label].
+  final String? semanticLabel;
+
+  String? get _badgeLabel {
+    if (badgeText != null && badgeText!.isNotEmpty) return badgeText;
+    final count = badgeCount;
+    if (count == null || count <= 0) return null;
+    return count > 99 ? '99+' : '$count';
+  }
+
+  /// [icon] with this destination's badge, for Material's bar and rail.
+  Widget _badged(Widget icon) {
+    final label = _badgeLabel;
+    if (label != null) return Badge(label: Text(label), child: icon);
+    if (showDotBadge) return Badge(child: icon);
+    return icon;
+  }
+
+  /// Rail icon: badge plus the tooltip the rail itself does not show.
+  Widget _railIcon(Widget icon) {
+    final badged = _badged(icon);
+    final tip = tooltip;
+    return tip == null || tip.isEmpty
+        ? badged
+        : Tooltip(message: tip, child: badged);
+  }
+
+  OmniBottomNavigationItem _toItem() => OmniBottomNavigationItem(
+    icon: icon,
+    selectedIcon: selectedIcon,
+    label: label,
+    tooltip: tooltip,
+    badgeCount: badgeCount,
+    badgeText: badgeText,
+    showDotBadge: showDotBadge,
+    semanticLabel: semanticLabel,
+  );
 }
 
 /// Internal scaffold wired by `OmniStatefulShell.adaptive(...)`.
@@ -113,15 +166,7 @@ class OmniAdaptiveShellScaffold extends StatelessWidget {
                 theme: bottomBarTheme,
                 currentIndex: currentIndex,
                 onTap: onSelectIndex,
-                items: [
-                  for (final d in destinations)
-                    OmniBottomNavigationItem(
-                      icon: d.icon,
-                      selectedIcon: d.selectedIcon,
-                      label: d.label,
-                      tooltip: d.tooltip,
-                    ),
-                ],
+                items: [for (final d in destinations) d._toItem()],
               )
             : NavigationBar(
                 selectedIndex: currentIndex,
@@ -129,8 +174,10 @@ class OmniAdaptiveShellScaffold extends StatelessWidget {
                 destinations: [
                   for (final d in destinations)
                     NavigationDestination(
-                      icon: d.icon,
-                      selectedIcon: d.selectedIcon,
+                      icon: d._badged(d.icon),
+                      selectedIcon: d.selectedIcon == null
+                          ? null
+                          : d._badged(d.selectedIcon!),
                       label: d.label,
                       tooltip: d.tooltip,
                     ),
@@ -167,9 +214,9 @@ class OmniAdaptiveShellScaffold extends StatelessWidget {
                     destinations: [
                       for (final d in destinations)
                         NavigationRailDestination(
-                          icon: d.icon,
-                          selectedIcon: d.selectedIcon ?? d.icon,
-                          label: Text(d.label),
+                          icon: d._railIcon(d.icon),
+                          selectedIcon: d._railIcon(d.selectedIcon ?? d.icon),
+                          label: Text(d.label, semanticsLabel: d.semanticLabel),
                         ),
                     ],
                   ),

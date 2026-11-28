@@ -54,4 +54,44 @@ void main() {
     expect(find.text('Notch & orb'), findsOneWidget);
     expect(find.text('Dip'), findsNothing);
   });
+
+  testWidgets('layout, placement and selection mode controls', (t) async {
+    await t.pumpWidget(
+      OmniApp(
+        routes: [OmniPage.screen(const BottomNavDemoScreen())],
+        initialRoute: '/bottom-nav-demo',
+        builder: (_, router) => MaterialApp.router(routerConfig: router),
+      ),
+    );
+    await t.pumpAndSettle();
+    OmniBottomNavigationBar bar() =>
+        t.widget<OmniBottomNavigationBar>(find.byType(OmniBottomNavigationBar));
+
+    await t.scrollUntilVisible(find.text('Side by side'), 200);
+    await t.ensureVisible(find.text('Side by side'));
+    await t.drag(find.byType(ListView), const Offset(0, 120));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Side by side'));
+    await t.pumpAndSettle();
+    expect(bar().itemLayout, OmniBottomNavItemLayout.inline);
+    await t.tap(find.text('Docked'));
+    await t.pumpAndSettle();
+    expect(bar().docked, isTrue);
+    expect(t.takeException(), isNull);
+
+    // Long-press a card: the contextual bar takes the bar's place.
+    await t.scrollUntilVisible(find.text('Mobile Pattern Card #2'), 200);
+    await t.ensureVisible(find.text('Mobile Pattern Card #2'));
+    await t.drag(find.byType(ListView), const Offset(0, 120));
+    await t.pumpAndSettle();
+    await t.longPress(find.text('Mobile Pattern Card #2'));
+    await t.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+    await t.tap(find.text('Mobile Pattern Card #3'));
+    await t.pumpAndSettle();
+    expect(find.text('2 selected'), findsOneWidget);
+    await t.tap(find.byTooltip('Close'));
+    await t.pumpAndSettle();
+    expect(find.text('2 selected'), findsNothing);
+  });
 }

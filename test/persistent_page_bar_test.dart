@@ -22,8 +22,10 @@ Widget _app({
   OmniPageBarTransition? transition = OmniPageBarTransition.slide,
   OmniPageBarTransition appTransition = OmniPageBarTransition.slide,
   OmniPageType? pageTransition,
+  String? restorationScopeId,
 }) => OmniApp.material(
   initialRoute: '/feed',
+  restorationScopeId: restorationScopeId,
   bottomBarTransition: appTransition,
   transition: pageTransition ?? OmniPages.fadeSlide,
   routes: [
@@ -57,6 +59,60 @@ Widget _app({
 Finder get _bars => find.byType(OmniBottomNavigationBar);
 
 void main() {
+  testWidgets('observer events during a build never setState the host', (
+    t,
+  ) async {
+    await t.pumpWidget(_app());
+    await t.pumpAndSettle();
+    final nav = t.state<NavigatorState>(find.byType(Navigator).first);
+    final route = ModalRoute.of(t.element(find.text('F')))!;
+    final element = t.element(find.text('F'));
+    // As at app start / hot restart: the navigator reports a push while a
+    // widget below the host is building and the scheduler is idle.
+    t.binding.buildOwner!.buildScope(element, () {
+      for (final o in nav.widget.observers) {
+        o.didPush(route, null);
+      }
+    });
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(_bars, findsOneWidget);
+  });
+
+  testWidgets('first attach outside a frame (app start, hot restart)', (
+    t,
+  ) async {
+    // runApp builds the first tree outside any frame: the scheduler is idle
+    // while widgets build, and the navigator reports its first push then.
+    t.binding.attachRootWidget(
+      t.binding.wrapWithDefaultView(
+        RootRestorationScope(
+          restorationId: 'root',
+          child: _app(restorationScopeId: 'app'),
+        ),
+      ),
+    );
+    await t.pump();
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(_bars, findsOneWidget);
+
+    // Hot restart: the whole tree is replaced the same way.
+    t.binding.attachRootWidget(
+      t.binding.wrapWithDefaultView(
+        RootRestorationScope(
+          restorationId: 'root',
+          child: _app(restorationScopeId: 'app'),
+        ),
+      ),
+    );
+    await t.pump();
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(_bars, findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+  });
+
   testWidgets('switching pages keeps one fixed bar; its state survives', (
     t,
   ) async {
