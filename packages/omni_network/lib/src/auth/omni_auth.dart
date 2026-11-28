@@ -1,6 +1,9 @@
 import 'dart:async';
 
+import 'package:meta/meta.dart';
+
 import '../core/omni_network.dart';
+import '../core/omni_network_exception.dart';
 import 'bearer_auth.dart';
 import 'tokens.dart';
 
@@ -80,7 +83,10 @@ final class OmniAuth implements AuthProvider {
   BearerAuth? _bearer;
   Tokens? _tokens;
   Future<void>? _loading;
+  Future<void> _writeChain = Future<void>.value();
   bool _loaded = false;
+  bool _closed = false;
+  int _epoch = 0;
 
   /// Current tokens (after they were loaded from [storage]).
   Tokens? get tokens => _tokens;
@@ -103,9 +109,10 @@ final class OmniAuth implements AuthProvider {
 
   Future<void> _load() async {
     if (_loaded) return;
+    final startEpoch = _epoch;
     final t = await storage.read();
-    // A login() during the read wins.
-    if (!_loaded) {
+    // A login() or logout() during the read wins.
+    if (!_loaded && _epoch == startEpoch) {
       _tokens = t;
       _loaded = true;
       if (t != null) _emit();
@@ -114,8 +121,10 @@ final class OmniAuth implements AuthProvider {
 
   /// Saves [tokens] (e.g. from your login response) and signs in.
   Future<void> login(Tokens tokens) async {
+    final epoch = ++_epoch;
+    _bearer?.resetFailure();
     final was = isLoggedIn;
-    await _save(tokens.fixedAt(_now()));
+    await _save(tokens.fixedAt(_now()), epoch: epoch);
     if (!was) _emit();
   }
 
@@ -123,10 +132,15 @@ final class OmniAuth implements AuthProvider {
   /// user was signed in).
   Future<void> logout() => _signOut();
 
-  Future<void> _save(Tokens? t) async {
+  Future<void> _save(Tokens? t, {required int epoch}) {
     _tokens = t;
     _loaded = true;
-    await storage.write(t);
+    return _writeChain = _writeChain
+        .catchError((Object _) {})
+        .then((_) async {
+          if (epoch != _epoch) return;
+          await storage.write(t);
+        });
   }
 
   void _emit() {
@@ -134,8 +148,9 @@ final class OmniAuth implements AuthProvider {
   }
 
   Future<void> _signOut() async {
+    final epoch = ++_epoch;
     final was = isLoggedIn;
-    await _save(null);
+    await _save(null, epoch: epoch);
     await _client?.cache?.clear();
     if (!was) return;
     _emit();
@@ -153,8 +168,13 @@ final class OmniAuth implements AuthProvider {
 
   @override
   BearerAuth bearerFor(OmniNetwork client) {
-    if (_client != null && !identical(_client, client)) {
-      throw StateError('An OmniAuth can serve only one OmniNetwork client');
+    final prev = _client;
+    if (prev != null && !identical(prev, client)) {
+      if (!prev.isClosed) {
+        throw StateError('An OmniAuth can serve only one OmniNetwork client');
+      }
+      _bearer = null;
+      _closed = false;
     }
     _client = client;
     final r = refresh;
@@ -166,9 +186,16 @@ final class OmniAuth implements AuthProvider {
       refresh: r == null
           ? null
           : () async {
+              if (_closed || client.isClosed) throw const ClosedFailure();
+              final startEpoch = _epoch;
               final current = _tokens;
               if (current == null) return null;
               final next = await r(current, client);
+              if (_closed || client.isClosed) throw const ClosedFailure();
+              // Keep newer login/logout state if auth changed mid-refresh.
+              if (startEpoch != _epoch) {
+                return _tokens?.access;
+              }
               if (next == null) return null;
               // Keep the refresh token when the server does not rotate it.
               final saved = Tokens(
@@ -177,7 +204,7 @@ final class OmniAuth implements AuthProvider {
                 expiresAt: next.expiresAt,
                 expiresIn: next.expiresIn,
               ).fixedAt(_now());
-              await _save(saved);
+              await _save(saved, epoch: startEpoch);
               return saved.access;
             },
       onRefreshFailed: _signOut,
@@ -186,6 +213,20 @@ final class OmniAuth implements AuthProvider {
     );
   }
 
+  /// Marks [client] detached without closing [changes] (e.g. `ApiHub`
+  /// environment switches). Internal.
+  @internal
+  void detachClient(OmniNetwork client) {
+    if (identical(_client, client)) {
+      _bearer?.close();
+    }
+  }
+
   /// Closes [changes]. Called by `OmniNetwork.close`.
-  Future<void> close() => _changes.close();
+  Future<void> close() async {
+    _closed = true;
+    _bearer?.close();
+    await _writeChain.catchError((Object _) {});
+    if (!_changes.isClosed) await _changes.close();
+  }
 }

@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_responsive/omni_responsive.dart';
 
@@ -403,4 +405,115 @@ void main() {
     expect(controller.detent.value, 2);
     expect(_rect(t).top, 0);
   });
+
+  testWidgets('hide, show, and expand keep isShown synchronized and floating sheet clips bounds', (
+    t,
+  ) async {
+    final controller = OmniScalableSheetController();
+    addTearDown(controller.dispose);
+    var bodyTaps = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OmniScalableSheet(
+            controller: controller,
+            animateOnOpen: false,
+            style: OmniSheetStyle.floating,
+            detents: const [_peek, OmniSheetDetent.large],
+            initialDetent: 0,
+            body: Align(
+              alignment: Alignment.topCenter,
+              child: TextButton(
+                onPressed: () => bodyTaps++,
+                child: const Text('bg tap'),
+              ),
+            ),
+            builder: (_) => const SizedBox.expand(key: _box),
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    expect(controller.isShown.value, isTrue);
+
+    controller.hide();
+    await t.pumpAndSettle();
+    expect(controller.isShown.value, isFalse);
+
+    // Tapping above the hidden sheet hits the underlying page cleanly.
+    await t.tap(find.text('bg tap'));
+    expect(bodyTaps, 1);
+
+    controller.show();
+    await t.pumpAndSettle();
+    expect(controller.isShown.value, isTrue);
+    expect(_rect(t).bottom, lessThanOrEqualTo(600));
+  });
+
+  testWidgets('hidden scalable sheet is excluded from semantics and focus', (
+    t,
+  ) async {
+    final semantics = t.ensureSemantics();
+    try {
+      final controller = OmniScalableSheetController();
+      addTearDown(controller.dispose);
+      await t.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OmniScalableSheet(
+              controller: controller,
+              animateOnOpen: false,
+              detents: const [_peek, OmniSheetDetent.large],
+              initialDetent: 0,
+              body: const Text('Page Body'),
+              builder: (_) => TextButton(
+                onPressed: () {},
+                child: const Text('Sheet Action'),
+              ),
+            ),
+          ),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(_hasCompiledSemanticsLabel(t, 'Sheet Action'), isTrue);
+
+      controller.hide();
+      await t.pumpAndSettle();
+      expect(_hasCompiledSemanticsLabel(t, 'Sheet Action'), isFalse);
+      expect(_hasCompiledSemanticsLabel(t, 'Page Body'), isTrue);
+
+      // Focus traversal skips hidden sheet children when hidden.
+      await t.sendKeyEvent(LogicalKeyboardKey.tab);
+      await t.pump();
+      expect(
+        FocusManager.instance.primaryFocus?.context
+            ?.findAncestorWidgetOfExactType<TextButton>(),
+        isNull,
+      );
+
+      controller.show();
+      await t.pumpAndSettle();
+      expect(_hasCompiledSemanticsLabel(t, 'Sheet Action'), isTrue);
+    } finally {
+      semantics.dispose();
+    }
+  });
+}
+
+bool _hasCompiledSemanticsLabel(WidgetTester t, String label) {
+  var found = false;
+  void visitSemantics(SemanticsNode node) {
+    if (node.label == label) found = true;
+    node.visitChildren((child) {
+      visitSemantics(child);
+      return !found;
+    });
+  }
+  void visitPipeline(PipelineOwner owner) {
+    final root = owner.semanticsOwner?.rootSemanticsNode;
+    if (root != null) visitSemantics(root);
+    if (!found) owner.visitChildren(visitPipeline);
+  }
+  visitPipeline(t.binding.rootPipelineOwner);
+  return found;
 }

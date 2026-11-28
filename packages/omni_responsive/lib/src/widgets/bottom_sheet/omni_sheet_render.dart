@@ -21,11 +21,18 @@ class _SheetMetrics {
   /// Canonical caller detent index for each entry in [heights].
   List<int> sortedToPublic = const [];
 
+  /// Last target height synced to [_extent] while animating.
+  double? lastSyncedTarget;
+
+  /// Invoked when layout changes the height of an active animation target.
+  void Function(int sortedIndex)? onRetargetNeeded;
+
   /// Height the sheet may grow to (below the top gap, above the bottom
   /// gap); written at layout.
   double available = 0;
   bool ready = false;
   bool settled = true;
+  bool dragging = false;
 }
 
 class _SheetLayout extends SingleChildRenderObjectWidget {
@@ -37,9 +44,11 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
     required this.topGap,
     required this.bottomGap,
     required this.maxWidth,
-    required this.horizontalMargin,
+    required this.leftInset,
+    required this.rightInset,
     required this.fill,
     required this.fadeOnly,
+    required this.clipToBounds,
     super.child,
   });
 
@@ -50,9 +59,11 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
   final double topGap;
   final double bottomGap;
   final double maxWidth;
-  final double horizontalMargin;
+  final double leftInset;
+  final double rightInset;
   final Color? fill;
   final bool fadeOnly;
+  final bool clipToBounds;
 
   @override
   _RenderSheet createRenderObject(BuildContext context) => _RenderSheet(
@@ -63,21 +74,28 @@ class _SheetLayout extends SingleChildRenderObjectWidget {
     topGap: topGap,
     bottomGap: bottomGap,
     maxWidth: maxWidth,
-    horizontalMargin: horizontalMargin,
+    leftInset: leftInset,
+    rightInset: rightInset,
     fill: fill,
     fadeOnly: fadeOnly,
+    clipToBounds: clipToBounds,
   );
 
   @override
   void updateRenderObject(BuildContext context, _RenderSheet renderObject) {
     renderObject
+      ..presence = presence
+      ..extent = extent
+      ..metrics = metrics
       ..detents = detents
       ..topGap = topGap
       ..bottomGap = bottomGap
       ..maxWidth = maxWidth
-      ..horizontalMargin = horizontalMargin
+      ..leftInset = leftInset
+      ..rightInset = rightInset
       ..fill = fill
-      ..fadeOnly = fadeOnly;
+      ..fadeOnly = fadeOnly
+      ..clipToBounds = clipToBounds;
   }
 }
 
@@ -95,9 +113,11 @@ class _RenderSheet extends RenderBox
     required double topGap,
     required double bottomGap,
     required double maxWidth,
-    required double horizontalMargin,
+    required double leftInset,
+    required double rightInset,
     required Color? fill,
     required bool fadeOnly,
+    required bool clipToBounds,
   }) : _presence = presence,
        _extent = extent,
        _metrics = metrics,
@@ -105,14 +125,41 @@ class _RenderSheet extends RenderBox
        _topGap = topGap,
        _bottomGap = bottomGap,
        _maxWidth = maxWidth,
-       _horizontalMargin = horizontalMargin,
+       _leftInset = leftInset,
+       _rightInset = rightInset,
        _fill = fill,
-       _fadeOnly = fadeOnly;
+       _fadeOnly = fadeOnly,
+       _clipToBounds = clipToBounds;
 
-  final Animation<double> _presence;
-  final AnimationController _extent;
-  final _SheetMetrics _metrics;
+  Animation<double> _presence;
+  set presence(Animation<double> v) {
+    if (identical(v, _presence)) return;
+    if (attached) _presence.removeListener(_onPresence);
+    _presence = v;
+    if (attached) _presence.addListener(_onPresence);
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  AnimationController _extent;
+  set extent(AnimationController v) {
+    if (identical(v, _extent)) return;
+    if (attached) _extent.removeListener(_onExtent);
+    _extent = v;
+    if (attached) _extent.addListener(_onExtent);
+    markNeedsLayout();
+  }
+
+  _SheetMetrics _metrics;
+  set metrics(_SheetMetrics v) {
+    if (identical(v, _metrics)) return;
+    _metrics = v;
+    markNeedsLayout();
+  }
+
   final LayerHandle<OpacityLayer> _opacity = LayerHandle<OpacityLayer>();
+  final LayerHandle<ClipRectLayer> _clip = LayerHandle<ClipRectLayer>();
+  bool _lastNeedsOpacityLayer = false;
 
   List<OmniSheetDetent> _detents;
   set detents(List<OmniSheetDetent> v) {
@@ -144,10 +191,17 @@ class _RenderSheet extends RenderBox
     markNeedsLayout();
   }
 
-  double _horizontalMargin;
-  set horizontalMargin(double v) {
-    if (v == _horizontalMargin) return;
-    _horizontalMargin = v;
+  double _leftInset;
+  set leftInset(double v) {
+    if (v == _leftInset) return;
+    _leftInset = v;
+    markNeedsLayout();
+  }
+
+  double _rightInset;
+  set rightInset(double v) {
+    if (v == _rightInset) return;
+    _rightInset = v;
     markNeedsLayout();
   }
 
@@ -162,21 +216,38 @@ class _RenderSheet extends RenderBox
   set fadeOnly(bool v) {
     if (v == _fadeOnly) return;
     _fadeOnly = v;
+    markNeedsCompositingBitsUpdate();
     markNeedsPaint();
   }
 
+  bool _clipToBounds;
+  set clipToBounds(bool v) {
+    if (v == _clipToBounds) return;
+    _clipToBounds = v;
+    markNeedsPaint();
+  }
+
+  bool _inLayout = false;
+
   bool get _contentSized => _detents.first._isContent;
+
+  bool get _needsOpacityLayer =>
+      _fadeOnly && _presence.value > 0 && _presence.value < 1;
+
+  @override
+  bool get alwaysNeedsCompositing => _needsOpacityLayer;
 
   @override
   void attach(PipelineOwner owner) {
     super.attach(owner);
-    _presence.addListener(markNeedsPaint);
+    _lastNeedsOpacityLayer = _needsOpacityLayer;
+    _presence.addListener(_onPresence);
     _extent.addListener(_onExtent);
   }
 
   @override
   void detach() {
-    _presence.removeListener(markNeedsPaint);
+    _presence.removeListener(_onPresence);
     _extent.removeListener(_onExtent);
     super.detach();
   }
@@ -184,10 +255,21 @@ class _RenderSheet extends RenderBox
   @override
   void dispose() {
     _opacity.layer = null;
+    _clip.layer = null;
     super.dispose();
   }
 
+  void _onPresence() {
+    final needsOpacity = _needsOpacityLayer;
+    if (needsOpacity != _lastNeedsOpacityLayer) {
+      _lastNeedsOpacityLayer = needsOpacity;
+      markNeedsCompositingBitsUpdate();
+    }
+    markNeedsPaint();
+  }
+
   void _onExtent() {
+    if (_inLayout) return;
     final child = this.child;
     if (!_contentSized &&
         child != null &&
@@ -208,9 +290,22 @@ class _RenderSheet extends RenderBox
     final index = _metrics.sortedIndex.clamp(0, heights.length - 1);
     _metrics.sortedIndex = index;
     final target = heights[index];
-    if (!_metrics.ready || (_metrics.settled && _extent.value != target)) {
+    if (!_metrics.ready) {
       _metrics.ready = true;
+      _metrics.lastSyncedTarget = target;
       _extent.value = target;
+      return;
+    }
+    if (_metrics.settled && !_metrics.dragging) {
+      _metrics.lastSyncedTarget = target;
+      if (_extent.value != target) {
+        _extent.value = target;
+      }
+    } else if (!_metrics.dragging &&
+        (_metrics.lastSyncedTarget == null ||
+            (_metrics.lastSyncedTarget! - target).abs() > 0.5)) {
+      _metrics.lastSyncedTarget = target;
+      _metrics.onRetargetNeeded?.call(index);
     }
   }
 
@@ -218,64 +313,76 @@ class _RenderSheet extends RenderBox
   bool get sizedByParent => true;
 
   @override
-  Size computeDryLayout(BoxConstraints constraints) => constraints.biggest;
+  Size computeDryLayout(BoxConstraints constraints) =>
+      constraints.hasBoundedWidth && constraints.hasBoundedHeight
+      ? constraints.biggest
+      : constraints.constrain(Size.zero);
 
   @override
   void performLayout() {
     final child = this.child;
     if (child == null) return;
-    _metrics.available = math.max(0, size.height - _topGap - _bottomGap);
-    final width = math.max(
-      0.0,
-      math.min(size.width - _horizontalMargin * 2, _maxWidth),
-    );
-    if (_contentSized) {
-      child.layout(
-        BoxConstraints(minWidth: width, maxWidth: width, maxHeight: _available),
-        parentUsesSize: true,
+    _inLayout = true;
+    try {
+      _metrics.available = math.max(0, size.height - _topGap - _bottomGap);
+      final width = math.max(
+        0.0,
+        math.min(size.width - _leftInset - _rightInset, _maxWidth),
       );
-      _metrics
-        ..heights = [child.size.height]
-        ..publicToSorted = const [0]
-        ..sortedToPublic = const [0]
-        ..publicIndex = 0
-        ..sortedIndex = 0;
-      _syncExtent();
-    } else {
-      final entries = <({double height, int publicIndex})>[];
-      for (var i = 0; i < _detents.length; i++) {
-        final resolved = _detents[i]._resolve(_available);
-        final h = _available > 0 ? math.max(1.0, resolved) : 0.0;
-        entries.add((height: h, publicIndex: i));
-      }
-      entries.sort((a, b) {
-        final cmp = a.height.compareTo(b.height);
-        return cmp != 0 ? cmp : a.publicIndex.compareTo(b.publicIndex);
-      });
-      const epsilon = 0.01;
-      final heights = <double>[];
-      final publicToSorted = List<int>.filled(_detents.length, 0);
-      final sortedToPublic = <int>[];
-      for (final entry in entries) {
-        if (heights.isEmpty || (entry.height - heights.last).abs() > epsilon) {
-          heights.add(entry.height);
-          sortedToPublic.add(entry.publicIndex);
+      if (_contentSized) {
+        child.layout(
+          BoxConstraints(
+            minWidth: width,
+            maxWidth: width,
+            maxHeight: _available,
+          ),
+          parentUsesSize: true,
+        );
+        _metrics
+          ..heights = [child.size.height]
+          ..publicToSorted = const [0]
+          ..sortedToPublic = const [0]
+          ..publicIndex = 0
+          ..sortedIndex = 0;
+        _syncExtent();
+      } else {
+        final entries = <({double height, int publicIndex})>[];
+        for (var i = 0; i < _detents.length; i++) {
+          final resolved = _detents[i]._resolve(_available);
+          final h = _available > 0 ? math.max(1.0, resolved) : 0.0;
+          entries.add((height: h, publicIndex: i));
         }
-        publicToSorted[entry.publicIndex] = heights.length - 1;
+        entries.sort((a, b) {
+          final cmp = a.height.compareTo(b.height);
+          return cmp != 0 ? cmp : a.publicIndex.compareTo(b.publicIndex);
+        });
+        const epsilon = 0.01;
+        final heights = <double>[];
+        final publicToSorted = List<int>.filled(_detents.length, 0);
+        final sortedToPublic = <int>[];
+        for (final entry in entries) {
+          if (heights.isEmpty || (entry.height - heights.last).abs() > epsilon) {
+            heights.add(entry.height);
+            sortedToPublic.add(entry.publicIndex);
+          }
+          publicToSorted[entry.publicIndex] = heights.length - 1;
+        }
+        final publicIdx = _metrics.publicIndex.clamp(0, _detents.length - 1);
+        final sortedIdx = publicToSorted[publicIdx];
+        _metrics
+          ..heights = heights
+          ..publicToSorted = publicToSorted
+          ..sortedToPublic = sortedToPublic
+          ..publicIndex = publicIdx
+          ..sortedIndex = sortedIdx;
+        _syncExtent();
+        child.layout(
+          BoxConstraints.tightFor(width: width, height: _layoutHeight()),
+          parentUsesSize: true,
+        );
       }
-      final publicIdx = _metrics.publicIndex.clamp(0, _detents.length - 1);
-      final sortedIdx = publicToSorted[publicIdx];
-      _metrics
-        ..heights = heights
-        ..publicToSorted = publicToSorted
-        ..sortedToPublic = sortedToPublic
-        ..publicIndex = publicIdx
-        ..sortedIndex = sortedIdx;
-      _syncExtent();
-      child.layout(
-        BoxConstraints.tightFor(width: width, height: _layoutHeight()),
-        parentUsesSize: true,
-      );
+    } finally {
+      _inLayout = false;
     }
   }
 
@@ -283,7 +390,8 @@ class _RenderSheet extends RenderBox
     final child = this.child!;
     final visible = _extent.value;
     final presence = _presence.value;
-    final x = (size.width - child.size.width) / 2;
+    final innerWidth = math.max(0.0, size.width - _leftInset - _rightInset);
+    final x = _leftInset + (innerWidth - child.size.width) / 2;
     final y = _fadeOnly
         ? size.height - _bottomGap - visible
         : size.height - (visible + _bottomGap) * presence;
@@ -295,6 +403,7 @@ class _RenderSheet extends RenderBox
     final child = this.child;
     if (child == null || _presence.value <= 0) {
       _opacity.layer = null;
+      _clip.layer = null;
       return;
     }
     final childOffset = _childOffset();
@@ -318,24 +427,43 @@ class _RenderSheet extends RenderBox
       context.paintChild(child, offset + childOffset);
     }
 
-    final presence = _presence.value;
-    if (_fadeOnly && presence < 1) {
-      _opacity.layer = context.pushOpacity(
+    void paintWithOptionalOpacity(PaintingContext context, Offset offset) {
+      final presence = _presence.value;
+      if (_fadeOnly && presence < 1) {
+        _opacity.layer = context.pushOpacity(
+          offset,
+          (presence * 255).round().clamp(0, 255),
+          paintSheet,
+          oldLayer: _opacity.layer,
+        );
+      } else {
+        _opacity.layer = null;
+        paintSheet(context, offset);
+      }
+    }
+
+    if (_clipToBounds) {
+      _clip.layer = context.pushClipRect(
+        needsCompositing,
         offset,
-        (presence * 255).round(),
-        paintSheet,
-        oldLayer: _opacity.layer,
+        Offset.zero & size,
+        paintWithOptionalOpacity,
+        oldLayer: _clip.layer,
       );
     } else {
-      _opacity.layer = null;
-      paintSheet(context, offset);
+      _clip.layer = null;
+      paintWithOptionalOpacity(context, offset);
     }
   }
 
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
     final child = this.child;
-    if (child == null || _presence.value <= 0) return false;
+    if (child == null ||
+        _presence.value <= 0 ||
+        !(Offset.zero & size).contains(position)) {
+      return false;
+    }
     return result.addWithPaintOffset(
       offset: _childOffset(),
       position: position,

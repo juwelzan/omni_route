@@ -320,4 +320,165 @@ void main() {
     await _scrollList(t, 200);
     expect(OmniSheet.of(e).isScrolled.value, isTrue);
   });
+
+  testWidgets('BS-09: dragging up to max then back down mid-gesture collapses smoothly', (
+    t,
+  ) async {
+    await t.pumpWidget(
+      _page(style: OmniSheetStyle.cupertino, initialDetent: 1),
+    );
+    await t.pumpAndSettle();
+    // Cupertino reserves a 10px top gap, so medium = (600 - 10) * 0.5 = 295px
+    // (top = 305px) and large top = 10px.
+    expect(_sheetTop(t), 305);
+
+    // Start inside the list and drag upward past full height,
+    // scrolling the list slightly, then reverse downward in the SAME gesture.
+    final g = await t.startGesture(const Offset(400, 450));
+    for (var i = 0; i < 10; i++) {
+      await g.moveBy(const Offset(0, -35));
+      await t.pump(const Duration(milliseconds: 16));
+    }
+    expect(_sheetTop(t), lessThanOrEqualTo(10));
+
+    // Reverse downward continuously without lifting finger.
+    for (var i = 0; i < 16; i++) {
+      await g.moveBy(const Offset(0, 25));
+      await t.pump(const Duration(milliseconds: 16));
+    }
+    expect(_scrollOffset(t), 0);
+    expect(_sheetTop(t), greaterThan(10));
+
+    await g.up();
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+  });
+
+  testWidgets('BS-06: popping modal sheet mid-scroll-drag causes no use-after-dispose', (
+    t,
+  ) async {
+    late BuildContext ctx;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (c) {
+            ctx = c;
+            return const Scaffold();
+          },
+        ),
+      ),
+    );
+    showOmniBottomSheet<void>(
+      context: ctx,
+      style: OmniSheetStyle.material,
+      showHandle: false,
+      detents: const [OmniSheetDetent.medium, OmniSheetDetent.large],
+      builder: _rows,
+    );
+    await t.pumpAndSettle();
+
+    final g = await t.startGesture(const Offset(400, 450));
+    await g.moveBy(const Offset(0, -350));
+    await t.pump(const Duration(milliseconds: 20));
+    await g.moveBy(const Offset(0, -40));
+    await t.pump(const Duration(milliseconds: 20));
+
+    // Close the sheet while scroll gesture is active, then finish/cancel gesture.
+    OmniSheet.of(t.element(find.byKey(_list))).close();
+    await t.pumpAndSettle();
+    await g.up();
+    await t.pumpAndSettle();
+    expect(t.takeException(), isNull);
+    expect(find.byKey(_list), findsNothing);
+  });
+
+  testWidgets('supports GridView, CustomScrollView, SingleChildScrollView, nested scrollables, and desktop PrimaryScrollController', (
+    t,
+  ) async {
+    // 1. GridView
+    await t.pumpWidget(
+      _page(
+        initialDetent: 1,
+        builder: (_) => GridView.builder(
+          key: _list,
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: 2,
+            mainAxisExtent: 80,
+          ),
+          itemCount: 30,
+          itemBuilder: (_, i) => Text('grid $i'),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await _scrollList(t, 450);
+    expect(_sheetTop(t), 0);
+    expect(_scrollOffset(t), greaterThan(0));
+
+    // 2. CustomScrollView
+    await t.pumpWidget(
+      _page(
+        initialDetent: 1,
+        builder: (_) => CustomScrollView(
+          key: _list,
+          slivers: [
+            SliverList.builder(
+              itemCount: 30,
+              itemBuilder: (_, i) => SizedBox(height: 50, child: Text('sliver $i')),
+            ),
+          ],
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await _scrollList(t, 450);
+    expect(_sheetTop(t), 0);
+    expect(_scrollOffset(t), greaterThan(0));
+
+    // 3. SingleChildScrollView on desktop (macOS) via PrimaryScrollController inheritance.
+    await t.pumpWidget(
+      _page(
+        theme: ThemeData(platform: TargetPlatform.macOS),
+        initialDetent: 1,
+        builder: (_) => SingleChildScrollView(
+          key: _list,
+          child: Column(
+            children: [
+              for (var i = 0; i < 40; i++) SizedBox(height: 50, child: Text('col $i')),
+            ],
+          ),
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await _scrollList(t, 450);
+    expect(_sheetTop(t), 0);
+    expect(_scrollOffset(t), greaterThan(0));
+
+    // 4. Nested horizontal + inner vertical scrollables don't hijack vertical scroll lock incorrectly.
+    await t.pumpWidget(
+      _page(
+        initialDetent: 2,
+        builder: (_) => ListView(
+          key: _list,
+          children: [
+            SizedBox(
+              height: 100,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  for (var i = 0; i < 10; i++) SizedBox(width: 120, child: Text('h $i')),
+                ],
+              ),
+            ),
+            for (var i = 0; i < 30; i++) SizedBox(height: 50, child: Text('v $i')),
+          ],
+        ),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.timedDrag(find.text('h 0'), const Offset(-100, 0), const Duration(milliseconds: 300));
+    await t.pumpAndSettle();
+    expect(OmniSheet.of(t.element(find.byKey(_list))).isScrolled.value, isFalse);
+  });
 }

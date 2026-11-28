@@ -906,6 +906,11 @@ final class OmniNetwork {
   bool _closed = false;
   Future<void>? _closing;
 
+  /// Whether [close] closes a bound [OmniAuth] provider (enabled for standalone
+  /// clients; disabled by `ApiHub` across environment switches). Internal.
+  @internal
+  bool closeAuthWithClient = true;
+
   /// Whether [close] has been called.
   bool get isClosed => _closed;
 
@@ -2107,7 +2112,10 @@ final class OmniNetwork {
       return _sendOnce(request, t);
     }
     final refreshesBefore = auth.refreshCount;
-    final used = await auth.current();
+    final used = await _awaitAuthOp(
+      request,
+      (sig) => auth.current(cancelWhen: sig.whenCancelled),
+    );
     _checkStillWanted(request, epoch);
     final first = auth.refreshCount == refreshesBefore
         ? await _sendOnce(auth.attach(request, used), t)
@@ -2116,12 +2124,38 @@ final class OmniNetwork {
             () => _sendOnce(auth.attach(request, used), t),
           );
     if (auth.refresh == null || !auth.isExpired(first)) return first;
-    final fresh = await auth.recover(used, first);
+    final fresh = await _awaitAuthOp(
+      request,
+      (sig) => auth.recover(used, first, cancelWhen: sig.whenCancelled),
+    );
     _checkStillWanted(request, epoch);
     return withLogNote(
       'token refreshed',
       () => _sendOnce(auth.attach(request, fresh), t),
     );
+  }
+
+  Future<T> _awaitAuthOp<T>(
+    OmniRequest request,
+    Future<T> Function(CancelSignal signal) op,
+  ) async {
+    final signal = CancelSignal();
+    final detach = request.cancelToken?.attach(
+      () => signal.cancel(_Reason.user),
+    );
+    _pending.add(signal);
+    try {
+      return await op(signal);
+    } on CancelledFailure {
+      if (signal.isCancelled) {
+        final reason = await signal.whenCancelled;
+        if (reason == _Reason.closed) throw const ClosedFailure();
+      }
+      rethrow;
+    } finally {
+      detach?.call();
+      _pending.remove(signal);
+    }
   }
 
   void _checkStillWanted(OmniRequest request, int epoch) {
@@ -2390,6 +2424,7 @@ final class OmniNetwork {
       );
     }
 
+    var failed = false;
     late final StreamSubscription<List<int>> sub;
     sub = res.body.listen(
       (chunk) async {
@@ -2400,13 +2435,15 @@ final class OmniNetwork {
           kick();
           t.onReceive?.call(received, total);
         } catch (e) {
+          failed = true;
           await sub.cancel();
           fail(e);
         } finally {
-          sub.resume();
+          if (!failed && !done.isCompleted) sub.resume();
         }
       },
       onError: (Object e) {
+        failed = true;
         sub.cancel();
         fail(e);
       },
@@ -2417,6 +2454,8 @@ final class OmniNetwork {
     );
     unawaited(
       signal.whenCancelled.then((_) {
+        if (done.isCompleted) return;
+        failed = true;
         sub.cancel();
         fail(CancelledFailure(uri: uri));
       }),
@@ -2479,7 +2518,13 @@ final class OmniNetwork {
   Future<void> _close() async {
     _closed = true;
     final provider = _provider;
-    if (provider is OmniAuth) await provider.close();
+    if (provider is OmniAuth) {
+      if (closeAuthWithClient) {
+        await provider.close();
+      } else {
+        provider.detachClient(this);
+      }
+    }
     for (final s in _pending.toList()) {
       s.cancel(_Reason.closed);
     }

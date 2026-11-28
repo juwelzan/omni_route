@@ -297,14 +297,14 @@ void main() {
       final slowCalls = <(Uri, Duration)>[];
       final api = OmniNetwork(
         baseUrl: 'https://api.test',
-        slowRequestThreshold: const Duration(milliseconds: 15),
+        slowRequestThreshold: const Duration(milliseconds: 50),
         onSlowRequest: (uri, elapsed) {
           slowCalls.add((uri, elapsed));
           throw StateError('ignored callback failure');
         },
         transport: MockTransport((req) async {
           if (req.uri.path == '/slow') {
-            await Future<void>.delayed(const Duration(milliseconds: 30));
+            await Future<void>.delayed(const Duration(milliseconds: 80));
           }
           return _jsonResponse({'ok': true});
         }),
@@ -318,7 +318,7 @@ void main() {
       expect(slowCalls.single.$1.path, '/slow');
       expect(
         slowCalls.single.$2,
-        greaterThanOrEqualTo(const Duration(milliseconds: 15)),
+        greaterThanOrEqualTo(const Duration(milliseconds: 50)),
       );
     });
 

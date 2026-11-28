@@ -20,3 +20,6 @@ WebSocketChannel platformConnect(
 
 /// Whether WebSocket handshake headers are supported on this platform.
 const bool handshakeHeadersSupported = false;
+
+/// Web connections have no dedicated HTTP client handle to force-close.
+void platformCloseClient(Object? client) {}

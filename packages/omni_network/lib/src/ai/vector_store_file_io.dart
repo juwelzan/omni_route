@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -14,6 +15,15 @@ final class FileVectorStore implements AiVectorStore {
   final String directory;
 
   Map<String, VectorDocument>? _cache;
+  int _tmpSeq = 0;
+  Future<void> _lock = Future<void>.value();
+
+  Future<T> _synchronized<T>(Future<T> Function() op) {
+    final prev = _lock;
+    final run = prev.catchError((Object _) {}).then((_) => op());
+    _lock = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
 
   File get _file => File('$directory${Platform.pathSeparator}vectors.json');
 
@@ -38,47 +48,55 @@ final class FileVectorStore implements AiVectorStore {
   }
 
   Future<void> _writeMap(Map<String, VectorDocument> docs) async {
-    _cache = docs;
     await Directory(directory).create(recursive: true);
-    final temp = File('${_file.path}.tmp.${pid}_${identityHashCode(docs)}');
-    await temp.writeAsString(
-      jsonEncode([for (final d in docs.values) d.toJson()]),
-      flush: true,
-    );
-    await temp.rename(_file.path);
+    final temp = File('${_file.path}.tmp.${pid}_${++_tmpSeq}');
+    try {
+      await temp.writeAsString(
+        jsonEncode([for (final d in docs.values) d.toJson()]),
+        flush: true,
+      );
+      await temp.rename(_file.path);
+      _cache = docs;
+    } catch (_) {
+      if (await temp.exists()) {
+        await temp.delete().catchError((Object _) => temp);
+      }
+      rethrow;
+    }
   }
 
   @override
   Future<void> upsert(VectorDocument document) => upsertAll([document]);
 
   @override
-  Future<void> upsertAll(List<VectorDocument> documents) async {
-    final map = Map<String, VectorDocument>.of(await _readMap());
-    for (final d in documents) {
-      map[d.id] = d;
-    }
-    await _writeMap(map);
-  }
+  Future<void> upsertAll(List<VectorDocument> documents) =>
+      _synchronized(() async {
+        final map = Map<String, VectorDocument>.of(await _readMap());
+        for (final d in documents) {
+          map[d.id] = d;
+        }
+        await _writeMap(map);
+      });
 
   @override
-  Future<List<VectorDocument>> all() async =>
-      List.unmodifiable((await _readMap()).values);
+  Future<List<VectorDocument>> all() =>
+      _synchronized(() async => List.unmodifiable((await _readMap()).values));
 
   @override
-  Future<void> delete(String id) async {
+  Future<void> delete(String id) => _synchronized(() async {
     final map = Map<String, VectorDocument>.of(await _readMap());
     if (map.remove(id) != null) {
       await _writeMap(map);
     }
-  }
+  });
 
   @override
-  Future<void> clear() async {
+  Future<void> clear() => _synchronized(() async {
     _cache = {};
     if (await _file.exists()) {
       await _file.delete();
     }
-  }
+  });
 
   @override
   Future<List<VectorSearchHit>> searchByVector(
@@ -86,13 +104,13 @@ final class FileVectorStore implements AiVectorStore {
     int topK = 5,
     double minScore = -1.0,
     Map<String, Object?>? where,
-  }) async => rankVectorDocuments(
+  }) => _synchronized(() async => rankVectorDocuments(
     (await _readMap()).values,
     queryEmbedding,
     topK: topK,
     minScore: minScore,
     where: where,
-  );
+  ));
 
   @override
   Future<List<VectorSearchHit>> search(

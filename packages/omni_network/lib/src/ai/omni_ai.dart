@@ -1030,54 +1030,90 @@ final class OmniAi {
     required AiRequestOptions options,
     required OmniCancelToken? cancelToken,
   }) async {
+    if (cancelToken?.isCancelled ?? false) {
+      throw const CancelledFailure();
+    }
     final completer = Completer<AiResponse>();
     var settled = false;
     var activeCount = 1;
-    var secondaryLaunched = false;
+    var nextIndex = 1;
     Object? lastError;
     Timer? hedgeTimer;
+    final childTokens = <OmniCancelToken>[];
+    void Function()? detachParent;
+
+    void cancelChildren() {
+      for (final c in childTokens) {
+        c.cancel();
+      }
+    }
+
+    void settleError(Object error) {
+      if (settled) return;
+      settled = true;
+      hedgeTimer?.cancel();
+      detachParent?.call();
+      cancelChildren();
+      completer.completeError(error);
+    }
+
+    detachParent = cancelToken?.attach(() => settleError(const CancelledFailure()));
 
     void startAttempt(int index) {
       final (target, provider) = targets[index];
+      final attemptToken = OmniCancelToken();
+      childTokens.add(attemptToken);
+      if (cancelToken?.isCancelled ?? false) {
+        attemptToken.cancel();
+      }
       _attemptSingleTarget(
         target: target,
         provider: provider,
         messages: messages,
         options: options,
         usedFallback: index > 0,
-        cancelToken: cancelToken,
+        cancelToken: attemptToken,
       ).then(
         (res) {
           if (settled) return;
           settled = true;
           hedgeTimer?.cancel();
+          detachParent?.call();
+          for (final c in childTokens) {
+            if (!identical(c, attemptToken)) c.cancel();
+          }
           completer.complete(res);
         },
         onError: (Object err) {
           if (settled) return;
           lastError = err;
           activeCount--;
-          if (index == 0 && !secondaryLaunched && _canFailover(err)) {
-            hedgeTimer?.cancel();
-            secondaryLaunched = true;
+          final isCancelled =
+              (cancelToken?.isCancelled ?? false) ||
+              (err is OmniNetworkException && err.isCancelled);
+          if (isCancelled) {
+            settleError(const CancelledFailure());
+            return;
+          }
+          if (nextIndex < targets.length && _canFailover(err)) {
+            if (index == 0) hedgeTimer?.cancel();
+            final candidate = nextIndex++;
             activeCount++;
-            startAttempt(1);
+            startAttempt(candidate);
             return;
           }
           if (activeCount <= 0) {
-            settled = true;
-            hedgeTimer?.cancel();
-            completer.completeError(lastError!);
+            settleError(lastError!);
           }
         },
       );
     }
 
     hedgeTimer = Timer(hedgeDelay, () {
-      if (settled || secondaryLaunched) return;
-      secondaryLaunched = true;
+      if (settled || nextIndex != 1 || nextIndex >= targets.length) return;
+      final candidate = nextIndex++;
       activeCount++;
-      startAttempt(1);
+      startAttempt(candidate);
     });
     startAttempt(0);
 

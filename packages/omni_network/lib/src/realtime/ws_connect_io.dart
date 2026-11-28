@@ -23,3 +23,8 @@ WebSocketChannel platformConnect(
 
 /// Whether WebSocket handshake headers are supported on this platform.
 const bool handshakeHeadersSupported = true;
+
+/// Immediately closes an IO HTTP client backing a WebSocket attempt.
+void platformCloseClient(Object? client) {
+  if (client is HttpClient) client.close(force: true);
+}

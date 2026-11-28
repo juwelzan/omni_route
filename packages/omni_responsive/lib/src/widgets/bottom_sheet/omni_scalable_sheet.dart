@@ -247,6 +247,7 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
       widget.controller ?? (_ownController ??= OmniScalableSheetController());
 
   final ValueNotifier<bool> _dimmed = ValueNotifier(false);
+  final ValueNotifier<int> _popVersion = ValueNotifier(0);
   _OmniSheetViewState? _view;
   late OmniSheetStyle _style;
   late _SheetConfig _config = _buildConfig();
@@ -310,6 +311,7 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     _ownController?.dispose();
     _presence.dispose();
     _dimmed.dispose();
+    _popVersion.dispose();
     super.dispose();
   }
 
@@ -361,25 +363,35 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
   bool get isModal => false;
 
   @override
-  void settlePresence(double velocity) => _springPresence(
-    _presence,
-    effectiveMotion,
-    1,
-    velocity,
-    reduceMotion: reduceMotion,
-  );
+  bool get isClosing => !mounted;
+
+  @override
+  void settlePresence(double velocity) {
+    if (!_controller._shown.value) _controller._shown.value = true;
+    _springPresence(
+      _presence,
+      effectiveMotion,
+      1,
+      velocity,
+      reduceMotion: reduceMotion,
+    );
+  }
 
   @override
   Future<bool> dismiss(double velocity) async {
     if (!widget.isDismissible) return false;
     _controller._shown.value = false;
-    await _springPresence(
-      _presence,
-      effectiveMotion,
-      0,
-      velocity,
-      reduceMotion: reduceMotion,
-    ).orCancel.catchError((Object _) {});
+    try {
+      await _springPresence(
+        _presence,
+        effectiveMotion,
+        0,
+        velocity,
+        reduceMotion: reduceMotion,
+      ).orCancel;
+    } on TickerCanceled {
+      return false;
+    }
     if (mounted && !_controller._shown.value) widget.onDismissed?.call();
     return true;
   }
@@ -409,13 +421,17 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
       return;
     }
     _controller._shown.value = shown;
-    await _springPresence(
-      _presence,
-      effectiveMotion,
-      shown ? 1 : 0,
-      0,
-      reduceMotion: reduceMotion,
-    ).orCancel.catchError((Object _) {});
+    try {
+      await _springPresence(
+        _presence,
+        effectiveMotion,
+        shown ? 1 : 0,
+        0,
+        reduceMotion: reduceMotion,
+      ).orCancel;
+    } on TickerCanceled {
+      // Interrupted by a newer show/hide transition.
+    }
   }
 
   /// 0–1 dimming of the page for the sheet's current height.
@@ -455,7 +471,17 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
     }
     _controller._height._update(view._extent.value * _presence.value);
     if (widget.dimFromDetent != null) _dimmed.value = _dimAmount() > 0.01;
+    final wantCanPop =
+        !_controller._shown.value ||
+        _isAtSmallestDetent(_controller._detent.value);
+    if ((_popVersion.value == 0) ||
+        (_lastCanPop != null && _lastCanPop != wantCanPop)) {
+      _lastCanPop = wantCanPop;
+      _popVersion.value++;
+    }
   }
+
+  bool? _lastCanPop;
 
   void _collapseFromBackdrop() {
     final from = widget.dimFromDetent ?? 0;
@@ -477,6 +503,7 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
   late final Listenable _popScopeListenable = Listenable.merge([
     _controller._detent,
     _controller._shown,
+    _popVersion,
   ]);
 
   @override
@@ -507,7 +534,14 @@ class _OmniScalableSheetState extends State<OmniScalableSheet>
               ),
             ),
           ),
-        _OmniSheetView(host: this),
+        ValueListenableBuilder<bool>(
+          valueListenable: _controller._shown,
+          builder: (context, shown, child) => ExcludeSemantics(
+            excluding: !shown,
+            child: ExcludeFocus(excluding: !shown, child: child!),
+          ),
+          child: _OmniSheetView(host: this),
+        ),
       ],
     );
     if (widget.collapseOnBack) {

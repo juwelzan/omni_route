@@ -64,6 +64,9 @@ abstract class _SheetHost {
   /// Modal sheets name and scope a route for screen readers.
   bool get isModal;
 
+  /// Whether the host has started closing and should ignore new drag gestures.
+  bool get isClosing => false;
+
   /// Springs [presence] back to 1 after a partial drag.
   void settlePresence(double velocity);
 

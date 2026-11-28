@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:omni_responsive/omni_responsive.dart';
@@ -643,6 +644,7 @@ void main() {
         showOmniBottomSheet<void>(
           context: _ctx,
           style: OmniSheetStyle.material,
+          showHandle: false,
           detents: const [
             OmniSheetDetent.height(200),
             OmniSheetDetent.height(200),
@@ -664,40 +666,28 @@ void main() {
         expect(sheet.detent.value, 2);
         expect(_rect(t).height, closeTo(200, 1));
 
-        // Snapping to index 3 reaches large (600 minus 36 handle).
+        // Snapping to index 3 reaches large (600).
         sheet.snapTo(3);
         await t.pumpAndSettle();
         expect(sheet.detent.value, 3);
-        expect(_rect(t).top, 36);
+        expect(_rect(t).top, 0);
       },
     );
 
     testWidgets(
       'orientation / height change swaps detent order while keeping active detent',
       (t) async {
-        final size = ValueNotifier(const Size(400, 800));
-        addTearDown(size.dispose);
-        late BuildContext innerCtx;
-        await t.pumpWidget(
-          ValueListenableBuilder<Size>(
-            valueListenable: size,
-            builder: (_, s, _) => MediaQuery(
-              data: MediaQueryData(size: s),
-              child: MaterialApp(
-                home: Builder(
-                  builder: (c) {
-                    innerCtx = c;
-                    return const Scaffold(body: SizedBox.expand());
-                  },
-                ),
-              ),
-            ),
-          ),
-        );
+        t.view.devicePixelRatio = 1.0;
+        t.view.physicalSize = const Size(400, 800);
+        addTearDown(() {
+          t.view.resetPhysicalSize();
+          t.view.resetDevicePixelRatio();
+        });
+        await t.pumpWidget(_app());
         // At 800px: height(360)=360, fraction(0.8)=640.
         // At 400px: height(360)=360, fraction(0.8)=320 (swapped!).
         showOmniBottomSheet<void>(
-          context: innerCtx,
+          context: _ctx,
           style: OmniSheetStyle.material,
           showHandle: false,
           detents: const [
@@ -713,11 +703,405 @@ void main() {
         expect(_rect(t).height, 360);
 
         // Rotate / resize to 400px tall (detents swap order).
-        size.value = const Size(800, 400);
+        t.view.physicalSize = const Size(800, 400);
         await t.pumpAndSettle();
         expect(sheet.detent.value, 0);
         expect(_rect(t).height, 360, reason: 'kept height(360), did not jump to 320');
       },
     );
   });
+
+  group('Phase 4 gesture, animation & render stability', () {
+    testWidgets('BS-18: viewport/keyboard resize mid-animation retargets cleanly', (
+      t,
+    ) async {
+      t.view.devicePixelRatio = 1.0;
+      t.view.physicalSize = const Size(800, 600);
+      addTearDown(() {
+        t.view.resetPhysicalSize();
+        t.view.resetDevicePixelRatio();
+      });
+      await t.pumpWidget(_app());
+
+      showOmniBottomSheet<void>(
+        context: _ctx,
+        style: OmniSheetStyle.material,
+        showHandle: false,
+        detents: const [OmniSheetDetent.medium, OmniSheetDetent.large],
+        initialDetent: 0,
+        builder: (_) => const SizedBox.expand(key: _box),
+      );
+      await t.pumpAndSettle();
+      expect(_rect(t).height, 300);
+
+      // Snap to large, then shrink viewport mid-animation.
+      OmniSheet.of(t.element(find.byKey(_box))).snapTo(1);
+      await t.pump(const Duration(milliseconds: 40));
+      t.view.physicalSize = const Size(800, 400);
+      await t.pumpAndSettle();
+      expect(_rect(t).height, 400, reason: 'retargeted to new large height');
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('BS-11: grabbing sheet mid-open does not jump downward', (
+      t,
+    ) async {
+      await t.pumpWidget(_app());
+      showOmniBottomSheet<void>(
+        context: _ctx,
+        style: OmniSheetStyle.material,
+        showHandle: false,
+        detents: const [OmniSheetDetent.height(240), OmniSheetDetent.large],
+        initialDetent: 0,
+        builder: (_) => const SizedBox.expand(key: _box),
+      );
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 70));
+      final topBeforeGrab = _rect(t).top;
+      expect(topBeforeGrab, greaterThan(360));
+      expect(topBeforeGrab, lessThan(600));
+
+      final g = await t.startGesture(Offset(400, topBeforeGrab + 20));
+      await g.moveBy(const Offset(0, -10));
+      await t.pump();
+      expect(
+        _rect(t).top,
+        lessThanOrEqualTo(topBeforeGrab),
+        reason: 'visible top did not jump down below pre-grab visual position',
+      );
+      await g.up();
+      await t.pumpAndSettle();
+    });
+
+    testWidgets('BS-07: material does not overshoot top and multi-detent top fling snaps instead of dismissing', (
+      t,
+    ) async {
+      await t.pumpWidget(_app());
+      showOmniBottomSheet<void>(
+        context: _ctx,
+        style: OmniSheetStyle.material,
+        showHandle: false,
+        detents: const [
+          OmniSheetDetent.height(160),
+          OmniSheetDetent.medium,
+          OmniSheetDetent.large,
+        ],
+        initialDetent: 2,
+        builder: (_) => const SizedBox.expand(key: _box),
+      );
+      await t.pumpAndSettle();
+      expect(_rect(t).top, 0);
+
+      // Downward fling of ~220px from top detent (600px -> ~380px) must snap
+      // to medium/peek rather than dismissing the multi-detent sheet.
+      await t.fling(find.byKey(_box), const Offset(0, 220), 1100);
+      await t.pumpAndSettle();
+      expect(find.byKey(_box), findsOneWidget);
+      expect(_rect(t).top, greaterThan(0));
+    });
+
+    testWidgets('BS-02: zero-height content sheet drags safely without NaN', (
+      t,
+    ) async {
+      await t.pumpWidget(_app());
+      showOmniBottomSheet<void>(
+        context: _ctx,
+        style: OmniSheetStyle.cupertino,
+        showHandle: false,
+        builder: (_) => const SizedBox(key: _box, height: 0),
+      );
+      await t.pumpAndSettle();
+      await t.dragFrom(const Offset(400, 595), const Offset(0, -40));
+      await t.pumpAndSettle();
+      expect(t.takeException(), isNull);
+    });
+  });
+
+  group('Phase 5 route lifecycle, SafeArea, keyboard & a11y', () {
+    testWidgets('close while route on top removes sheet only; repeated close is safe', (
+      t,
+    ) async {
+      await t.pumpWidget(_app());
+      final sheetFuture = showOmniBottomSheet<String>(
+        context: _ctx,
+        style: OmniSheetStyle.material,
+        builder: (_) => const SizedBox(key: _box, height: 220),
+      );
+      await t.pumpAndSettle();
+      final sheet = OmniSheet.of(t.element(find.byKey(_box)));
+
+      // Push another route on top of the modal sheet.
+      Navigator.of(_ctx).push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('top-page')),
+        ),
+      );
+      await t.pumpAndSettle();
+      expect(find.text('top-page'), findsOneWidget);
+
+      // Programmatic close removes only the underlying sheet route, leaving top-page intact.
+      sheet.close('underneath');
+      sheet.close('ignored-second-call');
+      await t.pumpAndSettle();
+      expect(await sheetFuture, 'underneath');
+      expect(find.text('top-page'), findsOneWidget);
+      expect(find.byKey(_box), findsNothing);
+    });
+
+    testWidgets('programmatic close while dragging completes cleanly once', (
+      t,
+    ) async {
+      await t.pumpWidget(_app());
+      final sheetFuture = showOmniBottomSheet<String>(
+        context: _ctx,
+        style: OmniSheetStyle.material,
+        builder: (_) => const SizedBox(key: _box, height: 240),
+      );
+      await t.pumpAndSettle();
+      final sheet = OmniSheet.of(t.element(find.byKey(_box)));
+
+      final g = await t.startGesture(const Offset(400, 500));
+      await g.moveBy(const Offset(0, 40));
+      await t.pump();
+
+      sheet.close('closed-mid-drag');
+      await g.up();
+      await t.pumpAndSettle();
+      expect(await sheetFuture, 'closed-mid-drag');
+      expect(find.byKey(_box), findsNothing);
+      expect(t.takeException(), isNull);
+    });
+
+    testWidgets('nested navigator respects useRootNavigator and direct OmniSheetRoute localizes barrier', (
+      t,
+    ) async {
+      late BuildContext nestedCtx;
+      final observer = _CountingNavObserver();
+      await t.pumpWidget(
+        MaterialApp(
+          home: Navigator(
+            observers: [observer],
+            onGenerateRoute: (_) => MaterialPageRoute<void>(
+              builder: (c) {
+                nestedCtx = c;
+                return const Scaffold(body: Text('nested-home'));
+              },
+            ),
+          ),
+        ),
+      );
+
+      final future = showOmniBottomSheet<String>(
+        context: nestedCtx,
+        useRootNavigator: false,
+        style: OmniSheetStyle.material,
+        builder: (_) => const SizedBox(key: _box, height: 200),
+      );
+      await t.pumpAndSettle();
+      expect(observer.pushed, greaterThanOrEqualTo(2));
+
+      OmniSheet.of(t.element(find.byKey(_box))).close('nested-ok');
+      await t.pumpAndSettle();
+      expect(await future, 'nested-ok');
+
+      // Direct OmniSheetRoute push preserves localized barrierLabel.
+      final route = OmniSheetRoute<void>(
+        style: OmniSheetStyle.material,
+        builder: (_) => const SizedBox(key: _box, height: 180),
+      );
+      Navigator.of(nestedCtx).push(route);
+      await t.pumpAndSettle();
+      expect(route.barrierLabel, isNotEmpty);
+    });
+
+    testWidgets('PopScope blocks Escape and close button; close() still pops', (
+      t,
+    ) async {
+      await t.pumpWidget(_app());
+      final result = showOmniBottomSheet<String>(
+        context: _ctx,
+        style: OmniSheetStyle.floating,
+        title: 'Locked',
+        builder: (_) => PopScope(
+          canPop: false,
+          child: const SizedBox(key: _box, height: 200),
+        ),
+      );
+      await t.pumpAndSettle();
+
+      await t.sendKeyEvent(LogicalKeyboardKey.escape);
+      await t.pumpAndSettle();
+      expect(find.byKey(_box), findsOneWidget);
+
+      await t.tap(find.byType(OmniSheetCloseButton));
+      await t.pumpAndSettle();
+      expect(find.byKey(_box), findsOneWidget);
+
+      OmniSheet.of(t.element(find.byKey(_box))).close('forced');
+      await t.pumpAndSettle();
+      expect(await result, 'forced');
+    });
+
+    testWidgets('Escape dismisses without autofocus child and Tab activates close button', (
+      t,
+    ) async {
+      final semantics = t.ensureSemantics();
+      try {
+        await t.pumpWidget(_app());
+        showOmniBottomSheet<void>(
+          context: _ctx,
+          style: OmniSheetStyle.floating,
+          title: 'Accessible',
+          detents: const [OmniSheetDetent.medium],
+          builder: (_) => const SizedBox(key: _box, child: Text('Plain content')),
+        );
+        await t.pumpAndSettle();
+
+        // Escape dismisses directly because FocusScope(autofocus: true) wraps the sheet.
+        await t.sendKeyEvent(LogicalKeyboardKey.escape);
+        await t.pumpAndSettle();
+        expect(find.byKey(_box), findsNothing);
+
+        // Open again and verify keyboard Tab + Enter activates the close button.
+        showOmniBottomSheet<void>(
+          context: _ctx,
+          style: OmniSheetStyle.floating,
+          title: 'Keyboard Close',
+          detents: const [OmniSheetDetent.medium],
+          builder: (_) => const SizedBox(key: _box, child: Text('Content')),
+        );
+        await t.pumpAndSettle();
+        await t.sendKeyEvent(LogicalKeyboardKey.tab);
+        await t.pump();
+        await t.sendKeyEvent(LogicalKeyboardKey.tab);
+        await t.pump();
+        // Close button or handle can be reached by Tab; explicitly focus close button
+        // via primaryFocus traversal until close button node has focus, then press Enter.
+        for (var i = 0; i < 6; i++) {
+          final ctx = FocusManager.instance.primaryFocus?.context;
+          if (ctx?.findAncestorWidgetOfExactType<OmniSheetCloseButton>() != null ||
+              ctx?.widget is OmniSheetCloseButton) {
+            break;
+          }
+          await t.sendKeyEvent(LogicalKeyboardKey.tab);
+          await t.pump();
+        }
+        await t.sendKeyEvent(LogicalKeyboardKey.enter);
+        await t.pumpAndSettle();
+        expect(find.byKey(_box), findsNothing);
+
+        // Non-dismissible single detent handle is excluded from button/dismiss semantics.
+        showOmniBottomSheet<void>(
+          context: _ctx,
+          style: OmniSheetStyle.material,
+          isDismissible: false,
+          showHandle: true,
+          detents: const [OmniSheetDetent.medium],
+          builder: (_) => const SizedBox(key: _box, height: 120),
+        );
+        await t.pumpAndSettle();
+        expect(_hasCompiledSemanticsLabel(t, 'Dismiss'), isFalse);
+      } finally {
+        semantics.dispose();
+      }
+    });
+
+    testWidgets('SafeArea, landscape cutouts, keyboard smoothness, RTL and large text scaling render without overflow across styles', (
+      t,
+    ) async {
+      for (final style in [
+        OmniSheetStyle.material,
+        OmniSheetStyle.cupertino,
+        OmniSheetStyle.floating,
+      ]) {
+        final insets = ValueNotifier<double>(0);
+        addTearDown(insets.dispose);
+        await t.pumpWidget(
+          ValueListenableBuilder<double>(
+            valueListenable: insets,
+            builder: (_, kb, _) => MaterialApp(
+              builder: (_, child) => MediaQuery(
+                data: MediaQueryData(
+                  size: const Size(700, 420),
+                  padding: const EdgeInsets.only(left: 48, right: 16, bottom: 24),
+                  viewInsets: EdgeInsets.only(bottom: kb),
+                  textScaler: const TextScaler.linear(2.5),
+                ),
+                child: Directionality(
+                  textDirection: TextDirection.rtl,
+                  child: child!,
+                ),
+              ),
+              home: Builder(
+                builder: (c) {
+                  _ctx = c;
+                  return const Scaffold(body: SizedBox.expand());
+                },
+              ),
+            ),
+          ),
+        );
+
+        showOmniBottomSheet<void>(
+          context: _ctx,
+          style: style,
+          title: 'Very Long Scaled Sheet Header Title',
+          showCloseButton: true,
+          builder: (_) => ListView(
+            key: _box,
+            children: const [
+              TextField(decoration: InputDecoration(labelText: 'First')),
+              TextField(decoration: InputDecoration(labelText: 'Bottom Field')),
+            ],
+          ),
+        );
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull, reason: '$style open overflow check');
+        // Left cutout clearance: sheet rect left >= 48.
+        expect(
+          _rect(t).left,
+          greaterThanOrEqualTo(48),
+          reason: '$style clears left landscape cutout',
+        );
+
+        // Keyboard smoothly ramps from 0 -> 12 -> 180 -> 0 without overflow.
+        insets.value = 12;
+        await t.pump();
+        insets.value = 180;
+        await t.pumpAndSettle();
+        insets.value = 0;
+        await t.pumpAndSettle();
+        expect(t.takeException(), isNull, reason: '$style keyboard cycle check');
+
+        OmniSheet.of(t.element(find.byKey(_box))).close();
+        await t.pumpAndSettle();
+      }
+    });
+  });
+}
+
+class _CountingNavObserver extends NavigatorObserver {
+  int pushed = 0;
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushed++;
+  }
+}
+
+bool _hasCompiledSemanticsLabel(WidgetTester t, String label) {
+  var found = false;
+  void visitSemantics(SemanticsNode node) {
+    if (node.label == label) found = true;
+    node.visitChildren((child) {
+      visitSemantics(child);
+      return !found;
+    });
+  }
+  void visitPipeline(PipelineOwner owner) {
+    final root = owner.semanticsOwner?.rootSemanticsNode;
+    if (root != null) visitSemantics(root);
+    if (!found) owner.visitChildren(visitPipeline);
+  }
+  visitPipeline(t.binding.rootPipelineOwner);
+  return found;
 }

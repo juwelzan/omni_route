@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -15,18 +16,34 @@ final class FileQueueStore implements QueueStore {
   /// Directory holding the serialized queue file (`queue.json`).
   final String directory;
 
+  int _tmpSeq = 0;
+  Future<void> _lock = Future<void>.value();
+
+  Future<T> _synchronized<T>(Future<T> Function() op) {
+    final prev = _lock;
+    final run = prev.catchError((Object _) {}).then((_) => op());
+    _lock = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
+
   File get _file => File('$directory${Platform.pathSeparator}queue.json');
 
   Future<void> _writeAll(List<QueuedRequest> items) async {
     await Directory(directory).create(recursive: true);
     final payload = jsonEncode([for (final item in items) item.toJson()]);
-    final temp = File('${_file.path}.tmp.${pid}_${identityHashCode(items)}');
-    await temp.writeAsString(payload, flush: true);
-    await temp.rename(_file.path);
+    final temp = File('${_file.path}.tmp.${pid}_${++_tmpSeq}');
+    try {
+      await temp.writeAsString(payload, flush: true);
+      await temp.rename(_file.path);
+    } catch (_) {
+      if (await temp.exists()) {
+        await temp.delete().catchError((Object _) => temp);
+      }
+      rethrow;
+    }
   }
 
-  @override
-  Future<List<QueuedRequest>> all() async {
+  Future<List<QueuedRequest>> _readAll() async {
     if (!await _file.exists()) return const [];
     try {
       final raw = await _file.readAsString();
@@ -42,29 +59,32 @@ final class FileQueueStore implements QueueStore {
   }
 
   @override
-  Future<void> add(QueuedRequest item) async {
-    final items = [...await all()];
+  Future<List<QueuedRequest>> all() => _synchronized(_readAll);
+
+  @override
+  Future<void> add(QueuedRequest item) => _synchronized(() async {
+    final items = [...await _readAll()];
     if (items.any((e) => e.id == item.id)) return;
     items.add(item);
     await _writeAll(items);
-  }
+  });
 
   @override
-  Future<void> update(QueuedRequest item) async {
-    final items = [...await all()];
+  Future<void> update(QueuedRequest item) => _synchronized(() async {
+    final items = [...await _readAll()];
     final i = items.indexWhere((e) => e.id == item.id);
     if (i < 0) return;
     items[i] = item;
     await _writeAll(items);
-  }
+  });
 
   @override
-  Future<void> remove(String id) async {
-    final items = [...await all()];
+  Future<void> remove(String id) => _synchronized(() async {
+    final items = [...await _readAll()];
     final before = items.length;
     items.removeWhere((e) => e.id == id);
     if (items.length != before) {
       await _writeAll(items);
     }
-  }
+  });
 }

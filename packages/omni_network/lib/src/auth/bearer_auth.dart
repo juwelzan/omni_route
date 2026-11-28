@@ -122,12 +122,26 @@ final class BearerAuth implements AuthProvider {
   String? _failedFor;
   bool _failedForSet = false;
   int _refreshCount = 0;
+  bool _closed = false;
 
   /// How many times [refresh] has been called (diagnostics/tests).
   int get refreshCount => _refreshCount;
 
   /// Whether a refresh is currently running.
   bool get isRefreshing => _inFlight != null;
+
+  /// Marks this authenticator closed (client teardown skips `onRefreshFailed`).
+  @internal
+  void close() {
+    _closed = true;
+  }
+
+  /// Clears remembered failed-refresh state (e.g. after a fresh `login()`).
+  @internal
+  void resetFailure() {
+    _failedForSet = false;
+    _failedFor = null;
+  }
 
   static bool _is401(OmniRawResponse r) => r.statusCode == 401;
 
@@ -150,27 +164,43 @@ final class BearerAuth implements AuthProvider {
           );
   }
 
+  static Future<T> _raceCancel<T>(
+    Future<T> work,
+    Future<void>? cancelWhen,
+  ) {
+    if (cancelWhen == null) return work;
+    return Future.any([
+      work,
+      cancelWhen.then<T>((_) => throw const CancelledFailure()),
+    ]);
+  }
+
   /// The token to use now, waiting for a running refresh first. Internal.
-  Future<String?> current() async {
+  Future<String?> current({Future<void>? cancelWhen}) async {
     final running = _inFlight;
     final checkExpiring = isExpiring;
     if (running != null) {
-      await running;
+      await _raceCancel(running, cancelWhen);
     } else if (refresh != null && checkExpiring != null) {
-      final used = await token();
+      final used = await _raceCancel(Future.sync(token), cancelWhen);
       if (checkExpiring()) {
-        await (_inFlight ??= _run(used));
+        await _raceCancel(_inFlight ??= _run(used), cancelWhen);
       } else {
         return used;
       }
     }
-    return token();
+    return _raceCancel(Future.sync(token), cancelWhen);
   }
 
   /// Recovers from an expired-token [response] to a request sent with
   /// [used]. Returns the token to replay with or throws [AuthFailure].
   /// Internal.
-  Future<String> recover(String? used, OmniRawResponse response) async {
+  Future<String> recover(
+    String? used,
+    OmniRawResponse response, {
+    Future<void>? cancelWhen,
+  }) async {
+    if (_closed) throw ClosedFailure(uri: response.requestUri);
     if (_inFlight == null) {
       if (_failedForSet && _failedFor == used) {
         throw AuthFailure(
@@ -180,11 +210,17 @@ final class BearerAuth implements AuthProvider {
         );
       }
       // A refresh may have completed while this request was on the wire.
-      final now = await token();
+      final now = await _raceCancel(Future.sync(token), cancelWhen);
       if (now != null && now.isNotEmpty && now != used) return now;
     }
-    final (fresh, error) = await (_inFlight ??= _run(used));
+    final (fresh, error) = await _raceCancel(
+      _inFlight ??= _run(used),
+      cancelWhen,
+    );
     if (fresh == null) {
+      if (error is ClosedFailure || _closed) {
+        throw ClosedFailure(uri: response.requestUri);
+      }
       throw AuthFailure(
         'Token refresh failed',
         uri: response.requestUri,
@@ -196,19 +232,24 @@ final class BearerAuth implements AuthProvider {
   }
 
   Future<(String?, Object?)> _run(String? used) async {
+    if (_closed) return (null, const ClosedFailure());
     _refreshCount++;
     try {
       final fresh = await runZoned(
         () => Future.sync(refresh!),
         zoneValues: {authSkipZoneKey: true},
       ).timeout(refreshTimeout);
+      if (_closed) return (null, const ClosedFailure());
       if (fresh != null && fresh.isNotEmpty) {
         _failedForSet = false;
         return (fresh, null);
       }
       await _fail(used);
       return (null, null);
+    } on ClosedFailure catch (e) {
+      return (null, e);
     } catch (e) {
+      if (_closed) return (null, const ClosedFailure());
       await _fail(used);
       return (null, e is TimeoutException ? 'refresh timed out' : e);
     } finally {

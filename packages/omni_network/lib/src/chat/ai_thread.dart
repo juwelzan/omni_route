@@ -124,9 +124,11 @@ final class OmniAiThread {
   String? _summary;
   AiThreadState _state;
   OmniCancelToken? _activeCancel;
+  Future<void>? _restoring;
   bool _restored = false;
   bool _closed = false;
   int _seq = 0;
+  int _sendGen = 0;
 
   /// Active model alias or `'provider:model'`.
   String get model => _model;
@@ -139,18 +141,25 @@ final class OmniAiThread {
   Stream<AiThreadState> get stream => _controller.stream;
 
   /// Loads saved history from [ChatStore] if present.
-  Future<void> restore() async {
-    if (_restored) return;
-    _restored = true;
-    final ui = await _store.loadMessages('ai:$id');
-    final llm = await _store.loadAiMessages(id);
-    _uiMessages
-      ..clear()
-      ..addAll(ui);
-    _llmHistory
-      ..clear()
-      ..addAll(llm);
-    _emit(messages: List.unmodifiable(_uiMessages));
+  Future<void> restore() {
+    if (_restored) return Future<void>.value();
+    return _restoring ??= () async {
+      try {
+        final ui = await _store.loadMessages('ai:$id');
+        final llm = await _store.loadAiMessages(id);
+        if (_closed || _restored) return;
+        _uiMessages
+          ..clear()
+          ..addAll(ui);
+        _llmHistory
+          ..clear()
+          ..addAll(llm);
+        _restored = true;
+        _emit(messages: List.unmodifiable(_uiMessages));
+      } finally {
+        _restoring = null;
+      }
+    }();
   }
 
   /// Switches the active model used on subsequent turns.
@@ -161,6 +170,7 @@ final class OmniAiThread {
 
   /// Cancels any currently running generation/stream cleanly.
   void stopGenerating() {
+    _sendGen++;
     _activeCancel?.cancel();
   }
 
@@ -174,10 +184,13 @@ final class OmniAiThread {
     if (_closed) {
       throw const ClosedFailure();
     }
-    await restore();
     stopGenerating();
-
+    final sendGen = _sendGen;
     final cancel = _activeCancel = OmniCancelToken();
+    await restore();
+    if (_closed || sendGen != _sendGen || cancel.isCancelled) {
+      throw const CancelledFailure();
+    }
     final userChat = ChatMessage.text(
       id: 'ai_u_${++_seq}_${DateTime.now().microsecondsSinceEpoch}',
       roomId: 'ai:$id',

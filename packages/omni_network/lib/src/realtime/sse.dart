@@ -46,7 +46,7 @@ Stream<SseEvent> parseSseByteStream(
     controller.add,
     onError: controller.addError,
   );
-  final byteSub = utf8.decoder
+  final byteSub = const Utf8Decoder(allowMalformed: true)
       .bind(byteStream)
       .listen(
         parser.add,
@@ -320,15 +320,22 @@ final class SseConnection {
         if (res.statusCode == 204) break;
         _current = res;
         _set(SseState.open);
-        failures = 0;
         final parser = SseParser(onRetry: (d) => retry = d);
+        var eventsInAttempt = 0;
         final sub = parser.events.listen((e) {
+          eventsInAttempt++;
           lastEventId = parser.lastId;
           if (!_events.isClosed) _events.add(e);
         }, onError: _addError);
         try {
-          await for (final text in utf8.decoder.bind(res.body)) {
+          await for (final text
+              in const Utf8Decoder(allowMalformed: true).bind(res.body)) {
             parser.add(text);
+          }
+          if (eventsInAttempt > 0) {
+            failures = 0;
+          } else {
+            failures++;
           }
         } finally {
           await parser.close();
@@ -336,6 +343,7 @@ final class SseConnection {
           lastEventId = parser.lastId ?? lastEventId;
           _current = null;
         }
+        if (maxReconnects == 0) break;
       } on HttpFailure catch (e) {
         final s = e.statusCode;
         if (s == 204) break;

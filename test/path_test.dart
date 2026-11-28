@@ -7,7 +7,14 @@ Matcher throwsCode(OmniErrorCode c) =>
 
 void main() {
   test('valid paths', () {
-    for (final p in ['/', '/students', '/students/:id', '/a-b/c_d/:userId']) {
+    for (final p in [
+      '/',
+      '/students',
+      '/students/:id',
+      '/a-b/c_d/:userId',
+      '/files/*',
+      '/docs/*rest',
+    ]) {
       expect(
         () => validateRoutePath(p, topLevel: true),
         returnsNormally,
@@ -16,6 +23,7 @@ void main() {
     }
     expect(() => validateRoutePath(':id', topLevel: false), returnsNormally);
     expect(() => validateRoutePath('daily', topLevel: false), returnsNormally);
+    expect(() => validateRoutePath('*tail', topLevel: false), returnsNormally);
   });
 
   test('invalid paths', () {
@@ -33,6 +41,8 @@ void main() {
       '/a/:1d',
       '/a/:id/:id',
       '/a b',
+      '/files/*/more',
+      '/files/*bad-name',
     ]) {
       expect(
         () => validateRoutePath(p, topLevel: true),
@@ -54,6 +64,10 @@ void main() {
     );
     expect(
       () => checkDuplicatePaths(['/a/:id', '/a/:slug']),
+      throwsCode(OmniErrorCode.duplicateRoute),
+    );
+    expect(
+      () => checkDuplicatePaths(['/files/*a', '/files/*b']),
       throwsCode(OmniErrorCode.duplicateRoute),
     );
   });

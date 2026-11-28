@@ -118,6 +118,9 @@ final class OmniWebSocket {
   final Map<String, Completer<WsInboundPacket>> _pendingRpc = {};
 
   WebSocketChannel? _channel;
+  Object? _attemptClient;
+  StreamSubscription<dynamic>? _inboundSub;
+  void Function(Object? error)? _abortStream;
   WebSocketState _state = WebSocketState.connecting;
   Completer<void>? _wait;
   Timer? _heartbeatTimer;
@@ -179,8 +182,10 @@ final class OmniWebSocket {
   }
 
   /// Sends a structured event via [protocol].
-  void emit(String eventName, [Object? data]) =>
-      send(protocol.encodeEvent(eventName, data));
+  void emit(String eventName, [Object? data]) {
+    if (_closed) throw StateError('OmniWebSocket is closed');
+    send(protocol.encodeEvent(eventName, data));
+  }
 
   /// Sends an RPC request over this WebSocket and waits for the matching
   /// correlated response packet.
@@ -219,6 +224,17 @@ final class OmniWebSocket {
     if (!_states.isClosed) _states.add(s);
   }
 
+  void _abortConnection([Object? error]) {
+    final abort = _abortStream;
+    _abortStream = null;
+    abort?.call(error);
+    final sub = _inboundSub;
+    _inboundSub = null;
+    if (sub != null) unawaited(sub.cancel());
+    platformCloseClient(_attemptClient);
+    _attemptClient = null;
+  }
+
   void _startHeartbeat(WebSocketChannel channel) {
     _heartbeatTimer?.cancel();
     final interval = heartbeatInterval;
@@ -228,7 +244,12 @@ final class OmniWebSocket {
       final now = DateTime.now();
       if (now.difference(_lastInboundAt) > interval + pongTimeout) {
         _logCallback?.call('ws', 'heartbeat timeout; closing socket');
-        unawaited(channel.sink.close(4000, 'heartbeat_timeout'));
+        unawaited(
+          channel.sink
+              .close(4000, 'heartbeat_timeout')
+              .timeout(const Duration(seconds: 1), onTimeout: () {}),
+        );
+        _abortConnection(StateError('WebSocket heartbeat timeout'));
         return;
       }
       final pingFrame = protocol.encodePing();
@@ -245,9 +266,11 @@ final class OmniWebSocket {
     while (!_closed) {
       _set(WebSocketState.connecting);
       WebSocketChannel? channel;
+      Object? attemptClient;
       try {
         final rawHeaders =
             await _headersProvider?.call() ?? const <String, String>{};
+        if (_closed) break;
         final (
           connectUri,
           connectHeaders,
@@ -260,6 +283,7 @@ final class OmniWebSocket {
               supportsHandshakeHeaders || _customConnector != null,
           bearerOrToken: null,
         );
+        attemptClient = _attemptClient = _clientFactory?.call();
         channel = _customConnector != null
             ? _customConnector(connectUri, protocols, connectHeaders)
             : platformConnect(
@@ -268,17 +292,20 @@ final class OmniWebSocket {
                 connectHeaders,
                 pingInterval: heartbeatInterval,
                 connectTimeout: connectTimeout,
-                customClient: _clientFactory?.call(),
+                customClient: attemptClient,
               );
         await channel.ready;
         if (_closed) {
-          await channel.sink.close(1000);
+          await channel.sink
+              .close(1000)
+              .timeout(const Duration(seconds: 1), onTimeout: () {});
           break;
         }
         _channel = channel;
         _connects++;
-        failures = 0;
-        _lastInboundAt = DateTime.now();
+        final openedAt = DateTime.now();
+        var hadInbound = false;
+        _lastInboundAt = openedAt;
         _set(WebSocketState.open);
         _logCallback?.call('open', _wsRedactor.uri(connectUri));
         if (firstAuthFrame != null) {
@@ -287,35 +314,81 @@ final class OmniWebSocket {
         while (_buffer.isNotEmpty) {
           channel.sink.add(_buffer.removeAt(0));
         }
-        _startHeartbeat(channel);
-        await onOpen?.call(this);
-        await for (final m in channel.stream) {
-          _lastInboundAt = DateTime.now();
-          final msg = m as Object;
-          _logCallback?.call(
-            'in',
-            msg is String ? msg : '<${(msg as List<int>).length} bytes>',
-          );
-          final packet = protocol.decode(msg);
-          if (packet != null) {
-            final pendingId = packet.requestId;
-            if (pendingId != null && _pendingRpc.containsKey(pendingId)) {
-              _pendingRpc.remove(pendingId)!.complete(packet);
+
+        final streamDone = Completer<void>();
+        _abortStream = (Object? err) {
+          if (!streamDone.isCompleted) {
+            if (err != null) {
+              streamDone.completeError(err);
+            } else {
+              streamDone.complete();
             }
-            if (!_packets.isClosed) _packets.add(packet);
           }
-          if (!_messages.isClosed) _messages.add(msg);
+        };
+        _inboundSub = channel.stream.listen(
+          (m) {
+            hadInbound = true;
+            _lastInboundAt = DateTime.now();
+            final msg = m as Object;
+            _logCallback?.call(
+              'in',
+              msg is String ? msg : '<${(msg as List<int>).length} bytes>',
+            );
+            final packet = protocol.decode(msg);
+            if (packet != null) {
+              final pendingId = packet.requestId;
+              if (pendingId != null && _pendingRpc.containsKey(pendingId)) {
+                _pendingRpc.remove(pendingId)!.complete(packet);
+              }
+              if (!_packets.isClosed) _packets.add(packet);
+            }
+            if (!_messages.isClosed) _messages.add(msg);
+          },
+          onError: (Object e, StackTrace st) {
+            if (!streamDone.isCompleted) streamDone.completeError(e, st);
+          },
+          onDone: () {
+            if (!streamDone.isCompleted) streamDone.complete();
+          },
+          cancelOnError: true,
+        );
+
+        _startHeartbeat(channel);
+        try {
+          await onOpen?.call(this);
+        } catch (e) {
+          unawaited(
+            channel.sink
+                .close(1011, 'onOpen_error')
+                .timeout(const Duration(seconds: 1), onTimeout: () {}),
+          );
+          rethrow;
         }
-        _heartbeatTimer?.cancel();
+
+        await streamDone.future;
         _lastCloseCode = channel.closeCode;
-        _channel = null;
+        final healthyDuration =
+            DateTime.now().difference(openedAt) >= const Duration(seconds: 5);
+        if (healthyDuration && hadInbound) {
+          failures = 0;
+        }
         if (_closed || channel.closeCode == 1000) break;
+        failures++;
       } catch (e) {
-        _heartbeatTimer?.cancel();
-        _channel = null;
         if (_closed) break;
         failures++;
         _logCallback?.call('err', _wsRedactor.text('$e'));
+      } finally {
+        _heartbeatTimer?.cancel();
+        _abortStream = null;
+        final sub = _inboundSub;
+        _inboundSub = null;
+        if (sub != null) {
+          await sub.cancel().catchError((Object _) {});
+        }
+        _channel = null;
+        platformCloseClient(attemptClient);
+        if (identical(_attemptClient, attemptClient)) _attemptClient = null;
       }
       if (maxReconnects case final max? when failures > max) {
         if (!_messages.isClosed) {
@@ -404,7 +477,13 @@ final class OmniWebSocket {
     _heartbeatTimer?.cancel();
     final w = _wait;
     if (w != null && !w.isCompleted) w.complete();
-    await _channel?.sink.close(code, reason);
+    final ch = _channel;
+    if (ch != null) {
+      await ch.sink
+          .close(code, reason)
+          .timeout(const Duration(seconds: 1), onTimeout: () {});
+    }
+    _abortConnection();
     await _states.done.timeout(const Duration(seconds: 5), onTimeout: () {});
   }
 }

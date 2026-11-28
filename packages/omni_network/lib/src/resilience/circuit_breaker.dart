@@ -82,12 +82,14 @@ final class CircuitBreaker {
   void record(String host, {required bool success}) {
     final h = _hosts.putIfAbsent(host, _Host.new);
     if (success) {
+      if (h.state == CircuitState.open) return;
       h
         ..state = CircuitState.closed
         ..failures = 0
         ..trials = 0;
       return;
     }
+    if (h.state == CircuitState.open) return;
     if (h.state == CircuitState.halfOpen) {
       _open(h);
       return;

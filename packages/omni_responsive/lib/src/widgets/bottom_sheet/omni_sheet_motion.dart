@@ -115,20 +115,36 @@ Simulation _settlingSpring(
   double end,
   double velocity, {
   required Tolerance tolerance,
+  double? minValue,
+  double? maxValue,
 }) => _SettlingSimulation(
   SpringSimulation(spring, start, end, velocity, tolerance: tolerance),
   end,
+  minValue: minValue,
+  maxValue: maxValue,
 );
 
 class _SettlingSimulation extends Simulation {
-  _SettlingSimulation(this._inner, this._end)
-    : super(tolerance: _inner.tolerance);
+  _SettlingSimulation(
+    this._inner,
+    this._end, {
+    this.minValue,
+    this.maxValue,
+  }) : super(tolerance: _inner.tolerance);
 
   final SpringSimulation _inner;
   final double _end;
+  final double? minValue;
+  final double? maxValue;
 
   @override
-  double x(double time) => _inner.isDone(time) ? _end : _inner.x(time);
+  double x(double time) {
+    if (_inner.isDone(time)) return _end;
+    var value = _inner.x(time);
+    if (minValue != null && value < minValue!) value = minValue!;
+    if (maxValue != null && value > maxValue!) value = maxValue!;
+    return value;
+  }
 
   @override
   double dx(double time) => _inner.isDone(time) ? 0 : _inner.dx(time);

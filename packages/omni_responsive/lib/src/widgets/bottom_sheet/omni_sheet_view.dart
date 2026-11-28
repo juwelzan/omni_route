@@ -38,6 +38,11 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   // Finger position in sheet terms (px of visible sheet), unclamped.
   double _raw = 0;
   bool _dragging = false;
+  bool _disposed = false;
+  bool _retargetQueued = false;
+  int? _pendingRetargetSortedIndex;
+  bool _scrollRefreshQueued = false;
+  late List<OmniSheetDetent> _lastDetents;
 
   _SheetHost get _host => widget.host;
   _SheetConfig get _config => _host.config;
@@ -45,29 +50,82 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   OmniSheetMotion get _motion => _host.effectiveMotion;
   bool get _contentSized => _config.detents.first._isContent;
   double get _available => _metrics.available;
+  bool get _canDragSheet => _config.enableDrag && !_disposed && !_host.isClosing;
 
   @override
   void initState() {
     super.initState();
+    _lastDetents = List<OmniSheetDetent>.of(_config.detents);
+    _metrics.onRetargetNeeded = _scheduleRetarget;
     _host.attachView(this);
     // Publish the initial detent once attached.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+      if (!mounted || _disposed) return;
       _detent.value = _metrics.publicIndex;
       _host.didChangeDetent(_metrics.publicIndex);
     });
   }
 
+  void _scheduleRetarget(int sortedIndex) {
+    _pendingRetargetSortedIndex = sortedIndex;
+    if (_retargetQueued) return;
+    _retargetQueued = true;
+    scheduleMicrotask(() {
+      _retargetQueued = false;
+      final next = _pendingRetargetSortedIndex;
+      _pendingRetargetSortedIndex = null;
+      if (next == null || !mounted || _disposed || _dragging || _metrics.settled) {
+        return;
+      }
+      if (_heights.isEmpty) return;
+      final clamped = next.clamp(0, _heights.length - 1);
+      final pub = _metrics.publicIndex.clamp(0, _config.detents.length - 1);
+      _snapSorted(
+        clamped,
+        publicIndex: pub,
+        velocity: _extent.velocity,
+      );
+    });
+  }
+
+  void _scheduleRefreshScrolled() {
+    if (_scrollRefreshQueued || _disposed) return;
+    _scrollRefreshQueued = true;
+    scheduleMicrotask(() {
+      _scrollRefreshQueued = false;
+      if (!mounted || _disposed) return;
+      _refreshScrolledFromPositions();
+    });
+  }
+
+  void _refreshScrolledFromPositions() {
+    if (!_scroll.hasClients) {
+      if (_scrolled.value) _scrolled.value = false;
+      return;
+    }
+    var anyScrolled = false;
+    for (final p in _scroll.positions) {
+      if (p.pixels > p.minScrollExtent + 0.5) {
+        anyScrolled = true;
+        break;
+      }
+    }
+    if (_scrolled.value != anyScrolled) {
+      _scrolled.value = anyScrolled;
+    }
+  }
+
   @override
   void didUpdateWidget(_OmniSheetView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final oldDetents = oldWidget.host.config.detents;
-    final newDetents = widget.host.config.detents;
+    final oldDetents = _lastDetents;
+    final newDetents = _config.detents;
     if (!identical(oldWidget.host, widget.host)) {
       oldWidget.host.attachView(null);
       widget.host.attachView(this);
     }
     if (!listEquals(oldDetents, newDetents)) {
+      _lastDetents = List<OmniSheetDetent>.of(newDetents);
       final prevIdx = _metrics.publicIndex.clamp(0, oldDetents.length - 1);
       final prevDetent = oldDetents[prevIdx];
       int nextPublic;
@@ -89,6 +147,11 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         }
       });
     }
+    if (!widget.host.config.enableDrag && _dragging) {
+      _dragging = false;
+      _metrics.dragging = false;
+      _dragEnd(0);
+    }
   }
 
   @override
@@ -101,6 +164,10 @@ class _OmniSheetViewState extends State<_OmniSheetView>
 
   @override
   void dispose() {
+    _disposed = true;
+    _dragging = false;
+    _metrics.dragging = false;
+    _metrics.onRetargetNeeded = null;
     _host.attachView(null);
     _extent.dispose();
     _detent.dispose();
@@ -183,8 +250,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
   List<double> get _heights => _metrics.heights;
 
   void _dragStart() {
-    if (_heights.isEmpty) return;
+    if (_heights.isEmpty || !_canDragSheet) return;
     _dragging = true;
+    _metrics.dragging = true;
     _dragStartSortedIndex = _metrics.sortedIndex;
     if (_config.scrolling.dismissKeyboardOnDrag) _closeKeyboard();
     _metrics.settled = false;
@@ -193,9 +261,20 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     final presence = _presence.value;
     final min = _heights.first, max = _heights.last;
     if (presence < 1) {
-      _raw = _config.isDismissible
-          ? presence * min
-          : min - _rubberInverse((1 - presence) * min, min);
+      final visible = _extent.value * presence;
+      if (min <= 0) {
+        _raw = 0;
+      } else if (visible >= min) {
+        _presence.value = 1.0;
+        _extent.value = visible;
+        _raw = visible;
+      } else {
+        _extent.value = min;
+        _presence.value = (visible / min).clamp(0.001, 1.0);
+        _raw = _config.isDismissible
+            ? visible
+            : min - _rubberInverse(min - visible, min);
+      }
     } else if (_extent.value > max) {
       _raw = max + _rubberInverse(_extent.value - max, _available);
     } else {
@@ -205,6 +284,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
 
   /// [delta] > 0 is the finger moving down.
   void _dragUpdate(double delta) {
+    if (!_canDragSheet) return;
     if (!_dragging) _dragStart();
     if (_heights.isEmpty) return;
     _raw -= delta;
@@ -230,11 +310,52 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     if (_presence.value != presence) _presence.value = presence;
   }
 
+  /// Cancels any active drag gesture immediately (for route pop / disposal).
+  void _cancelDrag() {
+    _dragging = false;
+    _metrics.dragging = false;
+  }
+
+  /// Ends any active drag gesture gracefully by snapping back to a detent.
+  void _cancelDragAndSnap() {
+    if (_dragging) _dragEnd(0);
+  }
+
+  /// Completes a scroll-driven upward expansion cleanly so subsequent
+  /// downward dragging scrolls the inner list first before moving the sheet.
+  void _finishHandoffToScroll() {
+    if (!_dragging) return;
+    _dragging = false;
+    _metrics.dragging = false;
+    if (_heights.isEmpty) return;
+    final sorted = _raw >= _heights.last - 0.5 ? _heights.length - 1 : 0;
+    final target = _heights[sorted];
+    final pub = sorted == _metrics.sortedIndex
+        ? _metrics.publicIndex
+        : _metrics.sortedToPublic[sorted];
+    if (sorted != _dragStartSortedIndex && _config.scrolling.hapticFeedback) {
+      HapticFeedback.selectionClick();
+    }
+    _metrics
+      ..sortedIndex = sorted
+      ..publicIndex = pub
+      ..lastSyncedTarget = target
+      ..settled = true;
+    if (_detent.value != pub) {
+      _detent.value = pub;
+      _host.didChangeDetent(pub);
+    }
+    _extent.value = target;
+    _presence.value = 1.0;
+    _raw = target;
+  }
+
   /// [velocity] > 0 is a downward fling (px/s).
   void _dragEnd(double velocity) {
     if (!_dragging) return;
     _dragging = false;
-    if (_heights.isEmpty) return;
+    _metrics.dragging = false;
+    if (_disposed || !mounted || _heights.isEmpty) return;
     final min = _heights.first;
     final projected = _raw - velocity * 0.25;
     final dismissible = _config.isDismissible;
@@ -265,7 +386,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     }
     if (dismissible &&
         target == 0 &&
-        (velocity > _motion.dismissVelocity * 1.6 || projected < min / 2)) {
+        ((_dragStartSortedIndex == 0 && velocity > _motion.dismissVelocity) ||
+            (_raw <= min + 40 && velocity > _motion.dismissVelocity * 1.6) ||
+            (projected < min / 2 && _raw <= min + 80))) {
       _dismiss(velocity);
       return;
     }
@@ -282,7 +405,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     final base = math.max(_extent.value, 1.0);
     final gone = await _host.dismiss(-velocity / base);
     // Refused (a PopScope, or the host keeps it): spring back.
-    if (!gone && mounted) {
+    if (!gone && mounted && !_disposed) {
       _host.settlePresence(0);
       _snapSorted(
         _metrics.sortedIndex,
@@ -297,7 +420,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     required int publicIndex,
     required double velocity,
   }) {
-    if (_heights.isEmpty) return TickerFuture.complete();
+    if (_disposed || !mounted || _heights.isEmpty) {
+      return TickerFuture.complete();
+    }
     final i = sortedIndex.clamp(0, _heights.length - 1);
     final pub = publicIndex.clamp(0, _config.detents.length - 1);
     _metrics.sortedIndex = i;
@@ -311,7 +436,22 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     }
     _metrics.settled = false;
     final target = _heights[i];
-    if (_host.reduceMotion) {
+    _metrics.lastSyncedTarget = target;
+    var effectiveVelocity = velocity;
+    if (!_motion.rubberBand) {
+      if (i == _heights.length - 1 &&
+          _extent.value >= target - 0.5 &&
+          effectiveVelocity > 0) {
+        effectiveVelocity = 0;
+      } else if (i == 0 &&
+          !_config.isDismissible &&
+          _extent.value <= target + 0.5 &&
+          effectiveVelocity < 0) {
+        effectiveVelocity = 0;
+      }
+    }
+    if (_host.reduceMotion ||
+        ((_extent.value - target).abs() < 0.05 && effectiveVelocity == 0)) {
       _extent.value = target;
       _metrics.settled = true;
       return TickerFuture.complete();
@@ -321,8 +461,10 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         _motion.spring,
         _extent.value,
         target,
-        velocity,
+        effectiveVelocity,
         tolerance: const Tolerance(distance: 0.4, velocity: 4),
+        minValue: _motion.rubberBand ? null : _heights.first,
+        maxValue: _motion.rubberBand ? null : _heights.last,
       ),
     );
   }
@@ -339,7 +481,9 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       this,
     );
     if (inSheet &&
-        focusContext.findAncestorWidgetOfExactType<EditableText>() != null) {
+        (focusContext.widget is EditableText ||
+            focusContext.findAncestorWidgetOfExactType<EditableText>() !=
+                null)) {
       focus!.unfocus();
     }
   }
@@ -416,7 +560,11 @@ class _OmniSheetViewState extends State<_OmniSheetView>
       _ => safe ? padding.top : 0.0,
     };
     final keyboard = insets.bottom;
-    final safeBottom = safe && keyboard == 0 ? padding.bottom : 0.0;
+    final safeBottom = safe ? math.max(0.0, padding.bottom - keyboard) : 0.0;
+    final safeLeft = safe ? padding.left : 0.0;
+    final safeRight = safe ? padding.right : 0.0;
+    final leftInset = margin.left + safeLeft;
+    final rightInset = margin.right + safeRight;
     final bottomGap = floating
         ? keyboard + math.max(margin.bottom, safeBottom + margin.bottom * 0.5)
         : keyboard;
@@ -460,10 +608,13 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         context: context,
         removeTop: true,
         removeBottom: true,
+        removeLeft: leftInset > 0,
+        removeRight: rightInset > 0,
         child: Padding(
           padding: EdgeInsets.only(bottom: floating ? 0 : safeBottom),
           child: PrimaryScrollController(
             controller: _scroll,
+            automaticallyInheritForPlatforms: TargetPlatform.values.toSet(),
             child: ScrollConfiguration(
               behavior: ScrollConfiguration.of(context).copyWith(
                 physics: physics,
@@ -503,18 +654,35 @@ class _OmniSheetViewState extends State<_OmniSheetView>
     final frostedChrome =
         floating || style == OmniSheetStyle.cupertino;
 
+    Widget buildReactiveHandle({bool compact = false}) =>
+        ValueListenableBuilder<int>(
+          valueListenable: _detent,
+          builder: (context, _, _) => _SheetHandle(
+            style: style,
+            color: look.handle,
+            hint: _handleHint(context),
+            onTap: _onHandleTap,
+            interactive: _canActivateHandle,
+            compact: compact,
+          ),
+        );
+
     Widget? pinnedTop;
     if (hasIosChrome) {
-      final chromeBar = _IosFloatingChrome(
-        style: style,
-        look: look,
-        showHandle: showHandle,
-        handleHint: _handleHint(context),
-        onHandleTap: _onHandleTap,
-        showCloseButton: showClose,
-        onClosePressed: () => unawaited(_dismiss(180)),
-        title: route.title,
-        trailing: _trailing,
+      final chromeBar = ValueListenableBuilder<int>(
+        valueListenable: _detent,
+        builder: (context, _, _) => _IosFloatingChrome(
+          style: style,
+          look: look,
+          showHandle: showHandle,
+          handleHint: _handleHint(context),
+          handleInteractive: _canActivateHandle,
+          onHandleTap: _onHandleTap,
+          showCloseButton: showClose,
+          onClosePressed: () => unawaited(_dismiss(180)),
+          title: route.title,
+          trailing: _trailing,
+        ),
       );
       pinnedTop = _SheetHeader(
         scrolled: _scrolled,
@@ -532,13 +700,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showHandle)
-            _SheetHandle(
-              style: style,
-              color: look.handle,
-              hint: _handleHint(context),
-              onTap: _onHandleTap,
-            ),
+          if (showHandle) buildReactiveHandle(),
           _SheetHeader(
             scrolled: _scrolled,
             dividerColor: look.divider,
@@ -549,12 +711,7 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         ],
       );
     } else if (showHandle) {
-      pinnedTop = _SheetHandle(
-        style: style,
-        color: look.handle,
-        hint: _handleHint(context),
-        onTap: _onHandleTap,
-      );
+      pinnedTop = buildReactiveHandle();
     }
 
     Widget sheet = Material(
@@ -612,13 +769,19 @@ class _OmniSheetViewState extends State<_OmniSheetView>
         child: sheet,
       );
     }
-    if (_host.isModal && route.isDismissible) {
-      sheet = CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape): () =>
-              unawaited(_dismiss(180)),
-        },
-        child: sheet,
+    if (_host.isModal) {
+      if (route.isDismissible) {
+        sheet = CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape): () =>
+                unawaited(_dismiss(180)),
+          },
+          child: sheet,
+        );
+      }
+      sheet = FocusScope(
+        autofocus: true,
+        child: FocusTraversalGroup(child: sheet),
       );
     }
 
@@ -641,17 +804,29 @@ class _OmniSheetViewState extends State<_OmniSheetView>
           topGap: topGap,
           bottomGap: bottomGap,
           maxWidth: route.maxWidth ?? (floating ? 560 : 640),
-          horizontalMargin: math.max(margin.left, margin.right),
+          leftInset: leftInset,
+          rightInset: rightInset,
           fill: floating ? null : look.background,
           fadeOnly: fadeOnly,
+          clipToBounds: !_host.isModal,
           child: RepaintBoundary(child: sheet),
         ),
       ),
     );
   }
 
+  bool get _canActivateHandle {
+    final distinctCount = _heights.isNotEmpty ? _heights.length : detentCount;
+    return distinctCount > 1 ||
+        _config.isDismissible ||
+        _config.scrolling.handleTapScrollsToTop;
+  }
+
   bool _onScroll(ScrollNotification n) {
-    if (n.depth == 0 && n.metrics.axis == Axis.vertical) {
+    if (n.metrics.axis != Axis.vertical) return false;
+    if (_scroll.hasClients) {
+      _refreshScrolledFromPositions();
+    } else if (n.depth == 0) {
       _scrolled.value = n.metrics.extentBefore > 0.5;
     }
     return false;

@@ -14,7 +14,7 @@
 /// - `omni_sheet_render.dart` — the paint-only render object that moves it.
 library;
 
-import 'dart:async' show unawaited;
+import 'dart:async' show scheduleMicrotask, unawaited;
 import 'dart:math' as math;
 import 'dart:ui' show ImageFilter;
 

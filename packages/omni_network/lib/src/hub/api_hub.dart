@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:omni_network/omni_network.dart';
+
 import '../ai/ai_models.dart';
 import '../ai/omni_ai.dart';
 import '../chat/chat_store.dart';
@@ -225,6 +227,7 @@ final class OmniApiHub {
     for (final c in oldClients) {
       await c.close();
     }
+    _aiSupportClient?.enableLogging = currentEnvironment?.enableLogging ?? false;
     final oldChat = _chats.values.toList();
     _chats.clear();
     for (final ch in oldChat) {
@@ -453,7 +456,7 @@ final class OmniApiHub {
         ? config.pinnedSha256
         : (env?.pinnedSha256 ?? const []);
 
-    return OmniNetwork(
+    final client = OmniNetwork(
       baseUrl: urls.baseUrl,
       wsBaseUrl: urls.wsUrl,
       headers: mergedHeaders,
@@ -497,6 +500,8 @@ final class OmniApiHub {
       circuitBreaker: config.circuitBreaker,
       cache: config.cache,
     );
+    client.closeAuthWithClient = false;
+    return client;
   }
 
   /// Closes all service clients, chat clients, AI tracker, and environment
@@ -512,6 +517,10 @@ final class OmniApiHub {
       await c.close();
     }
     _clients.clear();
+    for (final cfg in _serviceConfigs.values) {
+      final a = cfg.auth;
+      if (a is OmniAuth) await a.close();
+    }
     await _ai?.close();
     await _aiSupportClient?.close();
     if (!_envChanges.isClosed) await _envChanges.close();

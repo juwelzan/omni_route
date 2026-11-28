@@ -125,6 +125,7 @@ class OmniSheetCloseButton extends StatefulWidget {
 class _OmniSheetCloseButtonState extends State<OmniSheetCloseButton> {
   bool _pressed = false;
   bool _hovered = false;
+  bool _focused = false;
 
   void _setPressed(bool next) {
     if (_pressed != next && mounted) setState(() => _pressed = next);
@@ -148,13 +149,21 @@ class _OmniSheetCloseButtonState extends State<OmniSheetCloseButton> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final theme = Theme.of(context);
+    final cupertinoApp =
+        theme.extension<OmniColors>() == null &&
+        context.findAncestorWidgetOfExactType<CupertinoApp>() != null;
+    final isDark = cupertinoApp
+        ? CupertinoTheme.brightnessOf(context) == Brightness.dark
+        : theme.brightness == Brightness.dark;
     final fill =
         widget.backgroundColor ??
         (isDark
             ? const Color(0xEE2C2C2E)
             : (_hovered ? Colors.white : const Color(0xFAFFFFFF)));
-    final rim = isDark ? const Color(0x28FFFFFF) : const Color(0x14000000);
+    final rim = _focused
+        ? (isDark ? const Color(0xFF64D2FF) : const Color(0xFF0A84FF))
+        : (isDark ? const Color(0x28FFFFFF) : const Color(0x14000000));
     final glyphColor =
         widget.iconColor ??
         (isDark ? const Color(0xFFF2F2F7) : const Color(0xFF1C1C1E));
@@ -164,10 +173,22 @@ class _OmniSheetCloseButtonState extends State<OmniSheetCloseButton> {
       button: true,
       label: widget.semanticLabel,
       onTap: _handleTap,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        onEnter: (_) => setState(() => _hovered = true),
-        onExit: (_) => setState(() => _hovered = false),
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowHoverHighlight: (v) {
+          if (_hovered != v && mounted) setState(() => _hovered = v);
+        },
+        onShowFocusHighlight: (v) {
+          if (_focused != v && mounted) setState(() => _focused = v);
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _handleTap();
+              return null;
+            },
+          ),
+        },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (_) => _setPressed(true),
@@ -195,7 +216,10 @@ class _OmniSheetCloseButtonState extends State<OmniSheetCloseButton> {
                             fill,
                           )
                         : fill,
-                    border: Border.all(color: rim, width: 0.6),
+                    border: Border.all(
+                      color: rim,
+                      width: _focused ? 2.0 : 0.6,
+                    ),
                     boxShadow: _pressed
                         ? const [
                             BoxShadow(
@@ -255,12 +279,13 @@ class _IosCloseGlyphPainter extends CustomPainter {
       oldDelegate.color != color;
 }
 
-class _SheetHandle extends StatelessWidget {
+class _SheetHandle extends StatefulWidget {
   const _SheetHandle({
     required this.style,
     required this.color,
     required this.hint,
     required this.onTap,
+    this.interactive = true,
     this.compact = false,
   });
 
@@ -268,42 +293,80 @@ class _SheetHandle extends StatelessWidget {
   final Color color;
   final String hint;
   final VoidCallback onTap;
+  final bool interactive;
   final bool compact;
 
   @override
+  State<_SheetHandle> createState() => _SheetHandleState();
+}
+
+class _SheetHandleState extends State<_SheetHandle> {
+  bool _focused = false;
+
+  void _activate() {
+    if (!widget.interactive) return;
+    if (widget.style != OmniSheetStyle.material) {
+      HapticFeedback.selectionClick();
+    }
+    widget.onTap();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final material = style == OmniSheetStyle.material;
+    final material = widget.style == OmniSheetStyle.material;
     final width = material
         ? 32.0
-        : (style == OmniSheetStyle.floating ? 38.0 : 36.0);
+        : (widget.style == OmniSheetStyle.floating ? 38.0 : 36.0);
     final thickness = material
         ? 4.0
-        : (style == OmniSheetStyle.floating ? 4.5 : 5.0);
+        : (widget.style == OmniSheetStyle.floating ? 4.5 : 5.0);
+    final pill = Container(
+      width: width,
+      height: thickness,
+      decoration: BoxDecoration(
+        color: widget.color,
+        borderRadius: BorderRadius.circular(thickness),
+        border: _focused
+            ? Border.all(
+                color: Theme.of(context).colorScheme.primary,
+                width: 1.5,
+              )
+            : null,
+      ),
+    );
+    final box = SizedBox(
+      height: widget.compact ? 10 : (material ? 36 : 20),
+      child: Align(
+        alignment: widget.compact
+            ? Alignment.topCenter
+            : (material ? Alignment.center : const Alignment(0, -0.4)),
+        child: pill,
+      ),
+    );
+    if (!widget.interactive) {
+      return ExcludeSemantics(child: box);
+    }
     return Semantics(
       button: true,
-      label: hint,
-      onTap: onTap,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          if (!material) HapticFeedback.selectionClick();
-          onTap();
+      label: widget.hint,
+      onTap: _activate,
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowFocusHighlight: (v) {
+          if (_focused != v && mounted) setState(() => _focused = v);
         },
-        child: SizedBox(
-          height: compact ? 14 : (material ? 36 : 20),
-          child: Align(
-            alignment: compact
-                ? Alignment.topCenter
-                : (material ? Alignment.center : const Alignment(0, -0.4)),
-            child: Container(
-              width: width,
-              height: thickness,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(thickness),
-              ),
-            ),
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              _activate();
+              return null;
+            },
           ),
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _activate,
+          child: box,
         ),
       ),
     );
@@ -316,6 +379,7 @@ class _IosFloatingChrome extends StatelessWidget {
     required this.look,
     required this.showHandle,
     required this.handleHint,
+    required this.handleInteractive,
     required this.onHandleTap,
     required this.showCloseButton,
     required this.onClosePressed,
@@ -327,6 +391,7 @@ class _IosFloatingChrome extends StatelessWidget {
   final _SheetLook look;
   final bool showHandle;
   final String handleHint;
+  final bool handleInteractive;
   final VoidCallback onHandleTap;
   final bool showCloseButton;
   final VoidCallback onClosePressed;
@@ -355,32 +420,36 @@ class _IosFloatingChrome extends StatelessWidget {
         style: style,
         color: look.handle,
         hint: handleHint,
+        interactive: handleInteractive,
         onTap: onHandleTap,
       );
     }
 
-    return SizedBox(
-      height: showHandle ? 58 : 54,
-      child: Stack(
-        children: [
-          if (showHandle)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 7,
-              child: _SheetHandle(
-                style: style,
-                color: look.handle,
-                hint: handleHint,
-                onTap: onHandleTap,
-                compact: true,
-              ),
+    final scaler = MediaQuery.textScalerOf(context);
+    final barHeight = math.max(
+      44.0,
+      scaler.scale(titleStyle.fontSize ?? 17) * 1.45 + 12.0,
+    );
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showHandle)
+          Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: _SheetHandle(
+              style: style,
+              color: look.handle,
+              hint: handleHint,
+              interactive: handleInteractive,
+              onTap: onHandleTap,
+              compact: true,
             ),
-          Positioned(
-            left: 10,
-            right: 10,
-            top: showHandle ? 10 : 6,
-            bottom: 4,
+          ),
+        Padding(
+          padding: EdgeInsets.fromLTRB(10, showHandle ? 0 : 6, 10, 4),
+          child: SizedBox(
+            height: barHeight,
             child: NavigationToolbar(
               leading: showCloseButton
                   ? OmniSheetCloseButton(onPressed: onClosePressed)
@@ -399,8 +468,8 @@ class _IosFloatingChrome extends StatelessWidget {
               middleSpacing: 8,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

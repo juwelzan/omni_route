@@ -86,7 +86,9 @@ Future<T?> showOmniBottomSheet<T>({
       motion: motion,
       useSafeArea: useSafeArea,
       semanticLabel: semanticLabel,
-      barrierLabel: _localizations(context)?.modalBarrierDismissLabel,
+      barrierLabel: isDismissible
+          ? _localizations(context)?.modalBarrierDismissLabel
+          : null,
       capturedThemes: InheritedTheme.capture(
         from: context,
         to: navigator.context,
@@ -212,6 +214,8 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
 
   late OmniSheetStyle _style;
   double? _popVelocity;
+  bool _closing = false;
+  bool _dismissInFlight = false;
 
   /// The style in effect ([OmniSheetStyle.adaptive] resolved).
   OmniSheetStyle get effectiveStyle => _style;
@@ -241,13 +245,56 @@ class OmniSheetRoute<T> extends PopupRoute<T> {
   }
 
   @override
-  Color? get barrierColor => _barrierColor ?? const Color(0x66000000);
+  void didChangeNext(Route<dynamic>? nextRoute) {
+    super.didChangeNext(nextRoute);
+    if (nextRoute != null) {
+      _host._view?._cancelDragAndSnap();
+    }
+  }
+
+  @override
+  bool didPop(T? result) {
+    _closing = true;
+    _host._view?._cancelDrag();
+    return super.didPop(result);
+  }
+
+  @override
+  void didComplete(T? result) {
+    _closing = true;
+    _host._view?._cancelDrag();
+    super.didComplete(result);
+  }
+
+  @override
+  void dispose() {
+    _closing = true;
+    _host._view = null;
+    super.dispose();
+  }
+
+  @override
+  Color? get barrierColor {
+    if (_barrierColor != null) return _barrierColor;
+    final nav = navigator;
+    return nav != null
+        ? _defaultBarrierColor(nav.context, _style)
+        : const Color(0x66000000);
+  }
 
   @override
   bool get barrierDismissible => isDismissible;
 
   @override
-  String? get barrierLabel => _barrierLabel ?? 'Dismiss';
+  String? get barrierLabel {
+    if (!isDismissible) return null;
+    if (_barrierLabel != null) return _barrierLabel;
+    final nav = navigator;
+    return (nav != null
+            ? _localizations(nav.context)?.modalBarrierDismissLabel
+            : null) ??
+        'Dismiss';
+  }
 
   @override
   Duration get transitionDuration => const Duration(milliseconds: 220);
@@ -285,6 +332,7 @@ class _RouteSheetHost<T> implements _SheetHost {
   _RouteSheetHost(this.route);
 
   final OmniSheetRoute<T> route;
+  _OmniSheetViewState? _view;
 
   @override
   late final _SheetConfig config = _SheetConfig(
@@ -325,27 +373,52 @@ class _RouteSheetHost<T> implements _SheetHost {
   bool get isModal => true;
 
   @override
-  void settlePresence(double velocity) => _springPresence(
-    presence,
-    effectiveMotion,
-    1,
-    velocity,
-    reduceMotion: reduceMotion,
-  );
+  bool get isClosing => route._closing || !route.isActive;
+
+  @override
+  void settlePresence(double velocity) {
+    if (isClosing) return;
+    _springPresence(
+      presence,
+      effectiveMotion,
+      1,
+      velocity,
+      reduceMotion: reduceMotion,
+    );
+  }
 
   @override
   Future<bool> dismiss(double velocity) async {
+    final nav = route.navigator;
+    if (nav == null ||
+        !route.isActive ||
+        !route.isCurrent ||
+        route._closing ||
+        route._dismissInFlight) {
+      return false;
+    }
+    _view?._cancelDrag();
+    route._dismissInFlight = true;
     route._popVelocity = velocity;
-    await route.navigator?.maybePop<T>();
-    final gone = !(route.isActive && route.isCurrent);
-    if (!gone) route._popVelocity = null;
-    return gone;
+    try {
+      await nav.maybePop<T>();
+      // Navigator.maybePop returns true even when PopScope vetoes the pop, so
+      // check whether the route actually began leaving or ceased to be current.
+      final gone = !route.isActive || !route.isCurrent || route._closing;
+      if (!gone) route._popVelocity = null;
+      return gone;
+    } finally {
+      route._dismissInFlight = false;
+    }
   }
 
   @override
   void close(Object? result) {
     final nav = route.navigator;
-    if (nav == null || !route.isActive) return;
+    if (nav == null || !route.isActive || route._closing) return;
+    route._closing = true;
+    route._popVelocity = null;
+    _view?._cancelDrag();
     if (route.isCurrent) {
       nav.pop<T>(result as T?);
     } else {
@@ -357,7 +430,7 @@ class _RouteSheetHost<T> implements _SheetHost {
   void didChangeDetent(int index) {}
 
   @override
-  void attachView(_OmniSheetViewState? view) {}
+  void attachView(_OmniSheetViewState? view) => _view = view;
 }
 
 Color _defaultBarrierColor(BuildContext context, OmniSheetStyle style) {
